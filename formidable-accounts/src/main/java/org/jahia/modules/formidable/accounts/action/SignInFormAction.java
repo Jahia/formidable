@@ -17,6 +17,7 @@ import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.servlet.http.HttpServletRequest;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -30,6 +31,10 @@ import java.util.Optional;
  * <p>The failure is one sentence for an unknown account and a wrong password alike. The one exception is a locked
  * account, which the platform reports only after verifying the password: the visitor who proved who they are is told
  * the account is not active yet. The password is never logged nor returned.</p>
+ *
+ * <p>Back-office accounts never sign in here ({@link AccountDirectory#isBackOfficeUser}): this path calls the platform's
+ * authentication service directly, so a second factor (UPA) or an SSO policy on the platform's login would not apply.
+ * They read the answer of a wrong password.</p>
  *
  * <p>Threading: a singleton, no per-request state in fields.</p>
  */
@@ -92,7 +97,8 @@ public class SignInFormAction implements ContextualFormAction {
             throw FormActionException.refusal(503, "sign-in refused: the action is misconfigured", VisitorText.UNAVAILABLE.in(locale));
         }
         String typed = context.parameter(loginField);
-        guard.admitSignIn(context.request(), typed, locale);
+        HttpServletRequest request = context.request();
+        guard.admitSignIn(request, typed, locale);
 
         String password = context.sensitiveParameter(passwordField);
         if (password == null && context.parameter(passwordField) != null) {
@@ -102,22 +108,29 @@ public class SignInFormAction implements ContextualFormAction {
         }
         Optional<String> username = UserNames.forSignIn(typed, directory::isValidUsername);
         if (username.isEmpty() || password == null || password.length() > PasswordPolicy.MAX_LENGTH) {
-            guard.signInFailed(typed);
+            guard.signInFailed(request, typed);
+            throw failure(action, locale);
+        }
+        if (directory.isBackOfficeUser(username.get())) {
+            // a form signs in site visitors; back-office accounts use the platform's login, where MFA and SSO apply (this
+            // path would skip them). The visitor reads the answer of a wrong password: the form does not say who is staff.
+            log.warn("[formidable-accounts] A back-office account tried to sign in through the form {}: refused.", action.getPath());
+            guard.signInFailed(request, typed);
             throw failure(action, locale);
         }
 
         // computed before the sign-in: it replaces the HTTP session, which closes the sessions bound to it
         Optional<String> redirect = redirects.resolve(context, true);
-        Authenticator.Outcome outcome = authenticator.signIn(username.get(), password, context.siteKey(), context.request(), context.response());
+        Authenticator.Outcome outcome = authenticator.signIn(username.get(), password, context.siteKey(), request, context.response());
         switch (outcome) {
             case SIGNED_IN:
-                guard.signInSucceeded(typed);
+                guard.signInSucceeded(request, typed);
                 return redirect.map(FormActionResult::redirect).orElseGet(FormActionResult::none);
             case NOT_ACTIVE:
-                guard.signInFailed(typed);
+                guard.signInFailed(request, typed);
                 throw FormActionException.refusal(422, "sign-in refused: the account is locked", VisitorText.ACCOUNT_NOT_ACTIVE.in(locale));
             default:
-                guard.signInFailed(typed);
+                guard.signInFailed(request, typed);
                 throw failure(action, locale);
         }
     }

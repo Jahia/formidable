@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.accounts.security;
 
+import org.jahia.modules.formidable.accounts.account.AccountDirectory;
 import org.jahia.modules.formidable.accounts.config.AccountsConfigService;
 import org.jahia.modules.formidable.accounts.config.AccountsSettings;
 import org.jahia.modules.formidable.accounts.messages.VisitorText;
@@ -21,7 +22,8 @@ import java.util.function.LongSupplier;
 /**
  * The abuse protection both actions and the verification servlet share, in one place so that the three cannot drift:
  * the form must be CAPTCHA protected (unless the operator allowed otherwise for development), the site must have the
- * module enabled, and the attempts are counted per remote address and per account in memory.
+ * module enabled, the action must have been last saved by someone holding {@value #ACTIONS_PERMISSION} on it, and the
+ * attempts are counted per remote address and per account in memory.
  *
  * <p>Threading: a singleton; the limiter is synchronized and the settings are read once per call from the
  * configuration service's immutable snapshot. Every refusal is a {@link FormActionException#refusal} whose text is
@@ -33,11 +35,20 @@ public class AccountsGuard {
     /** The Jahia module id: what a site's installed modules list holds. */
     static final String MODULE_ID = "formidable-accounts";
 
+    /**
+     * The permission whoever configures an account action must hold on it (declared under {@code site-admin} by the
+     * module's {@code permissions.xml}, so site administrators hold it and an administrator can grant it to another role).
+     */
+    public static final String ACTIONS_PERMISSION = "formidableAccountsActions";
+    private static final String LAST_MODIFIED_BY = "jcr:lastModifiedBy";
+    private static final String LIVE = "live";
+
     private static final Logger log = LoggerFactory.getLogger(AccountsGuard.class);
     private static final String UNKNOWN_ADDRESS = "unknown";
     private static final int MAX_ACCOUNT_KEY = 255;
 
     private AccountsConfigService config;
+    private AccountDirectory directory;
     private LongSupplier clock = System::currentTimeMillis;
     private volatile AttemptLimiter limiter;
     private volatile int limiterBound;
@@ -45,8 +56,9 @@ public class AccountsGuard {
     public AccountsGuard() {
     }
 
-    AccountsGuard(AccountsConfigService config, LongSupplier clock) {
+    AccountsGuard(AccountsConfigService config, AccountDirectory directory, LongSupplier clock) {
         this.config = config;
+        this.directory = directory;
         this.clock = clock;
     }
 
@@ -55,10 +67,17 @@ public class AccountsGuard {
         this.config = config;
     }
 
+    @Reference
+    public void setDirectory(AccountDirectory directory) {
+        this.directory = directory;
+    }
+
     /**
-     * Refuses a form the actions must not run on: no CAPTCHA while the configuration requires one, or a site that did
-     * not enable the module. Both are configuration errors: logged with the form's path, and answered with a generic
-     * "unavailable" the visitor can do nothing about.
+     * Refuses a form the actions must not run on: no CAPTCHA while the configuration requires one, a site that did not
+     * enable the module, or an action last saved by someone without {@value #ACTIONS_PERMISSION} on it (any editor of
+     * the form can add the action; only who holds the permission makes it run, and an edit by anyone else stops it until
+     * an authorised person saves it again). All are configuration errors: logged with the path, and answered with a
+     * generic "unavailable" the visitor can do nothing about.
      *
      * @param context the submission
      * @throws FormActionException the refusal, status 503
@@ -81,9 +100,31 @@ public class AccountsGuard {
                     throw unavailable(context.locale());
                 }
             }
+            requireAuthorisedAction(context.actionNode(), context.locale());
         } catch (RepositoryException e) {
             log.error("[formidable-accounts] The form {} could not be inspected: the submission is refused.", pathOf(form), e);
             throw unavailable(context.locale());
+        }
+    }
+
+    private void requireAuthorisedAction(JCRNodeWrapper action, Locale locale) throws RepositoryException, FormActionException {
+        if (action == null) {
+            throw unavailable(locale);
+        }
+        String author = action.hasProperty(LAST_MODIFIED_BY) ? action.getProperty(LAST_MODIFIED_BY).getString() : null;
+        if (!directory.holdsPermission(author, action.getPath(), workspaceOf(action), ACTIONS_PERMISSION)) {
+            log.error("[formidable-accounts] The action {} was last saved by '{}', who does not hold the permission {} on it: the "
+                    + "submission is refused. A site administrator (or a role granted {}) must save the action again.",
+                    action.getPath(), author, ACTIONS_PERMISSION, ACTIONS_PERMISSION);
+            throw unavailable(locale);
+        }
+    }
+
+    private static String workspaceOf(JCRNodeWrapper node) {
+        try {
+            return node.getSession() == null ? LIVE : node.getSession().getWorkspace().getName();
+        } catch (RepositoryException | RuntimeException e) {
+            return LIVE;
         }
     }
 
@@ -127,7 +168,7 @@ public class AccountsGuard {
         AccountsSettings settings = config.settings();
         AttemptLimiter limiter = limiterFor(settings);
         String address = "addr:" + addressOf(request);
-        String account = accountKey("signin", accountKey);
+        String account = signInKey(request, accountKey);
         if (limiter.isBlocked(address, settings.addressLimit(), settings.addressWindow().toMillis())
                 || (account != null && limiter.isBlocked(account, settings.accountLimit(), settings.accountWindow().toMillis()))) {
             log.warn("[formidable-accounts] A sign-in was refused by a rate limit.");
@@ -136,21 +177,31 @@ public class AccountsGuard {
         limiter.record(address, settings.addressWindow().toMillis());
     }
 
-    /** Charges a failed sign-in to the account that was typed, existing or not. */
-    public void signInFailed(String accountKey) {
+    /** Charges a failed sign-in to the account that was typed, existing or not, from this address. */
+    public void signInFailed(HttpServletRequest request, String accountKey) {
         AccountsSettings settings = config.settings();
-        String account = accountKey("signin", accountKey);
+        String account = signInKey(request, accountKey);
         if (account != null) {
             limiterFor(settings).record(account, settings.accountWindow().toMillis());
         }
     }
 
-    /** Clears the failures charged to an account: it has just signed in. */
-    public void signInSucceeded(String accountKey) {
-        String account = accountKey("signin", accountKey);
+    /** Clears the failures charged to an account from this address: it has just signed in. */
+    public void signInSucceeded(HttpServletRequest request, String accountKey) {
+        String account = signInKey(request, accountKey);
         if (account != null) {
             limiterFor(config.settings()).reset(account);
         }
+    }
+
+    /**
+     * A sign-in's account counter is per account AND address: someone guessing a password from elsewhere exhausts their
+     * own counter, never the owner's (counted per account alone, five wrong guesses by anyone locked the owner out of the
+     * form). The per-address limit still bounds each address over every account.
+     */
+    private static String signInKey(HttpServletRequest request, String typed) {
+        String account = accountKey("signin", typed);
+        return account == null ? null : account + "|" + addressOf(request);
     }
 
     /**

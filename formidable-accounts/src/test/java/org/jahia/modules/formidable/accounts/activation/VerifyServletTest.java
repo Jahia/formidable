@@ -41,6 +41,7 @@ class VerifyServletTest {
         directory = mock(AccountDirectory.class);
         AccountsGuard guard = new AccountsGuard();
         guard.setConfig(TestSupport.config(true, 5, 5));
+        guard.setDirectory(TestSupport.directory(java.util.Set.of()));
         servlet = new VerifyServlet();
         servlet.setDirectory(directory);
         servlet.setGuard(guard);

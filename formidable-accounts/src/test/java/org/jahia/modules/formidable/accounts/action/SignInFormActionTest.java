@@ -48,6 +48,7 @@ class SignInFormActionTest {
         wired.setAuthenticator(auth);
         AccountsGuard guard = new AccountsGuard();
         guard.setConfig(config);
+        guard.setDirectory(directory);
         wired.setGuard(guard);
         return wired;
     }
@@ -110,6 +111,19 @@ class SignInFormActionTest {
         refusal(context("root", PASSWORD));
         refusal(context("guest", PASSWORD));
 
+        assertTrue(auth.calls.isEmpty());
+    }
+
+    @Test
+    void aBackOfficeAccountIsRefusedLikeAWrongPasswordAndNeverReachesThePlatform() {
+        // Verifies finding 4 of jahia-private#5909: this path would skip the second factor and SSO of the platform's
+        // login, so staff accounts never sign in here; the answer does not tell them apart from a wrong password.
+        directory.backOffice.add("mara");
+
+        FormActionException e = refusal(context("mara", PASSWORD));
+
+        assertEquals(422, e.getHttpStatus());
+        assertEquals(VisitorText.SIGN_IN_FAILED.in(FRENCH), e.getVisitorMessage());
         assertTrue(auth.calls.isEmpty());
     }
 

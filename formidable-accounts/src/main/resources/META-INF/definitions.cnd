@@ -28,7 +28,7 @@
  - passwordField (string, choicelist[formidableAccountsFields='sensitive']) mandatory indexed=no
  - firstNameField (string, choicelist[formidableAccountsFields='any']) indexed=no
  - lastNameField (string, choicelist[formidableAccountsFields='any']) indexed=no
- - group (string) indexed=no
+ - group (string, choicelist[formidableAccountsGroups]) indexed=no
  - signIn (boolean) = true autocreated indexed=no
  - redirectPage (weakreference, picker[type='page'])
  - redirectParameter (string) indexed=no

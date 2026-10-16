@@ -22,7 +22,7 @@ class AccountsSettingsTest {
         when(config.maxAttemptsPerAccount()).thenReturn(perAccount);
         when(config.accountWindowSeconds()).thenReturn(accountWindow);
         when(config.maxTrackedKeys()).thenReturn(keys);
-        when(config.deniedGroups()).thenReturn(groups);
+        when(config.allowedGroups()).thenReturn(groups);
         when(config.publicBaseUrl()).thenReturn(base);
         when(config.mailFrom()).thenReturn(from);
         return config;
@@ -39,7 +39,8 @@ class AccountsSettingsTest {
         assertEquals(5, defaults.accountLimit());
         assertEquals(Duration.ofSeconds(900), defaults.accountWindow());
         assertEquals(10_000, defaults.maxTrackedKeys());
-        assertEquals(Set.of("administrators", "privileged", "site-administrators", "site-privileged", "guest", "users"), defaults.deniedGroups());
+        assertTrue(defaults.allowedGroups().isEmpty(), "no group is allowed until the administrator lists one");
+        assertEquals("", defaults.publicBaseUrl());
     }
 
     @Test
@@ -55,18 +56,31 @@ class AccountsSettingsTest {
         assertEquals(100, settings.maxTrackedKeys());
         assertEquals("https://x.example", settings.publicBaseUrl());
         assertEquals("no-reply@x.example", settings.mailFrom());
-        assertEquals(Set.of("staff", "admins"), settings.deniedGroups());
+        assertEquals(Set.of("staff", "admins"), settings.allowedGroups());
     }
 
     @Test
-    void aDeniedGroupIsMatchedByNameOrKeyInAnyCase() {
-        // Verifies the comparison the directory makes on the resolved group.
-        AccountsSettings settings = AccountsSettings.defaults();
+    void anAllowedGroupIsMatchedByNameInAnyCase() {
+        // Verifies the comparison the directory and the Group choice list make.
+        AccountsSettings settings = AccountsSettings.from(config(true, 1, 1, 1, 1, 100, "Customers; members", "", ""));
 
-        assertTrue(settings.isDeniedGroup("Administrators"));
-        assertTrue(settings.isDeniedGroup(" privileged "));
-        assertFalse(settings.isDeniedGroup("customers"));
-        assertFalse(settings.isDeniedGroup(null));
+        assertTrue(settings.isAllowedGroup("customers"));
+        assertTrue(settings.isAllowedGroup(" MEMBERS "));
+        assertFalse(settings.isAllowedGroup("administrators"));
+        assertFalse(settings.isAllowedGroup(null));
+    }
+
+    @Test
+    void thePublicBaseUrlIsAnHttpOriginOrNothing() {
+        // Verifies finding 2 of jahia-private#5909: a value that is not an http(s) origin is dropped, so that activation
+        // stops (and says why in the log) instead of mailing a link somewhere unexpected.
+        assertEquals("https://www.example.com:8443", AccountsSettings.origin(" https://www.example.com:8443/ "));
+        assertEquals("http://localhost:8080", AccountsSettings.origin("http://localhost:8080"));
+        assertEquals("", AccountsSettings.origin("www.example.com"));
+        assertEquals("", AccountsSettings.origin("javascript:alert(1)"));
+        assertEquals("", AccountsSettings.origin("https://www.example.com/path"));
+        assertEquals("", AccountsSettings.origin("https://user@evil.example"));
+        assertEquals("", AccountsSettings.origin(null));
     }
 
     @Test
@@ -74,7 +88,7 @@ class AccountsSettingsTest {
         // Verifies the record never holds a null string or set.
         AccountsSettings settings = new AccountsSettings(true, 1, Duration.ofSeconds(1), 1, Duration.ofSeconds(1), 100, null, null, null);
 
-        assertTrue(settings.deniedGroups().isEmpty());
+        assertTrue(settings.allowedGroups().isEmpty());
         assertEquals("", settings.publicBaseUrl());
         assertEquals("", settings.mailFrom());
     }

@@ -66,19 +66,22 @@ public @interface AccountsConfig {
     int maxTrackedKeys() default 10000;
 
     @AttributeDefinition(
-            name = "Groups a form can never add a visitor to",
-            description = "Group names, separated by semicolons, that the Create account action refuses, so that a contributor "
-                    + "cannot hand out privileges from a public form. Compared in lower case with the group's name and with "
-                    + "its key. Default: administrators;privileged;site-administrators;site-privileged;guest;users.",
+            name = "Groups a form may add a visitor to",
+            description = "Group names, separated by semicolons, that a Create account action may add the new account to: the only "
+                    + "choices its Group field offers. A name is a global group, or else a group of the form's own site. A group "
+                    + "that gives back-office access (a member of privileged, site-privileged, administrators or "
+                    + "site-administrators, or holding a server role) is refused even when listed. Empty, the default: no "
+                    + "action adds anyone to any group.",
             type = AttributeType.STRING
     )
-    String deniedGroups() default "administrators;privileged;site-administrators;site-privileged;guest;users";
+    String allowedGroups() default "";
 
     @AttributeDefinition(
             name = "Public base URL",
-            description = "Scheme and host the activation link carries, for example https://www.example.com, without a trailing "
-                    + "slash. Empty: the one the sign-up request reached. Set it when Jahia sits behind a proxy that does not "
-                    + "forward the original host.",
+            description = "Scheme and host the activation link carries, for example https://www.example.com. Required by a Create "
+                    + "account action with e-mail activation: without it (or with a value that is not an http or https origin) "
+                    + "such an action refuses every sign-up and logs why. The link is never built from the request, whose Host "
+                    + "header the visitor controls.",
             type = AttributeType.STRING
     )
     String publicBaseUrl() default "";

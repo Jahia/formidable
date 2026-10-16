@@ -1,4 +1,4 @@
-import {createUser, deleteUser} from '@jahia/cypress';
+import {createUser, deleteUser, grantRoles} from '@jahia/cypress';
 import {FORMIDABLE_TEST_SITE, createPublishedLiveFormPage, getInputTextNode, getPasswordNode, getSignInActionNode} from '../../support/fixtures';
 import {useFormidableSite} from '../support/useFormidableSite';
 import {configureAccounts, currentUserName, restoreAccounts, submitAsGuest, submitFrom} from '../support/accounts';
@@ -6,13 +6,15 @@ import {configureAccounts, currentUserName, restoreAccounts, submitAsGuest, subm
 /**
  * The Sign in action (formidable-accounts, docs/administration/how-to-accounts-actions.md): a real Jahia login from a
  * form (the visitor is who Jahia says they are afterwards), a return path the page names is followed only when it is a
- * path of the site, every cause of failure reads exactly the same, and an account that keeps failing is stopped.
+ * path of the site, every cause of failure reads exactly the same, an account that keeps failing is stopped, and a
+ * back-office account never signs in through a form (jahia-private#5909: that path would skip the platform login's MFA).
  */
 describe('Actions - 87 Sign in', () => {
 	useFormidableSite();
 
 	const USER = 'cypress-member@example.com';
 	const LOCKED_OUT_USER = 'cypress-lockout@example.com';
+	const STAFF_USER = 'cypress-staff@example.com';
 	const PASSWORD = 'Cypress-Pass1!';
 	const SITE_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}`;
 	let signInFormId: string;
@@ -22,6 +24,8 @@ describe('Actions - 87 Sign in', () => {
 		configureAccounts();
 		createUser(USER, PASSWORD);
 		createUser(LOCKED_OUT_USER, PASSWORD);
+		createUser(STAFF_USER, PASSWORD);
+		grantRoles(SITE_PATH, ['editor'], STAFF_USER, 'USER');
 		createPublishedLiveFormPage('accounts-sign-in-form', 'Accounts sign-in form', [
 			getInputTextNode({name: 'login', title: 'E-mail or user name', required: true}),
 			getPasswordNode({name: 'password', title: 'Password', autocompleteMode: 'current-password'})
@@ -38,6 +42,7 @@ describe('Actions - 87 Sign in', () => {
 		cy.login();
 		deleteUser(USER);
 		deleteUser(LOCKED_OUT_USER);
+		deleteUser(STAFF_USER);
 		restoreAccounts();
 		cy.logout();
 	});
@@ -88,6 +93,16 @@ describe('Actions - 87 Sign in', () => {
 			});
 		}
 		// none of them left a session behind
+		currentUserName().should('equal', 'guest');
+	});
+
+	it('refuses a back-office account like a wrong password and leaves no session', () => {
+		submitAsGuest(signInFormId, {login: USER, password: 'Wrong-Password1!'}).then(reference => {
+			submitAsGuest(signInFormId, {login: STAFF_USER, password: PASSWORD}).then(response => {
+				expect(response.status).to.eq(reference.status);
+				expect(response.body).to.deep.equal(reference.body);
+			});
+		});
 		currentUserName().should('equal', 'guest');
 	});
 

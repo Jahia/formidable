@@ -25,16 +25,21 @@ release), `formidable-engine` 0.6, and `formidable-extended-inputs` for the pass
 2. **Configure a CAPTCHA** ([CAPTCHA server-side validation](captcha-server-side-validation.md)). Both actions refuse to run on a
    form without the CAPTCHA option: a public sign-up or sign-in form without one is an open door for bots. On a local
    development instance only, `requireCaptcha=false` in `org.jahia.modules.formidable.accounts.cfg` lifts the rule.
-3. Read `org.jahia.modules.formidable.accounts.cfg` (shipped with its defaults, kept as edited):
+3. **Decide who configures the actions.** An action runs only when the person who **last saved it** holds the permission
+   `formidableAccountsActions` on it. The module declares it under `site-admin`, so **site administrators** hold it; grant it
+   to another role in Administration > Roles and permissions if others must set up sign-up forms. Any editor of the form can
+   still add or change the action, but then it refuses every visitor (as "temporarily unavailable", logged) until someone who
+   holds the permission saves it again.
+4. Read `org.jahia.modules.formidable.accounts.cfg` (shipped with its defaults, kept as edited):
 
 | Key | Default | Meaning |
 |---|---|---|
 | `requireCaptcha` | `true` | Refuse the actions on a form without the CAPTCHA option |
 | `maxAttemptsPerAddress`, `addressWindowSeconds` | `20`, `600` | Submissions of these actions per remote address in the window, whatever their outcome |
-| `maxAttemptsPerAccount`, `accountWindowSeconds` | `5`, `900` | Attempts per account (the e-mail or user name typed, existing or not): every sign-up attempt, every failed sign-in; a successful sign-in clears the count |
+| `maxAttemptsPerAccount`, `accountWindowSeconds` | `5`, `900` | Attempts per account (the e-mail or user name typed, existing or not): every sign-up attempt for an address; for a sign-in, the failures of that account **from one remote address**, so that a stranger's guesses never lock the owner out of the form; a successful sign-in clears the count |
 | `maxTrackedKeys` | `10000` | Upper bound on what the limiter remembers; the least recently seen is forgotten first |
-| `deniedGroups` | `administrators;privileged;site-administrators;site-privileged;guest;users` | Groups a form can never add a visitor to |
-| `publicBaseUrl` | empty | Scheme and host of the activation link (`https://www.example.com`); empty: the host the sign-up request reached |
+| `allowedGroups` | empty | Groups, separated by semicolons, that a Create account action may add a visitor to: the only choices of its **Group** field. A name is a global group, or else a group of the form's own site. Empty: no action adds anyone to a group |
+| `publicBaseUrl` | empty | Scheme and host of the activation link (`https://www.example.com`). **Required for e-mail activation**: empty, or not an `http`/`https` origin, an action with activation refuses every sign-up. Never taken from the request |
 | `mailFrom` | empty | From address of the activation e-mail; empty: the sender of Jahia's mail settings |
 
 The limits are counted **in memory, per JVM**: a restart, or another node of a cluster, starts from zero. The remote
@@ -53,7 +58,7 @@ visitor shares the proxy's limit.
 | **E-mail field** | The field that holds the address. It is also the user name of the account (lower case, characters Jahia does not accept replaced by `_`, checked with the platform's own rule) |
 | **Password field** | The password field. A plain text field is refused: its value would be stored and mailed like any other answer |
 | **First name field**, **Last name field** | Optional; become the first and the last name of the account |
-| **Group** | Optional. A global group (`customers`), a site group (`name:siteKey`), or a path (`/groups/customers`). Privileged groups are refused whatever is typed |
+| **Group** | Optional. One of the groups the administrator listed in `allowedGroups` that exists globally or on this site. A group giving back-office access is refused at sign-up even when listed (see [below](#what-the-module-protects-and-what-it-does-not)) |
 | **Sign the visitor in** | On by default: the visitor is signed in as soon as the account exists. Ignored when e-mail activation is required |
 | **Page to go to afterwards**, **Return parameter** | See [Where the visitor goes next](#where-the-visitor-goes-next) |
 | **Password rule** | Regular expression the whole password must match. Empty: at least one digit, one lower-case letter, one upper-case letter and one symbol, 8 to 64 characters. The password is capped at 256 characters whatever the rule |
@@ -70,7 +75,8 @@ Same as above with a field for the e-mail or the user name, a **Password** field
 *Current password*), the CAPTCHA, and a **Sign in** action: the login field, the password field, optionally the page to go to
 and a **Return parameter**, and a **Message when the sign-in fails** if you want your own words (one message for every cause).
 
-A visitor can type the e-mail in any case. `root` and `guest` can never be signed in through a public form.
+A visitor can type the e-mail in any case. `root` and `guest` can never be signed in through a public form, nor can any
+**back-office account** (see below): staff sign in on the platform's own login page, where a second factor and SSO apply.
 
 ## Where the visitor goes next
 
@@ -90,6 +96,8 @@ The browser navigates once the success message was shown; see [Redirect action](
 
 Off by default. When **Require e-mail activation** is on, the account is created **locked** and the visitor receives a link:
 
+0. `publicBaseUrl` must be set: the link is built on it, never on the host the request named (a visitor controls the `Host`
+   header, and the token would be mailed to the address they chose with a link to their server).
 1. A random token is generated (256 bits). Only its SHA-256 hash is stored, on the user, with an expiry (**Link validity**,
    48 hours by default, 720 at most). The account stays locked (`j:accountLocked`) until the link is followed.
 2. The link is mailed with Jahia's mail service (its SMTP settings must be configured: the sign-up is refused, and nothing is
@@ -117,31 +125,47 @@ scanner that opens it consumes the token, and the visitor then simply signs in w
   and field actions never receive it**, whatever else is on the form: you may put Save to JCR next to Create account to keep
   the e-mail and the name, and the results will hold no password. See
   [Sensitive fields](../architecture/form-submission-flow.md#sensitive-fields).
-- **No account enumeration.** A sign-up with an address that is taken, a group that does not exist, or any other platform
-  failure reads the same sentence. A failed sign-in (unknown account, wrong password, invalid name) reads the same sentence.
+- **No account enumeration with activation.** With e-mail activation on, a sign-up with an address that is already
+  registered reads "check your mailbox", exactly like a new one, and nothing is mailed. A group problem or any other platform
+  failure reads one generic sentence. A failed sign-in (unknown account, wrong password, invalid name, back-office account)
+  reads the same sentence.
   The rate-limit sentence is the same for an account that exists and one that does not. The only distinct sentence, "your account
   is not active yet", is shown after the password was verified.
 - **Abuse.** CAPTCHA required; per-address and per-account limits; the activation mailbox cannot be flooded (sign-ups are
-  counted per address typed); an activation token is unguessable, hashed at rest, single use and expiring.
+  counted per address typed); failed sign-ins are counted per account and remote address, so nobody locks someone else out;
+  an activation token is unguessable, hashed at rest, single use and expiring.
 - **No CSRF whitelist.** The actions ride the form-submit endpoint, protected by the `formidable-submit` Security Filter scope
   (same origin) and the CAPTCHA. The verification endpoint only follows an unguessable single-use token.
 - **No open redirect.** Every redirect is a path of the same site, validated on the server and again in the browser.
-- **No privilege handed out from a public form.** A group that grants privileges is refused.
+- **No privilege handed out from a public form.** The Group field offers only the administrator's `allowedGroups`, global or
+  of the form's site, never another site's; at every sign-up the group is checked again and refused when it gives back-office
+  access: a member, directly or through other groups, of `privileged`, `administrators`, a site's `site-privileged` (where Jahia
+  puts whoever holds an editing role) or `site-administrators`, or holding a server role. A group granting a site role such as
+  `reader` (members-only pages) is fine.
+- **Who configures the actions.** Only an action last saved by someone holding `formidableAccountsActions` runs.
+- **No second-factor bypass.** The Sign in action calls the platform's authentication service directly, like `/cms/login`,
+  which the UPA (MFA) module asks to block at the proxy. It therefore refuses every back-office account (the test above, for a
+  user): only site visitors sign in through a form.
+- **No secret in messages.** A `${password}` (or any password control) in the form's success or error message prints nothing.
 
 **Not protected, by design or by limit**
 
-- A sign-up with an address that is already registered is refused with a message: with e-mail activation on, the *outcome* (a
-  "check your mailbox" message versus a refusal) still tells a script whether an address is taken. CAPTCHA and the limits are the
-  protection; a form that must hide even that needs a different flow (always say "check your mailbox").
+- **Without** e-mail activation, a sign-up form cannot hide that an address is taken: the visitor is signed in at once when it is
+  not. Turn activation on for a public form where that matters. With activation, the time the answer takes can still differ (a
+  new address waits for the mail server).
 - The time the server takes can differ between an unknown account and a wrong password.
-- The limits are per JVM and in memory (see above).
+- The limits are per JVM and in memory (see above): a restart, or another node of a cluster, starts from zero, and behind a proxy
+  the remote address must be the visitor's.
 - The password travels in the submission request like any form: serve the site over HTTPS.
 
 ## Troubleshooting
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| The visitor reads "This form is temporarily unavailable" | The form has no CAPTCHA option, the site did not enable `formidable-accounts`, a field of the action is not chosen, the password field is not a *Password* input, or activation is on and Jahia's mail service is off | The server log says which (`[formidable-accounts]`), with the form's path |
+| The visitor reads "This form is temporarily unavailable" | The form has no CAPTCHA option, the site did not enable `formidable-accounts`, the action was last saved by someone without `formidableAccountsActions`, a field of the action is not chosen, the password field is not a *Password* input, or activation is on and Jahia's mail service is off or `publicBaseUrl` is not set | The server log says which (`[formidable-accounts]`), with the form's or the action's path |
+| The **Group** list of the action is empty | `allowedGroups` is empty, or none of its names exists globally or on this site | Ask the administrator to list the group in `org.jahia.modules.formidable.accounts.cfg` |
+| Sign-ups fail with the generic sentence and the log says `GROUP` | The action's group is no longer in `allowedGroups`, no longer exists, or now gives back-office access | Pick another group, or fix the configuration |
+| A staff member cannot sign in through the form | Back-office accounts never sign in through a form | Use the platform's login page |
 | The action is missing from the actions list | The module is not enabled on the site, or the jContent tab is stale | Enable it, reload the tab |
 | The field lists of the action are empty | The action is not inside a form, or the form has no field of that kind (an e-mail field, a Password input) | Add the field, then reopen the action |
 | `Too many attempts` for everybody | Behind a proxy every visitor shares one remote address | Configure the container so `getRemoteAddr()` is the visitor's, or raise `maxAttemptsPerAddress` |

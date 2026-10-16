@@ -19,7 +19,11 @@ hands its value to these two actions only. Save to JCR, the e-mail actions, forw
 CAPTCHA required on the form (the operator can switch it off on a development box only); attempts counted per remote
 address and per account, in memory; one sentence for every kind of failure, so nothing tells which accounts exist;
 the password never stored, mailed, logged or returned; activation tokens random, hashed at rest, single use and
-expiring; redirects limited to a path of the same site; privileged groups refused.
+expiring and built only on the configured `publicBaseUrl`; with activation, a taken address reads "check your mailbox" like a
+new one; redirects limited to a path of the same site; groups limited to the administrator's `allowedGroups` and refused
+when they give back-office access; back-office accounts never sign in through a form (MFA and SSO stay on the platform's
+login); an action runs only when last saved by someone holding `formidableAccountsActions` (site administrators); failed
+sign-ins counted per account and address, so nobody locks someone else out.
 
 ## Configuration
 
@@ -29,10 +33,10 @@ expiring; redirects limited to a path of the same site; privileged groups refuse
 |---|---|---|
 | `requireCaptcha` | `true` | Refuse the actions on a form without the CAPTCHA option |
 | `maxAttemptsPerAddress` / `addressWindowSeconds` | `20` / `600` | Submissions per remote address in the window |
-| `maxAttemptsPerAccount` / `accountWindowSeconds` | `5` / `900` | Attempts per account typed (sign-ups, failed sign-ins) |
+| `maxAttemptsPerAccount` / `accountWindowSeconds` | `5` / `900` | Attempts per account typed (sign-ups; failed sign-ins per account and address) |
 | `maxTrackedKeys` | `10000` | Bound on what the limiter remembers |
-| `deniedGroups` | `administrators;privileged;site-administrators;site-privileged;guest;users` | Groups a form can never add a visitor to |
-| `publicBaseUrl` | empty | Scheme and host of the activation link; empty: the request's own |
+| `allowedGroups` | empty | Groups a Create account action may add a visitor to (global, or of the form's site); empty: none |
+| `publicBaseUrl` | empty | Scheme and host of the activation link; required for activation, never taken from the request |
 | `mailFrom` | empty | From of the activation e-mail; empty: Jahia's default sender |
 
 ## Build and deploy

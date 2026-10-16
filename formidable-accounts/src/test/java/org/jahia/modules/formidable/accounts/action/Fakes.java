@@ -9,8 +9,10 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.regex.Pattern;
 
@@ -26,10 +28,22 @@ final class Fakes {
         final List<String> deleted = new ArrayList<>();
         Pending lastPending;
         AccountException failure;
+        final Set<String> backOffice = new HashSet<>();
+        final Set<String> withoutPermission = new HashSet<>();
 
         @Override
         public boolean isValidUsername(String username) {
             return SYNTAX.matcher(username).matches();
+        }
+
+        @Override
+        public boolean isBackOfficeUser(String username) {
+            return backOffice.contains(username);
+        }
+
+        @Override
+        public boolean holdsPermission(String username, String path, String workspace, String permission) {
+            return username != null && !withoutPermission.contains(username);
         }
 
         @Override

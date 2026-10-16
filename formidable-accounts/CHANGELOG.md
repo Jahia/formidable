@@ -12,15 +12,17 @@ Release notes for the whole repository are assembled by [chachalog](../.chachalo
   `AuthenticationService` (Jahia 8.2.3.0 and later), so the login event fires and jExperience merges the visitor's
   anonymous profile into the user's.
 * Create account: user name from the e-mail (lower case, sanitised, checked with the platform's own syntax rule),
-  password hashed by `JahiaUserManagerService.createUser`, first and last name, optional group (global, `name:siteKey`
-  or path; privileged groups are refused), sign-in afterwards (default on), redirect to a page or back to the place named
+  password hashed by `JahiaUserManagerService.createUser`, first and last name, optional group (picked among the
+  administrator's `allowedGroups`, global or of the form's site; a group giving back-office access is refused), sign-in afterwards (default on), redirect to a page or back to the place named
   by a return parameter of the page, a password rule (regular expression, default one digit, one lower-case, one
   upper-case letter, one symbol, 8 to 64 characters).
 * Optional e-mail activation (default off): the account is created locked with a random token (only its SHA-256 is
   stored) and an expiry (hours, default 48), the link is mailed with Jahia's mail service and followed on
   `/modules/formidable-accounts/verify`, which unlocks the account and sends the visitor to a chosen page.
 * `org.jahia.modules.formidable.accounts.cfg`: CAPTCHA required (default), attempts per remote address and per account in
-  memory, groups a form can never add a visitor to, public base URL and sender of the activation e-mail.
+  memory, the groups a form may add a visitor to (`allowedGroups`, empty by default), public base URL (required for
+  activation) and sender of the activation e-mail.
+* Permission `formidableAccountsActions` (under `site-admin`): an action runs only when its last author holds it.
 * English and French labels, tooltips and visitor messages, European Portuguese (pt) visitor messages (the editor
   labels stay English in Portuguese); `dev-unsigned` Maven profile for local deployments on Jahia
   Enterprise.
@@ -28,8 +30,14 @@ Release notes for the whole repository are assembled by [chachalog](../.chachalo
 ### Security
 
 * Both actions refuse to run on a form without the CAPTCHA option unless the operator set `requireCaptcha=false`.
-* Attempts are limited per remote address and per account; the sentence is the same for an account that exists and one
-  that does not, and the same for every cause of a failed sign-in or sign-up (a taken address included).
+* Attempts are limited per remote address and per account (failed sign-ins per account and address, so a stranger cannot
+  lock the owner out); the sentence is the same for an account that exists and one that does not, and the same for every
+  cause of a failed sign-in or sign-up. With activation on, a taken address reads "check your mailbox" like a new one.
+* Review jahia-private#5909: groups come from an administrator-owned allow list (global or the form's site) and are refused
+  when they give back-office access; the activation link is built only on `publicBaseUrl`, never on the request's Host
+  header; back-office accounts never sign in through a form (it would bypass the platform login's MFA and SSO); an action
+  runs only when last saved by someone holding `formidableAccountsActions`; a `${password}` placeholder in a form message
+  prints nothing (formidable-elements).
 * The password is a sensitive value (`fmdbmix:sensitiveField`): it is never stored, mailed, forwarded, logged, echoed or
   sent to jExperience; a password field that is not sensitive is refused.
 * No CSRF whitelist: the actions ride the form-submit servlet (Security Filter, same origin, CAPTCHA); the verification

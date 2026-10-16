@@ -60,4 +60,13 @@ describe('interpolateMessage', () => {
 
 		expect(message).toBe('Picked music, sport by ');
 	});
+
+	it('never prints a password, whatever placeholder the author wrote', () => {
+		// jahia-private#5909 finding 7: a ${password} in a success or error message printed the secret on screen.
+		const message = interpolateMessage('Welcome ${email}, your password is ${password}',
+			formDataOf({email: 'ada@example.com', password: 'S3cret!pw'}), 'en-US',
+			fieldName => (fieldName === 'password' ? 'password' : null));
+
+		expect(message).toBe('Welcome ada@example.com, your password is ');
+	});
 });

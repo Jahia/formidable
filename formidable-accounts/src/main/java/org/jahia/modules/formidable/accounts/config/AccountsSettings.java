@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Locale;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -17,8 +18,9 @@ import java.util.stream.Collectors;
  * @param accountLimit           attempts per account in {@code accountWindow}
  * @param accountWindow          window of the per-account limit
  * @param maxTrackedKeys         bound on the keys the limiter remembers
- * @param deniedGroups           lower-case names of the groups a form can never add a visitor to
- * @param publicBaseUrl          scheme and host of the activation link, empty for the request's own
+ * @param allowedGroups          lower-case names of the groups a Create account action may add a visitor to
+ * @param publicBaseUrl          scheme and host of the activation link; empty when not set or not an http(s) origin,
+ *                               and then no activation link is ever sent
  * @param mailFrom               sender of the activation e-mail, empty for Jahia's default
  */
 public record AccountsSettings(
@@ -28,12 +30,14 @@ public record AccountsSettings(
         int accountLimit,
         Duration accountWindow,
         int maxTrackedKeys,
-        Set<String> deniedGroups,
+        Set<String> allowedGroups,
         String publicBaseUrl,
         String mailFrom
 ) {
+    private static final Pattern ORIGIN = Pattern.compile("^https?://[A-Za-z0-9.-]+(:[0-9]{1,5})?$", Pattern.CASE_INSENSITIVE);
+
     public AccountsSettings {
-        deniedGroups = deniedGroups == null ? Set.of() : Set.copyOf(deniedGroups);
+        allowedGroups = allowedGroups == null ? Set.of() : Set.copyOf(allowedGroups);
         publicBaseUrl = publicBaseUrl == null ? "" : publicBaseUrl;
         mailFrom = mailFrom == null ? "" : mailFrom;
     }
@@ -41,7 +45,7 @@ public record AccountsSettings(
     /** What the component runs with before any configuration: every value the configuration file ships. */
     public static AccountsSettings defaults() {
         return new AccountsSettings(true, 20, Duration.ofSeconds(600), 5, Duration.ofSeconds(900), 10_000,
-                parseGroups("administrators;privileged;site-administrators;site-privileged;guest;users"), "", "");
+                Set.of(), "", "");
     }
 
     /**
@@ -56,14 +60,14 @@ public record AccountsSettings(
                 Math.max(1, config.maxAttemptsPerAccount()),
                 Duration.ofSeconds(Math.max(1L, config.accountWindowSeconds())),
                 Math.max(100, config.maxTrackedKeys()),
-                parseGroups(config.deniedGroups()),
-                trimTrailingSlash(config.publicBaseUrl()),
+                parseGroups(config.allowedGroups()),
+                origin(config.publicBaseUrl()),
                 config.mailFrom() == null ? "" : config.mailFrom().trim());
     }
 
-    /** Whether a group is one a form can never add a visitor to: by name or by key, any case. */
-    public boolean isDeniedGroup(String nameOrKey) {
-        return nameOrKey != null && deniedGroups.contains(nameOrKey.trim().toLowerCase(Locale.ROOT));
+    /** Whether the administrator allowed Create account actions to add visitors to the group of this name, any case. */
+    public boolean isAllowedGroup(String name) {
+        return name != null && allowedGroups.contains(name.trim().toLowerCase(Locale.ROOT));
     }
 
     private static Set<String> parseGroups(String list) {
@@ -76,7 +80,11 @@ public record AccountsSettings(
                 .collect(Collectors.toUnmodifiableSet());
     }
 
-    private static String trimTrailingSlash(String url) {
+    /**
+     * The activation link's origin: an absolute http or https URL with a host and nothing after it (a trailing slash is
+     * dropped). Anything else is empty, so that a typo stops activation e-mails instead of sending a link elsewhere.
+     */
+    static String origin(String url) {
         if (url == null) {
             return "";
         }
@@ -84,6 +92,6 @@ public record AccountsSettings(
         while (trimmed.endsWith("/")) {
             trimmed = trimmed.substring(0, trimmed.length() - 1);
         }
-        return trimmed;
+        return ORIGIN.matcher(trimmed).matches() ? trimmed : "";
     }
 }

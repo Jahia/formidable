@@ -13,21 +13,18 @@ public record ActivationMail(String subject, String text, String html) {
     static final String VERIFY_PATH = "/modules/formidable-accounts/verify";
 
     /**
-     * The link the visitor follows.
+     * The link the visitor follows, on the operator's configured origin only: never on the host a request named, which
+     * the visitor controls.
      *
-     * @param configuredBase  {@code publicBaseUrl} of the configuration, blank for the request's own
-     * @param scheme          the request's scheme
-     * @param serverName      the request's host name
-     * @param port            the request's port
+     * @param base            {@code publicBaseUrl} of the configuration, an http or https origin without a trailing slash
      * @param platformContext the platform's context path ({@code Jahia.getContextPath()}), empty for the root
      * @param token           the activation token
      * @return an absolute URL
+     * @throws IllegalArgumentException when {@code base} is blank: the caller refuses the sign-up before it gets here
      */
-    public static String link(String configuredBase, String scheme, String serverName, int port, String platformContext, ActivationToken token) {
-        String base = configuredBase;
+    public static String link(String base, String platformContext, ActivationToken token) {
         if (base == null || base.isBlank()) {
-            boolean defaultPort = port <= 0 || ("http".equalsIgnoreCase(scheme) && port == 80) || ("https".equalsIgnoreCase(scheme) && port == 443);
-            base = scheme + "://" + serverName + (defaultPort ? "" : ":" + port);
+            throw new IllegalArgumentException("no public base URL for the activation link");
         }
         return base + (platformContext == null ? "" : platformContext) + VERIFY_PATH + "?t=" + token.asParameter();
     }

@@ -56,6 +56,7 @@ class CreateAccountFormActionTest {
         wired.setConfig(config);
         AccountsGuard guard = new AccountsGuard();
         guard.setConfig(config);
+        guard.setDirectory(directory);
         wired.setGuard(guard);
         return wired;
     }
@@ -275,6 +276,52 @@ class CreateAccountFormActionTest {
 
         assertEquals(503, e.getHttpStatus());
         assertEquals(1, directory.deleted.size());
+    }
+
+    @Test
+    void withActivationATakenAddressReadsTheSameAnswerAsANewOneAndNothingIsSent() throws Exception {
+        // Verifies finding 3 of jahia-private#5909: the form does not tell who is registered. A taken address answers
+        // "check your mailbox" like a new one, with the same redirect, and no mail leaves.
+        directory.failure = new AccountException(Refusal.TAKEN, "the user name is taken");
+        JCRNodeWrapper node = TestSupport.actionNode(settings);
+        TestSupport.withBool(node, "activationRequired", true);
+        TestSupport.withPage(node, "redirectPage");
+
+        FormActionResult result = action.execute(context(node, true, "ada@example.com", PASSWORD, null));
+
+        assertEquals(VisitorText.CHECK_MAILBOX.in(FRENCH), result.message());
+        assertEquals("/sites/mysite/welcome.html", result.redirectPath());
+        assertTrue(mailer.sent.isEmpty());
+        assertTrue(auth.calls.isEmpty());
+    }
+
+    @Test
+    void activationWithoutAConfiguredPublicOriginIsRefusedBeforeCreatingAnything() {
+        // Verifies finding 2 of jahia-private#5909: the link is never built from the request's Host header; without
+        // publicBaseUrl the action refuses as a configuration error, before any account exists.
+        config = TestSupport.config(true, 100, 100, "");
+        action = wire(new CreateAccountFormAction(new Redirects((page, req, resp) -> Optional.of("/sites/mysite/welcome.html")), () -> ""));
+        JCRNodeWrapper node = TestSupport.actionNode(settings);
+        TestSupport.withBool(node, "activationRequired", true);
+
+        FormActionException e = assertThrows(FormActionException.class, () -> action.execute(context(node, true, "ada@example.com", PASSWORD, null)));
+
+        assertEquals(503, e.getHttpStatus());
+        assertTrue(directory.created.isEmpty());
+        assertTrue(mailer.sent.isEmpty());
+    }
+
+    @Test
+    void anActionLastSavedByAContributorWithoutThePermissionCreatesNothing() {
+        // Verifies finding 6 of jahia-private#5909: the action runs only when its last author holds
+        // formidableAccountsActions; otherwise the visitor reads "unavailable" and no account is made.
+        directory.withoutPermission.add("contributor");
+        settings.put("jcr:lastModifiedBy", "contributor");
+
+        FormActionException e = refusal(context("ada@example.com", PASSWORD));
+
+        assertEquals(503, e.getHttpStatus());
+        assertTrue(directory.created.isEmpty());
     }
 
     @Test

@@ -45,8 +45,10 @@ import java.util.regex.Pattern;
  * syntax check; holds the password to the contributor's rule; creates the user, which the platform hashes, adds it to
  * the configured group, and either signs it in or, when activation is on, leaves it locked and e-mails a link.</p>
  *
- * <p>What it never does: write, return or log the password; say whether an address is already registered (a taken
- * name, a refused group and a platform failure all read {@link VisitorText#GENERIC_FAILURE}); carry
+ * <p>What it never does: write, return or log the password; build the activation link from the request (only from
+ * {@code publicBaseUrl}); say whether an address is already registered when activation is on (a taken address reads
+ * "check your mailbox" like a new one; a refused group and a platform failure read {@link VisitorText#GENERIC_FAILURE});
+ * carry
  * {@code fmdbmix:readOnlyCompatibleAction}, since it writes.</p>
  *
  * <p>Threading: a singleton, no per-request state in fields; everything comes from the {@link FormActionContext}.</p>
@@ -152,6 +154,12 @@ public class CreateAccountFormAction implements ContextualFormAction {
             log.error("[formidable-accounts] {} requires e-mail activation but Jahia's mail service is unavailable or disabled: the submission is refused.", action.getPath());
             throw unavailable(locale);
         }
+        if (activation && config.settings().publicBaseUrl().isEmpty()) {
+            // the link is never built from the request: its Host header is the visitor's to forge, and the token would go there
+            log.error("[formidable-accounts] {} requires e-mail activation but publicBaseUrl is not set (or not an http/https origin) in "
+                    + "org.jahia.modules.formidable.accounts.cfg: the submission is refused.", action.getPath());
+            throw unavailable(locale);
+        }
         boolean signIn = !activation && ActionProps.bool(action, "signIn", true);
         // computed before the sign-in: it replaces the HTTP session, which closes the sessions bound to it
         Optional<String> redirect = redirects.resolve(context, signIn);
@@ -170,7 +178,14 @@ public class CreateAccountFormAction implements ContextualFormAction {
                 return new Pending(token, expires, activationPage.orElse(null));
             } : null);
         } catch (AccountException e) {
-            // the reason is for the log; the visitor reads one sentence whatever it was, a taken address included
+            if (activation && e.refusal() == AccountDirectory.Refusal.TAKEN) {
+                // with activation, a new address and a taken one read the same answer: "check your mailbox". Nothing is
+                // sent and nothing changes for the existing account, and the form does not tell who is registered.
+                log.info("[formidable-accounts] A sign-up for an address that is already registered was answered as a new one.");
+                return pendingAnswer(action, locale, redirect);
+            }
+            // the reason is for the log; the visitor reads one sentence whatever it was. Without activation the visitor is
+            // signed in at once, so a sign-up form cannot hide that an address is taken: protect it with activation.
             log.warn("[formidable-accounts] An account was not created ({}).", e.refusal());
             throw FormActionException.refusal(422, "sign-up refused: " + e.refusal(), VisitorText.GENERIC_FAILURE.in(locale), e);
         }
@@ -194,8 +209,7 @@ public class CreateAccountFormAction implements ContextualFormAction {
                                              ActivationToken token, long hours, Optional<String> redirect) throws FormActionException {
         Locale locale = context.locale();
         HttpServletRequest request = context.request();
-        String link = ActivationMail.link(config.settings().publicBaseUrl(), request.getScheme(), request.getServerName(),
-                request.getServerPort(), platformContextPath.get(), token);
+        String link = ActivationMail.link(config.settings().publicBaseUrl(), platformContextPath.get(), token);
         ActivationMail mail = ActivationMail.compose(
                 ActionProps.string(action, "activationSubject") != null ? ActionProps.string(action, "activationSubject") : VisitorText.ACTIVATION_SUBJECT.in(locale),
                 ActionProps.string(action, "activationMessage") != null ? ActionProps.string(action, "activationMessage") : VisitorText.ACTIVATION_BODY.in(locale),
@@ -209,6 +223,11 @@ public class CreateAccountFormAction implements ContextualFormAction {
             throw FormActionException.refusal(503, "sign-up refused: the activation e-mail could not be sent", VisitorText.UNAVAILABLE.in(locale), e);
         }
         log.info("[formidable-accounts] The account {} was created and awaits its activation.", created.identifier());
+        return pendingAnswer(action, locale, redirect);
+    }
+
+    /** "Check your mailbox" (or the action's own message), and the page to go to: the one answer of a sign-up with activation. */
+    private static FormActionResult pendingAnswer(JCRNodeWrapper action, Locale locale, Optional<String> redirect) {
         String pending = ActionProps.string(action, "pendingMessage");
         FormActionResult result = FormActionResult.message(pending != null ? pending : VisitorText.CHECK_MAILBOX.in(locale));
         return redirect.map(result::withRedirect).orElse(result);

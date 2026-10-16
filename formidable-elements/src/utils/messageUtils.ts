@@ -1,6 +1,13 @@
 /** Resolves a field name to its control type ('date', 'number', …), or null when unknown. */
 export type FieldKindResolver = (fieldName: string) => string | null;
 
+/**
+ * The kind of a field whose value is a secret (a password control): a message never prints it, whatever
+ * placeholder the author wrote. The server withholds such values from every action but the one that consumes
+ * them; the browser still holds what was typed, so this is where the success and error messages must stop.
+ */
+export const SECRET_KIND = 'password';
+
 /** The stored node types whose submitted value warrants a localized rendering. */
 const NODE_TYPE_KINDS: Record<string, string> = {
 	'fmdb:inputNumber': 'number',
@@ -18,6 +25,13 @@ const NODE_TYPE_KINDS: Record<string, string> = {
  * carries no type).
  */
 export const fieldKindFromForm = (form: HTMLFormElement): FieldKindResolver => fieldName => {
+	// A secret first: whatever wrapper or node type carries it, a password control is never printed.
+	const named = form.elements.namedItem(fieldName);
+	const first = named instanceof RadioNodeList ? named[0] : named;
+	if (first instanceof HTMLInputElement && first.type === SECRET_KIND) {
+		return SECRET_KIND;
+	}
+
 	const wrapper = form.querySelector<HTMLElement>(
 		`[data-fmdb-node-name="${CSS.escape(fieldName)}"]`);
 	const nodeType = wrapper?.dataset.fmdbNodeType;
@@ -51,7 +65,7 @@ export const interpolateMessage = (
 		const values = formData.getAll(fieldName);
 		const kind = fieldKind(fieldName);
 
-		if (values.length === 0) {
+		if (values.length === 0 || kind === SECRET_KIND) {
 			return '';
 		} else if (values.length === 1) {
 			return formatValue(String(values[0]), locale, kind);

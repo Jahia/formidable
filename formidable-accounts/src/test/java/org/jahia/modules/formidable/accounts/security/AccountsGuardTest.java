@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import javax.servlet.http.HttpServletRequest;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
@@ -18,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.when;
 
 class AccountsGuardTest {
 
@@ -25,7 +27,7 @@ class AccountsGuardTest {
 
     private AccountsGuard guard(boolean requireCaptcha, int perAddress, int perAccount) {
         AccountsConfigService config = TestSupport.config(requireCaptcha, perAddress, perAccount);
-        return new AccountsGuard(config, now::get);
+        return new AccountsGuard(config, TestSupport.directory(Set.of("contributor")), now::get);
     }
 
     private static FormActionContext context(JCRNodeWrapper form) {
@@ -97,13 +99,13 @@ class AccountsGuardTest {
         HttpServletRequest request = TestSupport.request("203.0.113.7", null);
         for (int i = 0; i < 2; i++) {
             guard.admitSignIn(request, "ada@example.com", Locale.ENGLISH);
-            guard.signInFailed("ada@example.com");
+            guard.signInFailed(request, "ada@example.com");
         }
         guard.admitSignIn(request, "ada@example.com", Locale.ENGLISH);
-        guard.signInSucceeded("ada@example.com");
+        guard.signInSucceeded(request, "ada@example.com");
         for (int i = 0; i < 3; i++) {
             guard.admitSignIn(request, "ada@example.com", Locale.ENGLISH);
-            guard.signInFailed("ADA@example.com");
+            guard.signInFailed(request, "ADA@example.com");
         }
 
         assertEquals(429, assertThrows(FormActionException.class, () -> guard.admitSignIn(request, "ada@example.com", Locale.ENGLISH)).getHttpStatus());
@@ -115,7 +117,7 @@ class AccountsGuardTest {
         AccountsGuard guard = guard(true, 100, 1);
         HttpServletRequest request = TestSupport.request("203.0.113.7", null);
         guard.admitSignIn(request, "ghost@example.com", Locale.ENGLISH);
-        guard.signInFailed("ghost@example.com");
+        guard.signInFailed(request, "ghost@example.com");
 
         FormActionException refusal = assertThrows(FormActionException.class, () -> guard.admitSignIn(request, "ghost@example.com", Locale.ENGLISH));
 
@@ -156,7 +158,49 @@ class AccountsGuardTest {
         guard.admitSignUp(nobody, null, Locale.ENGLISH);
         guard.admitSignUp(nobody, "  ", Locale.ENGLISH);
         assertThrows(FormActionException.class, () -> guard.admitSignUp(nobody, "", Locale.ENGLISH));
-        guard.signInFailed(null);
-        guard.signInSucceeded("");
+        guard.signInFailed(nobody, null);
+        guard.signInSucceeded(nobody, "");
+    }
+
+    @Test
+    void anActionLastSavedBySomeoneWithoutThePermissionIsRefusedAsAConfigurationError() {
+        // Verifies finding 6 of jahia-private#5909: any editor of the form can add or change the action, but it only
+        // runs when its last author holds formidableAccountsActions on it.
+        JCRNodeWrapper action = TestSupport.actionNode(Map.of("jcr:lastModifiedBy", "contributor"));
+        FormActionContext byContributor = TestSupport.context(action, TestSupport.form(true, true), TestSupport.request("203.0.113.7", null), Map.of(), Map.of());
+
+        FormActionException refusal = assertThrows(FormActionException.class, () -> guard(true, 20, 5).requireProtectedForm(byContributor));
+
+        assertEquals(503, refusal.getHttpStatus());
+        assertEquals(VisitorText.UNAVAILABLE.in(Locale.FRENCH), refusal.getVisitorMessage());
+    }
+
+    @Test
+    void anActionWithNoAuthorIsRefused() {
+        // Verifies fail-closed: no jcr:lastModifiedBy means nobody authorised it.
+        JCRNodeWrapper action = TestSupport.actionNode(Map.of());
+        try {
+            when(action.hasProperty("jcr:lastModifiedBy")).thenReturn(false);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        FormActionContext context = TestSupport.context(action, TestSupport.form(true, true), TestSupport.request("203.0.113.7", null), Map.of(), Map.of());
+
+        assertThrows(FormActionException.class, () -> guard(true, 20, 5).requireProtectedForm(context));
+    }
+
+    @Test
+    void failedSignInsFromOneAddressNeverLockTheOwnerOutFromAnother() throws Exception {
+        // Verifies finding 5 of jahia-private#5909: the account counter is per account AND address, so a stranger's
+        // wrong guesses exhaust the stranger's counter only.
+        AccountsGuard guard = guard(true, 100, 3);
+        HttpServletRequest stranger = TestSupport.request("198.51.100.9", null);
+        for (int i = 0; i < 3; i++) {
+            guard.admitSignIn(stranger, "ada@example.com", Locale.ENGLISH);
+            guard.signInFailed(stranger, "ada@example.com");
+        }
+
+        assertEquals(429, assertThrows(FormActionException.class, () -> guard.admitSignIn(stranger, "ada@example.com", Locale.ENGLISH)).getHttpStatus());
+        assertDoesNotThrow(() -> guard.admitSignIn(TestSupport.request("203.0.113.7", null), "ada@example.com", Locale.ENGLISH));
     }
 }

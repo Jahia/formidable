@@ -19,7 +19,7 @@ public interface AccountDirectory {
     enum Refusal {
         /** The user name exists (or is held by an account awaiting its activation e-mail). */
         TAKEN,
-        /** The group of the action does not exist or is not allowed. */
+        /** The group of the action is not in the allowed groups, does not exist, or gives back-office access. */
         GROUP,
         /** Anything else: the platform refused, the repository failed. */
         FAILED
@@ -64,6 +64,30 @@ public interface AccountDirectory {
 
     /** @return whether the platform accepts this user name ({@code JahiaUserManagerService#isUsernameSyntaxCorrect}) */
     boolean isValidUsername(String username);
+
+    /**
+     * Whether an account has access to the back office: root, a member (directly or through other groups) of
+     * {@code privileged}, {@code administrators}, a site's {@code site-privileged} or {@code site-administrators}, holding
+     * a server role, or holding anywhere a role that gives privileged access ({@code j:privilegedAccess}: editor,
+     * translator, site administrator...), itself or through a group. The form sign-in is for site visitors: such an account signs in on the platform's own
+     * login, where its second factor and SSO apply.
+     *
+     * @param username the user name to check
+     * @return {@code true} for a back-office account; {@code false} for any other, and for a user name that does not exist
+     */
+    boolean isBackOfficeUser(String username);
+
+    /**
+     * Whether a user holds a permission on a node, read in a session of that user.
+     *
+     * @param username   the user, typically the last author of an action node; root and the system account hold every
+     *                   permission
+     * @param path       the node's path
+     * @param workspace  the workspace to read it in
+     * @param permission the permission's name
+     * @return {@code false} as well when the user or the node does not exist or cannot be read
+     */
+    boolean holdsPermission(String username, String path, String workspace, String permission);
 
     /**
      * Creates the account in one system session: refuses an existing user name (an account whose activation expired is

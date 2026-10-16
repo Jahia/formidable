@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.accounts;
 
+import org.jahia.modules.formidable.accounts.account.AccountDirectory;
+import org.jahia.modules.formidable.accounts.activation.ActivationToken;
 import org.jahia.modules.formidable.accounts.config.AccountsConfig;
 import org.jahia.modules.formidable.accounts.config.AccountsConfigService;
 import org.jahia.modules.formidable.engine.api.FormActionContext;
@@ -10,11 +12,14 @@ import org.jahia.services.content.decorator.JCRSiteNode;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -25,8 +30,16 @@ public final class TestSupport {
     private TestSupport() {
     }
 
-    /** A configuration service holding the given values over the defaults the cfg ships. */
+    /**
+     * A configuration service holding the given values over the defaults the cfg ships, the groups customers and members
+     * allowed, and https://www.example.com as the activation link's origin.
+     */
     public static AccountsConfigService config(boolean requireCaptcha, int perAddress, int perAccount) {
+        return config(requireCaptcha, perAddress, perAccount, "https://www.example.com");
+    }
+
+    /** The same, with the given activation origin (blank: none configured). */
+    public static AccountsConfigService config(boolean requireCaptcha, int perAddress, int perAccount, String publicBaseUrl) {
         AccountsConfig config = mock(AccountsConfig.class);
         when(config.requireCaptcha()).thenReturn(requireCaptcha);
         when(config.maxAttemptsPerAddress()).thenReturn(perAddress);
@@ -34,12 +47,50 @@ public final class TestSupport {
         when(config.maxAttemptsPerAccount()).thenReturn(perAccount);
         when(config.accountWindowSeconds()).thenReturn(900L);
         when(config.maxTrackedKeys()).thenReturn(1000);
-        when(config.deniedGroups()).thenReturn("administrators;privileged");
-        when(config.publicBaseUrl()).thenReturn("");
+        when(config.allowedGroups()).thenReturn("customers;members");
+        when(config.publicBaseUrl()).thenReturn(publicBaseUrl);
         when(config.mailFrom()).thenReturn("");
         AccountsConfigService service = new AccountsConfigService();
         service.apply(config);
         return service;
+    }
+
+    /**
+     * A directory for the guard: every user holds the actions permission unless named in {@code withoutPermission}; no
+     * account is created. The actions' tests use their own richer fake.
+     */
+    public static AccountDirectory directory(Set<String> withoutPermission) {
+        return new AccountDirectory() {
+            @Override
+            public boolean isValidUsername(String username) {
+                return true;
+            }
+
+            @Override
+            public boolean isBackOfficeUser(String username) {
+                return false;
+            }
+
+            @Override
+            public boolean holdsPermission(String username, String path, String workspace, String permission) {
+                return username != null && !withoutPermission.contains(username);
+            }
+
+            @Override
+            public Created create(NewAccount account, Function<String, Pending> pending) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void delete(String identifier) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public Optional<String> activate(ActivationToken token, Instant now) {
+                return Optional.empty();
+            }
+        };
     }
 
     /** A string property wrapper, built before it is handed to a stub (Mockito refuses nested stubbing). */
@@ -75,12 +126,14 @@ public final class TestSupport {
         }
     }
 
-    /** An action node carrying the given string properties. */
+    /** An action node carrying the given string properties, last saved by {@code editor}. */
     public static JCRNodeWrapper actionNode(Map<String, String> strings) {
         try {
             JCRNodeWrapper node = mock(JCRNodeWrapper.class);
             when(node.getPath()).thenReturn("/sites/mysite/forms/f/actions/a");
-            for (Map.Entry<String, String> entry : strings.entrySet()) {
+            Map<String, String> all = new HashMap<>(Map.of("jcr:lastModifiedBy", "editor"));
+            all.putAll(strings);
+            for (Map.Entry<String, String> entry : all.entrySet()) {
                 JCRPropertyWrapper property = string(entry.getValue());
                 when(node.hasProperty(entry.getKey())).thenReturn(true);
                 when(node.getProperty(entry.getKey())).thenReturn(property);

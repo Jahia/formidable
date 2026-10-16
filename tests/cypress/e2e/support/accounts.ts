@@ -27,7 +27,7 @@ export const ACCOUNTS_DEFAULTS: Record<string, string> = {
 	addressWindowSeconds: '600',
 	maxAttemptsPerAccount: '5',
 	accountWindowSeconds: '900',
-	deniedGroups: 'administrators;privileged;site-administrators;site-privileged;guest;users',
+	allowedGroups: '',
 	publicBaseUrl: '',
 	mailFrom: ''
 };
