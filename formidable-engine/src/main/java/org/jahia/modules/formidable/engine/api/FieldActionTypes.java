@@ -17,7 +17,8 @@ public interface FieldActionTypes {
 
     /**
      * @param actionList the field's action list ({@code fmdb:fieldActionList}), or any node of the site, read as
-     *                   the current user — the platform's component permissions apply, as they do to the chooser
+     *                   the current user — the platform's component permissions apply, checked on the site node
+     *                   as the chooser checks them
      * @return the names of the field-action types the chooser lists there, sorted; empty when the site has none
      * @throws RepositoryException when the site or the types cannot be read
      */
