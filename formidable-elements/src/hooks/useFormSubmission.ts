@@ -21,6 +21,10 @@ const MAINTENANCE_ERROR_CODE = 'FMDB-014';
 // under the field like one — the contributor's message anchored there, the focus moved, no global
 // error box, no code on screen. The pre-check is a courtesy; this is the authority saying the same.
 const FIELD_ACTION_REFUSED_CODE = 'FMDB-015';
+// An action refused the submission with a sentence for the visitor (`userMessage`, already translated and escaped by
+// the server): "wrong e-mail or password", "this e-mail cannot be used". Shown as the form's error message, the code
+// kept off the screen: the sentence says what the visitor can do, the code says nothing to them.
+const ACTION_REFUSED_CODE = 'FMDB-018';
 /** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
 export const SUBMITTED_EVENT = 'formidable:submitted';
 
@@ -48,6 +52,28 @@ async function completeFeedbackPause(spinnerShownAt: number): Promise<void> {
 	}
 }
 
+/**
+ * A path of this site: one leading slash, no scheme, no host, no backslash, no control character, no whitespace. The
+ * server only sends such a path in `redirect`; the browser checks it again before it navigates, so a body that was
+ * tampered with on the way, or written by a module of the page, cannot send the visitor to another site.
+ */
+export function isSameOriginPath(target: unknown): target is string {
+	if (typeof target !== 'string' || target.length === 0 || target.length > 2048 || !target.startsWith('/')) return false;
+	if (target.startsWith('//') || target.startsWith('/\\')) return false;
+	// eslint-disable-next-line no-control-regex
+	return !/[\\\s\u0000-\u001f\u007f]/.test(target);
+}
+
+/**
+ * Sends the visitor where an action asked, once the success message was shown and the form reset. Done in a task of
+ * its own so the listeners of the submitted event have run, and only for a path of this site (the server validated it,
+ * this is the second check); `assign`, not `replace`, so the form page stays reachable with the Back button.
+ */
+function navigateTo(target: unknown): void {
+	if (!isSameOriginPath(target)) return;
+	setTimeout(() => globalThis.location.assign(target), 0);
+}
+
 /** The server's JSON answer, or null for a body that is not JSON: the event never fails on it. */
 function parseJsonBody(text: string): unknown {
 	try {
@@ -62,6 +88,8 @@ interface Rejection {
 	errorCode?: string;
 	actionsProgress?: {completed: number; total: number};
 	messages: FieldMessage[];
+	/** The sentence of an action's refusal (FMDB-018), escaped by the server. */
+	userMessage?: string;
 }
 
 /** The rejection a non-2xx body carries; a body that is not JSON says nothing. */
@@ -74,6 +102,7 @@ function readRejection(responseText: string): Rejection {
 				? {completed: body.actionsCompleted, total: body.actionsTotal}
 				: undefined,
 			messages: parseFieldMessages(body),
+			userMessage: typeof body.userMessage === 'string' && body.userMessage.trim() ? body.userMessage : undefined,
 		};
 	} catch {
 		return {messages: []};
@@ -258,12 +287,16 @@ export function useFormSubmission({
 			// The spinner has been visible since before the request: only the rest of the floor is waited for
 			await completeFeedbackPause(spinnerShownAt);
 
-			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
+			// An action's own sentence (already escaped by the server) replaces the form's message: "check your mailbox"
+			const accepted = parseJsonBody(response.responseText) as {redirect?: unknown; userMessage?: unknown} | null;
+			const actionMessage = typeof accepted?.userMessage === 'string' && accepted.userMessage.trim() ? accepted.userMessage : undefined;
+			setMessage(actionMessage || interpolatedSubmissionMessage || 'Form submitted successfully!');
 			setMessageType('success');
 			// called off the prototype: a control named "reset" shadows the method, and this runs after the
 			// 200 and after every action, so throwing here would tell the visitor the submission failed
 			HTMLFormElement.prototype.reset.call(form);
 			if (isMultiStep) setCurrentStep(0);
+			navigateTo(accepted?.redirect);
 		} catch (error) {
 			showRejection(form, rejection, error);
 		} finally {
@@ -272,7 +305,17 @@ export function useFormSubmission({
 	};
 
 	/** What the visitor sees of a rejection — or of a request that never got an answer. */
-	const showRejection = (form: HTMLFormElement, {errorCode, actionsProgress, messages}: Rejection, error: unknown) => {
+	const showRejection = (form: HTMLFormElement, {errorCode, actionsProgress, messages, userMessage}: Rejection, error: unknown) => {
+		if (errorCode === ACTION_REFUSED_CODE && userMessage) {
+			// the secret typed in a rejected attempt is not kept in the field for the next one
+			for (const field of Array.from(form.querySelectorAll<HTMLInputElement>('input[type="password"]'))) {
+				field.value = '';
+			}
+			setMessage(userMessage);
+			setMessageType('error');
+			captchaRef.current?.reset();
+			return;
+		}
 		if (errorCode === MAINTENANCE_ERROR_CODE) {
 			// Its own message type, not 'error': an error keeps the form on screen
 			// so the visitor can retry, but this rejection means the platform is

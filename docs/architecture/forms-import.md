@@ -373,7 +373,7 @@ published, which is the reason to generate them: `text-input_0_1` would stand th
 | `saveToJcrAction` | `fmdb:save2jcrAction`, so that the form keeps saving once published. A form that Forms did not save gets no action: the imported results need the entry, which the import creates itself, not the action, and a form that starts keeping the personal data of its visitors must be a choice of the site, not of the import. The report says: "Forms did not save this form's submissions; add *Save to JCR* to keep saving them." |
 | `sendEmailAction` | `fmdb:emailNotificationAction`, with the `to` recipients, the sender and the subject of the Forms action. The CC and BCC addresses are reported, not carried: Formidable sends one message to one list, where they would be shown to the other recipients. The body is reported, because the two templates differ |
 | `sendEmailToSubmitterAction` | `fmdb:emailNotificationAction` with no recipient, reported: Formidable has no action that writes to the submitter |
-| `redirectToAPageAction`, `redirectToUrlAction` | Reported, with the target, until the [redirect action](redirect-action.md) ships |
+| `redirectToAPageAction`, `redirectToUrlAction` | Reported, with the target: the Redirect action is the module `formidable-redirect` of formidable-extended-actions, outside this repository ([redirecting after a submission](redirect-action.md)) |
 | Any other type | Reported |
 
 ### The submissions

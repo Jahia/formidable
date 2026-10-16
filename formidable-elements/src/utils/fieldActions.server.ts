@@ -30,12 +30,18 @@ export interface FieldActionsOfNode {
 }
 
 const FIELD_ACTIONS_MIXIN = "fmdbmix:fieldActions";
+/** A secret by nature (a password): its value is never sent anywhere but to the action that consumes it, the pre-check included. */
+const SENSITIVE_FIELD_MIXIN = "fmdbmix:sensitiveField";
 const FIELD_ACTION_MIXIN = "fmdbmix:fieldAction";
 const ACTIONS_LIST = "actions";
 
 export const fieldActionsOf = (node: FieldActionNodeLike): FieldActionsOfNode => {
 	if (!node.isNodeType(FIELD_ACTIONS_MIXIN) || !node.hasNode(ACTIONS_LIST)) {
 		return {hasList: false};
+	}
+	if (node.isNodeType(SENSITIVE_FIELD_MIXIN)) {
+		// the engine runs no action on it either: the list, if the editor left one, never makes the browser ask
+		return {hasList: true};
 	}
 	let trigger: FieldActionTrigger | undefined;
 	for (const action of Array.from(node.getNode(ACTIONS_LIST).getNodes())) {

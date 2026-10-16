@@ -30,6 +30,16 @@ describe('fieldActionsOf', () => {
 		expect(fieldActionsOf(nodeOf({mixins: ['fmdbmix:fieldActions']}))).toEqual({hasList: false});
 	});
 
+	it('never makes the browser ask about a sensitive field, whatever its editor holds', () => {
+		// a password's value is sent to the action that consumes it and nowhere else: not to the pre-check endpoint either
+		const password = nodeOf({
+			mixins: ['fmdbmix:fieldActions', 'fmdbmix:sensitiveField'],
+			children: {actions: nodeOf({children: {'action-0': action('blur')}})}
+		});
+
+		expect(fieldActionsOf(password)).toEqual({hasList: true});
+	});
+
 	it('sees the list but no trigger when it is empty: the zone renders, the client is not told', () => {
 		expect(fieldActionsOf(fieldWith())).toEqual({hasList: true, trigger: undefined});
 	});

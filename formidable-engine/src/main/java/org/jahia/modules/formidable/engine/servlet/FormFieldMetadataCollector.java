@@ -46,20 +46,36 @@ class FormFieldMetadataCollector {
      *
      * @param fieldActions the field actions declared under a field, by field name, in list order — only the
      *                     fields that declare at least one (docs/architecture/field-actions.md)
+     * @param sensitiveFields the names of the fields carrying {@code fmdbmix:sensitiveField}: their values go to the
+     *                     actions that consume them and nowhere else (docs/architecture/form-submission-flow.md)
      */
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
             Map<String, Set<String>> fieldParentContainers,
-            Map<String, List<ResolvedFieldAction>> fieldActions
+            Map<String, List<ResolvedFieldAction>> fieldActions,
+            Set<String> sensitiveFields
     ) {
+        Result {
+            sensitiveFields = sensitiveFields == null ? Set.of() : Set.copyOf(sensitiveFields);
+        }
+
+        /** A result without sensitive fields — the shape every test wrote before the marker existed. */
+        Result(Map<String, FormDataParser.FieldInfo> fieldInfos,
+               Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+               Map<String, String> logicIdToFieldName,
+               Map<String, Set<String>> fieldParentContainers,
+               Map<String, List<ResolvedFieldAction>> fieldActions) {
+            this(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions, Set.of());
+        }
+
         /** A result without field actions — the shape every test wrote before the field actions existed. */
         Result(Map<String, FormDataParser.FieldInfo> fieldInfos,
                Map<String, List<ConditionalLogicRule>> fieldLogicRules,
                Map<String, String> logicIdToFieldName,
                Map<String, Set<String>> fieldParentContainers) {
-            this(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, Map.of());
+            this(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, Map.of(), Set.of());
         }
 
         FormDataParser.FieldMetadata toParserMetadata() {
@@ -124,13 +140,14 @@ class FormFieldMetadataCollector {
         var logicIdToFieldName = new HashMap<String, String>();
         var fieldParentContainers = new HashMap<String, Set<String>>();
         var fieldActions = new HashMap<String, List<ResolvedFieldAction>>();
+        var sensitiveFields = new HashSet<String>();
 
-        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions, optionsResolver);
+        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions, sensitiveFields, optionsResolver);
 
         if (!formNode.hasNode(FIELDS_NODE)) {
             log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
                     FIELDS_NODE, formNode.getPath());
-            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions);
+            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions, sensitiveFields);
         }
 
         JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
@@ -143,7 +160,7 @@ class FormFieldMetadataCollector {
         }
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
-        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions);
+        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions, sensitiveFields);
     }
 
     // --- Internal ---
@@ -154,6 +171,7 @@ class FormFieldMetadataCollector {
             Map<String, String> logicIdToFieldName,
             Map<String, Set<String>> fieldParentContainers,
             Map<String, List<ResolvedFieldAction>> fieldActions,
+            Set<String> sensitiveFields,
             SourcedOptionsResolver optionsResolver
     ) {}
 
@@ -245,6 +263,10 @@ class FormFieldMetadataCollector {
         }
 
         ctx.fieldInfos.put(name, buildFieldInfo(node, nodeType, ctx.optionsResolver));
+        if (node.isNodeType(FmdbMixin.SENSITIVE_FIELD)) {
+            ctx.sensitiveFields.add(name);
+        }
+        // FieldActionCollector.read answers nothing for a sensitive field: its value never reaches a provider
         List<ResolvedFieldAction> actions = FieldActionCollector.read(node);
         if (!actions.isEmpty()) {
             ctx.fieldActions.put(name, actions);

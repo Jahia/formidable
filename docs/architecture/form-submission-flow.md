@@ -59,6 +59,9 @@ Browser
                                           conditional-logic-field-resolution.md)
          Step 11  validateRequired        post-parse: check required fields absent from the
                                           submitted body (e.g. unchecked checkbox/radio)
+         Step 11a separateSensitiveValues the values of the fields carrying fmdbmix:sensitiveField (a password) are
+                                          set apart: only an action declaring consumesSensitiveValues() receives
+                                          them; the actions, enrichers and field actions read the public map
          Step 11b runFieldActions         the BLOCKING field actions of the answered, visible fields run
                                           again server-side, on every non-blank value, in list order, on
                                           the shared verdict cache;
@@ -81,9 +84,48 @@ Browser
                         - reconstructs multipart/form-data body with pre-parsed files
                         - POSTs to resolved URI
 
-       └─ { "success": true, ...entries of the response enrichers } or { "success": false, "errorCode": "FMDB-XXX" }
+       └─ { "success": true, ...entries of the response enrichers, "redirect", "userMessage" }
+          or { "success": false, "errorCode": "FMDB-XXX", "userMessage" for FMDB-018 }
   └─ show success or error message
 ```
+
+### Contextual actions: the response, a redirect, a message for the visitor
+
+A plain `FormAction` receives five arguments and returns nothing: it cannot touch the response, tell the browser
+what to do next, nor fail with anything but the opaque `FMDB-008`. A `ContextualFormAction` (engine `api` package,
+same OSGi registration: `@Component(service = FormAction.class)`) is handed one `FormActionContext` and returns a
+`FormActionResult`:
+
+| Part | What it carries |
+|---|---|
+| `FormActionContext` | the action node and the form (one system session), the request, the **response** (to set a cookie; never to write the body), the visitor's live session, the submission's `locale` and the form's `siteKey`, the public `parameters`, the `sensitiveParameters` (empty unless the action consumes them) and the files |
+| `FormActionResult` | `redirectPath` (a same-origin relative path) and/or `message` (plain text, already translated) for the browser; `FormActionResult.none()` for nothing |
+| `FormActionException.refusal(status, internalMessage, visitorMessage)` | a failure the visitor reads: error code `FMDB-018`, the text in `userMessage`, the status the action chose (400-599) |
+
+The pipeline keeps the **first redirect and the first message** in action-list order. A redirect that is not a
+same-origin path (`RedirectTargets.sameOriginPath`: one leading slash, no scheme, no backslash, no control
+character) is dropped with a warning and never reaches the browser. The servlet writes the two keys after the
+enrichers, which cannot take them (`FormSubmitServlet.RESERVED_KEYS`). The island shows the success message, fires
+`formidable:submitted`, then navigates (`window.location.assign`); see [Redirecting after a submission](redirect-action.md).
+
+### Sensitive fields
+
+A field type that is a secret by nature declares `fmdbmix:sensitiveField` as a supertype (the password field of
+`formidable-extended-inputs`). The marker is **type-level**: nothing an author ticks (the per-field flag of the
+jExperience integration stays removed, decision log 2026-10-05 and 2026-10-14). What it guarantees, enforced by the
+pipeline and not by each action's good behaviour:
+
+| Surface | What happens to a sensitive value |
+|---|---|
+| Parsing and validation (steps 8-11) | judged like any field: required, min and max length, pattern |
+| Save to JCR, e-mail notification, e-mail content, forward | never received: they are handed the public map, the value is not in it |
+| Response enrichers, hence the jExperience `jexperience` block | never received: `AcceptedSubmission.parameters()` is the public map; the type is not `fmdbmix:profileMappableField` either |
+| Field actions (step 11b and the pre-check endpoint) | none: `FieldActionCollector.read` answers no action for a sensitive field, whatever the editor holds |
+| Logs, error body | never: the parser logs reasons without values, `FormActionContext.toString()` names the fields only, the body never echoes a field |
+| A `ContextualFormAction` | only when it answers `consumesSensitiveValues() == true`, in `FormActionContext.sensitiveParameters()`; it then owns the duty of never storing, mailing, logging nor returning it |
+
+The browser is the one place the value lives besides the server: the field is a plain `<input type="password">`
+that the island resets after an accepted submission, like every field.
 
 ### Response enrichers
 
@@ -92,7 +134,7 @@ Once every action succeeded, the servlet asks the `SubmissionResponseEnricher` O
 `AcceptedSubmission` — the live form node, its site key, the locale and a snapshot of the validated
 parameters (declared, non-file fields) — and answers a map of top-level keys. An enricher never
 fails a submission: an exception is logged and its entries left out; the keys the servlet writes
-(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`, `messages`) cannot be overwritten; a rejected
+(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`, `messages`, `redirect`, `userMessage`) cannot be overwritten; a rejected
 submission is never enriched. The jExperience module contributes its `jexperience` block this way.
 See [How to enrich the submission response](../extension/how-to-enrich-the-submission-response.md).
 
