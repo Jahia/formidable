@@ -11,4 +11,5 @@ container, a field.
 
 The class hooks and variables a custom field is expected to follow are in
 [Styling a form](../styling/README.md); the [samples module](../../jahia-test-module/formidable-test-module-samples-tsx/README.md)
-shows each extension case running.
+shows each extension case running. The [Mixin catalogue](../architecture/mixin-catalogue.md)
+lists every mixin a type of yours can declare, with what each one buys.

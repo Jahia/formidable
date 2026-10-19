@@ -138,8 +138,8 @@ including field types contributed by third-party modules (see
 |---|---|---|
 | `fmdbmix:choiceField` | `choice` | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox` |
 | `fmdbmix:dateField` | `date` | `fmdb:inputDate` |
-| `fmdbmix:numberField` | `number` | — (third-party, e.g. rating/scale fields) |
-| `fmdbmix:booleanField` | `boolean` | — (third-party, e.g. switch/consent fields) |
+| `fmdbmix:numberField` | `number` | `fmdb:inputNumber`, `fmdb:inputRange` (and the extended inputs' rating and scale) |
+| `fmdbmix:booleanField` | `boolean` | — (the extended inputs' switch and consent) |
 | `fmdbmix:textField` | `text` | `fmdb:inputText`, `fmdb:textarea`, `fmdb:inputEmail` |
 
 `sourceDescriptors.ts` maps each valueKind to a default descriptor (operators,
