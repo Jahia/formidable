@@ -7,6 +7,14 @@ ships the check, and how every check calls and how much the pre-check endpoint m
 `org.jahia.modules.formidable.fieldActions.cfg`, one of the five [configuration files](configuration.md). No JCR node
 is needed; a change reaches the checks immediately.
 
+## Which checks a site offers
+
+A contributor adds a check from the field's zone in Page Builder; the zone offers the checks of the modules
+enabled on the site — jContent, the site's settings, **Modules** — and the engine ships none. On a site where no
+module providing one is enabled, the zone says so (**No field-action type is enabled on this site: ask your
+administrator to enable a module that provides one**) and offers no button: enable the module there. A module
+installed on the server but not enabled on the site offers nothing.
+
 ## The service a check calls
 
 A check that asks an external service — a mailbox check, a CRM lookup — reads where the service is and its
@@ -58,7 +66,8 @@ captcha-protected form does not re-check the captcha on the pre-check: the rate 
 
 ## Trying a check without an account
 
-The samples module (`formidable-test-module-samples-java`, installed by the test provisioning only)
+The samples module (`formidable-test-module-samples-java`, installed by the test provisioning only and enabled on
+its site)
 registers a double of each service it has a check for, at `/modules/formidable-samples/experian-stub` and
 `/modules/formidable-samples/zerobounce-stub`: the same operation, the same credential (`stub-token`), the
 same JSON, the verdict decided by the address (`ada@undeliverable.test`, `ada@invalid.test`,

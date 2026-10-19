@@ -242,9 +242,9 @@ and dashed; these variables are the intended surface for a site that wants it to
 | `--fmdb-zone-actions-warning-bg` | `#fff7ed` | Background of the "no action" warning |
 | `--fmdb-zone-actions-warning-border` | `#f59e0b` | Left border of the warning |
 | `--fmdb-zone-actions-warning-color` | `#9a3412` | Text colour of the warning |
-| `--fmdb-zone-actions-error-bg` | `#fef2f2` | Background of the captcha line while the instance has no captcha set up (the form cannot be sent) |
-| `--fmdb-zone-actions-error-border` | `#dc2626` | Border colour of that line |
-| `--fmdb-zone-actions-error-color` | `#991b1b` | Text colour of that line |
+| `--fmdb-zone-actions-error-bg` | `#fef2f2` | Background of the captcha line while the instance has no captcha set up (the form cannot be sent), and of a field zone's call-out while the site has no field-action type enabled (nothing can be added) |
+| `--fmdb-zone-actions-error-border` | `#dc2626` | Border colour of that line, left border of that call-out |
+| `--fmdb-zone-actions-error-color` | `#991b1b` | Text colour of both |
 | `--fmdb-zone-field-actions-margin` | `0.5rem 0 0 1.25rem` | Margin of a field's zone, inset under the field |
 | `--fmdb-zone-field-actions-padding` | `0.5rem 0.625rem` | Inner spacing of a field's zone (the form's zone keeps `--fmdb-zone-actions-padding`) |
 | `--fmdb-zone-hidden-field-padding` | `0.375rem 0.625rem` | Inner spacing of a hidden field's line in edit mode, which otherwise takes the zone's border, background, colours and font ([Class hooks](class-hooks.md#hidden-field-edit-mode)) |

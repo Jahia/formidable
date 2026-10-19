@@ -12,6 +12,12 @@ export interface AuthoringActionsZoneProps {
 	hint: string;
 	/** The call-out drawn when the list is empty. */
 	empty: string;
+	/**
+	 * The call-out drawn, in the colours of a fault, when nothing can be added to the list — the field zone's,
+	 * on a site where no module enabled provides a field-action type. It takes the create button's place, since
+	 * the chooser would open on nothing, and the empty call-out gives way to it: there is no "below" to add from.
+	 */
+	unavailable?: string;
 	/** The list's own type icon, in the header — the one jContent shows on the list's box and in the tree. */
 	iconUrl?: string;
 	/** The actions, in execution order; each renders its own `hidden.authoring` card. */
@@ -23,9 +29,10 @@ export interface AuthoringActionsZoneProps {
  * field (ActionList and FieldActionList `hidden.authoring` views): a header with the list's icon and
  * count, the call-out of an empty list, the ordered cards — an ordered list, since the execution order
  * is the meaning and assistive technology gets it too — and the list's own create button, whose module
- * declares the accepted type to jContent. Authoring chrome, deliberately not styled like the form.
+ * declares the accepted type to jContent, or the call-out that says why there is none. Authoring chrome,
+ * deliberately not styled like the form.
  */
-export default function AuthoringActionsZone({className, heading, hint, empty, iconUrl, actionNodes}: Readonly<AuthoringActionsZoneProps>) {
+export default function AuthoringActionsZone({className, heading, hint, empty, unavailable, iconUrl, actionNodes}: Readonly<AuthoringActionsZoneProps>) {
 	const count = actionNodes.length;
 
 	return (
@@ -38,7 +45,7 @@ export default function AuthoringActionsZone({className, heading, hint, empty, i
 				<span className="fmdb-authoring-actions-hint">{hint}</span>
 			</div>
 
-			{count === 0 && (
+			{count === 0 && !unavailable && (
 				<p className="fmdb-authoring-actions-empty">
 					<AlertIcon/>
 					{empty}
@@ -55,7 +62,14 @@ export default function AuthoringActionsZone({className, heading, hint, empty, i
 				</ol>
 			)}
 
-			<AddContentButtons/>
+			{unavailable ? (
+				<p className="fmdb-authoring-actions-empty fmdb-authoring-actions-unavailable" data-fmdb-authoring-state="no-type">
+					<AlertIcon/>
+					{unavailable}
+				</p>
+			) : (
+				<AddContentButtons/>
+			)}
 		</aside>
 	);
 }

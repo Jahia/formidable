@@ -59,6 +59,7 @@
 		"heading": "Field actions · {{count}}",
 		"inOrder": "Run in this order. Not shown to visitors.",
 		"notLive": "Not shown to visitors.",
-		"empty": "No field action yet: add one below to check what visitors type in this field."
+		"empty": "No field action yet: add one below to check what visitors type in this field.",
+		"noType": "No field-action type is enabled on this site: ask your administrator to enable a module that provides one."
 	}
 }

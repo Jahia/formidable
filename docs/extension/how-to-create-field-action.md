@@ -265,11 +265,14 @@ Three rules the samples follow:
 
 ## Step 7: Let contributors add it
 
-Nothing to register. Once the module is deployed, a contributor switches **Enable field actions** on in a field's
+Nothing to register. Once the module is deployed **and enabled on the site** (jContent, the site's settings,
+**Modules** — or `enable` in a provisioning script), a contributor switches **Enable field actions** on in a field's
 editor — offered on every field whose value is text (`fmdbmix:submittableField`), third-party fields included, not
 on a file field — and adds
-the check from the field's authoring zone in the Page Builder: the chooser lists every deployed type extending
-`fmdbmix:fieldAction`, with your label, tooltip and icon.
+the check from the field's authoring zone in the Page Builder: the chooser lists every type extending
+`fmdbmix:fieldAction` that the modules enabled on the site declare, with your label, tooltip and icon. On a site
+where none does, the zone says so — no field-action type is enabled on this site — and offers no button: enabling
+your module there is what makes it appear.
 
 ## Security guidance
 
