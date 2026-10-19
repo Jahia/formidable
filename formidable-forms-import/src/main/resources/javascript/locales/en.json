@@ -25,7 +25,7 @@
 				"files": "{{count}} file(s), {{size}}",
 				"filesMissing": "{{count}} file(s) not in the export, left behind",
 				"values": "{{dropped}} value(s) dropped, {{notConverted}} kept as stored",
-				"failed": "{{count}} not written, see the import log"
+				"failed": "{{count}} not written, see the report"
 			},
 			"choice": {
 				"resultsOnly": "Results only",
@@ -39,7 +39,7 @@
 				"cancel": "Cancel",
 				"close": "Close",
 				"tryAgain": "Try again",
-				"downloadLog": "Download the import log"
+				"downloadReport": "Download the report"
 			},
 			"done": {
 				"title": "Import done",
@@ -241,7 +241,7 @@
 				}
 			},
 			"markdown": {
-				"title": "Jahia Forms import log",
+				"title": "Jahia Forms import report",
 				"site": "Site",
 				"file": "Export",
 				"date": "Date",

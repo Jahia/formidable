@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest';
 import {type ImportReport, type ImportReportForm} from './import.utils';
-import {importLog, importLogFileName} from './importLog';
+import {reportMarkdown, reportFileName} from './reportMarkdown';
 
 // a translation that shows the key and the values it was given, enough to check what reaches the sentence
 const t = (key: string, options?: Record<string, unknown>): string => {
@@ -22,7 +22,7 @@ const form = (sourceName: string, overrides: Partial<ImportReportForm> = {}): Im
     ...overrides
 });
 
-describe('importLog', () => {
+describe('reportMarkdown', () => {
     const contact = form('contact', {
         outcome: 'created',
         notes: [{code: 'form.passwordDropped', level: 'action', params: {field: 'password_0_1'}}],
@@ -34,7 +34,7 @@ describe('importLog', () => {
         files: {count: 1, bytes: 578, missing: 1},
         submissions: {found: 3, imported: 2, alreadyImported: 0, failed: 1, toImport: 3},
         incidents: [
-            // read out of date order: the log lists them by date
+            // read out of date order: the report lists them by date
             {code: 'submission.passwordDropped', level: 'action', params: {field: 'Password'}, submission: 's2', created: '2024-06-02T11:30:00Z'},
             {code: 'submission.passwordDropped', level: 'action', params: {field: 'Password'}, submission: 's1', created: '2024-06-01T10:00:00Z'},
             {code: 'submission.writeFailed', level: 'action', params: {reason: 'disk full'}, submission: 's3', created: null}
@@ -47,7 +47,7 @@ describe('importLog', () => {
         nothingToImport: false, stopped: null,
         incidents: [{code: 'submission.noForm', level: 'action', params: {form: 'old-survey'}, submission: 's9', created: '2024-01-01T00:00:00Z'}]} as ImportReport;
 
-    const markdown = importLog(report, {
+    const markdown = reportMarkdown(report, {
         siteKey: 'acme',
         fileName: 'formFactory.zip',
         language: 'en',
@@ -68,7 +68,7 @@ describe('importLog', () => {
         expect(markdown).toContain('- formResults.import.markdown.done');
         expect(markdown).toContain('formResults.import.markdown.totals(imported=5,failed=1)');
         expect(markdown).toContain('- formResults.import.report.failed(count=1)');
-        // a form left out of the import has nothing to log
+        // a form left out of the import has no section in the report
         expect(markdown).not.toContain('## SKIPPED');
     });
 
@@ -88,7 +88,7 @@ describe('importLog', () => {
     });
 
     it('says why an import stopped before its end', () => {
-        const stopped = importLog({...report, stopped: '100 submissions could not be written'}, {
+        const stopped = reportMarkdown({...report, stopped: '100 submissions could not be written'}, {
             siteKey: 'acme', fileName: 'f.zip', language: 'en', date: new Date(), t, outcomeOf: () => '', notesApply: () => false
         });
         expect(stopped).toContain('- formResults.import.markdown.stopped(reason=100 submissions could not be written)');
@@ -115,8 +115,8 @@ describe('importLog', () => {
     });
 });
 
-describe('importLogFileName', () => {
+describe('reportFileName', () => {
     it('names the file after the site and the minute, in UTC', () => {
-        expect(importLogFileName('acme', new Date('2026-10-13T14:51:30Z'))).toEqual('forms-import-log-acme-2026-10-13-1451.md');
+        expect(reportFileName('acme', new Date('2026-10-13T14:51:30Z'))).toEqual('forms-import-report-acme-2026-10-13-1451.md');
     });
 });
