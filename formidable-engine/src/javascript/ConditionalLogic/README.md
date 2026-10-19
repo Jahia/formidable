@@ -232,6 +232,10 @@ Notes:
   Rules stored before it existed have no `valueKind` and keep date semantics.
 - `logicId` is used to bind the JSON rule to its `logicsSrc/<logicId>` child node.
 
+The field-by-field reference — every key, who writes it, what each evaluator does when it is absent, which
+operators take `value`, `values` or nothing — is
+[docs/architecture/conditional-logic-field-resolution.md](../../../../docs/architecture/conditional-logic-field-resolution.md#the-fields-of-a-rule).
+
 ## Repository-side synchronization
 
 The editor JSON is not the only persisted representation.
