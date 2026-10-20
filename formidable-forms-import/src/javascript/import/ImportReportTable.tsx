@@ -120,7 +120,8 @@ export const ReportTable = ({report, language, t, choices = {}, onChoice, onChoi
     );
 };
 
-interface FormRowProps extends ReportTableProps {
+/** A row takes the choice of its own form; the choices for all forms are the table's. */
+interface FormRowProps extends Omit<ReportTableProps, 'onChoices'> {
     form: ImportReportForm;
 }
 

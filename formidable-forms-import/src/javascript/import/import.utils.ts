@@ -83,9 +83,11 @@ export function choiceForAllOf(report: ImportReport, choices: Record<string, Imp
     if (agreeing.length === 0) {
         return null;
     }
-    const common = agreeing.reduce((kept, values) => kept.filter(value => values.includes(value)));
+    const common = agreeing.reduce((kept, values) => kept.filter(value => values.includes(value)), FOR_ALL_VALUES);
     return common.includes('import') ? 'import' : common[0] ?? null;
 }
+
+const FOR_ALL_VALUES: ChoiceForAll[] = ['import', 'create', 'skip'];
 
 /** The choices for all a choice of one form agrees with; an attachment agrees with none. */
 const FOR_ALL_OF_KIND: Record<ImportChoiceKind, ChoiceForAll[]> = {resultsOnly: ['import'], create: ['create'], attach: [], skip: ['skip']};
