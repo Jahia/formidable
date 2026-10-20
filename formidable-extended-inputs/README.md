@@ -11,6 +11,7 @@ and serves as a real-world validation of it.
 
 | Type                         | Description                                                                                              | Submitted value        |
 | ---------------------------- | -------------------------------------------------------------------------------------------------------- | ---------------------- |
+| `fmdbext:card`               | Single choice shown as a grid of clickable cards; options as on the radio (manual, source, categories, contents) | the picked option's value |
 | `fmdbext:rating`             | Icon rating (stars / hearts / thumbs / number chips), configurable max (2–10), optional end labels       | number `1..max`        |
 | `fmdbext:scale`              | Linear scale as number chips, configurable min/max/step, optional end labels                             | number                 |
 | `fmdbext:scale` (view `nps`) | Standard Net Promoter Score presentation — forces 0–10, translated default end labels                    | number `0..10`         |
@@ -27,6 +28,20 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
 - **NPS**: implemented as a _view_ on the scale type, not a separate type.
 - **Switch**: value is boolean; in `toggle` mode unchecked submits nothing (standard checkbox semantics) — use `buttons` mode when an explicit `false` answer is required.
 - **Consent**: stored value is simply `true`; consent metadata (timestamp/version) is out of scope. The linked terms target **must be guest-readable**.
+
+## Card field (issue [#421](https://github.com/Jahia/formidable/issues/421))
+
+- **Same mixins as `fmdb:radio`**, `fmdbmix:choiceField` among them: the options editor and every options mode, the
+  server-side check of the submitted value, conditional logic and the profile mapping work with no code of their own.
+- **A card shows its option's label only.** An option holds a value, a label and a default selection; a description
+  or an image would need a change to the options model and to its editor.
+- **Native radios, the label drawn as the card**: the keyboard, the validation messages and the jExperience read-only
+  lock (which takes the pointer off radios and labels) work as on the radio group.
+- **The options helpers are copies** of `formidable-elements`' own (`src/utils/`, `src/design/OptionsSourceError.tsx`):
+  this module reaches `formidable-elements` through `@jahia/formidable-library` only, which does not publish them.
+  A change to the resolution of the options lands in both copies.
+- **`data-fmdb-advance-on-change`** on the group says one answer is enough: a form showing one field at a time
+  ([#423](https://github.com/Jahia/formidable/issues/423)) may move on once a card is picked. Nothing reads it yet.
 
 ## Known limitations
 

@@ -15,5 +15,9 @@
   "fmdbext_consent": {
     "defaultTermsLinkLabel": "Lire les conditions complètes",
     "termsTargetUnresolved": "Consentement : la cible des conditions ne peut pas être résolue (non publiée ou non visible des visiteurs) ; le lien ne sera pas affiché."
+  },
+  "fmdbext_choiceField": {
+    "sourceUnavailable": "Les options de ce champ sont momentanément indisponibles.",
+    "sourceUnavailableRequired": "Les options de ce champ obligatoire sont momentanément indisponibles. Le formulaire ne peut pas être envoyé, veuillez réessayer plus tard."
   }
 }

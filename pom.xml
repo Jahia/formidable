@@ -92,9 +92,9 @@
              Sonar's copy of the jsx-a11y rule does not know the allowance. Declared here rather than
              dismissed in the dashboard, so that it is read in a review and holds for the next view that
              renders a group of radios. It has to be the root pom: an issue exclusion is a project-level
-             analysis property, and the same lines in a module's pom are read by nothing. The four views:
-             fmdb:radio, and fmdbext:switch in its buttons mode, fmdbext:rating, fmdbext:scale. -->
-        <sonar.issue.ignore.multicriteria>radiogroupRadio,radiogroupSwitch,radiogroupRating,radiogroupScale</sonar.issue.ignore.multicriteria>
+             analysis property, and the same lines in a module's pom are read by nothing. The five views:
+             fmdb:radio, and fmdbext:switch in its buttons mode, fmdbext:rating, fmdbext:scale, fmdbext:card. -->
+        <sonar.issue.ignore.multicriteria>radiogroupRadio,radiogroupSwitch,radiogroupRating,radiogroupScale,radiogroupCard</sonar.issue.ignore.multicriteria>
         <sonar.issue.ignore.multicriteria.radiogroupRadio.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupRadio.ruleKey>
         <sonar.issue.ignore.multicriteria.radiogroupRadio.resourceKey>**/Input/Radio/default.server.tsx</sonar.issue.ignore.multicriteria.radiogroupRadio.resourceKey>
         <sonar.issue.ignore.multicriteria.radiogroupSwitch.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupSwitch.ruleKey>
@@ -103,13 +103,19 @@
         <sonar.issue.ignore.multicriteria.radiogroupRating.resourceKey>**/Input/Rating/default.server.tsx</sonar.issue.ignore.multicriteria.radiogroupRating.resourceKey>
         <sonar.issue.ignore.multicriteria.radiogroupScale.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupScale.ruleKey>
         <sonar.issue.ignore.multicriteria.radiogroupScale.resourceKey>**/Input/Scale/ScaleField.tsx</sonar.issue.ignore.multicriteria.radiogroupScale.resourceKey>
+        <sonar.issue.ignore.multicriteria.radiogroupCard.ruleKey>typescript:S6842</sonar.issue.ignore.multicriteria.radiogroupCard.ruleKey>
+        <sonar.issue.ignore.multicriteria.radiogroupCard.resourceKey>**/Input/Card/default.server.tsx</sonar.issue.ignore.multicriteria.radiogroupCard.resourceKey>
         <!-- The two sample mailbox checks (Experian, ZeroBounce) are twins on purpose: each carries its own
              @ObjectClassDefinition, because the metatype of a component is generated from a definition in
              the component's own bundle and the configuration manager tells the two apart by its name — the
              wording they share is already factored in SampleEndpointSettings. A project copies ONE of them, so
              the repetition is the sample's point, not debt to pay down. Excluded from duplication detection
              here rather than dismissed in the dashboard, for the same reasons as the S6842 block above. -->
-        <sonar.cpd.exclusions>**/samples/actions/field/ExperianEmailFieldAction.java,**/samples/actions/field/ZeroBounceEmailFieldAction.java</sonar.cpd.exclusions>
+        <!-- The options helpers of formidable-extended-inputs are copies of formidable-elements' own, on purpose:
+             the extended inputs reach formidable-elements through @jahia/formidable-library only, and the library
+             does not publish the options helpers. Both copies match these patterns (an exclusion reads paths relative to
+             each Maven module), so neither is reported against the other. -->
+        <sonar.cpd.exclusions>**/samples/actions/field/ExperianEmailFieldAction.java,**/samples/actions/field/ZeroBounceEmailFieldAction.java,**/src/utils/choiceUtils.ts,**/src/utils/optionsSource.server.ts,**/src/design/OptionsSourceError.tsx</sonar.cpd.exclusions>
     </properties>
 
     <repositories>

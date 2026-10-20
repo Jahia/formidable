@@ -5,7 +5,7 @@
 
 ## Project Overview
 
-**Formidable** is Jahia's form management solution (replacement for Jahia Forms). It enables form creation with multi-step support, fieldsets, 14 core field types (plus 4 optional ones in formidable-extended-inputs), conditional logic, CAPTCHA, and a pluggable action pipeline (save to JCR, email, forward to endpoint).
+**Formidable** is Jahia's form management solution (replacement for Jahia Forms). It enables form creation with multi-step support, fieldsets, 14 core field types (plus 5 optional ones in formidable-extended-inputs), conditional logic, CAPTCHA, and a pluggable action pipeline (save to JCR, email, forward to endpoint).
 
 ### Monorepo Structure
 
@@ -15,7 +15,7 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 |---|---|---|
 | `formidable-elements/` | Front-end — form rendering (React 19 SSR + client hydration via Islands) | Vite, `@jahia/vite-plugin`, TypeScript |
 | `formidable-engine/` | Java/OSGi action pipeline + editor extensions (custom selectors, form results panel) | Maven bundle, `@jahia/vite-federation-plugin` (Module Federation, React 18) |
-| `formidable-extended-inputs/` | Optional field types (consent, switch, rating, scale) | Vite, TypeScript |
+| `formidable-extended-inputs/` | Optional field types (card, consent, switch, rating, scale) | Vite, TypeScript |
 | `formidable-jexperience-engine/` | jExperience integration: the profile mapping of fields (editor section fed by jCustomer's profile properties), the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; later the prefill — see `docs/architecture/jexperience-integration.md` | Maven bundle, depends on `formidable-engine` and `jexperience` |
 | `formidable-forms-import/` | The import of the forms and results of Jahia Forms (Java + a jContent app): the Import button and dialog of the Results page, the dry run and import jobs, the converters of the export; compiles against the engine's api only | Maven bundle, `@jahia/vite-federation-plugin` |
 | `packages/formidable/` | The npm package `@jahia/formidable-library`: the rendering contract (help text, validation attributes, input mask) every view is built on. Consumed as `workspace:*` inside the monorepo (a plain version range would still resolve to the workspace), published to npm by the release workflow | TypeScript (tsc, nodenext), vitest |

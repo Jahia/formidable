@@ -339,6 +339,16 @@ default chip colour is the star colour, the others' the focus blue.
 | `--fmdbext-chip-on-fg` | `#fff` | Text colour of a selected chip |
 | `--fmdbext-chip-min-width` | `2.25rem` | Minimum width of a scale chip |
 | `--fmdbext-focus` | `#4c9aff` | Focus outline of every item |
+| `--fmdbext-card-min-width` | `10rem` | Minimum width of a card; the grid fits as many as the row holds |
+| `--fmdbext-card-min-height` | `4rem` | Minimum height of a card |
+| `--fmdbext-card-gap` | `0.75rem` | Gap between cards |
+| `--fmdbext-card-padding` | `1rem` | Padding of a card |
+| `--fmdbext-card-radius` | `8px` | Corner radius of a card |
+| `--fmdbext-card-bg` | `#fff` | Background of a card |
+| `--fmdbext-card-fg` | `inherit` | Text colour of a card |
+| `--fmdbext-card-border` | `#c7c7c7` | Border of a card |
+| `--fmdbext-card-on-bg` | `#4c9aff` | Background and border of the selected card, and border of a hovered one |
+| `--fmdbext-card-on-fg` | `#fff` | Text colour of the selected card |
 | `--fmdbext-rating-on` | `#f5a623` | Colour of a selected (and lower) rating icon |
 | `--fmdbext-rating-off` | `#c7c7c7` | Colour of an unselected rating icon |
 | `--fmdbext-rating-size` | `1.75rem` | Size of a rating icon |

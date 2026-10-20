@@ -2,6 +2,7 @@ import gql from 'graphql-tag';
 import {CONTENT_PATH} from '../../support/constants';
 import {
 	createFormNode,
+	getCardNode,
 	getFieldsetNode,
 	getCheckboxNode,
 	getConsentNode,
@@ -220,6 +221,11 @@ const LAYOUTS: Record<string, Layout> = {
 			['validationMessages', ['msgValueMissing']]
 		]
 	},
+	// A choice field from the optional module: laid out as the radio.
+	'fmdbext:card': {
+		content: ['required', 'optionsMode'],
+		settings: [['helpAndPresentation', ['helpText']], ['validationMessages', ['msgValueMissing']]]
+	},
 	'fmdbext:switch': {
 		settings: [
 			['helpAndPresentation', ['helpText', 'displayMode', 'onLabel', 'offLabel']],
@@ -283,7 +289,8 @@ describe('Form fields - 225 The field editor layout', () => {
 			getConsentNode({name: 'terms', title: 'Terms', statement: 'I agree to the terms.'}),
 			getRatingNode({name: 'stars', title: 'Stars'}),
 			getScaleNode({name: 'nps', title: 'Recommendation'}),
-			getSwitchNode({name: 'newsletter', title: 'Newsletter'})
+			getSwitchNode({name: 'newsletter', title: 'Newsletter'}),
+			getCardNode({name: 'reason', title: 'Reason', choices: [{value: 'sales', label: 'Sales'}]})
 		]);
 	});
 
@@ -418,5 +425,6 @@ describe('Form fields - 225 The field editor layout', () => {
 		assertLayout('stars', 'fmdbext:rating');
 		assertLayout('nps', 'fmdbext:scale');
 		assertLayout('newsletter', 'fmdbext:switch');
+		assertLayout('reason', 'fmdbext:card');
 	});
 });

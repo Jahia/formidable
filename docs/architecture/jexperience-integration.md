@@ -232,8 +232,8 @@ a listener that puts the prefilled state back on every change and says the chang
 visitor's transient state — while the base stylesheet tones the field down and takes the pointer off those
 controls (`prefill.css`, two variables). `aria-readonly` goes where the role supports it: the checkbox and
 the select, and for radios the group — the `radiogroup`, since a bare `fieldset` is a `group`, which carries
-it no better than a `radio` does. The four views that render same-named radios mark it (`fmdb:radio`, and
-`fmdbext:switch` in its buttons mode, `fmdbext:rating`, `fmdbext:scale`); the script looks for
+it no better than a `radio` does. The five views that render same-named radios mark it (`fmdb:radio`, and
+`fmdbext:switch` in its buttons mode, `fmdbext:rating`, `fmdbext:scale`, `fmdbext:card`); the script looks for
 `[role="radiogroup"]` and falls back to the field's own `[data-fmdb-node-name]` wrapper, which every shape
 has — a one-choice radio has no fieldset at all, and climbing to the nearest one would mark an author's
 fieldset of unrelated fields. That fallback is a **placement, not an announcement**: the wrapper carries no
