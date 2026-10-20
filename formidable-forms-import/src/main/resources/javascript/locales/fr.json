@@ -131,7 +131,6 @@
 					"createdAsText": "Créé comme champ texte : Formidable n’a pas d’équivalent de {{source}}",
 					"logic": "Sa logique conditionnelle n’est pas reprise : reconstruisez-la",
 					"matrixRow": "Une ligne de la {{kind}}, dans un groupe de champs présenté en matrice : les colonnes sont ses options",
-					"matrixHelpText": "L’aide de la {{kind}} n’est pas reprise : un groupe de champs n’en a pas, ajoutez-la comme bloc de contenu",
 					"prefillOther": "Son préremplissage ({{prefill}}) n’est pas repris : liez plutôt le champ au profil visiteur",
 					"prefillAlreadyMapped": "Son second préremplissage, depuis {{property}}, n’est pas repris : un champ n’a qu’un lien au profil visiteur",
 					"prefillNoIntegration": "Non lié à la propriété {{property}} du profil visiteur : l’intégration jExperience n’est pas installée",

@@ -334,8 +334,8 @@ the value, so that the answers match — and the required rule of the matrix on 
 remembers the matrix and its row as its source, `<uuid of the matrix>.<row key>` in `sourceId` and
 `<name of the matrix>.<row key>` in `sourceName` (the name Forms itself gives the inputs of a row), which
 is what ties the answers of the row to the field, on the run that creates the form and on the runs that
-find it. The rows are reported as carried over, one note naming them all; the help text of the matrix,
-which a fieldset cannot hold, is reported to review. A matrix without a visible row or without a column
+find it. The help text of the matrix becomes the `helpText` of the fieldset, under its legend. The rows are
+reported as carried over, one note naming them all. A matrix without a visible row or without a column
 falls back on the text area of the table, reported as before.
 
 A matrix inside a Forms fieldset splits it: `fmdb:fieldset` accepts fields and content, not a fieldset, so

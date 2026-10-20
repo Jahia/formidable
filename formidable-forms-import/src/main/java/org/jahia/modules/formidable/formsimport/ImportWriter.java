@@ -240,6 +240,7 @@ public class ImportWriter {
                 node.addMixin(RENDERABLE_MIXIN);
                 node.setProperty(VIEW, container.view());
             }
+            container.i18nProperties().forEach((key, byLanguage) -> i18nQuietly(node, key, byLanguage));
             for (ImportedElement child : container.children()) {
                 writeElement(node, child);
             }

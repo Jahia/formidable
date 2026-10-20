@@ -718,11 +718,13 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 			expect(valueNames(submission)).to.not.include(MATRIX.radios.name);
 		});
 
-		// rendered, the fieldset is a matrix: the heading row and one grid row per question (the form is unpublished: preview)
+		// rendered, the fieldset is a matrix: the heading row and one grid row per question (the form is unpublished: preview),
+		// and the help text of the Forms matrix is the fieldset's, under its legend
 		cy.request(`/cms/render/default/en${IMPORTED_FORMS_PATH}/${MATRIX.form}.html.ajax`).then(response => {
 			expect(response.status).to.equal(200);
 			expect(response.body).to.contain('fmdb-fieldset fmdb-matrix').and.to.contain('--fmdb-matrix-columns:3').and.to.contain('fmdb-matrix-column">Fair<');
 			expect(response.body).to.contain('name="the-price"').and.to.contain('name="delivery"');
+			expect(response.body).to.match(/<\/legend><div id="help-[^"]*" class="fmdb-form-help">One answer per line<\/div><div class="fmdb-matrix-header"/);
 		});
 		deleteNode(`${IMPORTED_FORMS_PATH}/${MATRIX.form}`);
 		deleteNode(`${RESULTS_ROOT_PATH}/${MATRIX.form}`, 'LIVE');

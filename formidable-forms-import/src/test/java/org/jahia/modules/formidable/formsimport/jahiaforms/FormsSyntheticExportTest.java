@@ -229,9 +229,10 @@ class FormsSyntheticExportTest {
         ImportedField delivery = extras.fields().findFirst().orElseThrow();
         assertEquals(FormsFieldTypes.CHECKBOX, delivery.nodeType());
         assertEquals(List.of(FormsChoices.option("fast", "Fast"), FormsChoices.option("cheap", "Cheap")), delivery.options().get("en"));
-        // the help text of the matrix has no fieldset to land on: said once, to review
-        assertEquals(List.of("field.matrixRow", "field.matrixHelpText"), delivery.report().stream().map(ImportNote::code).toList());
-        assertEquals(ImportNote.Level.ACTION, delivery.report().get(1).level());
+        assertEquals(List.of("field.matrixRow"), delivery.report().stream().map(ImportNote::code).toList());
+        // the help text of the matrix is the fieldset's; a matrix without one leaves the fieldset without
+        assertEquals(Map.of("helpText", Map.of("en", "Tick all that apply")), extras.i18nProperties());
+        assertEquals(Map.of(), satisfaction.i18nProperties());
     }
 
     @Test

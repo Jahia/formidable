@@ -270,9 +270,10 @@ public final class FormsFormConverter {
 
     /**
      * A radios or checkboxes matrix as a fieldset rendered with the Matrix view, one radio or checkbox field
-     * per row, the columns as the options of every row (docs/architecture/forms-import.md, "A matrix"). Each
-     * row field remembers the matrix and its row key as its source, which ties the answers of the row to it.
-     * Empty when the matrix has no visible row or no column, which leaves it to the text area fallback.
+     * per row, the columns as the options of every row, the help text of the matrix on the fieldset
+     * (docs/architecture/forms-import.md, "A matrix"). Each row field remembers the matrix and its row key as
+     * its source, which ties the answers of the row to it. Empty when the matrix has no visible row or no
+     * column, which leaves it to the text area fallback.
      */
     private Optional<ImportedContainer> matrixOf(FormsField definition, FormsResults results, String buildingLang, SystemNames names) {
         Map<String, List<FormsChoices.Choice>> rows = FormsChoices.choices(valuesOf(definition.option(FormsOptionNames.ROWS)));
@@ -286,7 +287,6 @@ public final class FormsFormConverter {
         Map<String, List<String>> options = new LinkedHashMap<>();
         columns.forEach((language, choices) -> options.put(language,
                 choices.stream().map(choice -> FormsChoices.option(choice.key(), choice.label())).toList()));
-        FormsOption helpText = definition.option(FormsOptionNames.HELP_TEXT);
         List<ImportedElement> fields = new ArrayList<>();
         for (FormsChoices.Choice question : questions) {
             Map<String, String> rowTitles = rowTitles(rows, question);
@@ -301,14 +301,13 @@ public final class FormsFormConverter {
             if (definition.hasLogic()) {
                 field.report(ImportNote.action("field.logic"));
             }
-            if (fields.isEmpty() && helpText != null && !helpText.isBlank()) {
-                // a fieldset holds no help text: said once, on the first row
-                field.report(ImportNote.action("field.matrixHelpText", "kind", definition.kind()));
-            }
             fields.add(field.build());
         }
+        // the help text of the matrix is the fieldset's, under its legend
+        Map<String, String> helpText = valuesOf(definition.option(FormsOptionNames.HELP_TEXT));
         return Optional.of(new ImportedContainer(names.of(titles.get(buildingLang), definition.name()), ImportedContainer.FIELDSET,
-                titles, fields, ImportedContainer.MATRIX_VIEW));
+                titles, fields, ImportedContainer.MATRIX_VIEW,
+                helpText.isEmpty() ? Map.of() : Map.of(FormsFieldTypes.HELP_TEXT, helpText)));
     }
 
     /** The choices in the building language, else in the first language that has any. */
