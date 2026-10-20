@@ -169,19 +169,24 @@ class FormsSyntheticExportTest {
         assertEquals(ImportNote.Level.ACTION, converted.report().get(0).level());
     }
 
+    /** The fieldsets of the form, in order: the ones split around a matrix, the matrices, the one opened inside another. */
+    private static List<ImportedContainer> fieldsetsOf(ImportedForm form) {
+        return form.elements().stream().filter(ImportedContainer.class::isInstance).map(ImportedContainer.class::cast).toList();
+    }
+
     @Test
-    void aMatrixBecomesAFieldsetOfOneFieldPerRowRenderedAsAMatrix() throws Exception {
+    void aMatrixSplitsTheFieldsetAroundItAndAFieldsetStartEndsTheOpenOne() throws Exception {
         FormsExport export = reader().readStructure();
         FormsForm source = export.forms().get("survey");
         ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, export.results().get("survey"));
 
-        // a single-step form keeps its elements at the top; a matrix never goes under a fieldset, which a fieldset
-        // cannot hold: the one around "extras" is split in two around it, the one holding "satisfaction" alone goes;
-        // a fieldset start while one is open ends it, as Forms does, so "more" stands beside "about-you", not under it
+        // a single-step form keeps its elements at the top. A matrix never goes under a fieldset, which a fieldset
+        // cannot hold: the fieldset around the checkboxes matrix is split in two around it, and the one holding the
+        // radios matrix alone is not written. A fieldset start while one is open ends it, as Forms does: the fieldset
+        // opened inside the first one stands beside its second half, not under it.
         assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "more", "satisfaction"),
                 form.elements().stream().map(ImportedElement::name).toList());
-        List<ImportedContainer> fieldsets = form.elements().stream()
-                .filter(ImportedContainer.class::isInstance).map(ImportedContainer.class::cast).toList();
+        List<ImportedContainer> fieldsets = fieldsetsOf(form);
         ImportedContainer aboutYou = fieldsets.get(0);
         ImportedContainer aboutYouAgain = fieldsets.get(2);
         assertEquals(Map.of("en", "About you"), aboutYou.titles());
@@ -191,6 +196,14 @@ class FormsSyntheticExportTest {
         assertTrue(aboutYou.view() == null && aboutYouAgain.view() == null);
         assertEquals(List.of("age"), fieldsets.get(3).children().stream().map(ImportedElement::name).toList());
         assertEquals(Map.of("en", "More"), fieldsets.get(3).titles());
+    }
+
+    @Test
+    void aMatrixBecomesAFieldsetOfOneFieldPerRowRenderedAsAMatrix() throws Exception {
+        FormsExport export = reader().readStructure();
+        FormsForm source = export.forms().get("survey");
+        ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, export.results().get("survey"));
+        List<ImportedContainer> fieldsets = fieldsetsOf(form);
 
         ImportedContainer satisfaction = fieldsets.get(4);
         assertEquals(ImportedContainer.FIELDSET, satisfaction.nodeType());
