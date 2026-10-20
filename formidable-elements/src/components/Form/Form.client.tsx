@@ -6,6 +6,7 @@ import '~/design/validation.css';
 import '~/design/logic.css';
 import '~/design/prefill.css';
 import '~/design/authoring.css';
+import '~/design/matrix.css';
 import {type FormProps} from './types';
 import Spinner from '~/design/Spinner';
 import Captcha from './Captcha.client';
