@@ -674,6 +674,8 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 	});
 
 	it('recreates a Forms matrix as a fieldset laid out as a matrix, one field per row, the answers under each row', () => {
+		// the endpoint is called with the page's fetch: a page of the site must be open, not the blank one
+		openResultsPage();
 		uploadThroughApi(MATRIX_FIXTURE).then(jobId => {
 			waitForJobState(jobId, 'review');
 			importApi('POST', `/jobs/${jobId}/import`, {choices: {[MATRIX.form]: 'create'}}).its('status').should('eq', 200);
