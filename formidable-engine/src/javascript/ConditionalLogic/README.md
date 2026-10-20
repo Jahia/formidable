@@ -229,7 +229,7 @@ Notes:
 - `valueKind` denormalizes the source's kind at authoring time so both runtime
   evaluators (browser and Java) pick the right comparison semantics — 'between'
   compares numerically for `number` and lexicographically (ISO dates) otherwise.
-  Rules stored before it existed have no `valueKind` and keep date semantics.
+  Rules stored before it existed have no `valueKind`: they compare as strings, which ISO dates do, and never resolve `today`.
 - `logicId` is used to bind the JSON rule to its `logicsSrc/<logicId>` child node.
 
 The field-by-field reference — every key, who writes it, what each evaluator does when it is absent, which
