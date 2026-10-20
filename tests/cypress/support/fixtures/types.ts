@@ -221,6 +221,8 @@ export interface TextareaData extends InputWithLength {
 
 export interface FieldsetData extends BaseFormElementData {
 	children?: JahiaNode[];
+	/** The view the fieldset renders with (`j:view`): `matrix` for the grid of groups; none for the default */
+	view?: string;
 }
 
 export interface RichTextData {
