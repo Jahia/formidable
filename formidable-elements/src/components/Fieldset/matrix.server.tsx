@@ -19,7 +19,7 @@ const ROW_TYPES = ["fmdb:radio", "fmdb:checkbox"];
  * option renders without a group), rows whose options differ, or an options source that fails.
  */
 function columnsOf(fieldset: FieldsetNode, renderContext: MatrixRenderContext): string[] | null {
-	const rows = (Array.from(fieldset.getNodes()) as FieldsetNode[]).filter(node => !node.isNodeType("fmdb:logicList"));
+	const rows = Array.from(fieldset.getNodes()).filter(node => !node.isNodeType("fmdb:logicList"));
 	if (rows.length === 0) {
 		return null;
 	}

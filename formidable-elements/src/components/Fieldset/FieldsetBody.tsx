@@ -20,7 +20,7 @@ interface FieldsetBodyProps {
  * elements through the hidden.logic pass of the container (docs/styling/README.md, "What the
  * markup looks like"). A view adds its hooks around that shared body.
  */
-export default function FieldsetBody({title, currentNode, showLogicHidden, className, style, header}: FieldsetBodyProps) {
+export default function FieldsetBody({title, currentNode, showLogicHidden, className, style, header}: Readonly<FieldsetBodyProps>) {
 	return (
 		<fieldset className={className ? `fmdb-fieldset ${className}` : "fmdb-fieldset"} style={style}>
 			{/* Fieldset title from mix:title */}
