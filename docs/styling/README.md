@@ -55,8 +55,9 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │     │                                              one per element; .fmdb-logic-target when a rule drives it;
 │  │     │                                              [data-fmdb-field-action] and .fmdb-field-action-pending while a check runs, for a field with actions
 │  │     ├─ div.fmdb-content.fmdb-content-text          a rich-text block among the fields
-│  │     ├─ fieldset.fmdb-fieldset (.fmdb-matrix [style=--fmdb-matrix-columns] with the Matrix view)
+│  │     ├─ fieldset.fmdb-fieldset (.fmdb-matrix [style=--fmdb-matrix-columns] with the Matrix view) [aria-describedby → its help]
 │  │     │  ├─ legend.fmdb-fieldset-legend
+│  │     │  ├─ div.fmdb-form-help                       the fieldset's own help text, when it has one
 │  │     │  ├─ div.fmdb-matrix-header [aria-hidden]     Matrix view only: the heading row
 │  │     │  │  ├─ span.fmdb-matrix-corner
 │  │     │  │  └─ span.fmdb-matrix-column               one per option
@@ -99,7 +100,7 @@ matrix imported into Formidable lands in such a fieldset.
 
 The markup stays the one of the default view, with three additions: the class `fmdb-matrix`
 and `--fmdb-matrix-columns` on the fieldset, and the heading row `fmdb-matrix-header`, which
-is `aria-hidden`: every input keeps its own label and its group, so a screen reader meets the
+is `aria-hidden` and comes after the fieldset's own help text when it has one: every input keeps its own label and its group, so a screen reader meets the
 question and the option as it does anywhere else, and the heading row is for the eye. Everything
 else is the stylesheet (`matrix.css`): each group becomes a grid, its legend floated to leave the
 role of rendered legend and take the first cell, the option labels clipped out of sight, the

@@ -169,4 +169,23 @@ export class Fieldset extends BaseComponent {
 		this.getLegend().should('contain', text);
 		return this;
 	}
+
+	/** The help text of the fieldset itself, under its legend: the first help block, not one of its fields' */
+	getHelpText(): Cypress.Chainable {
+		return this.get().children('.fmdb-form-help');
+	}
+
+	shouldHaveHelpText(text: string): this {
+		this.getHelpText().should('be.visible').and('have.text', text);
+		// The fieldset must reference the help block for screen readers
+		this.getHelpText().invoke('attr', 'id').then(helpId => {
+			this.get().invoke('attr', 'aria-describedby').should('contain', helpId);
+		});
+		return this;
+	}
+
+	shouldNotHaveHelpText(): this {
+		this.getHelpText().should('not.exist');
+		return this;
+	}
 }
