@@ -22,6 +22,7 @@ import {
     proposeMapping,
     refuseFile,
     requestChoices,
+    withFoundForms,
     type TargetField,
     typeKey,
     unmatchedValues
@@ -104,6 +105,12 @@ describe('plannedImport', () => {
         expect(choicesReady({contact: 'skip', news: 'skip'}, report)).toBe(false);
         expect(choicesReady({news: 'resultsOnly'}, report)).toBe(true);
         expect(kindOf('skip')).toEqual('skip');
+    });
+
+    it('sends a found form with nothing new as taking its results, so that the import keeps it found', () => {
+        expect(withFoundForms({}, report)).toEqual({old: 'resultsOnly'});
+        expect(withFoundForms({contact: 'create', old: 'skip'}, report)).toEqual({contact: 'create', old: 'skip'});
+        expect(withFoundForms({news: 'resultsOnly'}, undefined)).toEqual({news: 'resultsOnly'});
     });
 
     it('chooses for all the forms at once, a found form taking its new submissions whether importing or creating', () => {

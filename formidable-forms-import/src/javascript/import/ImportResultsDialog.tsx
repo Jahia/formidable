@@ -141,7 +141,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         }
         setErrorMessage('');
         try {
-            const started = await startImport(siteKey, job.id, choices);
+            const started = await startImport(siteKey, job.id, choices, job.report ?? undefined);
             setJob(started);
             setState(stateOf(started));
         } catch (error) {

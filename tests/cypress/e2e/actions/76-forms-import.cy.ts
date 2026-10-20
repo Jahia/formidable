@@ -503,8 +503,11 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		reportForm('contact-us').should('have.attr', 'data-sel-outcome', 'found').and('contain', '"contact-us"');
 		cy.get('[data-sel-role="import-choice"]').should('have.length', 1);
 		cy.get('[data-sel-role="import-choice-all"]').should('not.exist');
+		// a form found with nothing new stays found, in the review and once imported: it is not left out
+		reportForm('newsletterregistration').should('have.attr', 'data-sel-outcome', 'found').and('contain', 'nothing new');
 		cy.get('[data-sel-role="import-confirm"]').click();
 		dialogState('done');
+		reportForm('newsletterregistration').should('have.attr', 'data-sel-outcome', 'found').and('contain', 'Joined');
 		closeDialog();
 
 		countSubmissions(`${RESULTS_ROOT_PATH}/contact-us`).should('eq', SAMPLE.submissions['contact-us']);

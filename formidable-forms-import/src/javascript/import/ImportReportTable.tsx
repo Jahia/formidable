@@ -130,13 +130,16 @@ const DEFAULT_CHOICE: ImportChoiceKind = 'skip';
 
 const OUTCOME_OF_CHOICE = {resultsOnly: 'resultsOnly', create: 'created', attach: 'attached', skip: 'skipped'} as const;
 
-/** What the import will do for a form: the choice of the review while it can still change, else the outcome the server reports. */
+/**
+ * What the import will do for a form: the choice of the review while it can still change, else the outcome the
+ * server reports. A form found with nothing new has no choice to make and stays found: it is not left out.
+ */
 function outcomeOf(form: ImportReportForm, kind: ImportChoiceKind, steerable: boolean): ImportReportForm['outcome'] {
     if (!steerable) {
         return form.outcome;
     }
     if (form.outcome === 'found') {
-        return kind === 'skip' ? 'skipped' : 'found';
+        return kind === 'skip' && isChoosable(form) ? 'skipped' : 'found';
     }
     return OUTCOME_OF_CHOICE[kind];
 }

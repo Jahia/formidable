@@ -644,6 +644,9 @@ Nothing is chosen at first: every row reads **Don't import**, the totals count n
 The endpoint says the same: a form the choices of `POST /jobs/<id>/import` do not name is left out, so that a
 call without choices imports nothing (the dry run, which runs before any choice, describes every form as if
 the results alone were asked, so that the review shows its fields, its notes and whether it is there). A
+form found with nothing new has no choice to make and stays **found**, in the review and in the result:
+the dialog sends it as taking its results, which adds nothing to it, so that the import never reports it
+left out. A
 **For all forms** menu above the rows, shown when at least two rows have something to choose, sets every
 one of them at once: **Import the results** (the results alone for a new form, its new submissions for a
 found one), **Create the forms** (a found form takes its new submissions) or **Don't import**. It shows the
