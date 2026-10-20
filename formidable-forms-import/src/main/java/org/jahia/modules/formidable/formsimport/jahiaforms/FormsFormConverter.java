@@ -170,10 +170,11 @@ public final class FormsFormConverter {
 
     /**
      * The elements of a step as they are laid out. The fields between a fieldset start and its end go under a
-     * fieldset, nested ones included. A matrix is a fieldset itself and cannot go under one — {@code fmdb:fieldset}
-     * accepts fields and content only — so the fieldsets open around it close before it, and open again, under
-     * new names and the same titles, for the next field they hold: the fieldset of Forms is split in two around
-     * the matrix, and a matrix at its end leaves no empty half (docs/architecture/forms-import.md, "A matrix").
+     * fieldset, one at a time: a start while one is open ends it, as Forms does ({@code Form.normalizeFieldsetsHelper}
+     * of forms-core), since {@code fmdb:fieldset} accepts fields and content only, never a fieldset. A matrix is a
+     * fieldset itself, so the fieldset open around it closes before it, and opens again, under a new name and the
+     * same title, for the next field it holds: the fieldset of Forms is split in two around the matrix, and a
+     * matrix at its end leaves no empty half (docs/architecture/forms-import.md, "A matrix").
      */
     private static final class StepLayout {
         private final SystemNames names;
@@ -190,6 +191,9 @@ public final class FormsFormConverter {
 
         void openFieldset(FormsField definition) {
             reopen();
+            while (!open.isEmpty()) {
+                closeFieldset();
+            }
             Map<String, String> titles = FormsLabels.titles(definition, null, definition.name());
             open.push(new Fieldset(names.of(titles.get(buildingLang), definition.name()), titles));
         }

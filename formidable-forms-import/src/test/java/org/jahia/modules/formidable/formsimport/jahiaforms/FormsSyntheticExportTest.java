@@ -84,6 +84,9 @@ class FormsSyntheticExportTest {
             + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + EXTRAS_COLUMNS + "\"/></columns>\n"
             + "        </extras>\n"
             + "        <city jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"c0000000-0000-0000-0000-000000000007\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"City\"/></city>\n"
+            // a fieldset start while one is open: Forms ends the open one there, it never nests them
+            + "        <more jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"More\"/></more>\n"
+            + "        <age jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"a0000000-0000-0000-0000-000000000008\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Age\"/></age>\n"
             + "        <about-you-end jcr:primaryType=\"fcnt:fieldsetEndDefinition\"/>\n"
             // a Forms fieldset holding a matrix alone
             + "        <your-opinion jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Your opinion\"/></your-opinion>\n"
@@ -151,7 +154,7 @@ class FormsSyntheticExportTest {
         FormsForm source = export.forms().get("survey");
         FormsResults results = export.results().get("survey");
         ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, results);
-        assertEquals(List.of("your-e-mail", "colours", "nickname", "delivery", "city", "the-price", "the-service"),
+        assertEquals(List.of("your-e-mail", "colours", "nickname", "delivery", "city", "age", "the-price", "the-service"),
                 form.fields().map(ImportedField::name).toList());
         List<FormsSubmission> submissions = new ArrayList<>();
         reader().readSubmissions(submissions::add);
@@ -173,8 +176,9 @@ class FormsSyntheticExportTest {
         ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, export.results().get("survey"));
 
         // a single-step form keeps its elements at the top; a matrix never goes under a fieldset, which a fieldset
-        // cannot hold: the one around "extras" is split in two around it, the one holding "satisfaction" alone goes
-        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "satisfaction"),
+        // cannot hold: the one around "extras" is split in two around it, the one holding "satisfaction" alone goes;
+        // a fieldset start while one is open ends it, as Forms does, so "more" stands beside "about-you", not under it
+        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "more", "satisfaction"),
                 form.elements().stream().map(ImportedElement::name).toList());
         List<ImportedContainer> fieldsets = form.elements().stream()
                 .filter(ImportedContainer.class::isInstance).map(ImportedContainer.class::cast).toList();
@@ -185,8 +189,10 @@ class FormsSyntheticExportTest {
         assertEquals(List.of("nickname"), aboutYou.children().stream().map(ImportedElement::name).toList());
         assertEquals(List.of("city"), aboutYouAgain.children().stream().map(ImportedElement::name).toList());
         assertTrue(aboutYou.view() == null && aboutYouAgain.view() == null);
+        assertEquals(List.of("age"), fieldsets.get(3).children().stream().map(ImportedElement::name).toList());
+        assertEquals(Map.of("en", "More"), fieldsets.get(3).titles());
 
-        ImportedContainer satisfaction = fieldsets.get(3);
+        ImportedContainer satisfaction = fieldsets.get(4);
         assertEquals(ImportedContainer.FIELDSET, satisfaction.nodeType());
         assertEquals(ImportedContainer.MATRIX_VIEW, satisfaction.view());
         assertEquals(Map.of("en", "Satisfaction"), satisfaction.titles());

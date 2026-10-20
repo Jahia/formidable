@@ -255,7 +255,7 @@ Each `fcnt:form` of the export becomes one `fmdb:form`:
 | `afterSubmissionText` | `submissionMessage` |
 | One `fcnt:step` | The fields directly under `fields` |
 | Several `fcnt:step` | One `fmdb:step` per step, titled after it, in the order of `stepNumber` |
-| A `fieldsetStart` and its `fieldsetEnd` | One `fmdb:fieldset`, titled after the start, holding the fields between them |
+| A `fieldsetStart` and its `fieldsetEnd` | One `fmdb:fieldset`, titled after the start, holding the fields between them. Forms never nests fieldsets: a start while one is open ends it (`Form.normalizeFieldsetsHelper` of forms-core), and the import does the same, as `fmdb:fieldset` holds fields and content only |
 | The `button` definitions | Not fields: the title of a button fills `submitBtnLabel`; the three labels of a `buttonTriple` are part of spike 4 |
 | `fcmix:displayCaptcha` | The form's captcha, when the instance has a captcha configured; reported otherwise |
 | `fcmix:trackUser` | Nothing: Formidable does not track the submitter |
@@ -339,8 +339,8 @@ which a fieldset cannot hold, is reported to review. A matrix without a visible 
 falls back on the text area of the table, reported as before.
 
 A matrix inside a Forms fieldset splits it: `fmdb:fieldset` accepts fields and content, not a fieldset, so
-the fieldsets open around the matrix close before it and open again, under new names and the same titles,
-for the next field they hold — and never for nothing, so that a matrix at the end of a fieldset leaves no
+the fieldset open around the matrix closes before it and opens again, under a new name and the same title,
+for the next field it holds — and never for nothing, so that a matrix at the end of a fieldset leaves no
 empty half (`FormsFormConverter.StepLayout`).
 
 A row of an answer that no field of the form holds — hidden in Forms since the visitor answered, or never
