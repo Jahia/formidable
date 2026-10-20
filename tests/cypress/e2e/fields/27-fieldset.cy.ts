@@ -59,7 +59,9 @@ describe('Form fields - 27 Fieldset', () => {
 				const group = fieldset.getRadioGroup(row.name);
 				group.shouldHaveLegend(row.title);
 				group.get().should('have.css', 'display', 'grid');
-				group.get().find('label.fmdb-radio-label').should('have.length', MATRIX.columns.length).first().should('not.be.visible');
+				// the option labels stay in the markup, clipped to one pixel (Cypress counts a clipped element as visible)
+				group.get().find('label.fmdb-radio-label').should('have.length', MATRIX.columns.length).first()
+					.then($label => expect($label[0].getBoundingClientRect().width, 'label clipped out of sight').to.be.at.most(1));
 			});
 			fieldset.getCheckboxGroup(MATRIX.extras.name).shouldHaveLegend(MATRIX.extras.title)
 				.get().should('have.css', 'display', 'grid');
