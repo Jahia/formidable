@@ -470,7 +470,7 @@ public class ImportJobs {
         });
     }
 
-    /** The report of an import that stopped before its end, with why: what the log of the dialog gives; null for any other failure. */
+    /** The report of an import that stopped before its end, with why: what the downloadable report gives; null for any other failure. */
     private static String stoppedReport(Exception e) {
         for (Throwable cause = e; cause != null; cause = cause.getCause()) {
             if (cause instanceof FormsImportRun.Stopped stopped) {

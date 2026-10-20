@@ -67,7 +67,7 @@ results: the import refuses them with this procedure.
 5. Click **Import**. The import runs on the server, by batches; the dialog follows it and can be closed
    meanwhile — opening it again shows the running import, then its report. One import runs at a time per
    site.
-6. Read the final report — **Download the import log** saves, as a Markdown file, how the import ended,
+6. Read the final report — **Download the report** saves, as a Markdown file, how the import ended,
    what each submission lost (a password, a value kept as stored, a missing file) or why it was not
    written, and what is left to review. A submission that could not be written is left behind: import the
    same export again to retry it. Then publish the forms you had created: until a form is published, its entry on

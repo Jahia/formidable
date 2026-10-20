@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {downloadFile, uiContext} from './page';
 import {GET_SITE_FORMS} from './graphql';
 import {ReportTable, rowOf} from './ImportReportTable';
-import {importLog, importLogFileName} from './importLog';
+import {reportMarkdown, reportFileName} from './reportMarkdown';
 import {
     choicesReady,
     closeJob,
@@ -168,14 +168,14 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         setState('waiting');
     };
 
-    // The log of the import as a Markdown file, built here from the report of the job: nothing more is stored on the server.
-    const downloadLog = () => {
+    // The report of the import as a Markdown file, built here from the report of the job: nothing more is stored on the server.
+    const downloadReport = () => {
         if (!job?.report) {
             return;
         }
         const date = new Date();
         const rowOfForm = (form: Parameters<typeof rowOf>[0]) => rowOf(form, choices, siteForms, false, t);
-        const content = importLog(job.report, {
+        const content = reportMarkdown(job.report, {
             siteKey,
             fileName,
             language,
@@ -184,7 +184,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
             outcomeOf: form => rowOfForm(form).text,
             notesApply: form => rowOfForm(form).outcome === 'created'
         });
-        downloadFile(importLogFileName(siteKey, date), content, 'text/markdown;charset=utf-8');
+        downloadFile(reportFileName(siteKey, date), content, 'text/markdown;charset=utf-8');
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -342,10 +342,10 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                             size="big"
                             variant="ghost"
                             icon={<Download/>}
-                            label={t('formResults.import.actions.downloadLog')}
-                            data-sel-role="import-download-log"
+                            label={t('formResults.import.actions.downloadReport')}
+                            data-sel-role="import-download-report"
                             style={{marginRight: 'auto'}}
-                            onClick={downloadLog}
+                            onClick={downloadReport}
                         />
                     )}
                     {(state === 'waiting' || state === 'analysing') && (

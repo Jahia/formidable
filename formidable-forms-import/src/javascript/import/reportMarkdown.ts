@@ -4,7 +4,7 @@ import {noteText, type ProfileMapping, profileMappings} from './notes';
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
-interface LogContext {
+interface ReportContext {
     siteKey: string;
     fileName: string;
     language: string;
@@ -21,7 +21,7 @@ const MARKDOWN_SYNTAX = /[\\`*_[\]#|<>]/g;
 /** The text with the characters Markdown reads as syntax escaped. */
 const escape = (text: string): string => text.replaceAll(MARKDOWN_SYNTAX, String.raw`\$&`);
 
-/** A moment as the log gives it: yyyy-MM-dd HH:mm, in UTC. */
+/** A moment as the report gives it: yyyy-MM-dd HH:mm, in UTC. */
 const utc = (date: Date): string => date.toISOString().slice(0, 16).replace('T', ' ');
 
 const lineOf = (line: ReportLine, t: Translate): string => {
@@ -110,7 +110,7 @@ function profileSection(profile: ReturnType<typeof profileMappings>, t: Translat
  * The section of one form: what received its results, its figures, what its submissions lost, what to redo by
  * hand, its profile mappings, the rest.
  */
-function formSection(form: ImportReportForm, context: LogContext): string[] {
+function formSection(form: ImportReportForm, context: ReportContext): string[] {
     const {t, language} = context;
     const notes = context.notesApply(form) ? groupedNotes(form, language) : {action: [], info: []};
     const profile = profileMappings(notes.info, notes.action);
@@ -131,12 +131,12 @@ function formSection(form: ImportReportForm, context: LogContext): string[] {
 }
 
 /**
- * The log of an import as a Markdown file (docs/architecture/forms-import.md, "Running it"): how it ended, then
+ * The report of an import as a Markdown file (docs/architecture/forms-import.md, "Running it"): how it ended, then
  * one section per form with what received its results, its figures, what its submissions lost or why they were
  * not written, what to redo or check by hand, its profile mappings and the rest of what was carried over; last,
  * the submissions of no form. In the language of the dialog, built in the browser from the report of the job.
  */
-export function importLog(report: ImportReport, context: LogContext): string {
+export function reportMarkdown(report: ImportReport, context: ReportContext): string {
     const {t} = context;
     const forms = report.forms.filter(form => form.outcome !== 'skipped');
     return [
@@ -153,8 +153,8 @@ export function importLog(report: ImportReport, context: LogContext): string {
     ].join('\n');
 }
 
-/** forms-import-log-<site>-<yyyy-MM-dd-HHmm>.md, in UTC. */
-export function importLogFileName(siteKey: string, date: Date): string {
+/** forms-import-report-<site>-<yyyy-MM-dd-HHmm>.md, in UTC. */
+export function reportFileName(siteKey: string, date: Date): string {
     const [day, time] = date.toISOString().slice(0, 16).split('T');
-    return `forms-import-log-${sanitizeFilenamePart(siteKey)}-${day}-${time.replace(':', '')}.md`;
+    return `forms-import-report-${sanitizeFilenamePart(siteKey)}-${day}-${time.replace(':', '')}.md`;
 }

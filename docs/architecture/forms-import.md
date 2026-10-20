@@ -508,8 +508,8 @@ stateDiagram-v2
 | Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
 | Review | The report of the dry run (below), one row per form of the export, and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. Iteration 2 adds to each row a menu, **What to do**, the choice of what receives its results (see [Iteration 2](#iteration-2-choosing-what-receives-the-results)); **Import** waits until an attachment names its form, and while every form is left out. |
 | Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
-| Done | Moonstone's `Check` icon, the submissions imported, a line asking to review and publish the forms when the import created some, then the final report in the same rows, each saying what received the results and how many submissions were not written. **Download the import log** and **Close**, which refreshes the list of entries. |
-| Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. An import that stopped on its way also offers **Download the import log**, with what it wrote before it stopped. |
+| Done | Moonstone's `Check` icon, the submissions imported, a line asking to review and publish the forms when the import created some, then the final report in the same rows, each saying what received the results and how many submissions were not written. **Download the report** and **Close**, which refreshes the list of entries. |
+| Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. An import that stopped on its way also offers **Download the report**, with what it wrote before it stopped. |
 
 **The server.** The file is uploaded once, by a `POST` to an endpoint of the engine on the current site.
 It is stored in the repository, not on the disk of one server: a `fmdb:importJob` node under
@@ -586,19 +586,19 @@ unpublished; until a form is published, its entry shows as **Unpublished** on th
 labels of the form, read from edit, as columns; a contributor reviews each form, does what its row lists,
 then publishes it.
 
-**Download the import log**, once the import is done or stopped, saves the log of the import as a Markdown
-file, `forms-import-log-<site>-<yyyy-MM-dd-HHmm>.md` (UTC). The review offers none: it writes nothing, and its
-report is on the screen. The log says how the import ended (done, or stopped and why) with the submissions
+**Download the report**, once the import is done or stopped, saves the report of the import as a Markdown
+file, `forms-import-report-<site>-<yyyy-MM-dd-HHmm>.md` (UTC). The review offers none: it writes nothing, and its
+report is on the screen. The file says how the import ended (done, or stopped and why) with the submissions
 imported and not written, then has one section per form imported with what received its results, its figures,
 what its submissions lost, what to redo or check by hand and what was carried over; last, the submissions of
 no form of the export. What the submissions lost comes from the incidents the import lists, submission by
 submission (the dry run lists none): a value dropped (a password, an answer whose field another answer
 already fills), values kept as stored because they could not be converted, a value kept under its Forms
 name because the form holds no field for it, a file the export does not hold, a submission that could not
-be written, and its reason. The log gives each sentence once, with the count and the submissions it concerns
+be written, and its reason. The file gives each sentence once, with the count and the submissions it concerns
 under it, by date then source identity, a submission without a date last; past 1000 incidents per form, the
 rest are only counted. A submission not written is listed with what it lost, but its values and its files
-count in the figures of its form only once written: the figures of the log are those of the results. The dialog
+count in the figures of its form only once written: the figures of the file are those of the results. The dialog
 builds it from the report of the job, in its language, with the same sentences; nothing more is stored on
 the server, where the job and its report go once read.
 
@@ -719,7 +719,7 @@ page still refuses, and the server with it, two fields sent to one, a target tha
 and a mapping that sends a field to the name another field of the source keeps, because a submission that
 holds both would lose one of its values; a field sent under its own name, as the proposal writes it, is no
 rename. The import protects the submissions itself too: an answer whose name another answer of the same
-submission already took is dropped and named in the log, never written over.
+submission already took is dropped and named in the report, never written over.
 
 For a choice field, the page lists the imported values that no option of the matched field carries: the dry
 run reports, per field, the distinct values the submissions hold, up to thirty, and the page reads the
