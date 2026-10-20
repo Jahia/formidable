@@ -207,7 +207,7 @@ public class ImportServlet extends HttpServlet {
     /**
      * The choices of the review, {@code {"choices":{"contact-us":"create","survey":{"choice":"attach",
      * "form":"<uuid>","mapping":{"your-name":"name"}}}}} in a JSON body; none when the request carries no
-     * JSON, which leaves every form on the default.
+     * JSON, which leaves every form out of the import.
      */
     private static Map<String, FormChoice> choicesOf(HttpServletRequest req) throws IOException, Refused {
         String contentType = req.getContentType();
@@ -225,7 +225,7 @@ public class ImportServlet extends HttpServlet {
             JSONObject choices = new JSONObject(body).optJSONObject("choices");
             return choices == null ? Map.of() : FormChoice.fromJson(choices.toString());
         } catch (JSONException | IllegalArgumentException e) {
-            throw new Refused(HttpServletResponse.SC_BAD_REQUEST, "the choices must name, per source form, resultsOnly, create or attach with the form: " + e.getMessage());
+            throw new Refused(HttpServletResponse.SC_BAD_REQUEST, "the choices must name, per source form, resultsOnly, create, skip or attach with the form: " + e.getMessage());
         }
     }
 

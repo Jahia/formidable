@@ -34,6 +34,13 @@
 				"skip": "Don't import",
 				"add": "Add the new submissions"
 			},
+			"forAll": {
+				"label": "For all forms",
+				"perForm": "Per form",
+				"import": "Import the results",
+				"create": "Create the forms",
+				"skip": "Don't import"
+			},
 			"actions": {
 				"import": "Import",
 				"cancel": "Cancel",
