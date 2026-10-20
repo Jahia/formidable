@@ -11,6 +11,9 @@ The goal is to keep the model readable, extensible, and aligned with runtime dep
 - `formidable-elements` owns the form rendering model and editor-facing content structure
 - `formidable-engine` owns the server-side contracts that the engine interprets at runtime
 
+This document says why the split and gives examples; the complete list, mixin by mixin, is the
+[Mixin catalogue](mixin-catalogue.md).
+
 ## Why this split exists
 
 Formidable is not a single runtime:
