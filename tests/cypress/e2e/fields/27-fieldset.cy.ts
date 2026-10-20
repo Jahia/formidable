@@ -18,7 +18,8 @@ const MATRIX = {
 	columns: ['Poor', 'Fair', 'Good'],
 	rows: [
 		{name: 'price', title: 'The price'},
-		{name: 'service', title: 'The service'},
+		// a help text sits between the legend and the options: the row must keep its columns
+		{name: 'service', title: 'The service', helpText: 'Compared with last year'},
 		{name: 'delivery', title: 'The delivery'}
 	],
 	extras: {name: 'extras', title: 'The extras, several answers'}
@@ -62,11 +63,19 @@ describe('Form fields - 27 Fieldset', () => {
 			});
 			fieldset.getCheckboxGroup(MATRIX.extras.name).shouldHaveLegend(MATRIX.extras.title)
 				.get().should('have.css', 'display', 'grid');
-			// the cells line up: the first option of every row starts at the same x
+			fieldset.getRadioGroup('service').shouldHaveHelpText('Compared with last year');
+			// the cells line up: the first option of every row starts at the same x, the row with a help text included
 			fieldset.get().find(':is(.fmdb-radio-group, .fmdb-checkbox-group) .fmdb-group-item:first-child input').then($inputs => {
 				const lefts = new Set([...$inputs].map(input => Math.round(input.getBoundingClientRect().left)));
 				expect($inputs, 'one first cell per row').to.have.length(MATRIX.rows.length + 1);
 				expect([...lefts], 'the first column').to.have.length(1);
+			});
+			// … and under the heading of their column
+			fieldset.get().find('.fmdb-matrix-column').first().then($heading => {
+				const centre = (element: Element) => Math.round(element.getBoundingClientRect().left + element.getBoundingClientRect().width / 2);
+				fieldset.get().find('.fmdb-radio-group .fmdb-group-item:first-child input').then($inputs => {
+					[...$inputs].forEach(input => expect(Math.abs(centre(input) - centre($heading[0])), 'centred under Poor').to.be.at.most(2));
+				});
 			});
 			// each question is answered on its own
 			fieldset.getRadioGroup('price').select('Good');
