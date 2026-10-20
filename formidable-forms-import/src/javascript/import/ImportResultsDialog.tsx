@@ -52,7 +52,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     const [job, setJob] = useState<ImportJob | null>(initialJob ?? null);
     const [fileName, setFileName] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
-    // What receives the results of each form of the export, chosen in the review; the results alone by default.
+    // What receives the results of each form of the export, chosen in the review; a form not chosen for is left out.
     const [choices, setChoices] = useState<Record<string, ImportChoice>>({});
     // The fields of the forms an attachment read so far, by identifier: held here so that a card remounted keeps its rows.
     const [targetFields, setTargetFields] = useState<Record<string, TargetField[]>>({});
@@ -314,6 +314,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                 targetFields={targetFields}
                                 onTargetFields={rememberTargetFields}
                                 onChoice={(sourceName, choice) => setChoices(previous => ({...previous, [sourceName]: choice}))}
+                                onChoices={next => setChoices(previous => ({...previous, ...next}))}
                             />
                         </>
                     )}

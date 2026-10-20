@@ -53,7 +53,8 @@ public record FormChoice(ImportChoice choice, String formId, Map<String, String>
 
     /**
      * The choices of a job, by source form name: {@code {"contact-us":"create","survey":{"choice":"attach",
-     * "form":"<uuid>","mapping":{"your-name":"name"}}}}; an absent or empty text means the default for every form.
+     * "form":"<uuid>","mapping":{"your-name":"name"}}}}; an absent or empty text names no form, and the import
+     * leaves out every form the choices do not name.
      */
     public static Map<String, FormChoice> fromJson(String json) throws JSONException {
         Map<String, FormChoice> choices = new LinkedHashMap<>();

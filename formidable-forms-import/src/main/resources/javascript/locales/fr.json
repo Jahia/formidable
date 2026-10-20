@@ -34,6 +34,13 @@
 				"skip": "Ne pas importer",
 				"add": "Ajouter les nouvelles soumissions"
 			},
+			"forAll": {
+				"label": "Pour tous les formulaires",
+				"perForm": "Au cas par cas",
+				"import": "Importer les résultats",
+				"create": "Créer les formulaires",
+				"skip": "Ne pas importer"
+			},
 			"actions": {
 				"import": "Importer",
 				"cancel": "Annuler",

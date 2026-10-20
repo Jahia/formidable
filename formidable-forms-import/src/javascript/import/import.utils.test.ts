@@ -2,6 +2,8 @@ import {describe, expect, it} from 'vitest';
 import {
     attachProblem,
     availableTargets,
+    choiceForAllOf,
+    choicesForAll,
     choicesReady,
     fieldTitle,
     formTitle,
@@ -94,13 +96,32 @@ describe('plannedImport', () => {
         ({sourceName, outcome, submissions: {toImport}}) as unknown as ImportReportForm;
     const report = {forms: [form('contact', 'resultsOnly', 45), form('news', 'found', 3), form('old', 'found', 0)]} as unknown as ImportReport;
 
-    it('counts what the choices import: a form left out counts for nothing, a found form only with new submissions', () => {
-        expect(plannedImport(report, {})).toEqual({forms: 2, submissions: 48});
-        expect(plannedImport(report, {contact: 'skip'})).toEqual({forms: 1, submissions: 3});
-        expect(plannedImport(report, {contact: 'skip', news: 'skip'})).toEqual({forms: 0, submissions: 0});
+    it('counts what the choices import: a form not chosen for counts for nothing, a found form only with new submissions', () => {
+        expect(plannedImport(report, {})).toEqual({forms: 0, submissions: 0});
+        expect(plannedImport(report, {contact: 'resultsOnly', news: 'resultsOnly'})).toEqual({forms: 2, submissions: 48});
+        expect(plannedImport(report, {news: 'resultsOnly'})).toEqual({forms: 1, submissions: 3});
+        expect(choicesReady({}, report)).toBe(false);
         expect(choicesReady({contact: 'skip', news: 'skip'}, report)).toBe(false);
-        expect(choicesReady({contact: 'skip'}, report)).toBe(true);
+        expect(choicesReady({news: 'resultsOnly'}, report)).toBe(true);
         expect(kindOf('skip')).toEqual('skip');
+    });
+
+    it('chooses for all the forms at once, a found form taking its new submissions whether importing or creating', () => {
+        expect(choicesForAll(report, 'import')).toEqual({contact: 'resultsOnly', news: 'resultsOnly'});
+        expect(choicesForAll(report, 'create')).toEqual({contact: 'create', news: 'resultsOnly'});
+        expect(choicesForAll(report, 'skip')).toEqual({contact: 'skip', news: 'skip'});
+    });
+
+    it('shows the choice for all the rows agree on, none when they differ', () => {
+        expect(choiceForAllOf(report, {})).toEqual('skip');
+        expect(choiceForAllOf(report, {contact: 'resultsOnly', news: 'resultsOnly'})).toEqual('import');
+        expect(choiceForAllOf(report, {contact: 'create', news: 'resultsOnly'})).toEqual('create');
+        expect(choiceForAllOf(report, {contact: 'create', news: 'skip'})).toBeNull();
+        expect(choiceForAllOf(report, {contact: {choice: 'attach', form: 'f1', mapping: {}}, news: 'resultsOnly'})).toBeNull();
+        // found forms alone: taking their submissions reads as importing
+        const found = {forms: [form('news', 'found', 3), form('old', 'found', 0)]} as unknown as ImportReport;
+        expect(choiceForAllOf(found, {news: 'resultsOnly'})).toEqual('import');
+        expect(choiceForAllOf({forms: [form('old', 'found', 0)]} as unknown as ImportReport, {})).toBeNull();
     });
 });
 
@@ -164,7 +185,7 @@ describe('attaching to an existing form', () => {
         expect(attachProblem({choice: 'attach', form: '', mapping: {}}, source)).toEqual('noForm');
         expect(attachProblem({choice: 'attach', form: 'f1', mapping: {lastname: 'firstname'}}, source)).toEqual('conflict');
         expect(attachProblem({choice: 'attach', form: 'f1', mapping: {lastname: 'surname'}}, source)).toBeNull();
-        expect(choicesReady({}, report)).toBe(true);
+        expect(choicesReady({}, report)).toBe(false);
         expect(choicesReady({newsletter: 'create'}, report)).toBe(true);
         expect(choicesReady({newsletter: {choice: 'attach', form: '', mapping: {}}}, report)).toBe(false);
         expect(choicesReady({newsletter: {choice: 'attach', form: 'f1', mapping: {}}}, report)).toBe(true);
@@ -205,8 +226,8 @@ describe('attaching to an existing form', () => {
         expect(parseSiteDefaultLanguage(undefined)).toBeNull();
     });
 
-    it('kinds a choice, the results alone when none was made', () => {
-        expect(kindOf(undefined)).toEqual('resultsOnly');
+    it('kinds a choice, nothing imported when none was made', () => {
+        expect(kindOf(undefined)).toEqual('skip');
         expect(kindOf('create')).toEqual('create');
         expect(kindOf({choice: 'attach', form: 'f1', mapping: {}})).toEqual('attach');
         expect(fieldTitle(field('x', 'Title'), 'en')).toEqual('Title');

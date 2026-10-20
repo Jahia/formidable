@@ -26,7 +26,7 @@ flowchart LR
 
     export -- "forms, results, files" --> it1
     it1 -- "per Forms form" --> it2
-    it2 -- "results only (default)" --> alone
+    it2 -- "results only" --> alone
     it2 -- "create the form" --> forms
     contributor -- "builds" --> hand
     it2 -- "attach, fields mapped" --> hand
@@ -35,14 +35,14 @@ flowchart LR
 | Iteration | What it delivers |
 |---|---|
 | 1. Import | Every Forms form becomes an unpublished Formidable form in the `imported-forms` content folder of the site, with system names generated from the labels, the field types Formidable has, the labels, placeholders, help texts, required rules, choices and actions that map. Every submission the Forms *save to JCR* action stored becomes a submission of that form, files included. The Results page lists, filters and exports them as native results, with the labels of the form once it is published. |
-| 2. Choose what receives the results | Per Forms form, the administrator chooses in the review what receives its results: the results alone (the default), a form created as in iteration 1, or an existing Formidable form, built by hand or reworked, whose fields the values are mapped and renamed to, the results taking the readers of that form. An **Attach to another form** action on an entry of the Results page was designed too and withdrawn before its release ([Iteration 2](#iteration-2-choosing-what-receives-the-results)). |
+| 2. Choose what receives the results | Per Forms form, or for all of them at once, the administrator chooses in the review what receives its results: nothing until chosen, the results alone, a form created as in iteration 1, or an existing Formidable form, built by hand or reworked, whose fields the values are mapped and renamed to, the results taking the readers of that form. An **Attach to another form** action on an entry of the Results page was designed too and withdrawn before its release ([Iteration 2](#iteration-2-choosing-what-receives-the-results)). |
 
 Iteration 1 creates a form before it writes the first submission, so the Results page, the exports and the
 statuses need no change for imported results. The import never publishes, though: until a contributor
 publishes an imported form, its entry shows as **Unpublished**, and the page resolves the form through its
 live reference, else through the edit workspace (`FormResultsApp.tsx`), so that the columns carry the
 labels of the form even then. The system names of the fields head the columns only when no form exists,
-the default of iteration 2. This is why the import gives each field a readable system name, generated from
+the results-only choice of iteration 2. This is why the import gives each field a readable system name, generated from
 its label (`your-first-name`, not `text-input_0_1`), and why the final report of a created form invites to
 publish it.
 
@@ -62,7 +62,7 @@ publish it.
 |---|---|
 | **The import reads the zip export of the site's `formFactory` node, taken with its live content** | The source can live on another instance, or on an instance that is being retired, so `forms-core` need not be installed where Formidable runs. That zip is the only export that carries the three things the import needs: the `jcr:uuid` of every node, which keys the forms, their fields and their results; the results themselves, which Forms writes in live only; and the uploaded files. The other exports hold the results, but no `jcr:uuid` (spike 3). See [The export file](#the-export-file). |
 | **The import is a module of its own, `formidable-forms-import`, installed next to the engine** | Decided 2026-10-15, after a first iteration inside the engine behind a setting: a site that never ran Forms installs nothing, and the engine keeps no code that knows Forms. The engine offers what the import needs through its API — the results store, the toolbar of the Results page, the **No form** status — and the module owns the import jobs and the four markers of an imported node ([CND module ownership](cnd-module-ownership.md), [The module](#the-module)). Enabling the module on a site is the one switch of the import there; disabling it, or uninstalling the module, takes away the **Import** button, its endpoint and its job, nothing else: Jahia keeps the node types a module declared once it is undeployed, so the imported forms, fields and results stay readable with their markers, and the Results page keeps listing the entries as it lists any native one. Installing it again binds its types back to it. |
-| **The administrator chooses, per Forms form, what receives its results: nothing, a new Formidable form, or an existing one — the results alone by default** | The results are what the import is for; a form is created only on request (decided 2026-10-09, on the first manual tests). The Results page already lives with an entry whose form is gone, and an imported entry without a form is that state named for what it is: **No form** instead of **Form deleted**, the system names of the fields as columns, its administrators as its only readers until it is attached to a form. Iteration 1 creates a form for every Forms form; [iteration 2](#iteration-2-choosing-what-receives-the-results) brings the choice, with the results alone as the default. What was true of a created form stays true: imported results under a form are native results, with labels, readers and a status. |
+| **The administrator chooses, per Forms form, what receives its results: nothing, the results alone, a new Formidable form, or an existing one — nothing by default** | The results are what the import is for; a form is created only on request (decided 2026-10-09, on the first manual tests). The Results page already lives with an entry whose form is gone, and an imported entry without a form is that state named for what it is: **No form** instead of **Form deleted**, the system names of the fields as columns, its administrators as its only readers until it is attached to a form. Iteration 1 creates a form for every Forms form; [iteration 2](#iteration-2-choosing-what-receives-the-results) brings the choice. Nothing is imported until the administrator chooses (amended 2026-10-20: the results alone were the default, and a form landed by inattention): a form not chosen for is left out, by the dialog and by the endpoint alike, and a **For all forms** menu chooses for every row at once. What was true of a created form stays true: imported results under a form are native results, with labels, readers and a status. |
 | **The forms land in one content folder, `contents/imported-forms`** | Formidable forms are contents of the site (`/sites/<site>/contents/...`). One folder keeps the imported forms apart from the forms built by hand, where contributors find them in jContent, review them, move them and publish them. |
 | **A field gets a system name generated from its label**, `your-first-name` for "Your First name", not the Forms name `text-input_0_1` | Formidable keys the values of a submission by the node name of the field ([Save to JCR](save-to-jcr.md)), and that name heads the columns of the Results page and of the exports whenever the form does not resolve in live, so a Forms name there reads as noise. The name is generated as the Content Editor generates a system name from a title, the rule a contributor gets anyway. The import writes `data` itself, so the new names cost no rename, and each field remembers its Forms identity for the later runs. See [The system names](#the-system-names). |
 | **The label of a field is its title, else its placeholder, else its name** | Forms often leaves the title of a field empty and shows the placeholder as its only text: in the sample export, eight of the nine fields have an empty title, and their placeholders read "Your First name\*", "Votre prénom\*". See [The labels](#the-labels). |
@@ -239,7 +239,7 @@ of one field land under one name, the system name of the field in the recreated 
 | `imported-forms` | A `jnt:contentFolder` titled *Imported from Jahia Forms*, created by the first import when the site has none. |
 | `<formName>` | A `fmdb:form` with `fmdbmix:importedForm`, named after the Forms form, or the next free name in the folder. [The forms](#the-forms-1) gives its content. |
 | `fields/<fieldName>` | One field per Forms field, named as [The system names](#the-system-names) says, with `fmdbmix:importedField`. A form with several steps holds one `fmdb:step` per `fcnt:step` under `fields`, and the fields of that step under it. |
-| `<entry>` | The `fmdb:formResults` of the new form, as the engine creates it (`FormResultsStore`): named after the form, or the next free name, `parentForm` set to the form, `buildingLang` from Forms, the ACL inheritance broken. It carries `fmdbmix:importedResults`. From iteration 2, the entry of a Forms form imported with the default choice has no `parentForm` (see [Results only](#results-only)). |
+| `<entry>` | The `fmdb:formResults` of the new form, as the engine creates it (`FormResultsStore`): named after the form, or the next free name, `parentForm` set to the form, `buildingLang` from Forms, the ACL inheritance broken. It carries `fmdbmix:importedResults`. From iteration 2, the entry of a Forms form imported with the results-only choice has no `parentForm` (see [Results only](#results-only)). |
 | `<submission>` | A `fmdb:formSubmission` with `fmdbmix:importedSubmission`. It is named `submission-<yyyyMMdd-HHmmss>-<xxx>` from the original date, in UTC, as the engine names it. |
 | `data` | The `fmdb:submissionData` node: one string property per field name, multiple for several answers. |
 | `files/<fieldName>/<file>` | A `jnt:folder`, a `jnt:folder` and a `jnt:file`, as the engine writes them. |
@@ -506,7 +506,7 @@ stateDiagram-v2
 |---|---|
 | Waiting | A drop zone that takes a `.zip` file by drag and drop, and a **Choose a file** button that opens the file picker. Another type, or a file above `maxFileSizeMb`, is refused in the dialog with its reason. The dialog opens in this state unless the site has an import that is running, or that ended and whose report nobody has read: it then opens in that job's state. |
 | Analysing | The file name and a spinner, while the server reads the export and writes nothing. |
-| Review | The report of the dry run (below), one row per form of the export, and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. Iteration 2 adds to each row a menu, **What to do**, the choice of what receives its results (see [Iteration 2](#iteration-2-choosing-what-receives-the-results)); **Import** waits until an attachment names its form, and while every form is left out. |
+| Review | The report of the dry run (below), one row per form of the export, and two buttons: **Import** and **Cancel**. A report with nothing to import (every form and every submission already imported) shows **Close** alone. While another import runs on the site, **Import** is refused with that reason. Iteration 2 adds to each row a menu, **What to do**, the choice of what receives its results, and above the rows a menu, **For all forms**, that chooses for every row at once (see [Iteration 2](#iteration-2-choosing-what-receives-the-results)); nothing is chosen at first, and **Import** waits until an attachment names its form, and while every form is left out. |
 | Importing | The file name and a spinner. The dialog can be closed: the job goes on without it, and the dialog, opened again on this site, shows the running import, or its end state once it has ended. |
 | Done | Moonstone's `Check` icon, the submissions imported, a line asking to review and publish the forms when the import created some, then the final report in the same rows, each saying what received the results and how many submissions were not written. **Download the import log** and **Close**, which refreshes the list of entries. |
 | Failed | The reason, as the server gives it (an export without results or without identifiers, a broken zip, a lost connection), then **Try again** and **Close**. Both remove the failed job: **Try again** goes back to Waiting. An import that stopped on its way also offers **Download the import log**, with what it wrote before it stopped. |
@@ -632,13 +632,23 @@ administrator the choice, in the review state of the dialog, per form of the exp
 
 | Choice | What the import writes |
 |---|---|
-| **Results only** (the default) | The results entry alone, without a form: see [Results only](#results-only). |
+| **Results only** | The results entry alone, without a form: see [Results only](#results-only). |
 | **Create the form** | What iteration 1 writes: the form in `imported-forms`, then its entry. |
 | **Don't import** | Nothing: no form, no entry, no marker, so a later run of the same export proposes the form again. The report shows the form as **Not imported**, out of the totals. |
 | **Attach to an existing form** `F` | The submissions under the entry of `F`, their values named after the fields of `F` through [the mapping](#the-mapping); the entry of `F` takes the keys of the source in `sourceFormIds` and the mapping in `mappings`, so that a later run finds it and names the values the same way. `F` itself is not marked, since several sources can attach to one form and `fmdbmix:importedForm` holds the keys of one. Nothing is created but the entry of `F` when it has none. The start of the import refuses an attachment to a form that is not a form of the site, a mapping that names a field the dry run did not list, and a mapping that sends a field to the name another field of the source keeps. |
 
-A form found from an earlier run has two choices: **Add the new submissions** (the default), which adds the
+A form found from an earlier run has two choices: **Add the new submissions**, which adds the
 submissions missing from its entry, and **Don't import**; a found form with nothing new has no menu.
+
+Nothing is chosen at first: every row reads **Don't import**, the totals count nothing, and **Import** waits.
+The endpoint says the same: a form the choices of `POST /jobs/<id>/import` do not name is left out, so that a
+call without choices imports nothing (the dry run, which runs before any choice, describes every form as if
+the results alone were asked, so that the review shows its fields, its notes and whether it is there). A
+**For all forms** menu above the rows, shown when at least two rows have something to choose, sets every
+one of them at once: **Import the results** (the results alone for a new form, its new submissions for a
+found one), **Create the forms** (a found form takes its new submissions) or **Don't import**. It shows the
+choice the rows agree on — a found form that takes its submissions agrees with importing and with creating
+alike — and **Per form** when they differ, as after a row is changed apart or attached.
 
 The same mapping was designed to serve an **Attach to another form** action on an entry of the Results
 page: an administrator moves the imported results of one Forms form, imported alone or under a created
@@ -813,7 +823,8 @@ engine never declared them.
   show the running import, then its report, and the report must be readable after a reload until
   **Close**. An XML export, and a zip without results, must end in the failed state with the procedure.
   An **Import** clicked while another import runs on the site must be refused with its reason.
-- **The same Cypress spec for iteration 2.** The spec imports the sample with the default choice and
+- **The same Cypress spec for iteration 2.** The spec checks that nothing is chosen at first and that
+  **Import** waits, chooses the results alone for every form at once, imports the sample so and
   checks that no form was created, that the three entries show **No form** with the system names
   as columns, that a second run adds nothing, and, once the entries are deleted, that the forms are created
   on request. It then deletes one created form with its entry, builds a form by hand with three fields,

@@ -4,6 +4,9 @@ import {formatFileSize} from './page';
 import {AttachToForm} from './AttachToForm';
 import {
     type AttachChoice,
+    type ChoiceForAll,
+    choiceForAllOf,
+    choicesForAll,
     formTitle,
     groupedNotes,
     type ImportChoice,
@@ -11,6 +14,7 @@ import {
     type ImportNote,
     type ImportReport,
     type ImportReportForm,
+    isChoosable,
     kindOf,
     plannedImport,
     type ReportLine,
@@ -35,30 +39,56 @@ interface ReportTableProps {
     targetFields?: Record<string, TargetField[]>;
     onTargetFields?: (formId: string, fields: TargetField[]) => void;
     onChoice?: (sourceName: string, choice: ImportChoice) => void;
+    /** Takes the choices of several forms at once, as the menu for all forms makes them. */
+    onChoices?: (choices: Record<string, ImportChoice>) => void;
 }
 
 const GRID = {display: 'grid', gridTemplateColumns: 'minmax(0, 5fr) minmax(0, 4fr) minmax(120px, auto)', gap: '16px', alignItems: 'start'};
 
+const FOR_ALL: readonly ChoiceForAll[] = ['import', 'create', 'skip'];
+
 /**
  * The report of a dry run or of an import (docs/architecture/forms-import.md, "The dialog"): one row per form of
  * the export, with its figures, what receives its results — a menu while the review can still change it — and
- * what is left to do by hand once its form is created, folded until asked for.
+ * what is left to do by hand once its form is created, folded until asked for. Nothing is imported until the
+ * administrator chooses; a menu above the rows chooses for all of them at once.
  */
-export const ReportTable = ({report, language, t, choices = {}, onChoice, ...rest}: ReportTableProps) => {
+export const ReportTable = ({report, language, t, choices = {}, onChoice, onChoices, ...rest}: ReportTableProps) => {
     const steerable = Boolean(onChoice);
     const planned = plannedImport(report, choices);
     const created = report.forms.some(form => form.outcome === 'created');
+    // the menu for all forms shows where there are several to choose for, and the choice they agree on, if any
+    const forAll = steerable && report.forms.filter(isChoosable).length > 1 ? choiceForAllOf(report, choices) : undefined;
     return (
         <div data-sel-role="import-report" style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
-            <Typography data-sel-role="import-totals">
-                {steerable ?
-                    t('formResults.import.report.totals', {forms: planned.forms, submissions: planned.submissions}) :
-                    t('formResults.import.done.totals', {
-                        // as the review counted them: a form found from an earlier run counts when it took new submissions
-                        forms: report.forms.filter(form => form.outcome !== 'skipped' && (form.outcome !== 'found' || form.submissions.imported > 0)).length,
-                        submissions: report.totals.submissionsImported
-                    })}
-            </Typography>
+            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px', flexWrap: 'wrap'}}>
+                <Typography data-sel-role="import-totals">
+                    {steerable ?
+                        t('formResults.import.report.totals', {forms: planned.forms, submissions: planned.submissions}) :
+                        t('formResults.import.done.totals', {
+                            // as the review counted them: a form found from an earlier run counts when it took new submissions
+                            forms: report.forms.filter(form => form.outcome !== 'skipped' && (form.outcome !== 'found' || form.submissions.imported > 0)).length,
+                            submissions: report.totals.submissionsImported
+                        })}
+                </Typography>
+                {forAll !== undefined && (
+                    <div style={{display: 'flex', alignItems: 'center', gap: '8px'}} data-sel-role="import-choice-all" data-sel-value={forAll ?? ''}>
+                        <Typography variant="caption" weight="bold">{t('formResults.import.forAll.label')}</Typography>
+                        <Dropdown
+                            variant="outlined"
+                            aria-label={t('formResults.import.forAll.label')}
+                            data={FOR_ALL.map(value => ({label: t(`formResults.import.forAll.${value}`), value}))}
+                            value={forAll ?? undefined}
+                            placeholder={t('formResults.import.forAll.perForm')}
+                            onChange={(_event, item) => {
+                                if (item.value && item.value !== forAll) {
+                                    onChoices?.(choicesForAll(report, item.value as ChoiceForAll));
+                                }
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
             {report.nothingToImport && (
                 <Typography data-sel-role="import-nothing">{t('formResults.import.report.nothing')}</Typography>
             )}
@@ -94,8 +124,8 @@ interface FormRowProps extends ReportTableProps {
     form: ImportReportForm;
 }
 
-/** The choice of a form the administrator left as it is. */
-const DEFAULT_CHOICE: ImportChoiceKind = 'resultsOnly';
+/** The choice of a form the administrator left as it is: nothing is imported. */
+const DEFAULT_CHOICE: ImportChoiceKind = 'skip';
 
 const OUTCOME_OF_CHOICE = {resultsOnly: 'resultsOnly', create: 'created', attach: 'attached', skip: 'skipped'} as const;
 
@@ -113,8 +143,7 @@ function outcomeOf(form: ImportReportForm, kind: ImportChoiceKind, steerable: bo
 const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLanguage, targetFields, onTargetFields, onChoice}: FormRowProps) => {
     const [open, setOpen] = useState(false);
     const steerable = Boolean(onChoice);
-    // a form imported before with nothing new has nothing to choose
-    const choosable = steerable && !(form.outcome === 'found' && form.submissions.toImport === 0);
+    const choosable = steerable && isChoosable(form);
     const choice = choices[form.sourceName];
     const kind = kindOf(choice);
     const attachment = typeof choice === 'object' ? choice : null;
@@ -128,8 +157,8 @@ const FormRow = ({form, report, language, t, choices = {}, siteForms, optionsLan
         onChoice?.(form.sourceName, value === 'attach' ? {choice: 'attach', form: '', mapping: {}} : value as ImportChoice);
     };
     const options = form.outcome === 'found' ?
-        [{label: t('formResults.import.choice.add'), value: DEFAULT_CHOICE}, {label: t('formResults.import.choice.skip'), value: 'skip'}] :
-        ([DEFAULT_CHOICE, 'create', 'attach', 'skip'] as const).map(value => ({label: t(`formResults.import.choice.${value}`), value}));
+        [{label: t('formResults.import.choice.add'), value: 'resultsOnly'}, {label: t('formResults.import.choice.skip'), value: DEFAULT_CHOICE}] :
+        (['resultsOnly', 'create', 'attach', DEFAULT_CHOICE] as const).map(value => ({label: t(`formResults.import.choice.${value}`), value}));
     return (
         <div
             data-sel-role="import-report-form"
@@ -245,7 +274,7 @@ function describe(form: ImportReportForm, outcome: ImportReportForm['outcome'], 
     if (outcome === 'found' && steerable && form.submissions.toImport === 0) {
         return t('formResults.import.plan.foundNothing', {name});
     }
-    return t(`formResults.import.${tense}.${outcome ?? DEFAULT_CHOICE}`, {name});
+    return t(`formResults.import.${tense}.${outcome ?? OUTCOME_OF_CHOICE[DEFAULT_CHOICE]}`, {name});
 }
 
 /**
