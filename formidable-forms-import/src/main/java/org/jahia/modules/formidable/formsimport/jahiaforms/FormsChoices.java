@@ -13,6 +13,8 @@ import java.util.Map;
  * The choices of a Forms choice field, a JSON {@code [{"key","value"}]} per language, turned into the
  * manual options Formidable stores: one JSON {@code {"value","label","selected"}} per option and per
  * language, the Forms key as the value so that the imported answers match, the Forms label as the label.
+ * The rows and the columns of a matrix have the same shape, with a {@code visible} flag the design view
+ * sets when a row or a column is hidden.
  */
 final class FormsChoices {
 
@@ -20,6 +22,11 @@ final class FormsChoices {
     private static final String VALUE = "value";
     private static final String LABEL = "label";
     private static final String SELECTED = "selected";
+    private static final String VISIBLE = "visible";
+
+    /** One choice as Forms stored it: its key, what the visitor's answer holds, and its label. */
+    record Choice(String key, String label) {
+    }
 
     private FormsChoices() {
     }
@@ -27,33 +34,41 @@ final class FormsChoices {
     /** The options per language, from the choices per language; a language whose JSON does not parse is left out. */
     static Map<String, List<String>> options(Map<String, String> choicesByLanguage) {
         Map<String, List<String>> options = new LinkedHashMap<>();
-        choicesByLanguage.forEach((language, json) -> {
-            List<String> parsed = parse(json);
-            if (!parsed.isEmpty()) {
-                options.put(language, parsed);
-            }
-        });
+        choices(choicesByLanguage).forEach((language, parsed) ->
+                options.put(language, parsed.stream().map(choice -> option(choice.key(), choice.label())).toList()));
         return options;
     }
 
-    private static List<String> parse(String json) {
+    /** The visible choices per language; a language whose JSON does not parse, or holds none, is left out. */
+    static Map<String, List<Choice>> choices(Map<String, String> choicesByLanguage) {
+        Map<String, List<Choice>> choices = new LinkedHashMap<>();
+        choicesByLanguage.forEach((language, json) -> {
+            List<Choice> parsed = parse(json);
+            if (!parsed.isEmpty()) {
+                choices.put(language, parsed);
+            }
+        });
+        return choices;
+    }
+
+    private static List<Choice> parse(String json) {
         if (json == null || json.isBlank()) {
             return List.of();
         }
-        List<String> options = new ArrayList<>();
+        List<Choice> choices = new ArrayList<>();
         try {
-            JSONArray choices = new JSONArray(json);
-            for (int i = 0; i < choices.length(); i++) {
-                JSONObject choice = choices.getJSONObject(i);
+            JSONArray array = new JSONArray(json);
+            for (int i = 0; i < array.length(); i++) {
+                JSONObject choice = array.getJSONObject(i);
                 String key = choice.optString(KEY, null);
-                if (key != null) {
-                    options.add(option(key, choice.optString(VALUE, key)));
+                if (key != null && choice.optBoolean(VISIBLE, true)) {
+                    choices.add(new Choice(key, choice.optString(VALUE, key)));
                 }
             }
         } catch (JSONException e) {
             return List.of();
         }
-        return options;
+        return choices;
     }
 
     /** One option as {@code fmdbmix:manualOptions} stores it. */

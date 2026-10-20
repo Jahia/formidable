@@ -11,7 +11,10 @@ final class FormsOptionNames {
     // field definitions
     static final String PLACEHOLDER = "placeholder";
     static final String HELP_TEXT = "helptext";
+    /** The rows of a text area ({@code textAreaDefinition}), and the questions of a matrix, a JSON of choices per language. */
     static final String ROWS = "rows";
+    /** The answers of a matrix ({@code matrixRadiosDefinition}, {@code matrixCheckBoxesDefinition}), a JSON of choices per language. */
+    static final String COLUMNS = "columns";
     /** The default value of a hidden field ({@code hiddenDefinition}). */
     static final String VALUE = "value";
     /** The texts of a switch, per language ({@code switchDefinition.wzd}, {@code propertiesI18n}). */

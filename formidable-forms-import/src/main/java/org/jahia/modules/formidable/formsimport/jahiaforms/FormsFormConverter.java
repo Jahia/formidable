@@ -165,13 +165,86 @@ public final class FormsFormConverter {
                     (open.isEmpty() ? top : open.peek().children).add(closed.toContainer());
                 }
             } else if (!FormsFieldTypes.isButton(kind)) {
-                fieldOf(definition, results, buildingLang, names, report).ifPresent(target::add);
+                elementOf(definition, results, buildingLang, names, report).ifPresent(target::add);
             }
         }
         while (!open.isEmpty()) {
             top.add(open.pop().toContainer());
         }
         return top;
+    }
+
+    /** A matrix becomes a fieldset of one field per row; any other definition a field, or nothing. */
+    private Optional<ImportedElement> elementOf(FormsField definition, FormsResults results, String buildingLang,
+                                                SystemNames names, List<ImportNote> report) {
+        if (FormsFieldTypes.isMatrix(definition.kind())) {
+            Optional<ImportedElement> matrix = matrixOf(definition, results, buildingLang, names).map(ImportedElement.class::cast);
+            if (matrix.isPresent()) {
+                return matrix;
+            }
+        }
+        return fieldOf(definition, results, buildingLang, names, report).map(ImportedElement.class::cast);
+    }
+
+    /**
+     * A radios or checkboxes matrix as a fieldset rendered with the Matrix view, one radio or checkbox field
+     * per row, the columns as the options of every row (docs/architecture/forms-import.md, "A matrix"). Each
+     * row field remembers the matrix and its row key as its source, which ties the answers of the row to it.
+     * Empty when the matrix has no visible row or no column, which leaves it to the text area fallback.
+     */
+    private Optional<ImportedContainer> matrixOf(FormsField definition, FormsResults results, String buildingLang, SystemNames names) {
+        Map<String, List<FormsChoices.Choice>> rows = FormsChoices.choices(valuesOf(definition.option(FormsOptionNames.ROWS)));
+        Map<String, List<FormsChoices.Choice>> columns = FormsChoices.choices(valuesOf(definition.option(FormsOptionNames.COLUMNS)));
+        List<FormsChoices.Choice> questions = inLanguage(rows, buildingLang);
+        if (questions.isEmpty() || inLanguage(columns, buildingLang).isEmpty()) {
+            return Optional.empty();
+        }
+        Map<String, String> titles = FormsLabels.titles(definition, labelOf(results, definition), definition.name());
+        String rowType = FormsFieldTypes.matrixRowType(definition.kind());
+        Map<String, List<String>> options = new LinkedHashMap<>();
+        columns.forEach((language, choices) -> options.put(language,
+                choices.stream().map(choice -> FormsChoices.option(choice.key(), choice.label())).toList()));
+        FormsOption helpText = definition.option(FormsOptionNames.HELP_TEXT);
+        List<ImportedElement> fields = new ArrayList<>();
+        for (FormsChoices.Choice question : questions) {
+            Map<String, String> rowTitles = rowTitles(rows, question);
+            ImportedField.Builder field = ImportedField
+                    .builder(names.of(rowTitles.get(buildingLang), definition.name() + "-" + question.key()), rowType, FormsFieldTypes.accepted(rowType))
+                    .titles(rowTitles)
+                    .source(FormsFieldTypes.matrixRow(definition.uuid(), question.key()),
+                            FormsFieldTypes.matrixRow(definition.name(), question.key()), definition.type())
+                    .options(options)
+                    .report(ImportNote.info("field.matrixRow", "kind", definition.kind()));
+            fillRules(field, definition, new FormsFieldTypes.Mapping(rowType, null));
+            if (definition.hasLogic()) {
+                field.report(ImportNote.action("field.logic"));
+            }
+            if (fields.isEmpty() && helpText != null && !helpText.isBlank()) {
+                // a fieldset holds no help text: said once, on the first row
+                field.report(ImportNote.action("field.matrixHelpText", "kind", definition.kind()));
+            }
+            fields.add(field.build());
+        }
+        return Optional.of(new ImportedContainer(names.of(titles.get(buildingLang), definition.name()), ImportedContainer.FIELDSET,
+                titles, fields, ImportedContainer.MATRIX_VIEW));
+    }
+
+    /** The choices in the building language, else in the first language that has any. */
+    private static List<FormsChoices.Choice> inLanguage(Map<String, List<FormsChoices.Choice>> byLanguage, String language) {
+        List<FormsChoices.Choice> choices = byLanguage.get(language);
+        return choices != null ? choices : byLanguage.values().stream().findFirst().orElse(List.of());
+    }
+
+    /** The label of a row per language, the row found by its key; the key itself where a language has no label. */
+    private static Map<String, String> rowTitles(Map<String, List<FormsChoices.Choice>> rows, FormsChoices.Choice question) {
+        Map<String, String> titles = new LinkedHashMap<>();
+        rows.forEach((language, choices) -> titles.put(language, choices.stream()
+                .filter(choice -> choice.key().equals(question.key()))
+                .map(FormsChoices.Choice::label)
+                .filter(label -> label != null && !label.isBlank())
+                .findFirst()
+                .orElse(question.key())));
+        return titles;
     }
 
     private Optional<ImportedField> fieldOf(FormsField definition, FormsResults results, String buildingLang,

@@ -289,7 +289,7 @@ says. The third column gives what the import writes into `data` for that field, 
 | `datePickerDefinition`, `simpleDateDefinition` | `fmdb:inputDate` | `yyyy-MM-dd`: the instant plus 12 hours, truncated to the UTC day (below) |
 | `countryListDefinition` | `fmdb:select` on the `country` options source when the instance declares one (see [Choice field options sources](choice-field-options-sources.md)), else with the choices of the label node | The country code, the `key` of the `country` object in the JSON |
 | `ratingDefinition` | `fmdbext:rating`, its `maxValue` from the `max` of the Forms rating; without the extended inputs, `fmdb:inputNumber` | The `value` of the rating JSON |
-| `matrixRadiosDefinition`, `matrixCheckBoxesDefinition` | `fmdb:textarea`, reported: Formidable has no matrix | One line per row of the JSON, `row: answer(s)`, in the order of the text |
+| `matrixRadiosDefinition`, `matrixCheckBoxesDefinition` | A `fmdb:fieldset` rendered with the **Matrix** view, holding one `fmdb:radio` or `fmdb:checkbox` field per visible row, the columns as the options of each ([A matrix](#a-matrix)); without rows or columns, `fmdb:textarea`, reported | The column key(s) of each row, under the field of that row; for the text area, one line per row, `row: answer(s)` |
 | `fileUploadDefinition` | `fmdb:inputFile`; `accept` from the type groups a `fileValidation` selects (`image`, `audio`, `video`, `pdf`, `text` have an `accept` equivalent, `all` restricts nothing, `doc` is a regular expression over the office types, reported); `multiple` when the `filenumber` of a `fileNumberValidation` is not 1 | The files are copied under `files/<fieldName>/`, and the JSON is dropped |
 | `acceptTermCheckboxDefinition` (`forms-extended-inputs`) | `fmdbext:consent`, its `statement` from the `termsLabel` of the box as its visitors read it: the braces, which marked the text of the link to the terms file, go, the text stays, and the file (`link`, a repository path) is reported; the title of the field when the box has no terms label. Without the extended inputs, `fmdb:checkbox` with one option, the accepted value | `true` when the answer is the `yes` label of the box, nothing when it is the `no` label, for the consent and for the checkbox alike; any other text is kept, with a note |
 | `imageCheckboxDefinition` (`forms-extended-inputs`) | `fmdb:checkbox` with manual options, the images dropped | The option keys |
@@ -319,6 +319,27 @@ For every field:
   type and the profile server declares the property with a type the field holds (see the decisions), the first
   of the kind on a field; every other prefill, and `logics`, are reported,
   with the names of the fields they touch, and nothing is written for them. `inputsize` is dropped.
+
+#### A matrix
+
+A radios or checkboxes matrix of Forms is one question per row, the same answers across:
+its `rows` and `columns` options hold a JSON of choices per language, `[{"key","value","visible"}]`, and
+the visitor's answer one key per row (see [The results](#the-results)). Formidable holds that grid as a
+fieldset of groups rendered with the **Matrix** view of `formidable-elements`
+([Styling a form](../styling/README.md#the-matrix-view-of-a-fieldset)): the import creates a
+`fmdb:fieldset` named and titled after the matrix, carrying `jmix:renderable` and `j:view = matrix`, and
+under it one `fmdb:radio` (radios matrix) or `fmdb:checkbox` (checkboxes matrix) field per visible row,
+titled after the row, named from that title, with the columns as its manual options — the column key as
+the value, so that the answers match — and the required rule of the matrix on each. Each row field
+remembers the matrix and its row as its source, `<uuid of the matrix>.<row key>` in `sourceId` and
+`<name of the matrix>.<row key>` in `sourceName` (the name Forms itself gives the inputs of a row), which
+is what ties the answers of the row to the field, on the run that creates the form and on the runs that
+find it. The rows are reported as carried over, one note naming them all; the help text of the matrix,
+which a fieldset cannot hold, is reported to review. A matrix without a visible row or without a column
+falls back on the text area of the table, reported as before. A form imported before this rule holds one
+text field for the matrix: the answers of a later run keep landing there, one line per row, since no field
+of that form remembers a row. A form the export has lost (see [Results only](#results-only)) has no
+definition to read the rows from: its matrix answers stay the one-line-per-row text.
 
 **The date rule** needs no time zone. Forms stored the local midnight of the visitor: for a visitor at the
 offset `o`, the instant is the chosen day minus `o`. Adding 12 hours and truncating gives back the chosen

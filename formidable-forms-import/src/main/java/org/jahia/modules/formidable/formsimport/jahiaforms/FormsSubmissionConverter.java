@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -61,8 +62,11 @@ public final class FormsSubmissionConverter {
         List<ImportNote> report = new ArrayList<>();
         for (FormsResultField answer : submission.fields()) {
             FormsLabel label = results == null ? null : results.label(answer.labelName());
-            ImportedField field = fieldOf(answer, label);
             FormsField definition = definitionOf(answer, label);
+            if (convertMatrix(answer, definition, values, report)) {
+                continue;
+            }
+            ImportedField field = fieldOf(answer, label);
             String fieldName = foundNames == null ? createdName(field) : foundName(answer, label);
             String name = fieldName == null ? answer.labelName() : fieldName;
             String kind = kindOf(field, definition);
@@ -89,17 +93,71 @@ public final class FormsSubmissionConverter {
         if (converted.note() != null) {
             report.add(ImportNote.action("submission." + converted.note(), FIELD, target.title(), "count", String.valueOf(converted.count())));
         }
-        String name = target.name();
-        List<String> kept = converted.values().stream().filter(v -> v != null && !v.isBlank()).toList();
+        store(target, converted.values(), values, report);
+    }
+
+    /** The non-blank values under the name of their field; a second answer sent to one name is said, not kept. */
+    private static void store(Target target, List<String> answers, Map<String, List<String>> values, List<ImportNote> report) {
+        List<String> kept = answers.stream().filter(v -> v != null && !v.isBlank()).toList();
         if (kept.isEmpty()) {
             return;
         }
-        if (values.containsKey(name)) {
+        if (values.containsKey(target.name())) {
             // two answers of one submission sent to one name by a mapping: the first stays, the second is said
             report.add(ImportNote.action("submission.duplicateTarget", FIELD, target.title()));
             return;
         }
-        values.put(name, kept);
+        values.put(target.name(), kept);
+    }
+
+    /**
+     * The answers of a matrix, one row at a time, under the field created for each row (the fieldset
+     * rendered with the Matrix view of {@code FormsFormConverter}): the column keys, one for a radios
+     * matrix, several for a checkboxes one. False when the answer is not one of a matrix, when its value is
+     * not the JSON of one, or when a row has no field of its own — a form imported before the rows had
+     * theirs holds one text field for the whole matrix, which keeps receiving the rows as lines.
+     */
+    private boolean convertMatrix(FormsResultField answer, FormsField definition, Map<String, List<String>> values, List<ImportNote> report) {
+        if (definition == null || !FormsFieldTypes.isMatrix(definition.kind())) {
+            return false;
+        }
+        Optional<Map<String, List<String>>> rows = FormsValues.matrixRows(answer.value());
+        if (rows.isEmpty()) {
+            return false;
+        }
+        Map<String, Target> targets = new LinkedHashMap<>();
+        for (String rowKey : rows.get().keySet()) {
+            Target target = rowTarget(definition, rowKey);
+            if (target == null) {
+                return false;
+            }
+            targets.put(rowKey, target);
+        }
+        rows.get().forEach((rowKey, answers) -> store(targets.get(rowKey), answers, values, report));
+        return true;
+    }
+
+    /**
+     * The field of one row of a matrix: the one converted for it, by the source the row field remembers
+     * (the identity of the matrix and the key of the row, else their names); on a found form, the field of
+     * that form that remembers the same source. Null when neither knows the row.
+     */
+    private Target rowTarget(FormsField definition, String rowKey) {
+        String byId = FormsFieldTypes.matrixRow(definition.uuid(), rowKey);
+        String byName = FormsFieldTypes.matrixRow(definition.name(), rowKey);
+        ImportedField row = form.fieldBySourceId(byId);
+        if (row == null) {
+            row = form.fieldBySourceName(byName);
+        }
+        String title = row == null ? rowKey : row.titles().getOrDefault(form.buildingLang(), row.name());
+        if (foundNames == null) {
+            return row == null ? null : new Target(row.name(), title);
+        }
+        String name = byId == null ? null : foundNames.get(byId);
+        if (name == null) {
+            name = foundNames.get(byName);
+        }
+        return name == null ? null : new Target(name, title);
     }
 
     /**

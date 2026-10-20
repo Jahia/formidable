@@ -13,6 +13,14 @@ const SAMPLE_FIXTURE = 'imports/formFactory-sample.zip';
 /** The same export taken again after a visitor sent a PDF through the file field "Your Id" of contact-us. */
 const WITH_FILE_FIXTURE = 'imports/formFactory-with-file.zip';
 const WITH_FILE = {submission: '2dd1fe78-e095-4f47-ab08-b5c30df47a4b', fileName: 'document.pdf', mimeType: 'application/pdf', bytes: 578};
+/** A hand-written export: one form with a radios matrix (2 rows × 3 columns) and a checkboxes matrix (1 × 2), 2 submissions. */
+const MATRIX_FIXTURE = 'imports/formFactory-matrix.zip';
+const MATRIX = {
+	form: 'satisfaction-survey',
+	radios: {name: 'satisfaction', rows: ['the-price', 'the-service'], columns: ['poor', 'fair', 'good']},
+	checkboxes: {name: 'extras', rows: ['delivery'], columns: ['fast', 'cheap']},
+	firstSubmission: '71d2f6a0-aaaa-4bbb-8ccc-000000000011'
+};
 const NO_IDS_EXPORT = 'cypress/fixtures/imports/formFactory-no-ids.zip';
 const NOT_A_ZIP = 'cypress/fixtures/imports/conditional-logic-form.xml';
 /** The add-on: the test site is created without it, and the spec enables it there as an administrator would. */
@@ -663,6 +671,59 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 				cy.login();
 			})
 		);
+	});
+
+	it('recreates a Forms matrix as a fieldset laid out as a matrix, one field per row, the answers under each row', () => {
+		uploadThroughApi(MATRIX_FIXTURE).then(jobId => {
+			waitForJobState(jobId, 'review');
+			importApi('POST', `/jobs/${jobId}/import`, {choices: {[MATRIX.form]: 'create'}}).its('status').should('eq', 200);
+			waitForJobState(jobId, 'done');
+			importApi('DELETE', `/jobs/${jobId}`).its('status').should('eq', 200);
+		});
+
+		// the form: two fieldsets rendered with the Matrix view, one radio or checkbox field per row, the columns as options
+		type Element = {name: string; type: {name: string}; view: {value: string} | null; renderable: boolean; children: {nodes: Element[]}; options: {values: string[]} | null};
+		graphql<{jcr: {nodeByPath: {children: {nodes: Element[]}}}}>(
+			`query Fields($path: String!) { jcr(workspace: EDIT) { nodeByPath(path: $path) { children { nodes {
+				name type: primaryNodeType { name } view: property(name: "j:view") { value } renderable: isNodeType(type: {types: ["jmix:renderable"]})
+				options: property(name: "options", language: "en") { values }
+				children { nodes { name type: primaryNodeType { name } view: property(name: "j:view") { value } renderable: isNodeType(type: {types: ["jmix:renderable"]})
+					options: property(name: "options", language: "en") { values } children { nodes { name type: primaryNodeType { name } view: property(name: "j:view") { value } renderable: isNodeType(type: {types: ["jmix:renderable"]}) options: property(name: "options", language: "en") { values } children { nodes { name type: primaryNodeType { name } view: property(name: "j:view") { value } renderable: isNodeType(type: {types: ["jmix:renderable"]}) options: property(name: "options", language: "en") { values } children { nodes { name } } } } } } } } } } } } } }`,
+			{path: `${IMPORTED_FORMS_PATH}/${MATRIX.form}/fields`}
+		).then(data => {
+			const elements = data.jcr.nodeByPath.children.nodes;
+			const fieldset = (name: string) => elements.find(element => element.name === name);
+			const radios = fieldset(MATRIX.radios.name);
+			expect(radios?.type.name, 'the radios matrix').to.equal('fmdb:fieldset');
+			expect(radios?.renderable, 'jmix:renderable on the fieldset').to.equal(true);
+			expect(radios?.view?.value).to.equal('matrix');
+			expect(radios?.children.nodes.map(row => row.name)).to.deep.equal(MATRIX.radios.rows);
+			radios?.children.nodes.forEach(row => {
+				expect(row.type.name, row.name).to.equal('fmdb:radio');
+				expect(row.options?.values.map(option => (JSON.parse(option) as {value: string}).value), row.name).to.deep.equal(MATRIX.radios.columns);
+			});
+			const checkboxes = fieldset(MATRIX.checkboxes.name);
+			expect(checkboxes?.view?.value).to.equal('matrix');
+			expect(checkboxes?.children.nodes.map(row => `${row.type.name}:${row.name}`)).to.deep.equal(['fmdb:checkbox:delivery']);
+		});
+
+		// the answers: the column keys of each row, under the field of that row, nothing under the matrix
+		importedSubmission(MATRIX.firstSubmission).then(submission => {
+			const value = (name: string) => submission.data.properties.filter(p => p.name === name).map(p => p.value);
+			expect(value('the-price')).to.deep.equal(['good']);
+			expect(value('the-service')).to.deep.equal(['poor']);
+			expect(value('delivery')).to.deep.equal(['fast', 'cheap']);
+			expect(valueNames(submission)).to.not.include(MATRIX.radios.name);
+		});
+
+		// rendered, the fieldset is a matrix: the heading row and one grid row per question (the form is unpublished: preview)
+		cy.request(`/cms/render/default/en${IMPORTED_FORMS_PATH}/${MATRIX.form}.html.ajax`).then(response => {
+			expect(response.status).to.equal(200);
+			expect(response.body).to.contain('fmdb-fieldset fmdb-matrix').and.to.contain('--fmdb-matrix-columns:3').and.to.contain('fmdb-matrix-column">Fair<');
+			expect(response.body).to.contain('name="the-price"').and.to.contain('name="delivery"');
+		});
+		deleteNode(`${IMPORTED_FORMS_PATH}/${MATRIX.form}`);
+		deleteNode(`${RESULTS_ROOT_PATH}/${MATRIX.form}`, 'LIVE');
 	});
 
 	it('leaves out a form told not to import, and proposes it again on the next run', () => {

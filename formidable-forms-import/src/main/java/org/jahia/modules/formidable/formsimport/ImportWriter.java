@@ -57,6 +57,8 @@ public class ImportWriter {
     private static final String CONTENT_FOLDER_TYPE = "jnt:contentFolder";
     private static final String FOLDER_TYPE = "jnt:folder";
     private static final String TITLE = "jcr:title";
+    private static final String RENDERABLE_MIXIN = "jmix:renderable";
+    private static final String VIEW = "j:view";
     private static final String OPTIONS_MODE = "optionsMode";
     private static final String OPTIONS = "options";
     private static final String OPTIONS_SOURCE_KEY = "optionsSourceKey";
@@ -233,6 +235,11 @@ public class ImportWriter {
         if (element instanceof ImportedContainer container) {
             JCRNodeWrapper node = parent.addNode(JCRContentUtils.findAvailableNodeName(parent, container.name()), container.nodeType());
             i18n(node, TITLE, container.titles());
+            if (container.view() != null) {
+                // j:view belongs to jmix:renderable, which the Content Editor adds with the property
+                node.addMixin(RENDERABLE_MIXIN);
+                node.setProperty(VIEW, container.view());
+            }
             for (ImportedElement child : container.children()) {
                 writeElement(node, child);
             }

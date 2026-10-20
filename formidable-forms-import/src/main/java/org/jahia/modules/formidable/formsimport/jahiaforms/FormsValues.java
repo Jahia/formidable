@@ -12,7 +12,9 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -20,7 +22,8 @@ import java.util.function.Function;
 /**
  * What the import writes into {@code data} for a Forms answer (docs/architecture/forms-import.md, "The
  * fields", third column): most values unchanged, a date as {@code yyyy-MM-dd}, a country as its code, a
- * rating as its number, a matrix as one line per row, a ticked consent as {@code true}; the file JSON and
+ * rating as its number, a matrix row by row ({@link #matrixRows}, each under the field of its row) or as one
+ * line per row when no field holds the rows, a ticked consent as {@code true}; the file JSON and
  * the password placeholder dropped. The JSON shapes are those the Forms directives submit
  * ({@code forms-core/src/main/resources/fcnt_*Definition/js}).
  */
@@ -155,20 +158,31 @@ final class FormsValues {
      * ({@code ng-model="input.value[rowv.key]"}); a row with several answers lists them.
      */
     static Optional<String> matrix(String json) {
+        return matrixRows(json).map(rows -> rows.entrySet().stream()
+                .map(row -> row.getKey() + ": " + String.join(", ", row.getValue()))
+                .collect(java.util.stream.Collectors.joining("\n")));
+    }
+
+    /**
+     * The answers of a matrix by row, in the order of the text: the key of each row beside the renderer
+     * name, with its answer, one column key, or several for a checkbox matrix. Empty when the value is not
+     * the JSON of a matrix, or names no row.
+     */
+    static Optional<Map<String, List<String>>> matrixRows(String json) {
         Optional<JSONObject> object = object(json);
         if (object.isEmpty() || !object.get().has(RENDERER_NAME)) {
             return Optional.empty();
         }
         JSONObject matrix = object.get();
-        List<String> lines = new ArrayList<>();
+        Map<String, List<String>> rows = new LinkedHashMap<>();
         for (String row : rowsInTextOrder(matrix, json)) {
             if (RENDERER_NAME.equals(row)) {
                 continue;
             }
             Object answer = matrix.get(row);
-            lines.add(row + ": " + (answer instanceof JSONArray several ? join(several) : String.valueOf(answer)));
+            rows.put(row, answer instanceof JSONArray several ? items(several) : List.of(String.valueOf(answer)));
         }
-        return lines.isEmpty() ? Optional.empty() : Optional.of(String.join("\n", lines));
+        return rows.isEmpty() ? Optional.empty() : Optional.of(rows);
     }
 
     /**
@@ -200,12 +214,12 @@ final class FormsValues {
         return ordered;
     }
 
-    private static String join(JSONArray values) {
+    private static List<String> items(JSONArray values) {
         List<String> items = new ArrayList<>();
         for (int i = 0; i < values.length(); i++) {
             items.add(String.valueOf(values.get(i)));
         }
-        return String.join(", ", items);
+        return items;
     }
 
     private static Optional<JSONObject> object(String json) {

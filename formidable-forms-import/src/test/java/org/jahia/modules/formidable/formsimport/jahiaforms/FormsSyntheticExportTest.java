@@ -1,5 +1,7 @@
 package org.jahia.modules.formidable.formsimport.jahiaforms;
 
+import org.jahia.modules.formidable.formsimport.model.ImportedContainer;
+import org.jahia.modules.formidable.formsimport.model.ImportedElement;
 import org.jahia.modules.formidable.formsimport.model.ImportedField;
 import org.jahia.modules.formidable.formsimport.model.ImportedForm;
 import org.jahia.modules.formidable.formsimport.model.ImportNote;
@@ -24,6 +26,16 @@ class FormsSyntheticExportTest {
     private static final String EMAIL_ID = "e0000000-0000-0000-0000-000000000001";
     private static final String COLOURS_ID = "c0000000-0000-0000-0000-000000000002";
     private static final String PASSWORD_ID = "d0000000-0000-0000-0000-000000000003";
+    private static final String SATISFACTION_ID = "a0000000-0000-0000-0000-000000000004";
+    private static final String EXTRAS_ID = "b0000000-0000-0000-0000-000000000005";
+    // the rows and columns of a matrix as the design view stores them, a hidden row among them
+    private static final String SATISFACTION_ROWS = "[{&quot;key&quot;:&quot;q1&quot;,&quot;value&quot;:&quot;The price&quot;,&quot;visible&quot;:true},"
+            + "{&quot;key&quot;:&quot;q2&quot;,&quot;value&quot;:&quot;The service&quot;,&quot;visible&quot;:true},"
+            + "{&quot;key&quot;:&quot;q3&quot;,&quot;value&quot;:&quot;Hidden row&quot;,&quot;visible&quot;:false}]";
+    private static final String SATISFACTION_COLUMNS = "[{&quot;key&quot;:&quot;poor&quot;,&quot;value&quot;:&quot;Poor&quot;,&quot;visible&quot;:true},"
+            + "{&quot;key&quot;:&quot;good&quot;,&quot;value&quot;:&quot;Good&quot;,&quot;visible&quot;:true}]";
+    private static final String EXTRAS_ROWS = "[{&quot;key&quot;:&quot;r1&quot;,&quot;value&quot;:&quot;Delivery&quot;,&quot;visible&quot;:true}]";
+    private static final String EXTRAS_COLUMNS = "[{&quot;key&quot;:&quot;fast&quot;,&quot;value&quot;:&quot;Fast&quot;},{&quot;key&quot;:&quot;cheap&quot;,&quot;value&quot;:&quot;Cheap&quot;}]";
 
     private static final String EXPORT = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
             + "<formFactory xmlns:jcr=\"http://www.jcp.org/jcr/1.0\" xmlns:j=\"http://www.jahia.org/jahia/1.0\" jcr:primaryType=\"fcnt:formFactory\">\n"
@@ -33,6 +45,8 @@ class FormsSyntheticExportTest {
             + "        <email jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"" + EMAIL_ID + "\"><j:translation_en jcr:primaryType=\"jnt:translation\" label=\"\"/></email>\n"
             + "        <colours jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"" + COLOURS_ID + "\"><j:translation_en jcr:primaryType=\"jnt:translation\" label=\"Colours\"/></colours>\n"
             + "        <password_0_1 jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"" + PASSWORD_ID + "\"/>\n"
+            + "        <satisfaction jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"" + SATISFACTION_ID + "\"><j:translation_en jcr:primaryType=\"jnt:translation\" label=\"Satisfaction\"/></satisfaction>\n"
+            + "        <extras jcr:primaryType=\"fcnt:definitionOptionsTranslatable\" fieldId=\"" + EXTRAS_ID + "\"><j:translation_en jcr:primaryType=\"jnt:translation\" label=\"Extras\"/></extras>\n"
             + "      </labels>\n"
             + "      <submissions jcr:primaryType=\"fcnt:submissions\">\n"
             + "        <_x0030_6 jcr:primaryType=\"fcnt:splittedResult\">\n"
@@ -40,6 +54,8 @@ class FormsSyntheticExportTest {
             + "            <email-input_0_2 jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/email\" result=\"user1@example.com\" optional=\"false\"/>\n"
             + "            <colours jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/colours\" result=\"Very_x0020_good Fair\" optional=\"true\"/>\n"
             + "            <password_0_1 jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/password_0_1\" result=\"**********\" optional=\"true\"/>\n"
+            + "            <satisfaction jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/satisfaction\" result=\"{&quot;q1&quot;:&quot;good&quot;,&quot;q2&quot;:&quot;poor&quot;,&quot;rendererName&quot;:&quot;matrixRadios&quot;}\" optional=\"true\"/>\n"
+            + "            <extras jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/extras\" result=\"{&quot;rendererName&quot;:&quot;matrixCheckboxes&quot;,&quot;r1&quot;:[&quot;fast&quot;,&quot;cheap&quot;]}\" optional=\"true\"/>\n"
             + "          </s1>\n"
             + "        </_x0030_6>\n"
             + "      </submissions>\n"
@@ -55,6 +71,16 @@ class FormsSyntheticExportTest {
             + "        <colours jcr:primaryType=\"fcnt:multipleCheckBoxesDefinition\" jcr:uuid=\"" + COLOURS_ID + "\" choiceField=\"choices\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Colours\"/>\n"
             + "          <choices jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"[{&quot;key&quot;:&quot;Very good&quot;,&quot;value&quot;:&quot;Very good&quot;},{&quot;key&quot;:&quot;Fair&quot;,&quot;value&quot;:&quot;Fair&quot;}]\"/></choices>\n"
             + "        </colours>\n"
+            + "        <satisfaction jcr:primaryType=\"fcnt:matrixRadiosDefinition\" jcr:uuid=\"" + SATISFACTION_ID + "\" choiceField=\"rows,columns\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Satisfaction\"/>\n"
+            + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_ROWS + "\"/></rows>\n"
+            + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_COLUMNS + "\"/></columns>\n"
+            + "          <validations jcr:primaryType=\"fcnt:validationRules\"><required jcr:primaryType=\"fcnt:requiredValidation\"/></validations>\n"
+            + "        </satisfaction>\n"
+            + "        <extras jcr:primaryType=\"fcnt:matrixCheckBoxesDefinition\" jcr:uuid=\"" + EXTRAS_ID + "\" choiceField=\"rows,columns\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Extras\"/>\n"
+            + "          <helptext jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"Tick all that apply\"/></helptext>\n"
+            + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + EXTRAS_ROWS + "\"/></rows>\n"
+            + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + EXTRAS_COLUMNS + "\"/></columns>\n"
+            + "        </extras>\n"
             + "        <password_0_1 jcr:primaryType=\"fcnt:passwordDefinition\" jcr:uuid=\"" + PASSWORD_ID + "\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Password\"/></password_0_1>\n"
             + "      </step-1>\n"
             + "      <actions jcr:primaryType=\"fcnt:action\">\n"
@@ -113,7 +139,7 @@ class FormsSyntheticExportTest {
         FormsForm source = export.forms().get("survey");
         FormsResults results = export.results().get("survey");
         ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, results);
-        assertEquals(List.of("your-e-mail", "colours"), form.fields().map(ImportedField::name).toList());
+        assertEquals(List.of("your-e-mail", "colours", "the-price", "the-service", "delivery"), form.fields().map(ImportedField::name).toList());
         List<FormsSubmission> submissions = new ArrayList<>();
         reader().readSubmissions(submissions::add);
 
@@ -125,6 +151,77 @@ class FormsSyntheticExportTest {
         // no field was created for it: the note names it by the title of its Forms definition
         assertEquals("Password", converted.report().get(0).param("field"));
         assertEquals(ImportNote.Level.ACTION, converted.report().get(0).level());
+    }
+
+    @Test
+    void aMatrixBecomesAFieldsetOfOneFieldPerRowRenderedAsAMatrix() throws Exception {
+        FormsExport export = reader().readStructure();
+        FormsForm source = export.forms().get("survey");
+        ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, export.results().get("survey"));
+
+        // a single-step form keeps its elements at the top: the two matrices stand among the fields as fieldsets
+        List<ImportedContainer> fieldsets = form.elements().stream()
+                .filter(ImportedContainer.class::isInstance).map(ImportedContainer.class::cast).toList();
+        assertEquals(List.of("satisfaction", "extras"), fieldsets.stream().map(ImportedContainer::name).toList());
+        assertEquals(List.of("your-e-mail", "colours", "satisfaction", "extras"), form.elements().stream().map(ImportedElement::name).toList());
+
+        ImportedContainer satisfaction = fieldsets.get(0);
+        assertEquals(ImportedContainer.FIELDSET, satisfaction.nodeType());
+        assertEquals(ImportedContainer.MATRIX_VIEW, satisfaction.view());
+        assertEquals(Map.of("en", "Satisfaction"), satisfaction.titles());
+        // one radio field per visible row, the columns as its options, the required rule of the matrix on each
+        List<ImportedField> rows = satisfaction.fields().toList();
+        assertEquals(List.of("the-price", "the-service"), rows.stream().map(ImportedField::name).toList());
+        assertTrue(rows.stream().allMatch(row -> row.nodeType().equals(FormsFieldTypes.RADIO)));
+        assertTrue(rows.stream().allMatch(ImportedField::required));
+        assertEquals(Map.of("en", "The service"), rows.get(1).titles());
+        assertEquals(List.of(FormsChoices.option("poor", "Poor"), FormsChoices.option("good", "Good")), rows.get(1).options().get("en"));
+        // the row remembers the matrix and its key, as Forms names the inputs of the row
+        assertEquals(SATISFACTION_ID + ".q2", rows.get(1).sourceId());
+        assertEquals("satisfaction.q2", rows.get(1).sourceName());
+        assertEquals("fcnt:matrixRadiosDefinition", rows.get(1).sourceType());
+        assertEquals(List.of("field.matrixRow"), rows.get(1).report().stream().map(ImportNote::code).toList());
+        assertEquals("matrixRadios", rows.get(1).report().get(0).param("kind"));
+        assertEquals(ImportNote.Level.INFO, rows.get(1).report().get(0).level());
+
+        ImportedContainer extras = fieldsets.get(1);
+        ImportedField delivery = extras.fields().findFirst().orElseThrow();
+        assertEquals(FormsFieldTypes.CHECKBOX, delivery.nodeType());
+        assertEquals(List.of(FormsChoices.option("fast", "Fast"), FormsChoices.option("cheap", "Cheap")), delivery.options().get("en"));
+        // the help text of the matrix has no fieldset to land on: said once, to review
+        assertEquals(List.of("field.matrixRow", "field.matrixHelpText"), delivery.report().stream().map(ImportNote::code).toList());
+        assertEquals(ImportNote.Level.ACTION, delivery.report().get(1).level());
+    }
+
+    @Test
+    void theAnswersOfAMatrixLandUnderTheFieldOfEachRow() throws Exception {
+        FormsExport export = reader().readStructure();
+        FormsForm source = export.forms().get("survey");
+        FormsResults results = export.results().get("survey");
+        ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, results);
+        List<FormsSubmission> submissions = new ArrayList<>();
+        reader().readSubmissions(submissions::add);
+
+        ImportedSubmission created = new FormsSubmissionConverter(form, source, results).convert(submissions.get(0));
+        assertEquals(List.of("good"), created.values().get("the-price"));
+        assertEquals(List.of("poor"), created.values().get("the-service"));
+        assertEquals(List.of("fast", "cheap"), created.values().get("delivery"));
+        assertFalse(created.values().containsKey("satisfaction"));
+        assertFalse(created.values().containsKey("extras"));
+
+        // a found form: the field that remembers the row, under the name it has now
+        Map<String, String> renamed = Map.of(SATISFACTION_ID + ".q1", "price", "satisfaction.q2", "service", EXTRAS_ID + ".r1", "delivery");
+        ImportedSubmission found = new FormsSubmissionConverter(form, source, results, renamed).convert(submissions.get(0));
+        assertEquals(List.of("good"), found.values().get("price"));
+        assertEquals(List.of("poor"), found.values().get("service"));
+        assertEquals(List.of("fast", "cheap"), found.values().get("delivery"));
+
+        // a form imported before the rows had their fields holds one text field for the matrix: the rows stay its lines
+        Map<String, String> earlier = Map.of(SATISFACTION_ID, "satisfaction", EXTRAS_ID, "extras");
+        ImportedSubmission asLines = new FormsSubmissionConverter(form, source, results, earlier).convert(submissions.get(0));
+        assertEquals(List.of("q1: good\nq2: poor"), asLines.values().get("satisfaction"));
+        assertEquals(List.of("r1: fast, cheap"), asLines.values().get("extras"));
+        assertFalse(asLines.values().containsKey("the-price"));
     }
 
     @Test
