@@ -148,30 +148,108 @@ public final class FormsFormConverter {
         return steps;
     }
 
-    /** The fields of a step, the ones between a fieldset start and its end wrapped in a fieldset. */
+    /**
+     * The fields of a step, the ones between a fieldset start and its end wrapped in a fieldset; a matrix, a
+     * fieldset itself, never under one ({@link StepLayout}).
+     */
     private List<ImportedElement> elementsOf(FormsStep step, FormsResults results, String buildingLang,
                                             SystemNames names, List<ImportNote> report) {
-        Deque<Fieldset> open = new ArrayDeque<>();
-        List<ImportedElement> top = new ArrayList<>();
+        StepLayout layout = new StepLayout(names, buildingLang);
         for (FormsField definition : step.fields()) {
             String kind = definition.kind();
-            List<ImportedElement> target = open.isEmpty() ? top : open.peek().children;
             if (FormsFieldTypes.isFieldsetStart(kind)) {
-                Map<String, String> titles = FormsLabels.titles(definition, null, definition.name());
-                open.push(new Fieldset(names.of(titles.get(buildingLang), definition.name()), titles));
+                layout.openFieldset(definition);
             } else if (FormsFieldTypes.isFieldsetEnd(kind)) {
-                if (!open.isEmpty()) {
-                    Fieldset closed = open.pop();
-                    (open.isEmpty() ? top : open.peek().children).add(closed.toContainer());
-                }
+                layout.closeFieldset();
             } else if (!FormsFieldTypes.isButton(kind)) {
-                elementOf(definition, results, buildingLang, names, report).ifPresent(target::add);
+                elementOf(definition, results, buildingLang, names, report).ifPresent(layout::add);
             }
         }
-        while (!open.isEmpty()) {
-            top.add(open.pop().toContainer());
+        return layout.finish();
+    }
+
+    /**
+     * The elements of a step as they are laid out. The fields between a fieldset start and its end go under a
+     * fieldset, nested ones included. A matrix is a fieldset itself and cannot go under one — {@code fmdb:fieldset}
+     * accepts fields and content only — so the fieldsets open around it close before it, and open again, under
+     * new names and the same titles, for the next field they hold: the fieldset of Forms is split in two around
+     * the matrix, and a matrix at its end leaves no empty half (docs/architecture/forms-import.md, "A matrix").
+     */
+    private static final class StepLayout {
+        private final SystemNames names;
+        private final String buildingLang;
+        private final List<ImportedElement> top = new ArrayList<>();
+        private final Deque<Fieldset> open = new ArrayDeque<>();
+        /** The fieldsets closed before a matrix, outermost first, to open again for the next field; none while any is open. */
+        private final List<Fieldset> suspended = new ArrayList<>();
+
+        StepLayout(SystemNames names, String buildingLang) {
+            this.names = names;
+            this.buildingLang = buildingLang;
         }
-        return top;
+
+        void openFieldset(FormsField definition) {
+            reopen();
+            Map<String, String> titles = FormsLabels.titles(definition, null, definition.name());
+            open.push(new Fieldset(names.of(titles.get(buildingLang), definition.name()), titles));
+        }
+
+        void closeFieldset() {
+            if (!suspended.isEmpty()) {
+                // the innermost fieldset ends while suspended: nothing followed the matrix, nothing to open again
+                suspended.remove(suspended.size() - 1);
+            } else if (!open.isEmpty()) {
+                Fieldset closed = open.pop();
+                target().add(closed.toContainer());
+            }
+        }
+
+        void add(ImportedElement element) {
+            if (element instanceof ImportedContainer container && ImportedContainer.MATRIX_VIEW.equals(container.view())) {
+                suspend();
+                top.add(element);
+                return;
+            }
+            reopen();
+            target().add(element);
+        }
+
+        /** What the step holds, every fieldset still open closed. */
+        List<ImportedElement> finish() {
+            suspended.clear();
+            while (!open.isEmpty()) {
+                closeFieldset();
+            }
+            return top;
+        }
+
+        /**
+         * Closes every open fieldset, innermost first, and keeps them, outermost first, to open again; one
+         * that holds nothing yet is kept whole instead of written empty.
+         */
+        private void suspend() {
+            while (!open.isEmpty()) {
+                Fieldset closed = open.pop();
+                if (!closed.children.isEmpty()) {
+                    target().add(closed.toContainer());
+                }
+                suspended.add(0, closed);
+            }
+        }
+
+        private void reopen() {
+            for (Fieldset fieldset : suspended) {
+                // written with its fields: a new one, under a new name; still empty: the same one, nothing was written
+                open.push(fieldset.children.isEmpty()
+                        ? fieldset
+                        : new Fieldset(names.of(fieldset.titles.get(buildingLang), fieldset.name), fieldset.titles));
+            }
+            suspended.clear();
+        }
+
+        private List<ImportedElement> target() {
+            return open.isEmpty() ? top : open.peek().children;
+        }
     }
 
     /** A matrix becomes a fieldset of one field per row; any other definition a field, or nothing. */

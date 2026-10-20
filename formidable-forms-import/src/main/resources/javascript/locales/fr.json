@@ -167,6 +167,7 @@
 				},
 				"submission": {
 					"keptUnderSourceName": "{{field}} : gardé sous son nom Forms {{name}}, le formulaire n’a pas de champ pour lui",
+					"matrixRowsWithoutField": "{{field}} : {{rows}} — lignes sans champ dans le formulaire, gardées en texte sous son nom Forms",
 					"passwordDropped": "{{field}} : un mot de passe, non importé",
 					"notConverted": "{{field}} : {{count}} valeur(s) gardée(s) telles quelles, elles n’ont pas pu être converties",
 					"consentUnknown": "{{field}} : {{count}} valeur(s) gardée(s) telles quelles, ni le texte accepté ni le texte refusé",

@@ -167,6 +167,7 @@
 				},
 				"submission": {
 					"keptUnderSourceName": "{{field}}: kept under its Forms name {{name}}, the form holds no field for it",
+					"matrixRowsWithoutField": "{{field}}: {{rows}} — rows the form holds no field for, kept as lines under its Forms name",
 					"passwordDropped": "{{field}}: a password, not imported",
 					"notConverted": "{{field}}: {{count}} value(s) kept as stored, they could not be converted",
 					"consentUnknown": "{{field}}: {{count}} value(s) kept as stored, neither the accepted nor the refused text",

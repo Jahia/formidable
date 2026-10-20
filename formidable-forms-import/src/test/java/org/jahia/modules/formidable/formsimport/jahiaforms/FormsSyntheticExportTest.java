@@ -57,6 +57,10 @@ class FormsSyntheticExportTest {
             + "            <satisfaction jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/satisfaction\" result=\"{&quot;q1&quot;:&quot;good&quot;,&quot;q2&quot;:&quot;poor&quot;,&quot;rendererName&quot;:&quot;matrixRadios&quot;}\" optional=\"true\"/>\n"
             + "            <extras jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/extras\" result=\"{&quot;rendererName&quot;:&quot;matrixCheckboxes&quot;,&quot;r1&quot;:[&quot;fast&quot;,&quot;cheap&quot;]}\" optional=\"true\"/>\n"
             + "          </s1>\n"
+            // answered while the third row was still visible: that row has no field of its own now
+            + "          <s2 jcr:primaryType=\"fcnt:result\" jcr:created=\"2024-06-02T10:00:00.000Z\" jcr:createdBy=\"guest\" origin=\"https://example.com/survey\">\n"
+            + "            <satisfaction jcr:primaryType=\"fcnt:resultField\" label=\"#/results/survey/labels/satisfaction\" result=\"{&quot;q1&quot;:&quot;good&quot;,&quot;q2&quot;:&quot;good&quot;,&quot;q3&quot;:&quot;poor&quot;,&quot;rendererName&quot;:&quot;matrixRadios&quot;}\" optional=\"true\"/>\n"
+            + "          </s2>\n"
             + "        </_x0030_6>\n"
             + "      </submissions>\n"
             + "    </survey>\n"
@@ -71,16 +75,24 @@ class FormsSyntheticExportTest {
             + "        <colours jcr:primaryType=\"fcnt:multipleCheckBoxesDefinition\" jcr:uuid=\"" + COLOURS_ID + "\" choiceField=\"choices\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Colours\"/>\n"
             + "          <choices jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"[{&quot;key&quot;:&quot;Very good&quot;,&quot;value&quot;:&quot;Very good&quot;},{&quot;key&quot;:&quot;Fair&quot;,&quot;value&quot;:&quot;Fair&quot;}]\"/></choices>\n"
             + "        </colours>\n"
-            + "        <satisfaction jcr:primaryType=\"fcnt:matrixRadiosDefinition\" jcr:uuid=\"" + SATISFACTION_ID + "\" choiceField=\"rows,columns\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Satisfaction\"/>\n"
-            + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_ROWS + "\"/></rows>\n"
-            + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_COLUMNS + "\"/></columns>\n"
-            + "          <validations jcr:primaryType=\"fcnt:validationRules\"><required jcr:primaryType=\"fcnt:requiredValidation\"/></validations>\n"
-            + "        </satisfaction>\n"
+            // a Forms fieldset around a matrix: a field before it, the matrix, a field after it
+            + "        <about-you jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"About you\"/></about-you>\n"
+            + "        <nickname jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"n0000000-0000-0000-0000-000000000006\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Nickname\"/></nickname>\n"
             + "        <extras jcr:primaryType=\"fcnt:matrixCheckBoxesDefinition\" jcr:uuid=\"" + EXTRAS_ID + "\" choiceField=\"rows,columns\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Extras\"/>\n"
             + "          <helptext jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"Tick all that apply\"/></helptext>\n"
             + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + EXTRAS_ROWS + "\"/></rows>\n"
             + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + EXTRAS_COLUMNS + "\"/></columns>\n"
             + "        </extras>\n"
+            + "        <city jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"c0000000-0000-0000-0000-000000000007\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"City\"/></city>\n"
+            + "        <about-you-end jcr:primaryType=\"fcnt:fieldsetEndDefinition\"/>\n"
+            // a Forms fieldset holding a matrix alone
+            + "        <your-opinion jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Your opinion\"/></your-opinion>\n"
+            + "        <satisfaction jcr:primaryType=\"fcnt:matrixRadiosDefinition\" jcr:uuid=\"" + SATISFACTION_ID + "\" choiceField=\"rows,columns\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Satisfaction\"/>\n"
+            + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_ROWS + "\"/></rows>\n"
+            + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_COLUMNS + "\"/></columns>\n"
+            + "          <validations jcr:primaryType=\"fcnt:validationRules\"><required jcr:primaryType=\"fcnt:requiredValidation\"/></validations>\n"
+            + "        </satisfaction>\n"
+            + "        <your-opinion-end jcr:primaryType=\"fcnt:fieldsetEndDefinition\"/>\n"
             + "        <password_0_1 jcr:primaryType=\"fcnt:passwordDefinition\" jcr:uuid=\"" + PASSWORD_ID + "\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Password\"/></password_0_1>\n"
             + "      </step-1>\n"
             + "      <actions jcr:primaryType=\"fcnt:action\">\n"
@@ -139,7 +151,8 @@ class FormsSyntheticExportTest {
         FormsForm source = export.forms().get("survey");
         FormsResults results = export.results().get("survey");
         ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, results);
-        assertEquals(List.of("your-e-mail", "colours", "the-price", "the-service", "delivery"), form.fields().map(ImportedField::name).toList());
+        assertEquals(List.of("your-e-mail", "colours", "nickname", "delivery", "city", "the-price", "the-service"),
+                form.fields().map(ImportedField::name).toList());
         List<FormsSubmission> submissions = new ArrayList<>();
         reader().readSubmissions(submissions::add);
 
@@ -159,13 +172,21 @@ class FormsSyntheticExportTest {
         FormsForm source = export.forms().get("survey");
         ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, export.results().get("survey"));
 
-        // a single-step form keeps its elements at the top: the two matrices stand among the fields as fieldsets
+        // a single-step form keeps its elements at the top; a matrix never goes under a fieldset, which a fieldset
+        // cannot hold: the one around "extras" is split in two around it, the one holding "satisfaction" alone goes
+        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "satisfaction"),
+                form.elements().stream().map(ImportedElement::name).toList());
         List<ImportedContainer> fieldsets = form.elements().stream()
                 .filter(ImportedContainer.class::isInstance).map(ImportedContainer.class::cast).toList();
-        assertEquals(List.of("satisfaction", "extras"), fieldsets.stream().map(ImportedContainer::name).toList());
-        assertEquals(List.of("your-e-mail", "colours", "satisfaction", "extras"), form.elements().stream().map(ImportedElement::name).toList());
+        ImportedContainer aboutYou = fieldsets.get(0);
+        ImportedContainer aboutYouAgain = fieldsets.get(2);
+        assertEquals(Map.of("en", "About you"), aboutYou.titles());
+        assertEquals(aboutYou.titles(), aboutYouAgain.titles());
+        assertEquals(List.of("nickname"), aboutYou.children().stream().map(ImportedElement::name).toList());
+        assertEquals(List.of("city"), aboutYouAgain.children().stream().map(ImportedElement::name).toList());
+        assertTrue(aboutYou.view() == null && aboutYouAgain.view() == null);
 
-        ImportedContainer satisfaction = fieldsets.get(0);
+        ImportedContainer satisfaction = fieldsets.get(3);
         assertEquals(ImportedContainer.FIELDSET, satisfaction.nodeType());
         assertEquals(ImportedContainer.MATRIX_VIEW, satisfaction.view());
         assertEquals(Map.of("en", "Satisfaction"), satisfaction.titles());
@@ -185,6 +206,7 @@ class FormsSyntheticExportTest {
         assertEquals(ImportNote.Level.INFO, rows.get(1).report().get(0).level());
 
         ImportedContainer extras = fieldsets.get(1);
+        assertEquals(ImportedContainer.MATRIX_VIEW, extras.view());
         ImportedField delivery = extras.fields().findFirst().orElseThrow();
         assertEquals(FormsFieldTypes.CHECKBOX, delivery.nodeType());
         assertEquals(List.of(FormsChoices.option("fast", "Fast"), FormsChoices.option("cheap", "Cheap")), delivery.options().get("en"));
@@ -222,6 +244,16 @@ class FormsSyntheticExportTest {
         assertEquals(List.of("q1: good\nq2: poor"), asLines.values().get("satisfaction"));
         assertEquals(List.of("r1: fast, cheap"), asLines.values().get("extras"));
         assertFalse(asLines.values().containsKey("the-price"));
+
+        // a row hidden since the visitor answered has no field: its answer stays a line under the Forms name, and is said
+        ImportedSubmission hiddenRow = new FormsSubmissionConverter(form, source, results).convert(submissions.get(1));
+        assertEquals(List.of("good"), hiddenRow.values().get("the-price"));
+        assertEquals(List.of("good"), hiddenRow.values().get("the-service"));
+        assertEquals(List.of("q3: poor"), hiddenRow.values().get("satisfaction"));
+        assertEquals(1, hiddenRow.report().size());
+        assertEquals("submission.matrixRowsWithoutField", hiddenRow.report().get(0).code());
+        assertEquals("Satisfaction", hiddenRow.report().get(0).param("field"));
+        assertEquals("q3: poor", hiddenRow.report().get(0).param("rows"));
     }
 
     @Test

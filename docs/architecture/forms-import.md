@@ -336,10 +336,19 @@ remembers the matrix and its row as its source, `<uuid of the matrix>.<row key>`
 is what ties the answers of the row to the field, on the run that creates the form and on the runs that
 find it. The rows are reported as carried over, one note naming them all; the help text of the matrix,
 which a fieldset cannot hold, is reported to review. A matrix without a visible row or without a column
-falls back on the text area of the table, reported as before. A form imported before this rule holds one
-text field for the matrix: the answers of a later run keep landing there, one line per row, since no field
-of that form remembers a row. A form the export has lost (see [Results only](#results-only)) has no
-definition to read the rows from: its matrix answers stay the one-line-per-row text.
+falls back on the text area of the table, reported as before.
+
+A matrix inside a Forms fieldset splits it: `fmdb:fieldset` accepts fields and content, not a fieldset, so
+the fieldsets open around the matrix close before it and open again, under new names and the same titles,
+for the next field they hold — and never for nothing, so that a matrix at the end of a fieldset leaves no
+empty half (`FormsFormConverter.StepLayout`).
+
+A row of an answer that no field of the form holds — hidden in Forms since the visitor answered, or never
+visible — stays as a line under the Forms name of the matrix, `q3: poor`, and the report names the row and
+its answer; the rows that have a field take their answers as usual. When no field holds any row — a form
+imported before this rule holds one text field for the matrix — the whole answer keeps landing there, one
+line per row. A form the export has lost (see [Results only](#results-only)) has no definition to read the
+rows from: its matrix answers stay the one-line-per-row text.
 
 **The date rule** needs no time zone. Forms stored the local midnight of the visitor: for a visitor at the
 offset `o`, the instant is the chosen day minus `o`. Adding 12 hours and truncating gives back the chosen

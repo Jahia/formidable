@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Turns a Forms submission into the submission the import writes (docs/architecture/forms-import.md,
@@ -113,9 +114,10 @@ public final class FormsSubmissionConverter {
     /**
      * The answers of a matrix, one row at a time, under the field created for each row (the fieldset
      * rendered with the Matrix view of {@code FormsFormConverter}): the column keys, one for a radios
-     * matrix, several for a checkboxes one. False when the answer is not one of a matrix, when its value is
-     * not the JSON of one, or when a row has no field of its own — a form imported before the rows had
-     * theirs holds one text field for the whole matrix, which keeps receiving the rows as lines.
+     * matrix, several for a checkboxes one. A row no field holds stays as a line under the Forms name of the
+     * matrix ({@link #keepRowsWithoutField}). False when the answer is not one of a matrix, when its value is
+     * not the JSON of one, or when no field holds any row — a form imported before the rows had their fields
+     * holds one text field for the whole matrix, which keeps receiving the rows as lines.
      */
     private boolean convertMatrix(FormsResultField answer, FormsField definition, Map<String, List<String>> values, List<ImportNote> report) {
         if (definition == null || !FormsFieldTypes.isMatrix(definition.kind())) {
@@ -125,16 +127,39 @@ public final class FormsSubmissionConverter {
         if (rows.isEmpty()) {
             return false;
         }
-        Map<String, Target> targets = new LinkedHashMap<>();
-        for (String rowKey : rows.get().keySet()) {
-            Target target = rowTarget(definition, rowKey);
+        Map<String, List<String>> withoutField = new LinkedHashMap<>();
+        boolean stored = false;
+        for (Map.Entry<String, List<String>> row : rows.get().entrySet()) {
+            Target target = rowTarget(definition, row.getKey());
             if (target == null) {
-                return false;
+                withoutField.put(row.getKey(), row.getValue());
+            } else {
+                store(target, row.getValue(), values, report);
+                stored = true;
             }
-            targets.put(rowKey, target);
         }
-        rows.get().forEach((rowKey, answers) -> store(targets.get(rowKey), answers, values, report));
+        if (!stored) {
+            return false;
+        }
+        if (!withoutField.isEmpty()) {
+            keepRowsWithoutField(answer, definition, withoutField, values, report);
+        }
         return true;
+    }
+
+    /**
+     * The rows of a matrix answer that no field of the form holds — hidden in Forms since the visitor
+     * answered, or never visible — stay as lines under the Forms name of the matrix, as the whole matrix did
+     * before the rows had their fields, and the note names them with their answers.
+     */
+    private void keepRowsWithoutField(FormsResultField answer, FormsField definition, Map<String, List<String>> rows,
+                                      Map<String, List<String>> values, List<ImportNote> report) {
+        String lines = rows.entrySet().stream()
+                .map(row -> row.getKey() + ": " + String.join(", ", row.getValue()))
+                .collect(Collectors.joining("\n"));
+        String title = titleOf(answer, null, null, definition);
+        store(new Target(answer.labelName(), title), List.of(lines), values, report);
+        report.add(ImportNote.action("submission.matrixRowsWithoutField", FIELD, title, "rows", lines.replace("\n", "; ")));
     }
 
     /**
