@@ -110,7 +110,7 @@ describe('plannedImport', () => {
     it('sends a found form with nothing new as taking its results, so that the import keeps it found', () => {
         expect(withFoundForms({}, report)).toEqual({old: 'resultsOnly'});
         expect(withFoundForms({contact: 'create', old: 'skip'}, report)).toEqual({contact: 'create', old: 'skip'});
-        expect(withFoundForms({news: 'resultsOnly'}, undefined)).toEqual({news: 'resultsOnly'});
+        expect(withFoundForms({news: 'resultsOnly'})).toEqual({news: 'resultsOnly'});
     });
 
     it('chooses for all the forms at once, a found form taking its new submissions whether importing or creating', () => {
