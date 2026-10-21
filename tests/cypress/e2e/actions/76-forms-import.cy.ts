@@ -684,10 +684,10 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		});
 
 		// the form: two fieldsets rendered with the Matrix view, one radio or checkbox field per row, the columns as options
-		type Element = {name: string; type: {name: string}; view: {value: string} | null; mixins: Array<{name: string}>; options: {values: string[]} | null};
+		type Element = {name: string; type: {name: string}; view: {value: string} | null; mixins: Array<{name: string}>; options: {values: string[]} | null; required: {value: string} | null};
 		graphql<{jcr: {nodeByPath: {children: {nodes: Array<Element & {children: {nodes: Element[]}}>}}}}>(
 			`fragment Element on JCRNode { name type: primaryNodeType { name } view: property(name: "j:view") { value }
-				mixins: mixinTypes { name } options: property(name: "options", language: "en") { values } }
+				mixins: mixinTypes { name } options: property(name: "options", language: "en") { values } required: property(name: "required") { value } }
 			query Fields($path: String!) { jcr(workspace: EDIT) { nodeByPath(path: $path) { children { nodes {
 				...Element children { nodes { ...Element } } } } } } }`,
 			{path: `${IMPORTED_FORMS_PATH}/${MATRIX.form}/fields`}
@@ -701,11 +701,15 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 			expect(radios?.children.nodes.map(row => row.name)).to.deep.equal(MATRIX.radios.rows);
 			radios?.children.nodes.forEach(row => {
 				expect(row.type.name, row.name).to.equal('fmdb:radio');
+				// every row answered, in Forms: each row is required
+				expect(row.required?.value, `${row.name} required`).to.equal('true');
 				expect(row.options?.values.map(option => (JSON.parse(option) as {value: string}).value), row.name).to.deep.equal(MATRIX.radios.columns);
 			});
 			const checkboxes = fieldset(MATRIX.checkboxes.name);
 			expect(checkboxes?.view?.value).to.equal('matrix');
 			expect(checkboxes?.children.nodes.map(row => `${row.type.name}:${row.name}`)).to.deep.equal(['fmdb:checkbox:delivery']);
+			// at least one row answered, in Forms: Formidable has no such rule, the row is not required
+			expect(checkboxes?.children.nodes[0].required, 'delivery required').to.equal(null);
 		});
 
 		// the answers: the column keys of each row, under the field of that row, nothing under the matrix

@@ -154,7 +154,7 @@ public final class FormsFormConverter {
      */
     private List<ImportedElement> elementsOf(FormsStep step, FormsResults results, String buildingLang,
                                             SystemNames names, List<ImportNote> report) {
-        StepLayout layout = new StepLayout(names, buildingLang);
+        StepLayout layout = new StepLayout(names, buildingLang, report);
         for (FormsField definition : step.fields()) {
             String kind = definition.kind();
             if (FormsFieldTypes.isFieldsetStart(kind)) {
@@ -162,6 +162,10 @@ public final class FormsFormConverter {
             } else if (FormsFieldTypes.isFieldsetEnd(kind)) {
                 layout.closeFieldset();
             } else if (!FormsFieldTypes.isButton(kind)) {
+                if (FormsFieldTypes.isMatrix(kind)) {
+                    // before the matrix takes its name: a fieldset that holds nothing yet gives its own back
+                    layout.suspend();
+                }
                 elementOf(definition, results, buildingLang, names, report).ifPresent(layout::add);
             }
         }
@@ -174,23 +178,29 @@ public final class FormsFormConverter {
      * of forms-core), since {@code fmdb:fieldset} accepts fields and content only, never a fieldset. A matrix is a
      * fieldset itself, so the fieldset open around it closes before it, and opens again, under a new name and the
      * same title, for the next field it holds: the fieldset of Forms is split in two around the matrix, and a
-     * matrix at its end leaves no empty half (docs/architecture/forms-import.md, "A matrix").
+     * matrix at its end leaves no empty half (docs/architecture/forms-import.md, "A matrix"). A Forms fieldset
+     * that held a matrix alone leaves nothing to write: its title is lost, and the form report says so.
      */
     private static final class StepLayout {
         private final SystemNames names;
         private final String buildingLang;
+        private final List<ImportNote> report;
+        /** The last matrix laid out, which a fieldset left with nothing else to hold names in the report. */
+        private ImportedContainer lastMatrix;
         private final List<ImportedElement> top = new ArrayList<>();
         private final Deque<Fieldset> open = new ArrayDeque<>();
         /** The fieldsets closed before a matrix, outermost first, to open again for the next field; none while any is open. */
         private final List<Fieldset> suspended = new ArrayList<>();
 
-        StepLayout(SystemNames names, String buildingLang) {
+        StepLayout(SystemNames names, String buildingLang, List<ImportNote> report) {
             this.names = names;
             this.buildingLang = buildingLang;
+            this.report = report;
         }
 
         void openFieldset(FormsField definition) {
-            reopen();
+            // a fieldset left by a matrix ends here, with nothing after the matrix: never written empty
+            dropAllSuspended();
             while (!open.isEmpty()) {
                 closeFieldset();
             }
@@ -201,7 +211,7 @@ public final class FormsFormConverter {
         void closeFieldset() {
             if (!suspended.isEmpty()) {
                 // the innermost fieldset ends while suspended: nothing followed the matrix, nothing to open again
-                suspended.remove(suspended.size() - 1);
+                dropSuspended(suspended.remove(suspended.size() - 1));
             } else if (!open.isEmpty()) {
                 Fieldset closed = open.pop();
                 target().add(closed.toContainer());
@@ -212,6 +222,7 @@ public final class FormsFormConverter {
             if (element instanceof ImportedContainer container && ImportedContainer.MATRIX_VIEW.equals(container.view())) {
                 suspend();
                 top.add(element);
+                lastMatrix = container;
                 return;
             }
             reopen();
@@ -220,7 +231,7 @@ public final class FormsFormConverter {
 
         /** What the step holds, every fieldset still open closed. */
         List<ImportedElement> finish() {
-            suspended.clear();
+            dropAllSuspended();
             while (!open.isEmpty()) {
                 closeFieldset();
             }
@@ -229,12 +240,14 @@ public final class FormsFormConverter {
 
         /**
          * Closes every open fieldset, innermost first, and keeps them, outermost first, to open again; one
-         * that holds nothing yet is kept whole instead of written empty.
+         * that holds nothing yet is not written empty, and gives its name back until it opens again.
          */
         private void suspend() {
             while (!open.isEmpty()) {
                 Fieldset closed = open.pop();
-                if (!closed.children.isEmpty()) {
+                if (closed.children.isEmpty()) {
+                    names.release(closed.name);
+                } else {
                     target().add(closed.toContainer());
                 }
                 suspended.add(0, closed);
@@ -243,12 +256,25 @@ public final class FormsFormConverter {
 
         private void reopen() {
             for (Fieldset fieldset : suspended) {
-                // written with its fields: a new one, under a new name; still empty: the same one, nothing was written
-                open.push(fieldset.children.isEmpty()
-                        ? fieldset
-                        : new Fieldset(names.of(fieldset.titles.get(buildingLang), fieldset.name), fieldset.titles));
+                // written with its fields: a second half, under a new name; still empty: the same fieldset, its name taken again
+                boolean continued = fieldset.continued || !fieldset.children.isEmpty();
+                open.push(new Fieldset(names.of(fieldset.titles.get(buildingLang), fieldset.name), fieldset.titles, continued));
             }
             suspended.clear();
+        }
+
+        private void dropAllSuspended() {
+            suspended.forEach(this::dropSuspended);
+            suspended.clear();
+        }
+
+        /** A suspended fieldset no field followed: a second half has nothing to lose, a fieldset never written loses its title, which is said. */
+        private void dropSuspended(Fieldset fieldset) {
+            if (fieldset.children.isEmpty() && !fieldset.continued && lastMatrix != null) {
+                report.add(ImportNote.action("form.fieldsetAroundMatrix",
+                        "fieldset", fieldset.titles.getOrDefault(buildingLang, fieldset.name),
+                        "matrix", lastMatrix.titles().getOrDefault(buildingLang, lastMatrix.name())));
+            }
         }
 
         private List<ImportedElement> target() {
@@ -287,6 +313,7 @@ public final class FormsFormConverter {
         Map<String, List<String>> options = new LinkedHashMap<>();
         columns.forEach((language, choices) -> options.put(language,
                 choices.stream().map(choice -> FormsChoices.option(choice.key(), choice.label())).toList()));
+        MatrixRules rules = MatrixRules.of(definition, rowType);
         List<ImportedElement> fields = new ArrayList<>();
         for (FormsChoices.Choice question : questions) {
             Map<String, String> rowTitles = rowTitles(rows, question);
@@ -297,10 +324,7 @@ public final class FormsFormConverter {
                             FormsFieldTypes.matrixRow(definition.name(), question.key()), definition.type())
                     .options(options)
                     .report(ImportNote.info("field.matrixRow", "kind", definition.kind()));
-            fillRules(field, definition, new FormsFieldTypes.Mapping(rowType, null));
-            if (definition.hasLogic()) {
-                field.report(ImportNote.action("field.logic"));
-            }
+            rules.applyTo(field, fields.isEmpty());
             fields.add(field.build());
         }
         // the help text of the matrix is the fieldset's, under its legend
@@ -308,6 +332,43 @@ public final class FormsFormConverter {
         return Optional.of(new ImportedContainer(names.of(titles.get(buildingLang), definition.name()), ImportedContainer.FIELDSET,
                 titles, fields, ImportedContainer.MATRIX_VIEW,
                 helpText.isEmpty() ? Map.of() : Map.of(FormsFieldTypes.HELP_TEXT, helpText)));
+    }
+
+    /**
+     * The rules of a matrix, read once for all its rows. A matrix knows two rules of its own and no other
+     * ({@code supportedValidationTypes "matrix"} of its definition): every row answered becomes the required
+     * rule of each row field, with its message; at least one row answered has no Formidable equivalent. What
+     * is not carried, its conditional logic included, is said once, on the first row, not once per row.
+     */
+    private record MatrixRules(FormsValidation everyRow, List<ImportNote> notes) {
+
+        static MatrixRules of(FormsField definition, String rowType) {
+            FormsValidation everyRow = null;
+            List<ImportNote> notes = new ArrayList<>();
+            for (FormsValidation rule : definition.validations()) {
+                if (FormsValidation.MATRIX_REQUIRED_ROWS.equals(rule.type())) {
+                    everyRow = rule;
+                } else if (FormsValidation.MATRIX_REQUIRED.equals(rule.type())) {
+                    notes.add(ImportNote.action("field.matrixAnyRow"));
+                } else {
+                    notes.add(ImportNote.action("field.rule", RULE, rule.type(), TYPE, rowType));
+                }
+            }
+            if (definition.hasLogic()) {
+                notes.add(ImportNote.action("field.logic"));
+            }
+            return new MatrixRules(everyRow, notes);
+        }
+
+        void applyTo(ImportedField.Builder field, boolean firstRow) {
+            if (everyRow != null) {
+                field.required(true);
+                message(field, everyRow, FormsFieldTypes.MSG_VALUE_MISSING);
+            }
+            if (firstRow) {
+                notes.forEach(field::report);
+            }
+        }
     }
 
     /** The choices in the building language, else in the first language that has any. */
@@ -861,10 +922,17 @@ public final class FormsFormConverter {
         private final String name;
         private final Map<String, String> titles;
         private final List<ImportedElement> children = new ArrayList<>();
+        /** The second half of a fieldset split around a matrix: its title is already written with the first. */
+        private final boolean continued;
 
         Fieldset(String name, Map<String, String> titles) {
+            this(name, titles, false);
+        }
+
+        Fieldset(String name, Map<String, String> titles, boolean continued) {
             this.name = name;
             this.titles = titles;
+            this.continued = continued;
         }
 
         ImportedContainer toContainer() {

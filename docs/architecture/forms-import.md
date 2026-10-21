@@ -143,7 +143,7 @@ formFactory
 | `<formName>` | The `fcnt:form`. It holds `jcr:title` per language, `buildingLang`, `afterSubmissionText`, `cssClass`, `numberOfSteps`, and the mixins `fcmix:displayCaptcha`, `fcmix:trackUser`, `fcmix:formSavable`, `fcmix:submissionConstraints`. |
 | `step-<n>` | A `fcnt:step`, with `stepNumber`. A form has at least one. |
 | `<fieldName>` | A field definition: one of the `fcnt:*Definition` types, all with the `fcmix:definition` mixin. It holds `jcr:title` per language, often empty, and `choiceField`, the names of the child option nodes that hold its choices. |
-| Its option children | `fcnt:definitionOptions` nodes, named after the option: `placeholder`, `helptext`, `inputsize`, `rows`, `choices`… A `fcnt:definitionOptionsTranslatable` holds its `jsonValue` per language. The `choices` of a choice field are a JSON `[{"key","value"}]` per language. |
+| Its option children | `fcnt:definitionOptions` nodes, named after the option: `placeholder`, `helptext`, `inputsize`, `rows`, `choices`… A `fcnt:definitionOptionsTranslatable` holds its `jsonValue` per language. The `choices` of a choice field are a JSON `[{"key","value"}]` per language, with `"visible": false` on a choice the design view hid. |
 | `validations/<rule>` | A rule: `fcnt:requiredValidation`, `emailValidation`, `rangeValidation`, `rangeLengthValidation`, `regexValidation`, `fileValidation`, `fileNumberValidation`, `equalToValidation`… each with a `message` per language. |
 | `prefills`, `logics` | The prefills and the conditional logic. A prefill from the visitor profile (`fcnt:mfffPrefill`, `fcnt:mfffMappingOnly`, from the jExperience bridge of Forms) becomes the mapping of the field to that profile property when the jExperience integration is installed; the import reports the other prefills and the logic, and rebuilds neither. |
 | `actions/<action>` | One of `fcnt:saveToJcrAction`, `sendEmailAction`, `sendEmailToSubmitterAction`, `redirectToAPageAction`, `redirectToUrlAction`, with its options as children. |
@@ -313,7 +313,10 @@ For every field:
   `emailValidation` on an e-mail field fills `msgTypeMismatch`. A rule the field type cannot carry,
   and `equalToValidation`, are reported;
 - a manual option is written as Formidable stores it, `{"value","label","selected"}` per language: the Forms
-  key becomes the value, so that the imported values match, and the Forms label becomes the label;
+  key becomes the value, so that the imported values match, and the Forms label becomes the label. A choice
+  marked `"visible": false` is left out, on every choice field as on the rows and columns of a matrix:
+  Forms no longer shows it to its visitors (`filter: visible` in its renderers), so the form does not offer
+  it again; an answer that holds it keeps its key, with no option to show a label;
 - a prefill from the visitor profile (`fcnt:mfffPrefill`, `fcnt:mfffMappingOnly`) is written as the mapping
   of the field to that profile property when the jExperience integration is installed and reaches the field
   type and the profile server declares the property with a type the field holds (see the decisions), the first
@@ -330,18 +333,23 @@ fieldset of groups rendered with the **Matrix** view of `formidable-elements`
 `fmdb:fieldset` named and titled after the matrix, carrying `jmix:renderable` and `j:view = matrix`, and
 under it one `fmdb:radio` (radios matrix) or `fmdb:checkbox` (checkboxes matrix) field per visible row,
 titled after the row, named from that title, with the columns as its manual options — the column key as
-the value, so that the answers match — and the required rule of the matrix on each. Each row field
+the value, so that the answers match. A matrix knows two rules of its own and no other: "every row
+answered" (`matrixRequiredRowsValidation`) becomes the required rule of each row field, with its message;
+"at least one row answered" (`matrixRequiredValidation`) has no Formidable equivalent, and is reported. Each row field
 remembers the matrix and its row as its source, `<uuid of the matrix>.<row key>` in `sourceId` and
 `<name of the matrix>.<row key>` in `sourceName` (the name Forms itself gives the inputs of a row), which
 is what ties the answers of the row to the field, on the run that creates the form and on the runs that
-find it. The help text of the matrix becomes the `helpText` of the fieldset, under its legend. The rows are
-reported as carried over, one note naming them all. A matrix without a visible row or without a column
+find it. The help text of the matrix becomes the `helpText` of the fieldset, under its legend. Each row field
+carries a note saying it is one row of the matrix; what the matrix carries that no row can — a rule
+without equivalent, its conditional logic — is reported once, on the first row. A matrix without a visible row or without a column
 falls back on the text area of the table, reported as before.
 
 A matrix inside a Forms fieldset splits it: `fmdb:fieldset` accepts fields and content, not a fieldset, so
 the fieldset open around the matrix closes before it and opens again, under a new name and the same title,
 for the next field it holds — and never for nothing, so that a matrix at the end of a fieldset leaves no
-empty half (`FormsFormConverter.StepLayout`).
+empty half (`FormsFormConverter.StepLayout`). A Forms fieldset that held a matrix alone leaves nothing to
+write: the matrix becomes the fieldset, under its own title, the title of the Forms fieldset is lost, and
+the form report says so.
 
 A row of an answer that no field of the form holds — hidden in Forms since the visitor answered, or never
 visible — stays as a line under the Forms name of the matrix, `q3: poor`, and the report names the row and

@@ -73,7 +73,7 @@ class FormsSyntheticExportTest {
             + "          <validations jcr:primaryType=\"fcnt:validationRules\"><required jcr:primaryType=\"fcnt:requiredValidation\"><message jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"We need it\"/></message></required></validations>\n"
             + "        </email-address>\n"
             + "        <colours jcr:primaryType=\"fcnt:multipleCheckBoxesDefinition\" jcr:uuid=\"" + COLOURS_ID + "\" choiceField=\"choices\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Colours\"/>\n"
-            + "          <choices jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"[{&quot;key&quot;:&quot;Very good&quot;,&quot;value&quot;:&quot;Very good&quot;},{&quot;key&quot;:&quot;Fair&quot;,&quot;value&quot;:&quot;Fair&quot;}]\"/></choices>\n"
+            + "          <choices jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"[{&quot;key&quot;:&quot;Very good&quot;,&quot;value&quot;:&quot;Very good&quot;},{&quot;key&quot;:&quot;Fair&quot;,&quot;value&quot;:&quot;Fair&quot;},{&quot;key&quot;:&quot;Grey&quot;,&quot;value&quot;:&quot;Grey&quot;,&quot;visible&quot;:false}]\"/></choices>\n"
             + "        </colours>\n"
             // a Forms fieldset around a matrix: a field before it, the matrix, a field after it
             + "        <about-you jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"About you\"/></about-you>\n"
@@ -82,6 +82,7 @@ class FormsSyntheticExportTest {
             + "          <helptext jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"Tick all that apply\"/></helptext>\n"
             + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + EXTRAS_ROWS + "\"/></rows>\n"
             + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + EXTRAS_COLUMNS + "\"/></columns>\n"
+            + "          <validations jcr:primaryType=\"fcnt:validationRules\"><one jcr:primaryType=\"fcnt:matrixRequiredValidation\"/></validations>\n"
             + "        </extras>\n"
             + "        <city jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"c0000000-0000-0000-0000-000000000007\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"City\"/></city>\n"
             // a fieldset start while one is open: Forms ends the open one there, it never nests them
@@ -93,9 +94,18 @@ class FormsSyntheticExportTest {
             + "        <satisfaction jcr:primaryType=\"fcnt:matrixRadiosDefinition\" jcr:uuid=\"" + SATISFACTION_ID + "\" choiceField=\"rows,columns\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Satisfaction\"/>\n"
             + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_ROWS + "\"/></rows>\n"
             + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_COLUMNS + "\"/></columns>\n"
-            + "          <validations jcr:primaryType=\"fcnt:validationRules\"><required jcr:primaryType=\"fcnt:requiredValidation\"/></validations>\n"
+            + "          <validations jcr:primaryType=\"fcnt:validationRules\"><rows jcr:primaryType=\"fcnt:matrixRequiredRowsValidation\"><message jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"Answer every line\"/></message></rows></validations>\n"
             + "        </satisfaction>\n"
             + "        <your-opinion-end jcr:primaryType=\"fcnt:fieldsetEndDefinition\"/>\n"
+            // a fieldset whose matrix the start of the next fieldset ends
+            + "        <ratings-group jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Ratings\"/></ratings-group>\n"
+            + "        <ratings jcr:primaryType=\"fcnt:matrixRadiosDefinition\" jcr:uuid=\"a0000000-0000-0000-0000-000000000010\" choiceField=\"rows,columns\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Ratings\"/>\n"
+            + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"[{&quot;key&quot;:&quot;x1&quot;,&quot;value&quot;:&quot;Speed&quot;}]\"/></rows>\n"
+            + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_COLUMNS + "\"/></columns>\n"
+            + "        </ratings>\n"
+            + "        <last-words jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Last words\"/></last-words>\n"
+            + "        <comment jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"c0000000-0000-0000-0000-000000000011\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Comment\"/></comment>\n"
+            + "        <last-words-end jcr:primaryType=\"fcnt:fieldsetEndDefinition\"/>\n"
             + "        <password_0_1 jcr:primaryType=\"fcnt:passwordDefinition\" jcr:uuid=\"" + PASSWORD_ID + "\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Password\"/></password_0_1>\n"
             + "      </step-1>\n"
             + "      <actions jcr:primaryType=\"fcnt:action\">\n"
@@ -146,6 +156,9 @@ class FormsSyntheticExportTest {
 
         ImportedSubmission converted = new FormsSubmissionConverter(form, source, results).convert(submissions.get(0));
         assertEquals(List.of("Very good", "Fair"), converted.values().get("colours"));
+        // a choice hidden in Forms, which its visitors no longer saw, is no option of the field
+        assertEquals(List.of(FormsChoices.option("Very good", "Very good"), FormsChoices.option("Fair", "Fair")),
+                form.fieldBySourceName("colours").options().get("en"));
     }
 
     @Test
@@ -154,7 +167,7 @@ class FormsSyntheticExportTest {
         FormsForm source = export.forms().get("survey");
         FormsResults results = export.results().get("survey");
         ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, results);
-        assertEquals(List.of("your-e-mail", "colours", "nickname", "delivery", "city", "age", "the-price", "the-service"),
+        assertEquals(List.of("your-e-mail", "colours", "nickname", "delivery", "city", "age", "the-price", "the-service", "speed", "comment"),
                 form.fields().map(ImportedField::name).toList());
         List<FormsSubmission> submissions = new ArrayList<>();
         reader().readSubmissions(submissions::add);
@@ -183,9 +196,14 @@ class FormsSyntheticExportTest {
         // a single-step form keeps its elements at the top. A matrix never goes under a fieldset, which a fieldset
         // cannot hold: the fieldset around the checkboxes matrix is split in two around it, and the one holding the
         // radios matrix alone is not written. A fieldset start while one is open ends it, as Forms does: the fieldset
-        // opened inside the first one stands beside its second half, not under it.
-        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "more", "satisfaction"),
+        // opened inside the first one stands beside its second half, not under it. A fieldset whose matrix the
+        // start of the next one ends is not written either, and the matrix takes the name it gave back.
+        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "more", "satisfaction", "ratings", "last-words"),
                 form.elements().stream().map(ImportedElement::name).toList());
+        // the title of a fieldset that held a matrix alone is lost, and said
+        List<ImportNote> lost = form.report().stream().filter(note -> note.code().equals("form.fieldsetAroundMatrix")).toList();
+        assertEquals(List.of("Your opinion/Satisfaction", "Ratings/Ratings"),
+                lost.stream().map(note -> note.param("fieldset") + "/" + note.param("matrix")).toList());
         List<ImportedContainer> fieldsets = fieldsetsOf(form);
         ImportedContainer aboutYou = fieldsets.get(0);
         ImportedContainer aboutYouAgain = fieldsets.get(2);
@@ -209,11 +227,13 @@ class FormsSyntheticExportTest {
         assertEquals(ImportedContainer.FIELDSET, satisfaction.nodeType());
         assertEquals(ImportedContainer.MATRIX_VIEW, satisfaction.view());
         assertEquals(Map.of("en", "Satisfaction"), satisfaction.titles());
-        // one radio field per visible row, the columns as its options, the required rule of the matrix on each
+        // one radio field per visible row, the columns as its options; "every row answered" is the required rule of each
         List<ImportedField> rows = satisfaction.fields().toList();
         assertEquals(List.of("the-price", "the-service"), rows.stream().map(ImportedField::name).toList());
         assertTrue(rows.stream().allMatch(row -> row.nodeType().equals(FormsFieldTypes.RADIO)));
         assertTrue(rows.stream().allMatch(ImportedField::required));
+        assertTrue(rows.stream().allMatch(row -> Map.of("en", "Answer every line").equals(row.i18nProperties().get(FormsFieldTypes.MSG_VALUE_MISSING))));
+        assertEquals(List.of("field.matrixRow"), rows.get(0).report().stream().map(ImportNote::code).toList());
         assertEquals(Map.of("en", "The service"), rows.get(1).titles());
         assertEquals(List.of(FormsChoices.option("poor", "Poor"), FormsChoices.option("good", "Good")), rows.get(1).options().get("en"));
         // the row remembers the matrix and its key, as Forms names the inputs of the row
@@ -229,7 +249,9 @@ class FormsSyntheticExportTest {
         ImportedField delivery = extras.fields().findFirst().orElseThrow();
         assertEquals(FormsFieldTypes.CHECKBOX, delivery.nodeType());
         assertEquals(List.of(FormsChoices.option("fast", "Fast"), FormsChoices.option("cheap", "Cheap")), delivery.options().get("en"));
-        assertEquals(List.of("field.matrixRow"), delivery.report().stream().map(ImportNote::code).toList());
+        // "at least one row answered" has no equivalent: no row required, said once, on the first row
+        assertFalse(delivery.required());
+        assertEquals(List.of("field.matrixRow", "field.matrixAnyRow"), delivery.report().stream().map(ImportNote::code).toList());
         // the help text of the matrix is the fieldset's; a matrix without one leaves the fieldset without
         assertEquals(Map.of("helpText", Map.of("en", "Tick all that apply")), extras.i18nProperties());
         assertEquals(Map.of(), satisfaction.i18nProperties());
