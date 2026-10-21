@@ -684,20 +684,19 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		});
 
 		// the form: two fieldsets rendered with the Matrix view, one radio or checkbox field per row, the columns as options
-		type Element = {name: string; type: {name: string}; view: {value: string} | null; renderable: boolean; children: {nodes: Element[]}; options: {values: string[]} | null};
-		graphql<{jcr: {nodeByPath: {children: {nodes: Element[]}}}}>(
-			`query Fields($path: String!) { jcr(workspace: EDIT) { nodeByPath(path: $path) { children { nodes {
-				name type: primaryNodeType { name } view: property(name: "j:view") { value } renderable: isNodeType(type: {types: ["jmix:renderable"]})
-				options: property(name: "options", language: "en") { values }
-				children { nodes { name type: primaryNodeType { name } view: property(name: "j:view") { value } renderable: isNodeType(type: {types: ["jmix:renderable"]})
-					options: property(name: "options", language: "en") { values } children { nodes { name type: primaryNodeType { name } view: property(name: "j:view") { value } renderable: isNodeType(type: {types: ["jmix:renderable"]}) options: property(name: "options", language: "en") { values } children { nodes { name type: primaryNodeType { name } view: property(name: "j:view") { value } renderable: isNodeType(type: {types: ["jmix:renderable"]}) options: property(name: "options", language: "en") { values } children { nodes { name } } } } } } } } } } } } } }`,
+		type Element = {name: string; type: {name: string}; view: {value: string} | null; mixins: Array<{name: string}>; options: {values: string[]} | null};
+		graphql<{jcr: {nodeByPath: {children: {nodes: Array<Element & {children: {nodes: Element[]}}>}}}}>(
+			`fragment Element on JCRNode { name type: primaryNodeType { name } view: property(name: "j:view") { value }
+				mixins: mixinTypes { name } options: property(name: "options", language: "en") { values } }
+			query Fields($path: String!) { jcr(workspace: EDIT) { nodeByPath(path: $path) { children { nodes {
+				...Element children { nodes { ...Element } } } } } } }`,
 			{path: `${IMPORTED_FORMS_PATH}/${MATRIX.form}/fields`}
 		).then(data => {
 			const elements = data.jcr.nodeByPath.children.nodes;
 			const fieldset = (name: string) => elements.find(element => element.name === name);
 			const radios = fieldset(MATRIX.radios.name);
 			expect(radios?.type.name, 'the radios matrix').to.equal('fmdb:fieldset');
-			expect(radios?.renderable, 'jmix:renderable on the fieldset').to.equal(true);
+			expect(radios?.mixins.map(mixin => mixin.name), 'jmix:renderable on the fieldset').to.include('jmix:renderable');
 			expect(radios?.view?.value).to.equal('matrix');
 			expect(radios?.children.nodes.map(row => row.name)).to.deep.equal(MATRIX.radios.rows);
 			radios?.children.nodes.forEach(row => {
