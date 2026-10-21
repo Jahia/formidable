@@ -60,7 +60,7 @@ const MENU_OVERLAY = '.moonstone-menu_overlay';
 type Workspace = 'EDIT' | 'LIVE';
 type NamedNode = {name: string; primaryNodeType: {name: string}};
 type SubmissionFile = {path: string; content: {mimeType: {value: string}; data: {size: number}}};
-type SubmissionData = {path: string; origin: {value: string}; data: {properties: Array<{name: string; value: string}>}};
+type SubmissionData = {path: string; origin: {value: string}; data: {properties: Array<{name: string; value: string | null; values: string[] | null}>}};
 
 const graphql = <T>(query: string, variables: Record<string, unknown>): Cypress.Chainable<T> =>
 	cy.request({
@@ -93,7 +93,7 @@ const countSubmissions = (entryPath: string): Cypress.Chainable<number> =>
 const importedSubmission = (sourceId: string): Cypress.Chainable<SubmissionData> =>
 	graphql<{jcr: {nodesByQuery: {nodes: SubmissionData[]}}}>(
 		`query Imported($query: String!) { jcr(workspace: LIVE) { nodesByQuery(query: $query, queryLanguage: SQL2, limit: 1) { nodes {
-			path origin: property(name: "origin") { value } data: descendant(relPath: "data") { properties { name value } } } } } }`,
+			path origin: property(name: "origin") { value } data: descendant(relPath: "data") { properties { name value values } } } } } }`,
 		{query: `SELECT * FROM [fmdbmix:importedSubmission] AS s WHERE ISDESCENDANTNODE(s, '${RESULTS_ROOT_PATH}') AND s.[sourceId] = '${sourceId}'`}
 	).then(data => {
 		const [submission] = data.jcr.nodesByQuery.nodes;
@@ -107,7 +107,7 @@ const valueNames = (submission: SubmissionData) => submission.data.properties.fi
 const submissionsUnder = (entryPath: string, limit = 5): Cypress.Chainable<SubmissionData[]> =>
 	graphql<{jcr: {nodesByQuery: {nodes: SubmissionData[]}}}>(
 		`query Under($query: String!, $limit: Int!) { jcr(workspace: LIVE) { nodesByQuery(query: $query, queryLanguage: SQL2, limit: $limit) { nodes {
-			path origin: property(name: "origin") { value } data: descendant(relPath: "data") { properties { name value } } } } } }`,
+			path origin: property(name: "origin") { value } data: descendant(relPath: "data") { properties { name value values } } } } } }`,
 		{query: `SELECT * FROM [fmdb:formSubmission] AS s WHERE ISDESCENDANTNODE(s, '${entryPath}')`, limit}
 	).then(data => data.jcr.nodesByQuery.nodes);
 
@@ -710,7 +710,8 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 
 		// the answers: the column keys of each row, under the field of that row, nothing under the matrix
 		importedSubmission(MATRIX.firstSubmission).then(submission => {
-			const value = (name: string) => submission.data.properties.filter(p => p.name === name).map(p => p.value);
+			// a radio row stores one value, a checkbox row a multi-valued property: the list, whichever way it is stored
+			const value = (name: string) => submission.data.properties.filter(p => p.name === name).flatMap(p => p.values ?? [p.value]);
 			expect(value('the-price')).to.deep.equal(['good']);
 			expect(value('the-service')).to.deep.equal(['poor']);
 			expect(value('delivery')).to.deep.equal(['fast', 'cheap']);
