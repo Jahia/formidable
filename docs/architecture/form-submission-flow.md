@@ -81,7 +81,8 @@ Browser
                         - reconstructs multipart/form-data body with pre-parsed files
                         - POSTs to resolved URI
 
-       └─ { "success": true, ...entries of the response enrichers } or { "success": false, "errorCode": "FMDB-XXX" }
+       └─ { "success": true, ...entries of the response enrichers, "redirect", "userMessage" }
+          or { "success": false, "errorCode": "FMDB-XXX" }
   └─ show success or error message
 ```
 
@@ -92,9 +93,31 @@ Once every action succeeded, the servlet asks the `SubmissionResponseEnricher` O
 `AcceptedSubmission` — the live form node, its site key, the locale and a snapshot of the validated
 parameters (declared, non-file fields) — and answers a map of top-level keys. An enricher never
 fails a submission: an exception is logged and its entries left out; the keys the servlet writes
-(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`, `messages`) cannot be overwritten; a rejected
-submission is never enriched. The jExperience module contributes its `jexperience` block this way.
-See [How to enrich the submission response](../extension/how-to-enrich-the-submission-response.md).
+(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`, `messages`, `redirect`, `userMessage`) cannot be
+overwritten; a rejected submission is never enriched. The jExperience module contributes its `jexperience` block
+this way. See [How to enrich the submission response](../extension/how-to-enrich-the-submission-response.md).
+
+### Contextual actions: the response, a redirect, a message for the visitor
+
+A plain `FormAction` receives five arguments and returns nothing: it cannot touch the response nor tell the
+browser what to do next. A `ContextualFormAction` (engine `api` package, same OSGi registration:
+`@Component(service = FormAction.class)`) is handed one `FormActionContext` and returns a `FormActionResult`:
+
+| Part | What it carries |
+|---|---|
+| `FormActionContext` | the action node and the form (one system session), the request, the **response** (to set a cookie; never to write the body), the visitor's live session, the submission's `locale` and the form's `siteKey`, the `parameters`, the validated `files`. `sensitiveParameters` is always empty: no field type is sensitive |
+| `FormActionResult` | `redirectPath` (a same-origin relative path) and/or `message` (plain text, already translated) for the browser; `FormActionResult.none()` for nothing |
+
+The pipeline keeps the **first redirect and the first message** in action-list order. A redirect that is not a
+same-origin path (`RedirectTargets.sameOriginPath`: one leading slash, no scheme, no authority, no backslash, no
+control character, no whitespace, at most 2048 characters) is dropped with a warning and never reaches the browser.
+The servlet writes them as `redirect` and `userMessage` (HTML-escaped) in the `200` body, after the enrichers, which
+cannot take these keys. A rejected submission carries neither.
+
+The island fires `formidable:submitted`, shows `userMessage` instead of the form's submission message when there is
+one, resets the form, then navigates to `redirect` with `location.assign` in a task of its own, once it checked the
+path again with the same rule (`isSameOriginPath`). A failure of a contextual action is the opaque `FMDB-008`, as for
+a plain action.
 
 > **DoS mitigation (defence in depth):**
 - Gate 0: cross-origin requests are rejected before the multipart pipeline starts

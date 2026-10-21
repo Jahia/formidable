@@ -1,7 +1,9 @@
 package org.jahia.modules.formidable.engine.servlet;
 
+import org.jahia.modules.formidable.engine.actions.common.FieldEscaper;
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.api.FormActionResult;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionRuntime;
 import org.jahia.modules.formidable.engine.api.SubmissionResponseEnricher;
 import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
@@ -72,7 +74,8 @@ public class FormSubmitServlet extends HttpServlet {
     private final List<SubmissionResponseEnricher> responseEnrichers = new CopyOnWriteArrayList<>();
 
     /** The body keys the servlet writes itself; an enricher that names one is ignored for that key. */
-    static final Set<String> RESERVED_KEYS = Set.of("success", "errorCode", "actionsCompleted", "actionsTotal", "messages");
+    static final Set<String> RESERVED_KEYS = Set.of("success", "errorCode", "actionsCompleted", "actionsTotal", "messages",
+            "redirect", "userMessage");
 
     @Reference
     public void setUploadsConfig(UploadsConfigService service) {
@@ -148,7 +151,9 @@ public class FormSubmitServlet extends HttpServlet {
             FormSubmissionPipeline pipeline = createPipeline();
             pipeline.useResponse(resp);
             pipeline.run(req);
-            sendJsonSafely(resp, HttpServletResponse.SC_OK, null, null, enrich(pipeline));
+            JSONObject entries = enrich(pipeline);
+            addBrowserInstruction(entries, pipeline.browserInstruction());
+            sendJsonSafely(resp, HttpServletResponse.SC_OK, null, null, entries);
         } catch (SubmissionException e) {
             logSubmissionFailure(e);
             sendJsonSafely(resp, e.httpStatus(), e.errorCode.code(), e);
@@ -189,6 +194,21 @@ public class FormSubmitServlet extends HttpServlet {
             }
         }
         return entries;
+    }
+
+    /**
+     * What the contextual actions asked of the browser, as the two reserved keys: {@code redirect} (a same-origin path,
+     * already validated by the pipeline) and {@code userMessage} (HTML-escaped here, the action's text being plain).
+     * Written after the enrichers, whose entries can never take these keys.
+     */
+    static void addBrowserInstruction(JSONObject entries, FormActionResult instruction) {
+        if (instruction == null) {
+            return;
+        }
+        instruction.redirect().ifPresent(path -> entries.put("redirect", path));
+        if (instruction.message() != null && !instruction.message().isBlank()) {
+            entries.put("userMessage", FieldEscaper.html(instruction.message()));
+        }
     }
 
     private static void add(JSONObject entries, String enricher, String key, Object value) {

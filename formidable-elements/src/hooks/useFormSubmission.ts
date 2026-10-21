@@ -48,6 +48,28 @@ async function completeFeedbackPause(spinnerShownAt: number): Promise<void> {
 	}
 }
 
+/**
+ * A path of this site: one leading slash, no scheme, no host, no backslash, no control character, no whitespace. The
+ * server only sends such a path in `redirect`; the browser checks it again before it navigates, so a body that was
+ * tampered with on the way, or written by a module of the page, cannot send the visitor to another site.
+ */
+export function isSameOriginPath(target: unknown): target is string {
+	if (typeof target !== 'string' || target.length === 0 || target.length > 2048 || !target.startsWith('/')) return false;
+	if (target.startsWith('//') || target.startsWith('/\\')) return false;
+	// eslint-disable-next-line no-control-regex
+	return !/[\\\s\u0000-\u001f\u007f]/.test(target);
+}
+
+/**
+ * Sends the visitor where an action asked, once the success message was shown and the form reset. Done in a task of
+ * its own so the listeners of the submitted event have run, and only for a path of this site (the server validated it,
+ * this is the second check); `assign`, not `replace`, so the form page stays reachable with the Back button.
+ */
+function navigateTo(target: unknown): void {
+	if (!isSameOriginPath(target)) return;
+	setTimeout(() => globalThis.location.assign(target), 0);
+}
+
 /** The server's JSON answer, or null for a body that is not JSON: the event never fails on it. */
 function parseJsonBody(text: string): unknown {
 	try {
@@ -258,12 +280,16 @@ export function useFormSubmission({
 			// The spinner has been visible since before the request: only the rest of the floor is waited for
 			await completeFeedbackPause(spinnerShownAt);
 
-			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
+			// An action's own sentence (already escaped by the server) replaces the form's message: "check your mailbox"
+			const accepted = parseJsonBody(response.responseText) as {redirect?: unknown; userMessage?: unknown} | null;
+			const actionMessage = typeof accepted?.userMessage === 'string' && accepted.userMessage.trim() ? accepted.userMessage : undefined;
+			setMessage(actionMessage || interpolatedSubmissionMessage || 'Form submitted successfully!');
 			setMessageType('success');
 			// called off the prototype: a control named "reset" shadows the method, and this runs after the
 			// 200 and after every action, so throwing here would tell the visitor the submission failed
 			HTMLFormElement.prototype.reset.call(form);
 			if (isMultiStep) setCurrentStep(0);
+			navigateTo(accepted?.redirect);
 		} catch (error) {
 			showRejection(form, rejection, error);
 		} finally {

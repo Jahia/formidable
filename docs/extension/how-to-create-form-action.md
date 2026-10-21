@@ -207,6 +207,36 @@ throw new FormActionException("Forward target returned an error.", 502);
 > service. To guard against a missing SMTP configuration, check `mailService.isEnabled()`
 > before calling `sendMessage()`.
 
+## Step 6b: Answer the browser (`ContextualFormAction`)
+
+The plain `FormAction` returns nothing. When the action must set a cookie, send the visitor to another page or show
+its own success text, implement `ContextualFormAction` instead; it is registered the same way
+(`@Component(service = FormAction.class)`) and the pipeline recognises it:
+
+```java
+@Component(service = FormAction.class)
+public class ThankYouFormAction implements ContextualFormAction {
+
+    @Override public String getNodeType() { return "mymod:thankYouAction"; }
+
+    @Override
+    public FormActionResult execute(FormActionContext context) throws FormActionException {
+        String name = context.parameter("firstName");                    // the first non-blank value, or null
+        return FormActionResult.redirect("/sites/mysite/thank-you.html")  // validated: a same-origin path or dropped
+                .withMessage(name == null ? "Thank you." : "Thank you, " + name + ".");
+    }
+}
+```
+
+- The **context** carries the request, the response (a cookie or a header, never the body), the visitor's live
+  session, `locale`, `siteKey`, the action node and the form. The action is a singleton shared by every
+  submission: keep no per-request state in fields. Logging `context` is safe: its `toString()` names the fields,
+  never their values.
+- A **result** is advisory: the first redirect and the first message of the list win; a redirect that is not a
+  same-origin relative path (`RedirectTargets.sameOriginPath`) is dropped. The message is plain text, already
+  translated in `context.locale()`; the servlet escapes it.
+- A **failure** is a `FormActionException`, as in step 6: the browser reads `FMDB-008`.
+
 ## Step 7: Add authoring support
 
 The runtime code is not enough by itself. Contributors still need to be able to create and configure the action node.
