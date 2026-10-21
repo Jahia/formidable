@@ -162,8 +162,9 @@ public final class FormsFormConverter {
             } else if (FormsFieldTypes.isFieldsetEnd(kind)) {
                 layout.closeFieldset();
             } else if (!FormsFieldTypes.isButton(kind)) {
-                if (FormsFieldTypes.isMatrix(kind)) {
-                    // before the matrix takes its name: a fieldset that holds nothing yet gives its own back
+                if (laysOutAsMatrix(definition, buildingLang)) {
+                    // before the matrix takes its name: a fieldset that holds nothing yet gives its own back. A matrix
+                    // that falls back on a text area is a plain field and leaves the fieldset whole
                     layout.suspend();
                 }
                 elementOf(definition, results, buildingLang, names, report).ifPresent(layout::add);
@@ -302,12 +303,12 @@ public final class FormsFormConverter {
      * column, which leaves it to the text area fallback.
      */
     private Optional<ImportedContainer> matrixOf(FormsField definition, FormsResults results, String buildingLang, SystemNames names) {
-        Map<String, List<FormsChoices.Choice>> rows = FormsChoices.choices(valuesOf(definition.option(FormsOptionNames.ROWS)));
-        Map<String, List<FormsChoices.Choice>> columns = FormsChoices.choices(valuesOf(definition.option(FormsOptionNames.COLUMNS)));
-        List<FormsChoices.Choice> questions = inLanguage(rows, buildingLang);
-        if (questions.isEmpty() || inLanguage(columns, buildingLang).isEmpty()) {
+        if (!laysOutAsMatrix(definition, buildingLang)) {
             return Optional.empty();
         }
+        Map<String, List<FormsChoices.Choice>> rows = rowsOf(definition);
+        Map<String, List<FormsChoices.Choice>> columns = columnsOf(definition);
+        List<FormsChoices.Choice> questions = inLanguage(rows, buildingLang);
         Map<String, String> titles = FormsLabels.titles(definition, labelOf(results, definition), definition.name());
         String rowType = FormsFieldTypes.matrixRowType(definition.kind());
         Map<String, List<String>> options = new LinkedHashMap<>();
@@ -369,6 +370,25 @@ public final class FormsFormConverter {
                 notes.forEach(field::report);
             }
         }
+    }
+
+    /**
+     * Whether a definition becomes a fieldset laid out as a matrix: a matrix with a visible row and a column in
+     * the building language (else in the first language that has some). Any other, a matrix falling back on its
+     * text area included, is a plain field.
+     */
+    private static boolean laysOutAsMatrix(FormsField definition, String buildingLang) {
+        return FormsFieldTypes.isMatrix(definition.kind())
+                && !inLanguage(rowsOf(definition), buildingLang).isEmpty()
+                && !inLanguage(columnsOf(definition), buildingLang).isEmpty();
+    }
+
+    private static Map<String, List<FormsChoices.Choice>> rowsOf(FormsField definition) {
+        return FormsChoices.choices(valuesOf(definition.option(FormsOptionNames.ROWS)));
+    }
+
+    private static Map<String, List<FormsChoices.Choice>> columnsOf(FormsField definition) {
+        return FormsChoices.choices(valuesOf(definition.option(FormsOptionNames.COLUMNS)));
     }
 
     /** The choices in the building language, else in the first language that has any. */

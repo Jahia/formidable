@@ -106,6 +106,15 @@ class FormsSyntheticExportTest {
             + "        <last-words jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Last words\"/></last-words>\n"
             + "        <comment jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"c0000000-0000-0000-0000-000000000011\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Comment\"/></comment>\n"
             + "        <last-words-end jcr:primaryType=\"fcnt:fieldsetEndDefinition\"/>\n"
+            // a matrix whose rows are all hidden falls back on a text area: a plain field, the fieldset stays whole
+            + "        <contact jcr:primaryType=\"fcnt:fieldsetStartDefinition\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Contact\"/></contact>\n"
+            + "        <zip jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"c0000000-0000-0000-0000-000000000012\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Zip\"/></zip>\n"
+            + "        <notes jcr:primaryType=\"fcnt:matrixRadiosDefinition\" jcr:uuid=\"a0000000-0000-0000-0000-000000000013\" choiceField=\"rows,columns\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Notes\"/>\n"
+            + "          <rows jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"[{&quot;key&quot;:&quot;n1&quot;,&quot;value&quot;:&quot;Hidden&quot;,&quot;visible&quot;:false}]\"/></rows>\n"
+            + "          <columns jcr:primaryType=\"fcnt:definitionOptionsTranslatable\"><j:translation_en jcr:primaryType=\"jnt:translation\" jsonValue=\"" + SATISFACTION_COLUMNS + "\"/></columns>\n"
+            + "        </notes>\n"
+            + "        <town jcr:primaryType=\"fcnt:inputDefinition\" jcr:uuid=\"c0000000-0000-0000-0000-000000000014\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Town\"/></town>\n"
+            + "        <contact-end jcr:primaryType=\"fcnt:fieldsetEndDefinition\"/>\n"
             + "        <password_0_1 jcr:primaryType=\"fcnt:passwordDefinition\" jcr:uuid=\"" + PASSWORD_ID + "\"><j:translation_en jcr:primaryType=\"jnt:translation\" jcr:title=\"Password\"/></password_0_1>\n"
             + "      </step-1>\n"
             + "      <actions jcr:primaryType=\"fcnt:action\">\n"
@@ -167,7 +176,7 @@ class FormsSyntheticExportTest {
         FormsForm source = export.forms().get("survey");
         FormsResults results = export.results().get("survey");
         ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, results);
-        assertEquals(List.of("your-e-mail", "colours", "nickname", "delivery", "city", "age", "the-price", "the-service", "speed", "comment"),
+        assertEquals(List.of("your-e-mail", "colours", "nickname", "delivery", "city", "age", "the-price", "the-service", "speed", "comment", "zip", "notes", "town"),
                 form.fields().map(ImportedField::name).toList());
         List<FormsSubmission> submissions = new ArrayList<>();
         reader().readSubmissions(submissions::add);
@@ -198,8 +207,12 @@ class FormsSyntheticExportTest {
         // radios matrix alone is not written. A fieldset start while one is open ends it, as Forms does: the fieldset
         // opened inside the first one stands beside its second half, not under it. A fieldset whose matrix the
         // start of the next one ends is not written either, and the matrix takes the name it gave back.
-        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "more", "satisfaction", "ratings", "last-words"),
+        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "more", "satisfaction", "ratings", "last-words", "contact"),
                 form.elements().stream().map(ImportedElement::name).toList());
+        // a matrix that falls back on its text area is a field like another: the fieldset around it is not split
+        ImportedContainer contact = fieldsetsOf(form).get(fieldsetsOf(form).size() - 1);
+        assertEquals(List.of("zip", "notes", "town"), contact.children().stream().map(ImportedElement::name).toList());
+        assertEquals(FormsFieldTypes.TEXTAREA, form.fieldBySourceName("notes").nodeType());
         // the title of a fieldset that held a matrix alone is lost, and said
         List<ImportNote> lost = form.report().stream().filter(note -> note.code().equals("form.fieldsetAroundMatrix")).toList();
         assertEquals(List.of("Your opinion/Satisfaction", "Ratings/Ratings"),
