@@ -154,7 +154,7 @@ cannot depend on which file is read first):
 
 | Rank | Section             | Declared by                                                                 | Scope                 |
 | ---- | ------------------- | --------------------------------------------------------------------------- | --------------------- |
-| 1.05 | Field settings      | the field types and their mixins (elements), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample) | fields |
+| 1.05 | Field settings      | the field types and their mixins (elements), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample), the fieldset (elements) | fields, and the fieldset for its help text |
 | 1.06 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field |
 | 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
 | 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
@@ -254,6 +254,7 @@ What follows from the three rules, and shaped the overrides:
 | `fmdbmix_dateBounds.json`, `fmdbmix_datetimeBounds.json`, `fmdbmix_<fixed|relative><Min|Max><Date|Datetime>.json` | elements — the mixins are the engine's, their editor overrides live next to the date types that use them, as their `fieldsets/` overrides already did | the bound modes in Constraints, each dynamic bound fieldset at its rank 3.1–3.4 |
 | `fmdbmix_optionsSource.json` | elements (same reason) | content-only: the options origin at rank 1.5 of `<main>` on every choice field; the dynamic options fieldsets stay where the editor generates them |
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9, and the fieldset's one note (`descriptionKey`: a message left empty keeps the browser's), said once instead of under each message |
+| `fmdb_fieldset.json` | elements | the help text of a fieldset, in Help & presentation like a field's: the one setting of the fieldset beyond its title, which stays in Content |
 | `fmdb_form.json` | elements | the editor's children block hidden on the form, whose children are the field and action lists: nothing a contributor orders there (#150 thread, HDU) |
 | `fmdbmix_multistep.json` | elements | the one setting of the multi-step mixin, the step navigation switch, placed first in the Step navigation fieldset of Buttons; the Multi-step section it had to itself is gone (#150) |
 | `fmdbmix_fieldActions.json` | elements | the Field actions switch, last in Field settings (fieldset rank 6, `"alwaysPresent": true`, the section declared with its label and rank), on every field that can carry field actions, the hidden input included |
