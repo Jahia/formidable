@@ -74,7 +74,7 @@ jExperience mapping offers. A third-party field type opts in from its own CND
 | `fmdbmix:dateField` | an ISO date within the bounds of `dateBounds` | yes: before, after, on, between, the submission day allowed as a bound | `fmdb:inputDate` |
 | `fmdbmix:datetimeLocalField` | an ISO date-time within the bounds of `datetimeBounds` | no | `fmdb:inputDatetimeLocal` |
 | `fmdbmix:colorField` | the `#rrggbb` format | no | `fmdb:inputColor` |
-| `fmdbmix:choiceField` | the value is one of the field's options, re-resolved from the source when they come from one; a source that fails rejects every non-empty value | yes: is one of, is not one of; the checkbox: checked, unchecked, contains any, contains all | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox` |
+| `fmdbmix:choiceField` | the value is one of the field's options, re-resolved from the source when they come from one; a source that fails rejects every non-empty value | yes: is one of, is not one of; the checkbox: checked, unchecked, contains any, contains all | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox`, `fmdbext:card` |
 | `fmdbmix:fileField` | the type against `accept` | no | `fmdb:inputFile` |
 
 The checks are `FieldValidator`'s, on the metadata `FormFieldMetadataCollector` reads from these
@@ -173,7 +173,7 @@ views, placed by the elements' `forms/` overrides
 
 | Mixin | What it says | Read by | Carried by |
 |---|---|---|---|
-| `fmdbmix:validationMessages` | `msgValueMissing`: the message replacing the browser's when a required field is left empty. Every message left empty keeps the browser's ([Custom validation](custom-validation.md#validation-message-mixins-cnd)). | `validationProps` of `@jahia/formidable-library`, which the views use to put each message on the input as a data attribute the client validation reads | `fmdb:checkbox`, `fmdb:radio`, `fmdb:select`, `fmdb:inputFile`, `fmdb:inputColor`, `fmdb:inputRange`, the four extended inputs |
+| `fmdbmix:validationMessages` | `msgValueMissing`: the message replacing the browser's when a required field is left empty. Every message left empty keeps the browser's ([Custom validation](custom-validation.md#validation-message-mixins-cnd)). | `validationProps` of `@jahia/formidable-library`, which the views use to put each message on the input as a data attribute the client validation reads | `fmdb:checkbox`, `fmdb:radio`, `fmdb:select`, `fmdb:inputFile`, `fmdb:inputColor`, `fmdb:inputRange`, the five extended inputs |
 | `fmdbmix:textValidationMessages` | the base plus `msgTypeMismatch`, `msgPatternMismatch`, `msgTooShort`, `msgTooLong`. | the same | `fmdb:inputText`, `fmdb:inputEmail`, `fmdb:textarea` |
 | `fmdbmix:rangeValidationMessages` | the base plus `msgRangeUnderflow`, `msgRangeOverflow`, `msgStepMismatch`, `msgBadInput`. | the same | `fmdb:inputNumber`, `fmdb:inputDate`, `fmdb:inputDatetimeLocal` |
 | `fmdbmix:advancedInputTextSettings` | `mask`, `pattern`, `title`, `readonly`, `autofocus`, `disabled`, `spellcheck`; `form`, `dirname` and `size` hidden, no effect in a Formidable form. | the text input view (the samples' replacement view too) | `fmdb:inputText` |
