@@ -349,6 +349,11 @@ select, radio, checkbox and colour controls â€” which have no native read-only â
 Chips are the number-mode rating items, the scale items and the switch buttons; the rating's
 default chip colour is the star colour, the others' the focus blue.
 
+The card field is styled as little as it can be: a border, and a thicker one on the selected card. Its
+rules sit at zero specificity (`:where()`), so any rule of a template set wins over them, and its colours
+and radius default to the buttons' variables: a site that sets its brand on `--fmdb-btn-primary-bg`
+gets cards in the same colour, and the card variables below set the cards alone.
+
 | Variable | Default | Description |
 |---|---|---|
 | `--fmdbext-chip-bg` | `transparent` | Background of a chip |
@@ -359,15 +364,15 @@ default chip colour is the star colour, the others' the focus blue.
 | `--fmdbext-chip-min-width` | `2.25rem` | Minimum width of a scale chip |
 | `--fmdbext-focus` | `#4c9aff` | Focus outline of every item |
 | `--fmdbext-card-min-width` | `10rem` | Minimum width of a card; the grid fits as many as the row holds |
-| `--fmdbext-card-min-height` | `4rem` | Minimum height of a card |
 | `--fmdbext-card-gap` | `0.75rem` | Gap between cards |
 | `--fmdbext-card-padding` | `1rem` | Padding of a card |
-| `--fmdbext-card-radius` | `8px` | Corner radius of a card |
-| `--fmdbext-card-bg` | `#fff` | Background of a card |
-| `--fmdbext-card-fg` | `inherit` | Text colour of a card |
-| `--fmdbext-card-border` | `#c7c7c7` | Border of a card |
-| `--fmdbext-card-on-bg` | `#4c9aff` | Background and border of the selected card, and border of a hovered one |
-| `--fmdbext-card-on-fg` | `#fff` | Text colour of the selected card |
+| `--fmdbext-card-radius` | `--fmdb-btn-radius` (`0.375rem`) | Corner radius of a card |
+| `--fmdbext-card-border` | `--fmdb-btn-secondary-border` (`#d1d5db`) | Border of a card |
+| `--fmdbext-card-bg` | `transparent` | Background of a card |
+| `--fmdbext-card-color` | `inherit` | Text colour of a card |
+| `--fmdbext-card-selected-color` | `--fmdb-btn-primary-bg` (`#2563eb`) | Border of the selected card, drawn twice as thick, and of a hovered one |
+| `--fmdbext-card-selected-bg` | `transparent` | Background of the selected card |
+| `--fmdbext-card-focus-color` | `--fmdb-btn-focus-outline-color` (`#2563eb`) | Focus outline of a card |
 | `--fmdbext-rating-on` | `#f5a623` | Colour of a selected (and lower) rating icon |
 | `--fmdbext-rating-off` | `#c7c7c7` | Colour of an unselected rating icon |
 | `--fmdbext-rating-size` | `1.75rem` | Size of a rating icon |
