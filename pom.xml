@@ -111,11 +111,7 @@
              wording they share is already factored in SampleEndpointSettings. A project copies ONE of them, so
              the repetition is the sample's point, not debt to pay down. Excluded from duplication detection
              here rather than dismissed in the dashboard, for the same reasons as the S6842 block above. -->
-        <!-- The options helpers of formidable-extended-inputs are copies of formidable-elements' own, on purpose:
-             the extended inputs reach formidable-elements through @jahia/formidable-library only, and the library
-             does not publish the options helpers. Both copies match these patterns (an exclusion reads paths relative to
-             each Maven module), so neither is reported against the other. -->
-        <sonar.cpd.exclusions>**/samples/actions/field/ExperianEmailFieldAction.java,**/samples/actions/field/ZeroBounceEmailFieldAction.java,**/src/utils/choiceUtils.ts,**/src/utils/optionsSource.server.ts,**/src/design/OptionsSourceError.tsx</sonar.cpd.exclusions>
+        <sonar.cpd.exclusions>**/samples/actions/field/ExperianEmailFieldAction.java,**/samples/actions/field/ZeroBounceEmailFieldAction.java</sonar.cpd.exclusions>
     </properties>
 
     <repositories>

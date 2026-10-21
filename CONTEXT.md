@@ -11,7 +11,7 @@ Yarn monorepo + Maven multi-module. Root: `/formidable-modules/`.
 | `formidable-extended-inputs/` | Optional field types (card, consent, switch, rating, scale) |
 | `formidable-jexperience-engine/` | jExperience integration (Java): profile mapping of fields, the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; prefill to come — `docs/architecture/jexperience-integration.md` |
 | `formidable-forms-import/` | The import of the forms and results of Jahia Forms (Java + jContent app): Results page Import action, dry run and import jobs, converters; engine api only |
-| `packages/formidable/` | npm package `@jahia/formidable-library` — the rendering contract the views import; `workspace:*` inside the monorepo (a version range would still resolve to the workspace, only `npm:` forces the registry), published at release |
+| `packages/formidable/` | npm package `@jahia/formidable-library` — the rendering contract the views import (choice options under its `/server` entry point); `workspace:*` inside the monorepo (a version range would still resolve to the workspace, only `npm:` forces the registry), published at release |
 | `jahia-test-module/` | Test modules for Cypress: JSP template set, tsx template set, and the two third-party extension examples meant to be copied — `formidable-test-module-samples-tsx` (definitions, editor overrides, views) and `formidable-test-module-samples-java` (external `FormAction`, choicelist initializer, content-integrity checks) |
 | `tests/` | Cypress E2E suite (not a Maven module) |
 

@@ -972,6 +972,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@jahia/formidable-library@workspace:packages/formidable"
   dependencies:
+    "@jahia/javascript-modules-library": "npm:^1.2.0"
     "@types/react": "npm:^19.1.2"
     "@types/react-dom": "npm:~19.2.0"
     eslint: "npm:^9.39.2"
@@ -982,6 +983,7 @@ __metadata:
     typescript: "npm:^5.9.3"
     vitest: "npm:^3.2.4"
   peerDependencies:
+    "@jahia/javascript-modules-library": ^1.2.0
     react: ^19.1.0
   languageName: unknown
   linkType: soft

@@ -5,7 +5,7 @@ import {
 } from "@jahia/javascript-modules-library";
 import { type BaseValidationMessageProps, validationDataAttributes } from "@jahia/formidable-library";
 import { HelpText, helpTextId } from "@jahia/formidable-library";
-import { resolveFieldOptions } from "~/utils/optionsSource.server";
+import { resolveFieldOptions } from "@jahia/formidable-library/server";
 import OptionsSourceError from "~/design/OptionsSourceError";
 import "./card.css";
 

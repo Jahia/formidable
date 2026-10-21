@@ -37,9 +37,8 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
   or an image would need a change to the options model and to its editor.
 - **Native radios, the label drawn as the card**: the keyboard, the validation messages and the jExperience read-only
   lock (which takes the pointer off radios and labels) work as on the radio group.
-- **The options helpers are copies** of `formidable-elements`' own (`src/utils/`, `src/design/OptionsSourceError.tsx`):
-  this module reaches `formidable-elements` through `@jahia/formidable-library` only, which does not publish them.
-  A change to the resolution of the options lands in both copies.
+- **The options come from `@jahia/formidable-library`**, as for the built-in choice fields: `resolveFieldOptions`
+  from its `/server` entry point, `OptionsSourceError` with this module's message when a source cannot deliver.
 - **`data-fmdb-advance-on-change`** on the group says one answer is enough: a form showing one field at a time
   ([#423](https://github.com/Jahia/formidable/issues/423)) may move on once a card is picked. Nothing reads it yet.
 

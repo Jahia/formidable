@@ -1,36 +1,20 @@
 import { useTranslation } from "react-i18next";
+import { OptionsSourceError as OptionsSourceErrorBlock } from "@jahia/formidable-library";
 
 interface OptionsSourceErrorProps {
   label?: string;
   required?: boolean;
 }
 
-/**
- * Copy of formidable-elements/src/design/OptionsSourceError.tsx, with this module's bundle: a choice field
- * whose options source could not deliver shows an error instead of its options. The Form island reads
- * data-fmdb-source-error="blocking" to block the submission of a required field.
- */
-export default function OptionsSourceError({ label, required }: OptionsSourceErrorProps) {
+/** The library's error block of a choice field whose options source could not deliver, in this module's words. */
+export default function OptionsSourceError({ label, required }: Readonly<OptionsSourceErrorProps>) {
   const { t } = useTranslation("formidable-extended-inputs", { keyPrefix: "fmdbext_choiceField" });
 
   return (
-    <div
-      className="fmdb-form-group fmdb-options-source-error"
-      data-fmdb-source-error={required ? "blocking" : "optional"}
-    >
-      {label && (
-        <span className="fmdb-form-label">
-          {label}
-          {required && (
-            <span className="fmdb-required-indicator" aria-hidden="true">
-              *
-            </span>
-          )}
-        </span>
-      )}
-      <p className="fmdb-field-error" role="alert">
-        {required ? t("sourceUnavailableRequired") : t("sourceUnavailable")}
-      </p>
-    </div>
+    <OptionsSourceErrorBlock
+      label={label}
+      required={required}
+      message={required ? t("sourceUnavailableRequired") : t("sourceUnavailable")}
+    />
   );
 }

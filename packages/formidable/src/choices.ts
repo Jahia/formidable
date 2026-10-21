@@ -1,10 +1,13 @@
+/** One option of a choice field, as its `options` property stores it: a JSON object per value. */
 export interface ParsedChoice {
 	value: string;
 	label: string;
 	selected: boolean;
 }
 
-export const parseChoices = (choices: string[] = []): ParsedChoice[] => {
+// An entry that is not a {value, label} object renders as a label naming the problem, with an
+// empty value: the contributor sees the broken option instead of losing it in silence.
+export const parseChoices = (choices: readonly string[] = []): ParsedChoice[] => {
 	return choices.map(choice => {
 		try {
 			const parsed = JSON.parse(choice);
@@ -22,4 +25,3 @@ export const parseChoices = (choices: string[] = []): ParsedChoice[] => {
 		return {value: "", label: `Malformed option structure - Expected {value, label, selected}: ${choice}`, selected: false};
 	});
 };
-
