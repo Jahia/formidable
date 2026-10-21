@@ -30,6 +30,7 @@ Architecture decisions and internal flows are documented in `docs/`:
 - `how-to-create-field-action.md` — step-by-step guide for a custom `FieldAction` OSGi service (a check of one field's value)
 - `how-to-extend-views-and-elements-from-third-party-module.md` — rendering contract for external views and custom elements
 - `cnd-module-ownership.md` — where JCR types belong (`formidable-elements` vs `formidable-engine`)
+- `mixin-catalogue.md` — every mixin the modules declare: what it says, who reads it, which types carry it, what a type of your own declares
 - `error-codes.md` — server-side error codes (FMDB-xxx)
 - `captcha-server-side-validation.md` — provider verification and token handling
 - `configuration.md` — the five configuration files of the engine, one per theme, the Forms import module's own, and how the single file of earlier builds is carried over
@@ -68,7 +69,8 @@ CND locations:
 - **Component-specific types**: `formidable-elements/src/components/<ComponentName>/definition.cnd`
 - **Action & engine types** (actions, submissions, results, logic): `formidable-engine/src/main/resources/META-INF/definitions.cnd`
 
-See `docs/architecture/cnd-module-ownership.md` for the decision framework.
+See `docs/architecture/cnd-module-ownership.md` for the decision framework. Every mixin, with what it says and who reads it:
+`docs/architecture/mixin-catalogue.md`.
 
 ### Component File Layout
 

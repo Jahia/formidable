@@ -105,6 +105,25 @@ A flatter, squarer look, for instance:
 | `--fmdb-range-end-label-size` | `0.875em` | Font size of the minimum and maximum labels |
 | `--fmdb-range-output-min-width` | `3ch` | Minimum width of the current-value output |
 
+## Matrix fieldset
+
+A fieldset rendered with the **Matrix** view (`fmdb-matrix`, see
+[Styling a form](README.md#the-matrix-view-of-a-fieldset)) lays its radio and checkbox groups
+out as a grid: one row per group, the legend in the first column, one column per option, a
+heading row above. The number of columns comes from the view, as `--fmdb-matrix-columns` set
+inline on the fieldset; the rest is these variables. Under 36rem of width the rows go back to
+the stacked layout of a group — that breakpoint is a container query, which no variable can
+feed.
+
+| Variable | Default | Description |
+|---|---|---|
+| `--fmdb-matrix-row-label-width` | `minmax(8rem, 2fr)` | The first column, where the legend of each row sits (a grid track size) |
+| `--fmdb-matrix-column-gap` | `0.5rem` | Gap between the columns |
+| `--fmdb-matrix-row-padding` | `0.375rem 0` | Padding of the heading row and of each row |
+| `--fmdb-matrix-header-weight` | `600` | Font weight of the heading row |
+| `--fmdb-matrix-header-border` | `1px solid currentColor` | Bottom border of the heading row |
+| `--fmdb-matrix-row-stripe` | `rgba(0, 0, 0, 0.03)` | Background of every second row; `transparent` for none |
+
 ## Multi-step navigation
 
 ### Navigation bar

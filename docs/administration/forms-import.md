@@ -14,8 +14,9 @@ not exist; enabled on no site, the button shows nowhere. Install it for the time
   visitor submitted it. The submitter's IP address and user name are not imported: Formidable keeps neither
   for its own submissions. A date keeps the day the visitor chose, except for visitors at +13 and +14 hours
   from UTC (New Zealand in summer, Tonga, Samoa, Kiribati), who get the previous day.
-- What receives those results is your choice, per form, when the dialog shows what the import will do:
-  - **Results only**, the default: the entry alone, flagged **No form** on the Results page, with
+- What receives those results is your choice, per form or for all forms at once, when the dialog shows what
+  the import will do; nothing is imported until you choose:
+  - **Results only**: the entry alone, flagged **No form** on the Results page, with
     the system names of the fields as column heads (`your-first-name`), read by the administrators of the
     site.
   - **Create the form**: a Formidable form in the **Imported from Jahia Forms** content folder of the site
@@ -55,10 +56,13 @@ results: the import refuses them with this procedure.
    writing anything, and shows what the import will do, one row per form: its submissions, fields and files,
    whether it is already there, and, for a form to create, how many points there are to review once it is
    created. Click that count to read them, with what was carried over.
-4. Choose, in the **What to do** menu of each row, what receives the results of the form: **Results only**,
+4. Choose what receives the results of each form. Every row starts at **Don't import**, and **Import** stays
+   off until something is chosen. The **For all forms** menu above the rows chooses for every form at once:
+   **Import the results**, **Create the forms**, or **Don't import**; it shows **Per form** once the rows
+   differ. The **What to do** menu of a row chooses for that form alone: **Results only**,
    **Create the form**, **Attach to an existing form**, or **Don't import**, which leaves the form out of
    this import; importing the same export again proposes it again. A form already imported takes its new
-   submissions, or nothing with **Don't import**. For an attachment, pick the form, then check where each field
+   submissions with **Add the new submissions**, or nothing. For an attachment, pick the form, then check where each field
    lands: a field of the form marked **same name** or **same label** was matched for you; pick a field for
    the others, or leave **Keep the name**. A field of the form picked in one row is no longer offered in the
    others, nor is the name of another field of the source, so that no two fields land under one name. For a
@@ -67,7 +71,7 @@ results: the import refuses them with this procedure.
 5. Click **Import**. The import runs on the server, by batches; the dialog follows it and can be closed
    meanwhile — opening it again shows the running import, then its report. One import runs at a time per
    site.
-6. Read the final report — **Download the import log** saves, as a Markdown file, how the import ended,
+6. Read the final report — **Download the report** saves, as a Markdown file, how the import ended,
    what each submission lost (a password, a value kept as stored, a missing file) or why it was not
    written, and what is left to review. A submission that could not be written is left behind: import the
    same export again to retry it. Then publish the forms you had created: until a form is published, its entry on

@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {downloadFile, uiContext} from './page';
 import {GET_SITE_FORMS} from './graphql';
 import {ReportTable, rowOf} from './ImportReportTable';
-import {importLog, importLogFileName} from './importLog';
+import {reportMarkdown, reportFileName} from './reportMarkdown';
 import {
     choicesReady,
     closeJob,
@@ -52,7 +52,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
     const [job, setJob] = useState<ImportJob | null>(initialJob ?? null);
     const [fileName, setFileName] = useState('');
     const [errorMessage, setErrorMessage] = useState('');
-    // What receives the results of each form of the export, chosen in the review; the results alone by default.
+    // What receives the results of each form of the export, chosen in the review; a form not chosen for is left out.
     const [choices, setChoices] = useState<Record<string, ImportChoice>>({});
     // The fields of the forms an attachment read so far, by identifier: held here so that a card remounted keeps its rows.
     const [targetFields, setTargetFields] = useState<Record<string, TargetField[]>>({});
@@ -141,7 +141,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         }
         setErrorMessage('');
         try {
-            const started = await startImport(siteKey, job.id, choices);
+            const started = await startImport(siteKey, job.id, choices, job.report ?? undefined);
             setJob(started);
             setState(stateOf(started));
         } catch (error) {
@@ -168,14 +168,14 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
         setState('waiting');
     };
 
-    // The log of the import as a Markdown file, built here from the report of the job: nothing more is stored on the server.
-    const downloadLog = () => {
+    // The report of the import as a Markdown file, built here from the report of the job: nothing more is stored on the server.
+    const downloadReport = () => {
         if (!job?.report) {
             return;
         }
         const date = new Date();
         const rowOfForm = (form: Parameters<typeof rowOf>[0]) => rowOf(form, choices, siteForms, false, t);
-        const content = importLog(job.report, {
+        const content = reportMarkdown(job.report, {
             siteKey,
             fileName,
             language,
@@ -184,7 +184,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
             outcomeOf: form => rowOfForm(form).text,
             notesApply: form => rowOfForm(form).outcome === 'created'
         });
-        downloadFile(importLogFileName(siteKey, date), content, 'text/markdown;charset=utf-8');
+        downloadFile(reportFileName(siteKey, date), content, 'text/markdown;charset=utf-8');
     };
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -314,6 +314,7 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                                 targetFields={targetFields}
                                 onTargetFields={rememberTargetFields}
                                 onChoice={(sourceName, choice) => setChoices(previous => ({...previous, [sourceName]: choice}))}
+                                onChoices={next => setChoices(previous => ({...previous, ...next}))}
                             />
                         </>
                     )}
@@ -342,10 +343,10 @@ export const ImportResultsDialog = ({siteKey, settings, initialJob, onClose}: Im
                             size="big"
                             variant="ghost"
                             icon={<Download/>}
-                            label={t('formResults.import.actions.downloadLog')}
-                            data-sel-role="import-download-log"
+                            label={t('formResults.import.actions.downloadReport')}
+                            data-sel-role="import-download-report"
                             style={{marginRight: 'auto'}}
-                            onClick={downloadLog}
+                            onClick={downloadReport}
                         />
                     )}
                     {(state === 'waiting' || state === 'analysing') && (

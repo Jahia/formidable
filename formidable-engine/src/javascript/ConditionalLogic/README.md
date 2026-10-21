@@ -138,8 +138,8 @@ including field types contributed by third-party modules (see
 |---|---|---|
 | `fmdbmix:choiceField` | `choice` | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox` |
 | `fmdbmix:dateField` | `date` | `fmdb:inputDate` |
-| `fmdbmix:numberField` | `number` | — (third-party, e.g. rating/scale fields) |
-| `fmdbmix:booleanField` | `boolean` | — (third-party, e.g. switch/consent fields) |
+| `fmdbmix:numberField` | `number` | `fmdb:inputNumber`, `fmdb:inputRange` (and the extended inputs' rating and scale) |
+| `fmdbmix:booleanField` | `boolean` | — (the extended inputs' switch and consent) |
 | `fmdbmix:textField` | `text` | `fmdb:inputText`, `fmdb:textarea`, `fmdb:inputEmail` |
 
 `sourceDescriptors.ts` maps each valueKind to a default descriptor (operators,
@@ -229,8 +229,12 @@ Notes:
 - `valueKind` denormalizes the source's kind at authoring time so both runtime
   evaluators (browser and Java) pick the right comparison semantics — 'between'
   compares numerically for `number` and lexicographically (ISO dates) otherwise.
-  Rules stored before it existed have no `valueKind` and keep date semantics.
+  Rules stored before it existed have no `valueKind`: they compare as strings, which ISO dates do, and never resolve `today`.
 - `logicId` is used to bind the JSON rule to its `logicsSrc/<logicId>` child node.
+
+The field-by-field reference — every key, who writes it, what each evaluator does when it is absent, which
+operators take `value`, `values` or nothing — is
+[docs/architecture/conditional-logic-field-resolution.md](../../../../docs/architecture/conditional-logic-field-resolution.md#the-fields-of-a-rule).
 
 ## Repository-side synchronization
 

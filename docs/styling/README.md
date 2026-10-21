@@ -55,8 +55,11 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │     │                                              one per element; .fmdb-logic-target when a rule drives it;
 │  │     │                                              [data-fmdb-field-action] and .fmdb-field-action-pending while a check runs, for a field with actions
 │  │     ├─ div.fmdb-content.fmdb-content-text          a rich-text block among the fields
-│  │     ├─ fieldset.fmdb-fieldset
+│  │     ├─ fieldset.fmdb-fieldset (.fmdb-matrix [style=--fmdb-matrix-columns] with the Matrix view)
 │  │     │  ├─ legend.fmdb-fieldset-legend
+│  │     │  ├─ div.fmdb-matrix-header [aria-hidden]     Matrix view only: the heading row
+│  │     │  │  ├─ span.fmdb-matrix-corner
+│  │     │  │  └─ span.fmdb-matrix-column               one per option
 │  │     │  └─ div.fmdb-fieldset-elements
 │  │     │     └─ div.fmdb-form-element […]             the fieldset's elements, same wrapper
 │  │     ├─ button.fmdb-btn.fmdb-btn-{primary|secondary|danger}   a Button field
@@ -84,6 +87,30 @@ aside.fmdb-authoring-actions                            edit mode only: the form
 `┆` marks alternatives for the control of a field. The full list of hooks, with what each one
 is, is in [Class hooks](class-hooks.md); the variables that size and colour these pieces are in
 [CSS variables](css-variables.md).
+
+## The matrix view of a fieldset
+
+A fieldset has a second view, **Matrix**, picked in Content Editor under **Layout → View** (or
+in the Page Builder's view chooser). It is for a fieldset whose fields are radio or checkbox
+groups that share the same options — "How satisfied are you with the price / the service / the
+delivery: Poor, Fair, Good" — and lays them out as a grid: one row per group, its legend in the
+first column, one column per option, a heading row with the option labels above. A Jahia Forms
+matrix imported into Formidable lands in such a fieldset.
+
+The markup stays the one of the default view, with three additions: the class `fmdb-matrix`
+and `--fmdb-matrix-columns` on the fieldset, and the heading row `fmdb-matrix-header`, which
+is `aria-hidden`: every input keeps its own label and its group, so a screen reader meets the
+question and the option as it does anywhere else, and the heading row is for the eye. Everything
+else is the stylesheet (`matrix.css`): each group becomes a grid, its legend floated to leave the
+role of rendered legend and take the first cell, the option labels clipped out of sight, the
+rows striped. Under 36rem of width the rows fall back to the stacked layout of a group, labels
+beside the options. The values are in [CSS variables](css-variables.md#matrix-fieldset).
+
+The view asks three things of the fieldset's elements, and renders as the default view does
+when one is missing: every element is a radio or checkbox field, each has at least two options
+(a single option renders without a group), and they all carry the same option labels in the
+same order. A fieldset in the Page Builder keeps the heading row and the row layout; the
+Page Builder's own wrappers stack around them.
 
 ## Conventions
 

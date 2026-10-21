@@ -37,8 +37,8 @@ export interface AttachChoice {
 }
 
 /**
- * What receives the results of a source form: an entry alone (the default), a form created for them, an existing
- * form, or nothing, the form left out of the run.
+ * What receives the results of a source form: an entry alone, a form created for them, an existing form, or
+ * nothing, the form left out of the run — the default, until the administrator chooses.
  */
 export type ImportChoice = 'resultsOnly' | 'create' | 'skip' | AttachChoice;
 
@@ -46,10 +46,51 @@ export type ImportChoiceKind = 'resultsOnly' | 'create' | 'attach' | 'skip';
 
 export const kindOf = (choice: ImportChoice | undefined): ImportChoiceKind => {
     if (choice === undefined) {
-        return 'resultsOnly';
+        return 'skip';
     }
     return typeof choice === 'string' ? choice : choice.choice;
 };
+
+/**
+ * A choice made for every form of the review at once: import the results (alone for a new form, added to its
+ * entry for a form imported before), create the forms, or import nothing. An attachment names its form, so it
+ * stays a choice per form.
+ */
+export type ChoiceForAll = 'import' | 'create' | 'skip';
+
+/** Whether the review lets the administrator choose for the form: a form imported before with nothing new has nothing to choose. */
+export const isChoosable = (form: ImportReportForm): boolean => !(form.outcome === 'found' && form.submissions.toImport === 0);
+
+/** The choices of every choosable form of the report for a choice made for all: a found form takes or leaves its new submissions. */
+export function choicesForAll(report: ImportReport, value: ChoiceForAll): Record<string, ImportChoice> {
+    return Object.fromEntries(report.forms.filter(isChoosable).map(form => {
+        if (value === 'skip') {
+            return [form.sourceName, 'skip'];
+        }
+        return [form.sourceName, value === 'create' && form.outcome !== 'found' ? 'create' : 'resultsOnly'];
+    }));
+}
+
+/**
+ * The choice for all the rows of the review agree on, null when they differ: what the menu for all shows. A
+ * found form that takes its new submissions agrees with importing and with creating alike.
+ */
+export function choiceForAllOf(report: ImportReport, choices: Record<string, ImportChoice>): ChoiceForAll | null {
+    const agreeing: ChoiceForAll[][] = report.forms.filter(isChoosable).map(form => {
+        const kind = kindOf(choices[form.sourceName]);
+        return kind !== 'skip' && form.outcome === 'found' ? ['import', 'create'] : FOR_ALL_OF_KIND[kind];
+    });
+    if (agreeing.length === 0) {
+        return null;
+    }
+    const common = agreeing.reduce((kept, values) => kept.filter(value => values.includes(value)), FOR_ALL_VALUES);
+    return common.includes('import') ? 'import' : common[0] ?? null;
+}
+
+const FOR_ALL_VALUES: ChoiceForAll[] = ['import', 'create', 'skip'];
+
+/** The choices for all a choice of one form agrees with; an attachment agrees with none. */
+const FOR_ALL_OF_KIND: Record<ImportChoiceKind, ChoiceForAll[]> = {resultsOnly: ['import'], create: ['create'], attach: [], skip: ['skip']};
 
 /**
  * Something a submission lost or kept as it was, or why it was not written (ImportReport, incidents): a note
@@ -133,13 +174,23 @@ export const uploadExport = (siteKey: string, file: File): Promise<ImportJob> =>
 export const fetchJob = (siteKey: string, jobId: string): Promise<ImportJob> =>
     call(endpoint(siteKey, `/jobs/${encodeURIComponent(jobId)}`));
 
-/** Starts the import with the choices of the review; a form the choices do not name takes the results alone. */
-export const startImport = (siteKey: string, jobId: string, choices: Record<string, ImportChoice> = {}): Promise<ImportJob> =>
+/**
+ * Starts the import with the choices of the review; a form the choices do not name is left out. A form found with
+ * nothing new, which the review offers no choice for, is sent as taking its results, which adds nothing to it, so
+ * that the import reports it found, as the review did, and not left out.
+ */
+export const startImport = (siteKey: string, jobId: string, choices: Record<string, ImportChoice> = {}, report?: ImportReport): Promise<ImportJob> =>
     call(endpoint(siteKey, `/jobs/${encodeURIComponent(jobId)}/import`), {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({choices: requestChoices(choices)})
+        body: JSON.stringify({choices: requestChoices(withFoundForms(choices, report))})
     });
+
+/** The choices with every found form that has nothing to choose taking its results: what keeps it found. */
+export function withFoundForms(choices: Record<string, ImportChoice>, report?: ImportReport): Record<string, ImportChoice> {
+    const found = (report?.forms ?? []).filter(form => form.outcome === 'found' && !isChoosable(form));
+    return {...Object.fromEntries(found.map(form => [form.sourceName, 'resultsOnly' as const])), ...choices};
+}
 
 /**
  * The choices as the endpoint reads them: an attachment carries the names that change alone, a field sent to

@@ -25,7 +25,7 @@
 				"files": "{{count}} fichier(s), {{size}}",
 				"filesMissing": "{{count}} fichier(s) absent(s) de l’export, laissé(s) de côté",
 				"values": "{{dropped}} valeur(s) écartée(s), {{notConverted}} gardée(s) telles quelles",
-				"failed": "{{count}} non écrite(s), voir le journal d’import"
+				"failed": "{{count}} non écrite(s), voir le rapport"
 			},
 			"choice": {
 				"resultsOnly": "Résultats seuls",
@@ -34,12 +34,19 @@
 				"skip": "Ne pas importer",
 				"add": "Ajouter les nouvelles soumissions"
 			},
+			"forAll": {
+				"label": "Pour tous les formulaires",
+				"perForm": "Au cas par cas",
+				"import": "Importer les résultats",
+				"create": "Créer les formulaires",
+				"skip": "Ne pas importer"
+			},
 			"actions": {
 				"import": "Importer",
 				"cancel": "Annuler",
 				"close": "Fermer",
 				"tryAgain": "Réessayer",
-				"downloadLog": "Télécharger le journal d’import"
+				"downloadReport": "Télécharger le rapport"
 			},
 			"done": {
 				"title": "Import terminé",
@@ -241,7 +248,7 @@
 				}
 			},
 			"markdown": {
-				"title": "Journal d’import Jahia Forms",
+				"title": "Rapport d’import Jahia Forms",
 				"site": "Site",
 				"file": "Export",
 				"date": "Date",

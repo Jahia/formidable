@@ -259,7 +259,7 @@ public class ImportJobs {
      * Starts the import of a reviewed dry run, one import at a time per site.
      *
      * @param choices what receives the results of each source form, by its name, as the administrator chose
-     *                in the review; the results alone for the forms it does not name. An attachment is
+     *                in the review; the forms it does not name are left out. An attachment is
      *                refused when its form is not a form of the site, or when its mapping sends a field to a
      *                name another field of the source keeps.
      */
@@ -470,7 +470,7 @@ public class ImportJobs {
         });
     }
 
-    /** The report of an import that stopped before its end, with why: what the log of the dialog gives; null for any other failure. */
+    /** The report of an import that stopped before its end, with why: what the downloadable report gives; null for any other failure. */
     private static String stoppedReport(Exception e) {
         for (Throwable cause = e; cause != null; cause = cause.getCause()) {
             if (cause instanceof FormsImportRun.Stopped stopped) {

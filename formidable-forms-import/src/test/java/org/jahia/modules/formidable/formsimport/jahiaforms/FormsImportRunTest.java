@@ -43,6 +43,8 @@ class FormsImportRunTest {
     private static final String RESULTS = "/sites/x/formidable-results";
     private static final Map<String, FormChoice> CREATE_ALL = Map.of("contact-us", FormChoice.CREATE,
             "newsletterregistration", FormChoice.CREATE, "newsletter-registration", FormChoice.CREATE);
+    private static final Map<String, FormChoice> RESULTS_ALL = Map.of("contact-us", FormChoice.RESULTS_ONLY,
+            "newsletterregistration", FormChoice.RESULTS_ONLY, "newsletter-registration", FormChoice.RESULTS_ONLY);
 
     private static ImportWriter writer() throws RepositoryException {
         ImportWriter writer = mock(ImportWriter.class);
@@ -72,7 +74,7 @@ class FormsImportRunTest {
         assertEquals(106, report.getJSONObject("totals").getInt("submissionsToImport"));
         assertEquals(0, report.getJSONObject("totals").getInt("submissionsImported"));
         JSONObject contact = report.getJSONArray("forms").getJSONObject(0);
-        // the default: the results alone, under an entry named after the form, the fields as its columns
+        // before any choice, a form is described as the results alone, under an entry named after it, the fields as its columns
         assertEquals("resultsOnly", contact.getString("outcome"));
         assertEquals(RESULTS + "/contact-us", contact.getString("targetPath"));
         assertEquals(5, contact.getJSONArray("fields").length());
@@ -149,11 +151,27 @@ class FormsImportRunTest {
     }
 
     @Test
-    void theImportWritesTheResultsAloneByDefault() throws Exception {
+    void theImportLeavesOutEveryFormTheChoicesDoNotName() throws Exception {
+        ImportWriter writer = writer();
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+
+        JSONObject report = run.run().toJson();
+
+        assertEquals(3, report.getJSONObject("totals").getInt("forms"));
+        assertEquals(0, report.getJSONObject("totals").getInt("submissionsImported"));
+        report.getJSONArray("forms").forEach(form -> assertEquals("skipped", ((JSONObject) form).getString("outcome")));
+        verify(writer, never()).findForm(any(), any());
+        verify(writer, never()).createResultsOnlyEntry(any());
+        verify(writer, never()).findOrCreateForm(any());
+        verify(writer, never()).writeSubmission(any(), any(), any());
+    }
+
+    @Test
+    void theImportWritesTheResultsAloneWhenAsked() throws Exception {
         ImportWriter writer = writer();
         JCRNodeWrapper entry = node("contact-us", RESULTS + "/contact-us");
         when(writer.createResultsOnlyEntry(any())).thenReturn(entry);
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, RESULTS_ALL, type -> true, s -> true, false);
 
         JSONObject report = run.run().toJson();
 
@@ -175,7 +193,7 @@ class FormsImportRunTest {
         JCRNodeWrapper other = node("other", RESULTS + "/other");
         when(writer.findImportedEntry(CONTACT_ID)).thenReturn(found);
         when(writer.createResultsOnlyEntry(any())).thenReturn(other);
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, RESULTS_ALL, type -> true, s -> true, false);
 
         JSONObject report = run.run().toJson();
 
@@ -230,7 +248,7 @@ class FormsImportRunTest {
         when(writer.formOf(entry)).thenReturn(target);
         when(writer.mappingOf(entry, CONTACT_ID)).thenReturn(Map.of("your-first-name", "firstname"));
         when(writer.createResultsOnlyEntry(any())).thenReturn(other);
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, RESULTS_ALL, type -> true, s -> true, false);
 
         JSONObject report = run.run().toJson();
 
@@ -353,7 +371,8 @@ class FormsImportRunTest {
         ImportWriter writer = writer();
         JCRNodeWrapper entry = mock(JCRNodeWrapper.class);
         when(writer.createResultsOnlyEntry(any())).thenReturn(entry);
-        Map<String, FormChoice> choices = Map.of("contact-us", FormChoice.SKIP);
+        Map<String, FormChoice> choices = Map.of("contact-us", FormChoice.SKIP, "newsletterregistration", FormChoice.RESULTS_ONLY,
+                "newsletter-registration", FormChoice.RESULTS_ONLY);
 
         JSONObject report = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, choices, type -> true, s -> true, false)
                 .run().toJson();
@@ -402,7 +421,7 @@ class FormsImportRunTest {
             return entry;
         });
 
-        JSONObject report = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false)
+        JSONObject report = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, RESULTS_ALL, type -> true, s -> true, false)
                 .run().toJson();
 
         assertEquals(105, report.getJSONObject("totals").getInt("submissionsImported"));
@@ -440,7 +459,7 @@ class FormsImportRunTest {
         ImportWriter writer = writer();
         when(writer.createResultsOnlyEntry(any())).thenReturn(mock(JCRNodeWrapper.class));
         when(writer.writeSubmission(any(), any(), any())).thenThrow(new RepositoryException("disk full"));
-        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, Map.of(), type -> true, s -> true, false);
+        FormsImportRun run = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer, false, RESULTS_ALL, type -> true, s -> true, false);
 
         FormsImportRun.Stopped stopped = org.junit.jupiter.api.Assertions.assertThrows(FormsImportRun.Stopped.class, run::run);
 
@@ -460,7 +479,7 @@ class FormsImportRunTest {
 
         ImportWriter writer = writer();
         when(writer.createResultsOnlyEntry(any())).thenReturn(mock(JCRNodeWrapper.class));
-        JSONObject report = new FormsImportRun(FormsSyntheticExportTest.reader(), writer, false, Map.of(), type -> true, s -> true, false)
+        JSONObject report = new FormsImportRun(FormsSyntheticExportTest.reader(), writer, false, Map.of("survey", FormChoice.RESULTS_ONLY), type -> true, s -> true, false)
                 .run().toJson();
 
         JSONObject survey = report.getJSONArray("forms").getJSONObject(0);

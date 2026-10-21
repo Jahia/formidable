@@ -77,7 +77,8 @@ public final class FormsImportRun {
 
     /**
      * @param writer the writer on the target site; in a dry run it is only read from
-     * @param choices what receives the results of each source form, by its name; the results alone for the others
+     * @param choices what receives the results of each source form, by its name; the others are left out of an import,
+     *                and described by a dry run as if the results alone were asked
      * @param registeredTypes whether the repository registers a node type
      * @param declaredOptionsSources whether the instance declares an options source by key
      * @param captchaConfigured whether the instance configures a captcha, for the forms that displayed one
@@ -147,7 +148,7 @@ public final class FormsImportRun {
     private JCRNodeWrapper prepareForm(Source source, ImportReport report) throws RepositoryException {
         ImportedForm form = source.form();
         ImportReport.FormEntry entry = report.form(form.name(), form.titles());
-        FormChoice choice = choices.getOrDefault(form.name(), FormChoice.RESULTS_ONLY);
+        FormChoice choice = choiceOf(form);
         if (choice.choice() == ImportChoice.SKIP) {
             // left out: nothing written, no marker, a later run of the same export proposes the form again
             entry.skip();
@@ -198,6 +199,15 @@ public final class FormsImportRun {
         }
         writer.save();
         return results;
+    }
+
+    /**
+     * What the administrator chose for the form. A form the choices do not name is left out by the import,
+     * which writes only what was asked for; the dry run, which runs before any choice, describes it as if
+     * the results alone were asked, so that the review shows its fields, its notes and whether it is there.
+     */
+    private FormChoice choiceOf(ImportedForm form) {
+        return choices.getOrDefault(form.name(), dryRun ? FormChoice.RESULTS_ONLY : FormChoice.SKIP);
     }
 
     /**

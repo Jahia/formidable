@@ -17,7 +17,7 @@ import java.util.Set;
  * form, what the import creates or found, its fields with what could not be carried over, the counts of
  * submissions, values and files. Built as it goes, serialised as JSON for the job node and the dialog.
  * <p>
- * An import also lists its incidents, what the log of the dialog gives submission by submission: a value
+ * An import also lists its incidents, what the report the dialog offers for download gives submission by submission: a value
  * dropped or kept as stored, a file the export does not hold, a submission that could not be written, a
  * submission of no form of the export; and, when it stopped before its end, why.
  */
@@ -168,7 +168,7 @@ public final class ImportReport {
             return this;
         }
 
-        /** Something a submission lost or kept as it was, or why it was not written: a line of the log. */
+        /** Something a submission lost or kept as it was, or why it was not written: a line of the downloadable report. */
         public FormEntry incident(String submission, Instant created, ImportNote note) {
             incidents.add(submission, created, note);
             return this;

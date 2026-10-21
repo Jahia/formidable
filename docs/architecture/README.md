@@ -19,5 +19,6 @@ For the maintainer: how the modules work, and why they are built this way.
 ## Why it is built this way
 
 - [CND module ownership](cnd-module-ownership.md) — where JCR types and mixins belong, and how to choose between `formidable-elements` and `formidable-engine`
+- [Mixin catalogue](mixin-catalogue.md) — every mixin the modules declare, family by family: what it says, who reads it, which types carry it, and what a type of your own declares
 - [Dependency decisions](dependency-decisions.md) — embedded or provided dependencies in the Java modules, and why
 - [Why `querySelector` in React](why-queryselector-in-react.md) — why the client components read the DOM directly

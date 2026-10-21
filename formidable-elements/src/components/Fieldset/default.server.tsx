@@ -1,4 +1,5 @@
-import {jahiaComponent, Render} from "@jahia/javascript-modules-library";
+import {jahiaComponent} from "@jahia/javascript-modules-library";
+import FieldsetBody from "./FieldsetBody";
 
 interface FieldsetProps {
 	"jcr:title"?: string;
@@ -16,29 +17,6 @@ jahiaComponent(
 	) => {
 		const showLogicHidden = currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
 
-		return (
-			<fieldset className="fmdb-fieldset">
-				{/* Fieldset title from mix:title */}
-				{title && (
-					<legend className="fmdb-fieldset-legend">
-						{title}
-					</legend>
-				)}
-
-				{/* Always rendered, children or not: hidden.logic is what emits the Page
-				    Builder placeholder, and an empty fieldset is exactly when the create
-				    buttons are indispensable — without them nothing can ever go in. */}
-				<Render
-					node={currentNode}
-					view="hidden.logic"
-					readOnly
-					parameters={{
-						className: "fmdb-fieldset-elements",
-						childClassName: "fmdb-form-element",
-						...(showLogicHidden ? {showLogicHidden: "true"} : {}),
-					}}
-				/>
-			</fieldset>
-		);
+		return <FieldsetBody title={title} currentNode={currentNode} showLogicHidden={showLogicHidden}/>;
 	}
 );
