@@ -31,6 +31,12 @@ class FormActionApiTest {
         assertEquals("/b", both.withRedirect("/b").redirectPath());
         assertFalse(both.isEmpty());
         assertTrue(FormActionResult.none().redirect().isEmpty());
+        FormActionResult toUrl = FormActionResult.message("hi").withRedirectToUrl("https://www.example.com/");
+        assertEquals("https://www.example.com/", toUrl.redirectUrl());
+        assertEquals("https://www.example.com/", toUrl.redirect().orElseThrow());
+        assertEquals("hi", toUrl.message());
+        assertNull(toUrl.withRedirect("/a").redirectUrl());
+        assertEquals("/a", toUrl.withRedirect("/a").redirectPath());
     }
 
     @Test

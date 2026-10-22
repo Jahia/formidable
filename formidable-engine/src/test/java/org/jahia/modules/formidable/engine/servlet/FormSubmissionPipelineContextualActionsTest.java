@@ -178,8 +178,8 @@ class FormSubmissionPipelineContextualActionsTest {
     void theFirstRedirectAndTheFirstMessageWinInListOrderAndAnUnsafeRedirectIsDropped() throws Exception {
         // Verifies what the pipeline keeps of the actions' answers: an unsafe redirect (another host) is dropped and
         // never reaches the browser; the first safe redirect and the first message stay, later ones are ignored.
-        Contextual first = new Contextual("t:first", new FormActionResult("https://evil.example/", "Bienvenue"), null);
-        Contextual second = new Contextual("t:second", new FormActionResult("/sites/mysite/home.html", "Ignored"), null);
+        Contextual first = new Contextual("t:first", new FormActionResult("https://evil.example/", null, "Bienvenue"), null);
+        Contextual second = new Contextual("t:second", new FormActionResult("/sites/mysite/home.html", null, "Ignored"), null);
         Contextual third = new Contextual("t:third", FormActionResult.redirect("/other.html"), null);
         FormSubmissionPipeline pipeline = pipeline(List.of(first, second, third), resolved("t:first", "t:second", "t:third"),
                 values());
@@ -188,6 +188,36 @@ class FormSubmissionPipelineContextualActionsTest {
 
         assertEquals("/sites/mysite/home.html", pipeline.browserInstruction().redirectPath());
         assertEquals("Bienvenue", pipeline.browserInstruction().message());
+    }
+
+    @Test
+    void aUrlFromTheConfigurationIsKeptAndTheFirstRedirectOfEitherKindWins() throws Exception {
+        // Verifies the second kind: an absolute http(s) URL passes its own rule, and a path returned after it loses.
+        Contextual url = new Contextual("t:url", FormActionResult.redirectToUrl("https://www.example.com/merci"), null);
+        Contextual path = new Contextual("t:path", FormActionResult.redirect("/sites/mysite/home.html"), null);
+        FormSubmissionPipeline pipeline = pipeline(List.of(url, path), resolved("t:url", "t:path"), values());
+
+        dispatch(pipeline);
+
+        assertEquals("https://www.example.com/merci", pipeline.browserInstruction().redirectUrl());
+        assertNull(pipeline.browserInstruction().redirectPath());
+    }
+
+    @Test
+    void eachKindIsHeldToItsOwnRule() throws Exception {
+        // Verifies an absolute URL handed to redirect(path) is still dropped (a target computed from the request must
+        // stay on this server), and a URL that is not http(s) is dropped too, so the next redirect wins.
+        Contextual hostPath = new Contextual("t:hostPath", FormActionResult.redirect("https://www.example.com/"), null);
+        Contextual script = new Contextual("t:script", FormActionResult.redirectToUrl("javascript:alert(1)"), null);
+        Contextual userInfo = new Contextual("t:userInfo", FormActionResult.redirectToUrl("https://www.example.com@evil.example/"), null);
+        Contextual path = new Contextual("t:path", FormActionResult.redirect("/sites/mysite/home.html"), null);
+        FormSubmissionPipeline pipeline = pipeline(List.of(hostPath, script, userInfo, path),
+                resolved("t:hostPath", "t:script", "t:userInfo", "t:path"), values());
+
+        dispatch(pipeline);
+
+        assertEquals("/sites/mysite/home.html", pipeline.browserInstruction().redirectPath());
+        assertNull(pipeline.browserInstruction().redirectUrl());
     }
 
     @Test

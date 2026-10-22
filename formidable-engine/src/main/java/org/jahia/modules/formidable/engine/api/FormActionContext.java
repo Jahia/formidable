@@ -25,10 +25,16 @@ import java.util.stream.Collectors;
  *
  * @param actionNode          the action's configuration node, read in the live workspace
  * @param formNode            the submitted form, in the same session as {@code actionNode}
- * @param request             the submission request. {@code getRemoteAddr()} and the headers are the caller's
+ * @param request             the submission request. {@code getRemoteAddr()} and the headers are the caller's. It reaches
+ *                            the engine through the platform's {@code /modules} bridge, so {@code getContextPath()} is
+ *                            {@code <context>/modules}: build a page path or a cookie path from
+ *                            {@code Jahia.getContextPath()} ({@code /} when empty), never from the request
  * @param response            the submission response, for what an action may legitimately add to it: a cookie, a header.
- *                            An action never writes its body nor commits it: the servlet answers JSON once every action ran
- * @param session             the visitor's live session, as the plain {@link FormAction} receives it
+ *                            An action never writes its body nor commits it: the servlet answers JSON once every action ran.
+ *                            A cookie set without a path is scoped to the engine's servlet and never reaches the site's
+ *                            pages: give it the path above
+ * @param session             the visitor's live session at submission time, as the plain {@link FormAction} receives it.
+ *                            It is not read again when an action changes the authenticated user
  * @param locale              the submission's locale (the {@code lang} parameter), the one to translate a message in
  * @param siteKey             the key of the form's site
  * @param parameters          the accepted values of the fields, by field name

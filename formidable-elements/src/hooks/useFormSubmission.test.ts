@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {isSameOriginPath, remainingFeedbackPause} from './useFormSubmission';
+import {isHttpUrl, isSameOriginPath, remainingFeedbackPause} from './useFormSubmission';
 
 // The spinner is shown for half a second at least, measured from its appearance (#327): a fast
 // answer completes the floor, an answer that took longer pays nothing more.
@@ -21,9 +21,10 @@ describe('remainingFeedbackPause', () => {
 	});
 });
 
-// The server only sends a path of the site in `redirect`; the island checks it again before navigating.
+// The server sends a path of this server, or an absolute http(s) URL read from the configuration, in `redirect`; the
+// island checks it again before navigating, with the same forbidden characters as the server (RedirectTargetsTest).
 describe('isSameOriginPath', () => {
-	it('accepts a path of the site', () => {
+	it('accepts a path of this server', () => {
 		for (const path of ['/', '/home.html', '/sites/mysite/home.html', '/fr/compte?tab=2#top']) {
 			expect(isSameOriginPath(path)).toBe(true);
 		}
@@ -36,5 +37,27 @@ describe('isSameOriginPath', () => {
 		expect(isSameOriginPath(undefined)).toBe(false);
 		expect(isSameOriginPath(42)).toBe(false);
 		expect(isSameOriginPath('/' + 'a'.repeat(2048))).toBe(false);
+	});
+
+	it('refuses the invisible and non-breaking characters the server refuses too', () => {
+		for (const target of ['/a\uFEFFb', '/a\u200Bb', '/a\u00A0b', '/a\u2007b', '/a\u202Fb', '/a\u2028b', '/a\u0085b']) {
+			expect(isSameOriginPath(target), JSON.stringify(target)).toBe(false);
+		}
+	});
+});
+
+describe('isHttpUrl', () => {
+	it('accepts an absolute http or https URL', () => {
+		for (const url of ['https://www.example.com', 'http://www.example.com/merci.html', 'HTTPS://WWW.EXAMPLE.COM/a?b=c#d', 'https://www.example.com:8443/fr/merci']) {
+			expect(isHttpUrl(url), url).toBe(true);
+		}
+	});
+
+	it('refuses another scheme, a missing host, a relative target and user info', () => {
+		for (const target of ['javascript:alert(1)', 'data:text/html,x', 'ftp://www.example.com/', '//evil.example/x', '/sites/mysite/home.html', 'home.html', 'https://user@evil.example/', 'https://www.example.com@evil.example/', 'https://user:pass@www.example.com/', 'https://www.example.com/a b', 'https://www.example.com/\\evil', 'https://www.example.com/a\uFEFFb', '']) {
+			expect(isHttpUrl(target), JSON.stringify(target)).toBe(false);
+		}
+		expect(isHttpUrl(undefined)).toBe(false);
+		expect(isHttpUrl('https://www.example.com/' + 'a'.repeat(2048))).toBe(false);
 	});
 });

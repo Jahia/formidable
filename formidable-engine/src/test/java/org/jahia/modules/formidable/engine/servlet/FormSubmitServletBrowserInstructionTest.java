@@ -84,12 +84,20 @@ class FormSubmitServletBrowserInstructionTest {
     void anAcceptedSubmissionCarriesTheRedirectAndTheEscapedMessage() throws Exception {
         // Verifies the success body: the redirect as the pipeline validated it, and the action's plain message escaped
         // here, since the browser renders userMessage as HTML like every other message of the island.
-        Answer answer = post(servlet(null, new FormActionResult("/sites/mysite/account.html", "Bienvenue <b>Ada</b> & merci")));
+        Answer answer = post(servlet(null, new FormActionResult("/sites/mysite/account.html", null, "Bienvenue <b>Ada</b> & merci")));
 
         assertEquals(200, answer.status());
         assertTrue(answer.body().getBoolean("success"));
         assertEquals("/sites/mysite/account.html", answer.body().getString("redirect"));
         assertEquals("Bienvenue &lt;b&gt;Ada&lt;/b&gt; &amp; merci", answer.body().getString("userMessage"));
+    }
+
+    @Test
+    void aRedirectToAUrlTravelsInTheSameKey() throws Exception {
+        // Verifies the two kinds of redirect share the one key the island reads.
+        Answer answer = post(servlet(null, FormActionResult.redirectToUrl("https://www.example.com/merci")));
+
+        assertEquals("https://www.example.com/merci", answer.body().getString("redirect"));
     }
 
     @Test
@@ -120,7 +128,7 @@ class FormSubmitServletBrowserInstructionTest {
     void aRejectionCarriesNeitherKey() throws Exception {
         // Verifies the instruction belongs to an accepted submission only: a rejected one keeps the visitor on the form.
         Answer answer = post(servlet(new SubmissionException(ErrorCode.FMDB_010, "bad format"),
-                new FormActionResult("/sites/mysite/account.html", "Bienvenue")));
+                new FormActionResult("/sites/mysite/account.html", null, "Bienvenue")));
 
         assertFalse(answer.body().getBoolean("success"));
         assertFalse(answer.body().has("redirect"));

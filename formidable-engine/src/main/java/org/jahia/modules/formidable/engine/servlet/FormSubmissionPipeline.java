@@ -695,26 +695,35 @@ class FormSubmissionPipeline {
     }
 
     /**
-     * Keeps what a contextual action told the browser: the first redirect and the first message win, in list order.
-     * A redirect that is not a same-origin path is dropped with a warning, never sent: whatever an action computed,
-     * the browser is only ever told a path of the site.
+     * Keeps what a contextual action told the browser: the first redirect, of either kind, and the first message win,
+     * in list order. Each kind of redirect is held to its own rule, and a target the rule refuses is dropped with a
+     * warning, never sent: a path must be a path of this server ({@link RedirectTargets#sameOriginPath}), whatever an
+     * action computed, and a URL an absolute http(s) URL ({@link RedirectTargets#httpUrl}).
      */
     private void keepFirstInstruction(FormActionResult result, String nodeType) {
         if (result == null || result.isEmpty()) {
             return;
         }
-        String redirect = browserInstruction.redirectPath();
-        if (redirect == null && result.redirectPath() != null) {
-            redirect = RedirectTargets.sameOriginPath(result.redirectPath()).orElse(null);
-            if (redirect == null) {
-                log.warn("[FormSubmissionPipeline] Action '{}' asked for a redirect that is not a same-origin path: dropped.", nodeType);
+        String path = browserInstruction.redirectPath();
+        String url = browserInstruction.redirectUrl();
+        if (path == null && url == null) {
+            if (result.redirectPath() != null) {
+                path = RedirectTargets.sameOriginPath(result.redirectPath()).orElse(null);
+                if (path == null) {
+                    log.warn("[FormSubmissionPipeline] Action '{}' asked for a redirect that is not a same-origin path: dropped.", nodeType);
+                }
+            } else if (result.redirectUrl() != null) {
+                url = RedirectTargets.httpUrl(result.redirectUrl()).orElse(null);
+                if (url == null) {
+                    log.warn("[FormSubmissionPipeline] Action '{}' asked for a redirect to a URL that is not an absolute http(s) URL: dropped.", nodeType);
+                }
             }
         }
         String message = browserInstruction.message();
         if (message == null && result.message() != null && !result.message().isBlank()) {
             message = result.message();
         }
-        browserInstruction = new FormActionResult(redirect, message);
+        browserInstruction = new FormActionResult(path, url, message);
     }
 
     /**

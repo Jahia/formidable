@@ -49,24 +49,46 @@ async function completeFeedbackPause(spinnerShownAt: number): Promise<void> {
 }
 
 /**
- * A path of this site: one leading slash, no scheme, no host, no backslash, no control character, no whitespace. The
- * server only sends such a path in `redirect`; the browser checks it again before it navigates, so a body that was
- * tampered with on the way, or written by a module of the page, cannot send the visitor to another site.
+ * What no redirect target may hold: a backslash, a control character, any space or line separator, an invisible format
+ * character such as U+FEFF. The server refuses the same set (`RedirectTargets`), so the two checks agree.
+ */
+// eslint-disable-next-line no-control-regex
+const FORBIDDEN_IN_TARGET = /[\\\s\u0000-\u001f\u007f-\u009f\p{Cf}]/u;
+
+/**
+ * A path of this server: one leading slash, no scheme, no host, no forbidden character. The check is the origin, not
+ * the site: a path of another site served by this server passes.
  */
 export function isSameOriginPath(target: unknown): target is string {
 	if (typeof target !== 'string' || target.length === 0 || target.length > 2048 || !target.startsWith('/')) return false;
 	if (target.startsWith('//') || target.startsWith('/\\')) return false;
-	// eslint-disable-next-line no-control-regex
-	return !/[\\\s\u0000-\u001f\u007f]/.test(target);
+	return !FORBIDDEN_IN_TARGET.test(target);
+}
+
+/**
+ * An absolute `http` or `https` URL with a host and no user info (`https://user@host` reads as another host to a
+ * visitor), no forbidden character, at most 2048 characters. The server sends one only for a URL read from the
+ * configuration.
+ */
+export function isHttpUrl(target: unknown): target is string {
+	if (typeof target !== 'string' || target.length > 2048 || !/^https?:\/\//i.test(target) || FORBIDDEN_IN_TARGET.test(target)) return false;
+	try {
+		const url = new URL(target);
+		return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname !== '' && url.username === '' && url.password === '';
+	} catch {
+		return false;
+	}
 }
 
 /**
  * Sends the visitor where an action asked, once the success message was shown and the form reset. Done in a task of
- * its own so the listeners of the submitted event have run, and only for a path of this site (the server validated it,
- * this is the second check); `assign`, not `replace`, so the form page stays reachable with the Back button.
+ * its own so the listeners of the submitted event have run, and only for a path of this server or an absolute http(s)
+ * URL: the server validated the target, and the browser checks it again, so a body that was tampered with on the way,
+ * or written by a module of the page, cannot send the visitor to a `javascript:` or other target. `assign`, not
+ * `replace`, so the form page stays reachable with the Back button.
  */
 function navigateTo(target: unknown): void {
-	if (!isSameOriginPath(target)) return;
+	if (!isSameOriginPath(target) && !isHttpUrl(target)) return;
 	setTimeout(() => globalThis.location.assign(target), 0);
 }
 

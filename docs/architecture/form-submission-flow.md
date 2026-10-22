@@ -105,19 +105,35 @@ browser what to do next. A `ContextualFormAction` (engine `api` package, same OS
 
 | Part | What it carries |
 |---|---|
-| `FormActionContext` | the action node and the form (one system session), the request, the **response** (to set a cookie; never to write the body), the visitor's live session, the submission's `locale` and the form's `siteKey`, the `parameters`, the validated `files`. `sensitiveParameters` is always empty: no field type is sensitive |
-| `FormActionResult` | `redirectPath` (a same-origin relative path) and/or `message` (plain text, already translated) for the browser; `FormActionResult.none()` for nothing |
+| `FormActionContext` | the action node and the form (one system session), the request, the **response** (to set a cookie; never to write the body), the visitor's session at submission time, the submission's `locale` and the form's `siteKey`, the `parameters`, the validated `files`. `sensitiveParameters` is always empty: no field type is sensitive |
+| `FormActionResult` | a redirect of one of two kinds, `redirectPath` (`redirect(path)`) or `redirectUrl` (`redirectToUrl(url)`), and/or a `message` (plain text, already translated) for the browser; `FormActionResult.none()` for nothing |
 
-The pipeline keeps the **first redirect and the first message** in action-list order. A redirect that is not a
-same-origin path (`RedirectTargets.sameOriginPath`: one leading slash, no scheme, no authority, no backslash, no
-control character, no whitespace, at most 2048 characters) is dropped with a warning and never reaches the browser.
-The servlet writes them as `redirect` and `userMessage` (HTML-escaped) in the `200` body, after the enrichers, which
-cannot take these keys. A rejected submission carries neither.
+The request reaches the engine through the platform's `/modules` bridge, so `request.getContextPath()` is
+`<context>/modules`. An action builds a page path or a cookie path from `Jahia.getContextPath()` (`/` when empty),
+never from the request: a cookie set without a path is scoped to the engine's servlet and never reaches the site's
+pages.
+
+The pipeline keeps the **first redirect, of either kind, and the first message** in action-list order. Each kind of
+redirect has its own rule (`RedirectTargets`), and a target its rule refuses is dropped with a warning and never
+reaches the browser:
+
+| Kind | Rule | For |
+|---|---|---|
+| `redirect(path)` | `sameOriginPath`: one leading slash, no scheme, no authority | any target, one computed from the request included |
+| `redirectToUrl(url)` | `httpUrl`: an absolute `http` or `https` URL with a host and no user info | a URL read from the configuration only: from the request, it would be an open redirect |
+
+Both rules refuse a target longer than 2048 characters and one holding a backslash, a control character, any space
+or line separator, or an invisible format character such as U+FEFF. The path rule checks the origin, not the site: a
+path of another site served by this server passes.
+
+The servlet writes the redirect, of either kind, as `redirect` and the message as `userMessage` (HTML-escaped) in the
+`200` body, after the enrichers, which cannot take these keys. A rejected submission carries neither.
 
 The island fires `formidable:submitted`, shows `userMessage` instead of the form's submission message when there is
 one, resets the form, then navigates to `redirect` with `location.assign` in a task of its own, once it checked the
-path again with the same rule (`isSameOriginPath`). A failure of a contextual action is the opaque `FMDB-008`, as for
-a plain action.
+target again with the same rules and forbidden characters (`isSameOriginPath`, `isHttpUrl`). A message beside a
+redirect is not guaranteed to be shown. A failure of a contextual action is the opaque `FMDB-008`, as for a plain
+action.
 
 > **DoS mitigation (defence in depth):**
 - Gate 0: cross-origin requests are rejected before the multipart pipeline starts

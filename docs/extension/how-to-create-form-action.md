@@ -221,20 +221,30 @@ public class ThankYouFormAction implements ContextualFormAction {
 
     @Override
     public FormActionResult execute(FormActionContext context) throws FormActionException {
-        String name = context.parameter("firstName");                    // the first non-blank value, or null
-        return FormActionResult.redirect("/sites/mysite/thank-you.html")  // validated: a same-origin path or dropped
-                .withMessage(name == null ? "Thank you." : "Thank you, " + name + ".");
+        if (context.parameter("newsletter") == null) {                  // the first non-blank value, or null
+            return FormActionResult.message("Thank you.");               // shown instead of the form's message
+        }
+        // org.jahia.bin.Jahia: the platform's context path, never the request's, which is <context>/modules here
+        return FormActionResult.redirect(Jahia.getContextPath() + "/sites/mysite/newsletter.html");
     }
 }
 ```
 
-- The **context** carries the request, the response (a cookie or a header, never the body), the visitor's live
-  session, `locale`, `siteKey`, the action node and the form. The action is a singleton shared by every
-  submission: keep no per-request state in fields. Logging `context` is safe: its `toString()` names the fields,
-  never their values.
-- A **result** is advisory: the first redirect and the first message of the list win; a redirect that is not a
-  same-origin relative path (`RedirectTargets.sameOriginPath`) is dropped. The message is plain text, already
-  translated in `context.locale()`; the servlet escapes it.
+- The **context** carries the request, the response (a cookie or a header, never the body), the visitor's session
+  at submission time, `locale`, `siteKey`, the action node and the form. The request reaches the engine through the
+  `/modules` bridge, so build a page path or a cookie path from `Jahia.getContextPath()` (`/` when empty), never from
+  `context.request().getContextPath()`; a cookie set without a path never reaches the site's pages. The action is a
+  singleton shared by every submission: keep no per-request state in fields. Logging `context` is safe: its
+  `toString()` names the fields, never their values.
+- A **result** is advisory: the first redirect, of either kind, and the first message of the list win. A redirect
+  has two kinds, each with its own rule, and a target its rule refuses is dropped:
+  - `redirect(path)`: a path of this server (`RedirectTargets.sameOriginPath`), for any target, one computed from
+    the request included;
+  - `redirectToUrl(url)`: an absolute `http` or `https` URL (`RedirectTargets.httpUrl`), for a URL read from the
+    configuration only, such as a property of the action node. Never pass it a value taken from the request: that
+    is an open redirect.
+- A **message** is plain text, already translated in `context.locale()`; the servlet escapes it. A message beside a
+  redirect is not guaranteed to be shown, so return one or the other.
 - A **failure** is a `FormActionException`, as in step 6: the browser reads `FMDB-008`.
 
 ## Step 7: Add authoring support

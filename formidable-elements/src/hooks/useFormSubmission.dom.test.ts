@@ -338,8 +338,14 @@ describe('useFormSubmission: what an action answers', () => {
 		expect(assign).not.toHaveBeenCalled();
 	});
 
-	it('refuses a redirect that is not a path of this site, whatever the body says', async () => {
-		for (const hostile of ['https://evil.example/', '//evil.example', '/\\\\evil.example', 'javascript:alert(1)', 'home.html', '/a b', '']) {
+	it('navigates to an absolute https URL, the second kind of redirect', async () => {
+		await accepted('{"success":true,"redirect":"https://www.example.com/merci"}');
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('https://www.example.com/merci');
+	});
+
+	it('refuses a redirect that is neither a path of this server nor an absolute http(s) URL, whatever the body says', async () => {
+		for (const hostile of ['//evil.example', '/\\\\evil.example', 'javascript:alert(1)', 'https://user@evil.example/', 'home.html', '/a b', '/a\uFEFFb', '']) {
 			await accepted(JSON.stringify({success: true, redirect: hostile}));
 		}
 		await accepted('{"success":true,"redirect":42}');
