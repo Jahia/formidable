@@ -18,6 +18,8 @@ final class SubmissionException extends Exception {
     private final int httpStatusOverride;
     /** What the visitor is told, anchored on fields; empty for every rejection but a field action's. */
     private final transient List<FieldActionMessage> messages;
+    /** What an action's refusal tells the visitor (FMDB-018), plain text the servlet escapes; {@code null} otherwise. */
+    private final String visitorMessage;
 
     SubmissionException(ErrorCode errorCode, String internalMessage) {
         this(errorCode, internalMessage, -1, -1, null);
@@ -31,6 +33,7 @@ final class SubmissionException extends Exception {
         this.actionsTotal = -1;
         this.httpStatusOverride = 0;
         this.messages = messages == null ? List.of() : List.copyOf(messages);
+        this.visitorMessage = null;
     }
 
     SubmissionException(ErrorCode errorCode, String internalMessage, Throwable cause) {
@@ -64,12 +67,28 @@ final class SubmissionException extends Exception {
             Throwable cause,
             int httpStatusOverride
     ) {
+        this(errorCode, internalMessage, actionsCompleted, actionsTotal, cause, httpStatusOverride, null);
+    }
+
+    /**
+     * @param visitorMessage the text an action's refusal asks the visitor to read, plain: the servlet escapes it
+     */
+    SubmissionException(
+            ErrorCode errorCode,
+            String internalMessage,
+            int actionsCompleted,
+            int actionsTotal,
+            Throwable cause,
+            int httpStatusOverride,
+            String visitorMessage
+    ) {
         super(internalMessage, cause);
         this.errorCode = errorCode;
         this.actionsCompleted = actionsCompleted;
         this.actionsTotal = actionsTotal;
         this.httpStatusOverride = httpStatusOverride;
         this.messages = List.of();
+        this.visitorMessage = visitorMessage;
     }
 
     int httpStatus() {
@@ -79,6 +98,11 @@ final class SubmissionException extends Exception {
     /** The messages the response carries; empty for every rejection but a field action's. */
     List<FieldActionMessage> messages() {
         return messages;
+    }
+
+    /** The text of an action's refusal for the visitor (FMDB-018), plain; {@code null} for every other rejection. */
+    String visitorMessage() {
+        return visitorMessage;
     }
 
     boolean hasActionProgress() {

@@ -23,9 +23,14 @@ public final class FieldActionCollector {
     private FieldActionCollector() {
     }
 
-    /** The actions declared under one field: nothing when the field carries no switch, or an empty list. */
+    /**
+     * The actions declared under one field: nothing when the field carries no switch, or an empty list, and nothing
+     * for a sensitive field ({@code fmdbmix:sensitiveField}) whatever its editor holds: a field action sends the value
+     * to a service, and a secret is not sent anywhere but to the action that declared it consumes it.
+     */
     public static List<ResolvedFieldAction> read(JCRNodeWrapper field) throws RepositoryException {
-        if (!field.isNodeType(FmdbMixin.FIELD_ACTIONS) || !field.hasNode(FmdbNodeName.ACTIONS)) {
+        if (!field.isNodeType(FmdbMixin.FIELD_ACTIONS) || !field.hasNode(FmdbNodeName.ACTIONS)
+                || field.isNodeType(FmdbMixin.SENSITIVE_FIELD)) {
             return List.of();
         }
         List<ResolvedFieldAction> actions = new ArrayList<>();

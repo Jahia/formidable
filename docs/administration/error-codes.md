@@ -29,6 +29,16 @@ When a field action refuses a value (`FMDB-015`), the response carries what the 
 
 The same array is the `messages` of the pre-check endpoint's answer, next to its `verdict` (`accept`, `advice`, `reject`).
 
+When an action refuses the submission with a message for the visitor (`FMDB-018`, a `ContextualFormAction` throwing `FormActionException.refusal`), the response carries that message, already translated and HTML-escaped, in `userMessage`:
+
+```json
+{ "success": false, "errorCode": "FMDB-018", "userMessage": "We could not sign you in. Check your details and try again.", "actionsCompleted": 0, "actionsTotal": 1 }
+```
+
+The form island shows `userMessage` as the form's error message, with no code under it. The message is the action's own and generic by contract: it never says which of two causes made the action fail.
+
+An accepted submission (`200`) may carry two more keys, written by the actions: `redirect` (a same-origin relative path the island navigates to after the success message) and `userMessage` (shown instead of the form's submission message). Both keys are reserved: a response enricher cannot write them.
+
 Detailed reasons are written to server logs only and are never exposed to the caller.
 
 ## Glossary
@@ -51,6 +61,7 @@ Detailed reasons are written to server logs only and are never exposed to the ca
 | `FMDB-015` | 422 | A field action refused a value — the check of one field run server-side at submission (pipeline step 11b). The body carries a `messages` array naming the field (see below), which the form island anchors under that field, focused, with no global error message — the refusal reads as a validation failure |
 | `FMDB-016` | 429 | The field-action pre-check endpoint (`/modules/formidable-engine/field-action`) refused the call: this client address exceeded `fieldActionRateLimitPerMinute` |
 | `FMDB-017` | 422 | One field carrying blocking field actions holds more answers to judge than `fieldActionMaxValuesPerField` — repeats of one answer count once. Each answer may cost a provider call, so the submission is refused before any action runs. The body carries a `messages` array naming the field, as `FMDB-015` does; the form island anchors it under the field and keeps the form's global error message with the code |
+| `FMDB-018` | 422 | An action refused the submission with a message the visitor reads (`userMessage`, see above): a sign-in that failed, an account that cannot be created, a rate limit. The status is the action's own when it chose an error status (429 for a rate limit), 422 otherwise. The form island shows the message and keeps the form on screen |
 | `FMDB-014` | 503 | Platform is in read-only maintenance mode and the form has at least one action presumed to write to the repository (its node type does not carry `fmdbmix:readOnlyCompatibleAction`). Also returned when an action execution hits the repository's own read-only rejection. The client shows a maintenance message instead of a technical error |
 | `FMDB-500` | 500 | Unexpected internal, configuration, or provider/infrastructure verification error — check server logs (for example, invalid server-side validation metadata such as a malformed regex constraint, or a technical CAPTCHA verification failure) |
 

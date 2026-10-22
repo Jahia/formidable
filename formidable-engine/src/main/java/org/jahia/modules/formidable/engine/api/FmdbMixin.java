@@ -40,6 +40,10 @@ public final class FmdbMixin {
     // itself keeps testing FORM_ELEMENT && !NON_SUBMITTABLE, so a field type without it is still submitted.
     public static final String SUBMITTABLE_FIELD = "fmdbmix:submittableField";
 
+    // The type-level marker of a field whose value only the actions that declare it consume: never stored, mailed,
+    // logged, echoed nor sent to jExperience (a password). docs/architecture/form-submission-flow.md, "Sensitive fields".
+    public static final String SENSITIVE_FIELD = "fmdbmix:sensitiveField";
+
     // Form-level semantics the engine enforces at submission
     public static final String CAPTCHA_PROTECTED_FORM = "fmdbmix:captchaProtectedForm";
     public static final String AUTHENTICATED_ONLY_FORM = "fmdbmix:authenticatedOnlyForm";

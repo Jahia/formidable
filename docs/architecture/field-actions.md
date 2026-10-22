@@ -641,6 +641,11 @@ credential in a log line or in the object it returns.
   a guest refused on a members-only form (`FMDB-009`). Only the walk of a form the visitor has read, and
   the action nodes themselves, are read in a system session — the submitter has no reason to have read
   access to the action nodes.
+- **A sensitive field has no field action** (`fmdbmix:sensitiveField`, a password): a check sends the value to a
+  service, and a secret goes only to the action that consumes it. `FieldActionCollector.read` answers nothing for such a
+  field whatever its editor holds, so neither step 11b nor the pre-check runs a check on it, and the island does not mark
+  the field for the browser to ask (`fieldActionsOf`). The switch is still offered in the editor, since the field is
+  `fmdbmix:submittableField`; turning it on does nothing.
 - **The captcha is not re-checked at the pre-check** (a token is single-use); the pre-check of a
   captcha-protected form is bounded by the rate limit, the cap and the cache, or switched off.
 - **Where the trust sits: the module's configuration and the action's code.** An action's class reads its own

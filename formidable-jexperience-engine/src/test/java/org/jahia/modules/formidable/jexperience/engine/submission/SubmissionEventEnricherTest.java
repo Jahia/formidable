@@ -143,6 +143,26 @@ class SubmissionEventEnricherTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void aSensitiveFieldNeverLeavesEvenIfItsValueWereInTheParametersAndItsNodeCameBackFromTheQuery() throws Exception {
+        // Verifies the third line of defence of a password: the pipeline already keeps sensitive values out of the
+        // accepted parameters (engine, step 11a), the marker is not profile mappable so the query never returns the
+        // field, and here, with both defences removed, a sensitive field that reached the query still has no shape
+        // to be sent with — a password input carries no value kind, so FieldShapes infers nothing.
+        List<JCRNodeWrapper> fields = List.of(
+                field("firstName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD),
+                field("password", FmdbMixin.SENSITIVE_FIELD));
+        Map<String, List<String>> parameters = Map.of("firstName", List.of("Ada"), "password", List.of("Sup3r-Secret!"));
+
+        Map<String, Object> entries = enricher(configured("mysite"), 1, fields)
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(Map.of("firstName", "Ada"), block.get("fields"));
+        assertTrue(!entries.toString().contains("Sup3r-Secret!"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void aFormWithNoAnsweredMappableFieldGetsAnEmptyFieldsBlock() throws Exception {
         // Verifies the far end: the block still exists, so the script can send the event a goal counts, and it
         // carries no value at all (review of #379: kept from the flag's tests, which never needed the flag for it).

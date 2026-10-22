@@ -67,6 +67,21 @@ class FieldActionCollectorTest {
     }
 
     @Test
+    void aSensitiveFieldHasNoActionsWhateverItsEditorHolds() throws Exception {
+        // Verifies the secret never reaches a provider: a field carrying fmdbmix:sensitiveField with a field-actions
+        // list (the editor offers the switch on every submittable field) yields no action, at the pipeline's step
+        // 11b and at the pre-check endpoint alike, since both read through this method.
+        JCRNodeWrapper list = node("actions", "fmdb:fieldActionList", List.of(), action("lookup", "myco:crmLookupAction"));
+        JCRNodeWrapper password = node("password", "fmdbext:password",
+                List.of(FmdbMixin.FORM_ELEMENT, FmdbMixin.FIELD_ACTIONS, FmdbMixin.SENSITIVE_FIELD), list);
+        when(password.hasNode(FmdbNodeName.ACTIONS)).thenReturn(true);
+        when(password.getNode(FmdbNodeName.ACTIONS)).thenReturn(list);
+
+        assertTrue(FieldActionCollector.read(password).isEmpty());
+        assertTrue(FieldActionCollector.collect(password).isEmpty());
+    }
+
+    @Test
     void aFieldWithoutTheSwitchOrWithoutTheListHasNoActions() throws Exception {
         // Verifies the two empty cases: no switch mixin (the common field), and the switch without its list yet.
         JCRNodeWrapper plain = node("name", "fmdb:inputText", List.of(FmdbMixin.FORM_ELEMENT));

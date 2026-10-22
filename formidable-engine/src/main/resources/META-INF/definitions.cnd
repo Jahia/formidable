@@ -308,6 +308,14 @@ orderable
 [fmdbmix:datetimeLocalField] mixin
 [fmdbmix:colorField] mixin
 
+// Marks a field whose value is a secret the form must carry to one action and nowhere else (a password).
+// A TYPE-level marker, not an author's per-field flag (the 2026-10-05 removal of the jExperience flag stands): a
+// field type declares "> fmdbmix:sensitiveField" the way it declares a value kind. The submission pipeline then
+// withholds the value from everything that is not an action declaring ContextualFormAction#consumesSensitiveValues:
+// the save-to-JCR, e-mail and forward actions, the response enrichers (hence jExperience), the field actions, the
+// logs. A sensitive field is never also fmdbmix:profileMappableField. Declares nothing.
+[fmdbmix:sensitiveField] mixin
+
 // Marker for profile mapping: a field type carrying it can take part in a jExperience
 // profile mapping. The jExperience module attaches its property mixin to this single
 // marker (extends), never to a list of field types, so a third-party field opts in from
