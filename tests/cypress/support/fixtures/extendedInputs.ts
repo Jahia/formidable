@@ -1,8 +1,8 @@
-import {BaseFormElementData, JahiaNode, NodeProperty} from './types';
+import {BaseFormElementData, ChoiceData, JahiaNode, NodeProperty} from './types';
 
 /**
  * Node factories for the formidable-extended-inputs add-on fields
- * (fmdbext:rating, fmdbext:scale, fmdbext:switch, fmdbext:consent).
+ * (fmdbext:card, fmdbext:rating, fmdbext:scale, fmdbext:switch, fmdbext:consent).
  */
 
 export interface RatingData extends BaseFormElementData {
@@ -92,4 +92,28 @@ export function getConsentNode(data: ConsentData): JahiaNode {
 	if (data.termsLinkLabel) properties.push({name: 'termsLinkLabel', value: data.termsLinkLabel, language: 'en'});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
 	return {name: data.name || 'consent', primaryNodeType: 'fmdbext:consent', properties};
+}
+
+export interface CardData extends BaseFormElementData {
+	choices: ChoiceData[];
+	required?: boolean;
+}
+
+/** A card field with manual options, stored as the radio stores them. */
+export function getCardNode(data: CardData): JahiaNode {
+	const properties: NodeProperty[] = [];
+	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
+	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
+	properties.push({name: 'optionsMode', value: 'manual'});
+	properties.push({
+		name: 'options',
+		values: data.choices.map(choice => JSON.stringify({
+			value: choice.value,
+			label: choice.label,
+			selected: choice.selected ?? false
+		})),
+		language: 'en'
+	});
+	return {name: data.name || 'card', primaryNodeType: 'fmdbext:card', mixins: ['fmdbmix:manualOptions'], properties};
 }

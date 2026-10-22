@@ -554,7 +554,11 @@ Semantics to know:
   declared by `fmdbmix:manualOptions` (same JSON-encoded `{value, label}` entries
   as the built-in select/radio/checkbox); apply that mixin to your field nodes —
   there is no registration API for a custom choice property (the editor's source
-  descriptors are a fixed map inside the engine's admin bundle).
+  descriptors are a fixed map inside the engine's admin bundle). Render the options
+  with `resolveFieldOptions` from `@jahia/formidable-library/server`, and
+  `OptionsSourceError` when it reports a source error, as `fmdbext:card` does: the
+  manual options then follow the default language the server validates against, and
+  every options mode works in your field.
 - **text**: emptiness is whitespace-blankness on both evaluators (a value of
   spaces counts as empty); `equals` is an exact match on the raw submitted
   value and `contains` a substring match, both case-sensitive, and both require

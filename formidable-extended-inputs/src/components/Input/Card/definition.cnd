@@ -1,0 +1,8 @@
+// Card component - single-choice field rendered as a row of clickable cards (radio group).
+// Same mixins as fmdb:radio: fmdbmix:choiceField brings the options editor and every options mode
+// (manual, declared source, categories, contents), the server-side check of the submitted value against
+// the choices, and makes the field a conditional-logic source with the choice operators.
+// Single-valued by construction: no 'multiple' property and no fmdbmix:cardinalityFromChoices.
+[fmdbext:card] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField, fmdbmix:choiceField, fmdbmix:validationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - required (boolean) = false

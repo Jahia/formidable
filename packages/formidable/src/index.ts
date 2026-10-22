@@ -10,7 +10,16 @@
 // - `validationDataAttributes`: the `data-fmdb-msg-*` attributes the validation
 //   client reads its custom messages from;
 // - `maskToPattern`, `applyMask`, `useMask`: what an input mask stands for — the
-//   HTML `pattern`, the formatted default value, the formatting while typing.
+//   HTML `pattern`, the formatted default value, the formatting while typing;
+// - `parseChoices`: the options of a choice field, read from the JSON its `options`
+//   property stores;
+// - `OptionsSourceError`: what a choice field shows when its options source cannot
+//   deliver, carrying the `data-fmdb-source-error` the Form island blocks a required
+//   field's submission on.
+//
+// The server-side part — the options a choice field renders, resolved through the
+// engine — has an entry point of its own, `@jahia/formidable-library/server`
+// (server.ts), so that no client island bundles the server bridge.
 //
 // Admission criterion — this package is not a grab bag: only code a field view
 // must reproduce byte for byte to stay compatible with Formidable's client
@@ -33,3 +42,5 @@ export {
 } from "./validationProps.js";
 export {applyMask, maskToPattern} from "./mask.js";
 export {useMask, type UseMaskOptions} from "./useMask.js";
+export {parseChoices, type ParsedChoice} from "./choices.js";
+export {OptionsSourceError, type OptionsSourceErrorProps} from "./OptionsSourceError.js";

@@ -1,6 +1,6 @@
 import {getNodeProps, jahiaComponent} from "@jahia/javascript-modules-library";
 import type {CSSProperties} from "react";
-import {resolveFieldOptions} from "~/utils/optionsSource.server";
+import {resolveFieldOptions} from "@jahia/formidable-library/server";
 import FieldsetBody from "./FieldsetBody";
 
 interface FieldsetProps {

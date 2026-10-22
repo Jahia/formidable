@@ -48,14 +48,16 @@ core tones the read-only one down and takes the pointer off its select, radio, c
 (variables in [CSS variables](css-variables.md#prefilled-fields)), and hides the other inline, its value
 still submitted.
 
-Five other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
+Six other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
 and they may change with the feature they serve: `data-fmdb-step` on each step wrapper (the
 class `fmdb-step` is the hook), `data-fmdb-msg-*` on the controls (the contributor's validation
 messages, see [Custom validation](../architecture/custom-validation.md)), `data-fmdb-logics` and
 `data-fmdb-logic-value` (conditional logic, see
 [How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md)),
-and `data-fmdb-field-action` on the wrapper of a field with actions (`blur` or `submit`, when the
-page asks the engine about the value — see [Field actions](../architecture/field-actions.md)).
+`data-fmdb-field-action` on the wrapper of a field with actions (`blur` or `submit`, when the
+page asks the engine about the value — see [Field actions](../architecture/field-actions.md)), and
+`data-fmdb-advance-on-change` on a field whose one answer is enough (the card), which a form showing one
+field at a time may read to move on once the answer is picked ([formidable#423](https://github.com/Jahia/formidable/issues/423)).
 
 ## Surfaces: live, edit mode, inspection previews
 
@@ -178,7 +180,7 @@ submission is refused. Nothing of these lines exists in live or preview.
 
 ## Extended inputs
 
-The optional `formidable-extended-inputs` module adds four fields — consent, rating, scale and
+The optional `formidable-extended-inputs` module adds five fields — card, consent, rating, scale and
 switch — rendered server-side with no client island: every state is native HTML and CSS. Each keeps
 the shared hooks of the form (`fmdb-form-group` on its wrapper, `fmdb-group-legend`,
 `fmdb-required-indicator`, `fmdb-form-help`, `fmdb-form-control` on the consent checkbox) and adds
@@ -188,6 +190,7 @@ hooks of its own under the `fmdbext-` prefix. Its stylesheet hard-codes nothing 
 
 | Class | Element |
 |---|---|
+| `fmdbext-card`, `fmdbext-card-items`, `fmdbext-card-item`, `fmdbext-card-input`, `fmdbext-card-label` | The card field: a `fieldset`, the grid of cards, and each card's radio input and label — the label is the card |
 | `fmdbext-consent`, `fmdbext-consent-input`, `fmdbext-consent-label`, `fmdbext-consent-statement`, `fmdbext-consent-terms-link` | The consent field: its group, the checkbox, the label, the statement in it, and the link to the terms |
 | `fmdbext-rating`, `fmdbext-rating-body`, `fmdbext-rating-items`, `fmdbext-rating-item`, `fmdbext-rating-input`, `fmdbext-rating-label` | The rating field: a `fieldset`, its body, the row of items (carries `data-fmdbext-icon`: `star`, `heart`, `thumb` or `number`), and each item's radio input and label |
 | `fmdbext-scale`, `fmdbext-scale-body`, `fmdbext-scale-items`, `fmdbext-scale-item`, `fmdbext-scale-input`, `fmdbext-scale-label` | The scale field: a `fieldset`, its body, the row of chips, and each chip's radio input and label |

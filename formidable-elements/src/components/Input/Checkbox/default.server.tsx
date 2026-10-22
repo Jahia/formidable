@@ -1,6 +1,6 @@
 import {Island, jahiaComponent} from "@jahia/javascript-modules-library";
 import Checkbox from "./Checkbox.client";
-import {resolveFieldOptions} from "~/utils/optionsSource.server";
+import {resolveFieldOptions} from "@jahia/formidable-library/server";
 import OptionsSourceError from "~/design/OptionsSourceError";
 import {type BaseValidationMessageProps, validationDataAttributes} from "@jahia/formidable-library";
 import {resolveUrlPlaceholders} from "~/utils/richTextUtils";
