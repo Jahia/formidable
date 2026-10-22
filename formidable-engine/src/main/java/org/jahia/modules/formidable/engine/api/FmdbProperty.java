@@ -52,6 +52,15 @@ public final class FmdbProperty {
     /** What an unanswered field action means: {@code accept} or {@code reject} the value ({@code fmdbmix:fieldActionFeedback}). */
     public static final String WHEN_UNAVAILABLE = "whenUnavailable";
 
+    /** On a redirect action ({@code fmdb:redirectAction}): {@code page} or {@code url}. */
+    public static final String REDIRECT_TARGET_TYPE = "targetType";
+
+    /** On a redirect action: the weakreference to the page to send the visitor to, when {@link #REDIRECT_TARGET_TYPE} is {@code page}. */
+    public static final String REDIRECT_PAGE = "page";
+
+    /** On a redirect action: an absolute {@code http}/{@code https} URL or a same-origin path (i18n), when {@link #REDIRECT_TARGET_TYPE} is {@code url}. */
+    public static final String REDIRECT_URL = "url";
+
     /** The provider a field action picked ({@code fmdbmix:providerFieldAction}); nothing reads it, removed in 0.6. */
     @RemovedIn("0.6")
     public static final String PROVIDER_ID = "providerId";

@@ -42,7 +42,7 @@ describe('reportMarkdown', () => {
         incidentsOmitted: 4
     });
     const skipped = form('skipped', {outcome: 'skipped'});
-    const news = form('news', {notes: [{code: 'form.redirect', level: 'action', params: {target: '/home'}}]});
+    const news = form('news', {notes: [{code: 'form.redirectPageNotFound', level: 'action', params: {target: '/home'}}]});
     const report = {dryRun: false, importedFormsFolder: null, forms: [contact, news, skipped], totals: {forms: 3, submissionsFound: 9, submissionsToImport: 0, submissionsImported: 5, submissionsFailed: 1},
         nothingToImport: false, stopped: null,
         incidents: [{code: 'submission.noForm', level: 'action', params: {form: 'old-survey'}, submission: 's9', created: '2024-01-01T00:00:00Z'}]} as ImportReport;
@@ -111,7 +111,7 @@ describe('reportMarkdown', () => {
 
     it('leaves out the notes of a form that is not created', () => {
         expect(markdown).toContain('## NEWS');
-        expect(markdown).not.toContain('form.redirect');
+        expect(markdown).not.toContain('form.redirectPageNotFound');
     });
 });
 

@@ -99,6 +99,7 @@ Examples:
 - `fmdb:emailContentAction`
 - `fmdb:forwardAction`
 - `fmdb:save2jcrAction`
+- `fmdb:redirectAction`
 - `fmdb:resultsFolder`
 - `fmdb:formResults`
 - `fmdb:formSubmission`

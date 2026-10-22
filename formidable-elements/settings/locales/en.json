@@ -55,6 +55,9 @@
 		"notLive": "Not shown to visitors.",
 		"empty": "No action yet: submissions will be neither stored nor sent."
 	},
+	"fmdb_redirectAction": {
+		"overridden": "Another redirect comes earlier in the list: visitors are sent there, and this one is followed only when no earlier redirect has a usable target."
+	},
 	"fmdb_fieldActionList": {
 		"heading": "Field actions · {{count}}",
 		"inOrder": "Run in this order. Not shown to visitors.",
