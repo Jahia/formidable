@@ -37,6 +37,8 @@ class FormActionApiTest {
         assertEquals("hi", toUrl.message());
         assertNull(toUrl.withRedirect("/a").redirectUrl());
         assertEquals("/a", toUrl.withRedirect("/a").redirectPath());
+        // one kind of redirect at a time: the pipeline would otherwise keep the path and drop the URL in silence
+        assertThrows(IllegalArgumentException.class, () -> new FormActionResult("/a", "https://www.example.com/", null));
     }
 
     @Test

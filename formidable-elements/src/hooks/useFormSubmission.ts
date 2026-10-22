@@ -21,6 +21,8 @@ const MAINTENANCE_ERROR_CODE = 'FMDB-014';
 // under the field like one — the contributor's message anchored there, the focus moved, no global
 // error box, no code on screen. The pre-check is a courtesy; this is the authority saying the same.
 const FIELD_ACTION_REFUSED_CODE = 'FMDB-015';
+/** How long a redirect may leave the page in place before the page ends as a submission without redirect. */
+const REDIRECT_FALLBACK_MS = 3000;
 /** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
 export const SUBMITTED_EVENT = 'formidable:submitted';
 
@@ -329,16 +331,26 @@ export function useFormSubmission({
 	/**
 	 * Sends the visitor where an action asked, the spinner left on. Done in a task of its own so that what the
 	 * listeners of the submitted event queued runs first; `assign`, not `replace`, so the form page stays reachable
-	 * with the Back button. A page the browser restores from its back-forward cache comes back as it was left, spinner
-	 * included: it then shows the outcome a submission without redirect ends with.
+	 * with the Back button. The page then ends as a submission without redirect does, success message shown and
+	 * spinner off, in two cases: the browser restores it from its back-forward cache, or the navigation leaves it in
+	 * place after REDIRECT_FALLBACK_MS (a target that answers with a download, a target that only changes the
+	 * fragment). A page that unloads never runs the fallback.
 	 */
 	const leaveFor = (target: string, showSuccess: () => void) => {
-		globalThis.addEventListener('pageshow', (event: PageTransitionEvent) => {
-			if (!event.persisted) return;
+		let ended = false;
+		const end = () => {
+			if (ended) return;
+			ended = true;
 			showSuccess();
 			setIsLoading(false);
+		};
+		globalThis.addEventListener('pageshow', (event: PageTransitionEvent) => {
+			if (event.persisted) end();
 		}, {once: true});
-		setTimeout(() => globalThis.location.assign(target), 0);
+		setTimeout(() => {
+			globalThis.location.assign(target);
+			setTimeout(end, REDIRECT_FALLBACK_MS);
+		}, 0);
 	};
 
 	/** What the visitor sees of a rejection — or of a request that never got an answer. */

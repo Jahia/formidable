@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.engine.api;
 
+import java.net.IDN;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Optional;
@@ -79,7 +80,7 @@ public final class RedirectTargets {
             URI uri = new URI(url);
             String scheme = uri.getScheme();
             if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))
-                    || uri.getHost() == null || uri.getHost().isEmpty() || uri.getRawUserInfo() != null) {
+                    || uri.getRawUserInfo() != null || !hasHost(uri)) {
                 return Optional.empty();
             }
         } catch (URISyntaxException e) {
@@ -89,18 +90,36 @@ public final class RedirectTargets {
     }
 
     /**
+     * {@link URI} answers no host for a name it does not read as a server name, such as a non-ASCII name
+     * ({@code bücher.example}) or one with an underscore, which the browser accepts; its authority is then an opaque
+     * registry name, where user info is not split out either. Such a name is read from the authority: no {@code @},
+     * the port stripped, and a non-empty result once converted with {@link IDN#toASCII}.
+     */
+    private static boolean hasHost(URI uri) {
+        if (uri.getHost() != null) {
+            return !uri.getHost().isEmpty();
+        }
+        String authority = uri.getRawAuthority();
+        if (authority == null || authority.isEmpty() || authority.indexOf('@') >= 0) {
+            return false;
+        }
+        String host = authority.replaceFirst(":\\d*$", "");
+        try {
+            return !IDN.toASCII(host, IDN.ALLOW_UNASSIGNED).isEmpty();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    /**
      * A backslash (some browsers read {@code /\evil.com} as {@code //evil.com}), a control character, a space or line
      * separator of any kind, or an invisible format character such as U+FEFF: the browser refuses the same set
      * ({@code useFormSubmission.ts}), so the two checks agree on what is sent.
      */
     private static boolean hasForbiddenCharacter(String value) {
-        for (int i = 0; i < value.length(); i++) {
-            char c = value.charAt(i);
-            if (c == '\\' || c <= 0x20 || Character.isISOControl(c) || Character.isWhitespace(c)
-                    || Character.isSpaceChar(c) || Character.getType(c) == Character.FORMAT) {
-                return true;
-            }
-        }
-        return false;
+        // by code point, as the browser's regular expression reads it: a format character outside the BMP, such as the
+        // tag characters U+E0001-U+E007F, is two surrogates here and none of them is FORMAT
+        return value.codePoints().anyMatch(c -> c == '\\' || c <= 0x20 || Character.isISOControl(c)
+                || Character.isWhitespace(c) || Character.isSpaceChar(c) || Character.getType(c) == Character.FORMAT);
     }
 }

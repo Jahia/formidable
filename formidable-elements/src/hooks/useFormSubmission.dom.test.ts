@@ -341,6 +341,17 @@ describe('useFormSubmission: what an action answers', () => {
 		expect(result.successShown()).toBe(false);
 	});
 
+	it('shows the success outcome when the redirect leaves the page in place, a download or a fragment change', async () => {
+		const {successShown, setIsLoading} = await accepted('{"success":true,"redirect":"/files/brochure.zip"}');
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/files/brochure.zip');
+		expect(successShown()).toBe(false);
+
+		await vi.advanceTimersByTimeAsync(3000);
+
+		expect(successShown()).toBe(true);
+		expect(setIsLoading).toHaveBeenLastCalledWith(false);
+	});
+
 	it('shows the success outcome when the browser brings the page back from its back-forward cache', async () => {
 		const {successShown, setIsLoading} = await accepted('{"success":true,"redirect":"/home.html"}');
 		const restored = new Event('pageshow');

@@ -20,13 +20,20 @@ import java.util.Optional;
  *       that would be an open redirect.</li>
  * </ul>
  *
- * @param redirectPath a path of this server. {@code null}: no redirect of this kind
+ * @param redirectPath a path of this server. {@code null}: no redirect of this kind. At most one of the two kinds is
+ *                     set: the constructor refuses both
  * @param redirectUrl  an absolute {@code http} or {@code https} URL read from the configuration. {@code null}: no
  *                     redirect of this kind
  * @param message      the text the visitor reads, plain, already translated in the submission's locale; the
  *                     servlet escapes it. {@code null}: the form's own submission message stands
  */
 public record FormActionResult(String redirectPath, String redirectUrl, String message) {
+
+    public FormActionResult {
+        if (redirectPath != null && redirectUrl != null) {
+            throw new IllegalArgumentException("A result redirects to a path or to a URL, not both");
+        }
+    }
 
     private static final FormActionResult NONE = new FormActionResult(null, null, null);
 

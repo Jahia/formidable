@@ -40,7 +40,7 @@ describe('isSameOriginPath', () => {
 	});
 
 	it('refuses the invisible and non-breaking characters the server refuses too', () => {
-		for (const target of ['/a\uFEFFb', '/a\u200Bb', '/a\u00A0b', '/a\u2007b', '/a\u202Fb', '/a\u2028b', '/a\u0085b']) {
+		for (const target of ['/a\u{E0001}b', '/a\uFEFFb', '/a\u200Bb', '/a\u00A0b', '/a\u2007b', '/a\u202Fb', '/a\u2028b', '/a\u0085b']) {
 			expect(isSameOriginPath(target), JSON.stringify(target)).toBe(false);
 		}
 	});
@@ -48,7 +48,7 @@ describe('isSameOriginPath', () => {
 
 describe('isHttpUrl', () => {
 	it('accepts an absolute http or https URL', () => {
-		for (const url of ['https://www.example.com', 'http://www.example.com/merci.html', 'HTTPS://WWW.EXAMPLE.COM/a?b=c#d', 'https://www.example.com:8443/fr/merci']) {
+		for (const url of ['https://www.example.com', 'http://www.example.com/merci.html', 'HTTPS://WWW.EXAMPLE.COM/a?b=c#d', 'https://www.example.com:8443/fr/merci', 'https://b\u00FCcher.example/', 'https://my_host.example.com/']) {
 			expect(isHttpUrl(url), url).toBe(true);
 		}
 	});

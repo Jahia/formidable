@@ -134,7 +134,8 @@ The island fires `formidable:submitted`, then:
 - with a `redirect` it checked again with the same rules and forbidden characters (`isSameOriginPath`,
   `isHttpUrl`), it navigates there with `location.assign` in a task of its own, without the minimum feedback pause.
   The redirect replaces the success message, `userMessage` included, and the spinner stays until the next page shows.
-  A page the browser restores from its back-forward cache shows the success outcome;
+  A page the browser restores from its back-forward cache shows the success outcome, and so does a page the
+  navigation leaves in place for 3 seconds (a target that answers with a download, or only changes the fragment);
 - without one, it waits for the rest of the minimum feedback pause, shows `userMessage` instead of the form's
   submission message when there is one, and resets the form.
 
