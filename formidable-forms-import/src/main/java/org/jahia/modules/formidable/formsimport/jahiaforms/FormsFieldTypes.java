@@ -20,6 +20,8 @@ final class FormsFieldTypes {
     static final String KIND_TEXT_AREA = "textArea";
     static final String KIND_HIDDEN = "hidden";
     static final String KIND_SWITCH = "switch";
+    static final String KIND_MATRIX_RADIOS = "matrixRadios";
+    static final String KIND_MATRIX_CHECKBOXES = "matrixCheckBoxes";
 
     static final String INPUT_TEXT = "fmdb:inputText";
     static final String INPUT_EMAIL = "fmdb:inputEmail";
@@ -122,10 +124,18 @@ final class FormsFieldTypes {
             "rating", new Extended(RATING, INPUT_NUMBER),
             "acceptTermCheckbox", new Extended(CONSENT, CHECKBOX));
 
+    /**
+     * The field each row of a matrix becomes, in a fieldset rendered with the Matrix view; a matrix without
+     * rows or columns falls back on {@link #NO_EQUIVALENT}.
+     */
+    private static final Map<String, String> MATRIX_ROWS = Map.of(
+            KIND_MATRIX_RADIOS, RADIO,
+            KIND_MATRIX_CHECKBOXES, CHECKBOX);
+
     private static final Map<String, String> NO_EQUIVALENT = Map.of(
             "phone", INPUT_TEXT,
-            "matrixRadios", TEXTAREA,
-            "matrixCheckBoxes", TEXTAREA);
+            KIND_MATRIX_RADIOS, TEXTAREA,
+            KIND_MATRIX_CHECKBOXES, TEXTAREA);
 
     private FormsFieldTypes() {
     }
@@ -181,6 +191,26 @@ final class FormsFieldTypes {
 
     static boolean isMultipleChoice(String kind) {
         return "selectMultiple".equals(kind) || kind.startsWith("multipleCheckBoxes") || "imageCheckbox".equals(kind);
+    }
+
+    /** A radios or checkboxes matrix: one question per row, the same answers across. */
+    static boolean isMatrix(String kind) {
+        return MATRIX_ROWS.containsKey(kind);
+    }
+
+    /** The field type of a row of the matrix: a radio group, or a checkbox group. */
+    static String matrixRowType(String kind) {
+        return MATRIX_ROWS.get(kind);
+    }
+
+    /**
+     * The source identity, or the source name, of the field created for one row of a matrix: the one of
+     * the matrix and the key of the row, {@code <uuid>.q1} and {@code radios-matrix_0_4.q1} — the name
+     * Forms itself gives the inputs of the row. What ties the answers of the row to the field, on the run
+     * that creates the form and on the runs that find it.
+     */
+    static String matrixRow(String matrixSource, String rowKey) {
+        return matrixSource == null ? null : matrixSource + "." + rowKey;
     }
 
     private static Set<String> union(Set<String> a, Set<String> b) {

@@ -8,12 +8,23 @@ import java.util.stream.Stream;
  * A step or a fieldset the import creates, with the elements it holds.
  *
  * @param nodeType {@code fmdb:step} or {@code fmdb:fieldset}
+ * @param view the view the container renders with ({@code j:view}), {@link #MATRIX_VIEW} for the fieldset a
+ *             Forms matrix becomes; null for the default view
+ * @param i18nProperties i18n properties by name, then by language: the {@code helpText} of a fieldset
  */
-public record ImportedContainer(String name, String nodeType, Map<String, String> titles, List<ImportedElement> children)
+public record ImportedContainer(String name, String nodeType, Map<String, String> titles, List<ImportedElement> children,
+                                String view, Map<String, Map<String, String>> i18nProperties)
         implements ImportedElement {
 
     public static final String STEP = "fmdb:step";
     public static final String FIELDSET = "fmdb:fieldset";
+    /** The Matrix view of a fieldset (formidable-elements, docs/styling/README.md, "The matrix view of a fieldset"). */
+    public static final String MATRIX_VIEW = "matrix";
+
+    /** A container rendered with its default view, with no property beyond its titles. */
+    public ImportedContainer(String name, String nodeType, Map<String, String> titles, List<ImportedElement> children) {
+        this(name, nodeType, titles, children, null, Map.of());
+    }
 
     /** Every field under the container, at any depth, in order. */
     public Stream<ImportedField> fields() {
