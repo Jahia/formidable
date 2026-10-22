@@ -8,19 +8,22 @@ interface Options {
 	page?: string | Error;
 }
 
+/** The picked page of a page target, or what reading a page that is gone throws. */
+const pageOf = (page: Options['page']) => {
+	if (page instanceof Error) throw page;
+	return {getDisplayableName: () => page as string};
+};
+
 /** An action node of a list: its type, its properties, and for a page target the picked page's title. */
 const listOf = (...options: Options[]): RedirectActionNodeLike[] => {
 	const nodes: RedirectActionNodeLike[] = options.map(option => ({
 		getIdentifier: () => option.id,
 		isNodeType: name => name === (option.type ?? 'fmdb:redirectAction'),
 		getParent: () => ({getNodes: () => nodes}),
-		hasProperty: name => name in (option.properties ?? {}),
+		hasProperty: name => option.properties?.[name] !== undefined,
 		getProperty: name => ({
-			getString: () => (option.properties ?? {})[name],
-			getNode: () => {
-				if (option.page instanceof Error) throw option.page;
-				return {getDisplayableName: () => option.page as string};
-			}
+			getString: () => option.properties?.[name] ?? '',
+			getNode: () => pageOf(option.page)
 		})
 	}));
 	return nodes;
@@ -75,7 +78,7 @@ describe('hasUnusableUrl', () => {
 	});
 
 	it('is true for an address the redirect drops', () => {
-		for (const url of ['www.example.com', '//evil.example', '/\\evil.example', 'https://user@evil.example/', 'https://', 'javascript:alert(1)']) {
+		for (const url of ['www.example.com', '//evil.example', String.raw`/\evil.example`, 'https://user@evil.example/', 'https://', 'javascript:alert(1)']) {
 			expect(hasUnusableUrl(urlAction(url)), url).toBe(true);
 		}
 	});

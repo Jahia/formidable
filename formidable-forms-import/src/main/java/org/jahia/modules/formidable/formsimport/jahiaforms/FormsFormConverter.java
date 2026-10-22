@@ -784,10 +784,8 @@ public final class FormsFormConverter {
                 actions.add(new ImportedAction(EMAIL_ACTION_NAME + "-submitter", FmdbNodeType.EMAIL_NOTIFICATION_ACTION,
                         Map.of(), nonBlankI18n(Map.of("subject", valuesOf(action.option(FormsOptionNames.SUBJECT))))));
                 report.add(ImportNote.action("form.submitterMail"));
-            } else if (action.is(FormsAction.REDIRECT_TO_PAGE) || action.is(FormsAction.REDIRECT_TO_URL)) {
-                // the one redirect Forms followed is added last (FormsRedirects)
-                continue;
-            } else {
+            } else if (!action.is(FormsAction.REDIRECT_TO_PAGE) && !action.is(FormsAction.REDIRECT_TO_URL)) {
+                // a redirect is not one of these: the one Forms followed is added last (FormsRedirects)
                 report.add(ImportNote.action("form.action", ACTION, action.type()));
             }
         }
