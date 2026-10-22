@@ -4,6 +4,8 @@
  * of the modules library so a fake node drives the unit test.
  */
 
+import {isSameOriginPath} from "~/hooks/useFormSubmission";
+
 export const REDIRECT_ACTION_TYPE = "fmdb:redirectAction";
 
 /** The javax.jcr surface read here; a JCRNodeWrapper satisfies it. */
@@ -45,4 +47,30 @@ export function redirectTargetDetail(action: RedirectActionNodeLike): string | u
 	} catch {
 		return undefined;
 	}
+}
+
+/** What no redirect target may hold, as the browser's check (`useFormSubmission`) and the server's (`RedirectTargets`) read it. */
+const FORBIDDEN_IN_TARGET = /[\\\p{Cc}\p{Z}\p{Cf}]/u;
+
+/**
+ * An absolute http(s) URL with a host and no user info, the rule of the browser's `isHttpUrl`, read without the `URL`
+ * parser that check relies on: the card renders on the server, outside a browser.
+ */
+function isHttpUrlOnServer(url: string): boolean {
+	if (url.length > 2048 || FORBIDDEN_IN_TARGET.test(url)) return false;
+	const authority = /^https?:\/\/([^/?#]*)/i.exec(url)?.[1];
+	return authority !== undefined && !authority.includes("@") && authority.replace(/:\d*$/, "") !== "";
+}
+
+/**
+ * True when the action targets a URL that the redirect will not follow: neither a path of this server nor an absolute
+ * http(s) URL, by the rules the browser and the server both apply. The editor's constraint refuses the commonest
+ * mistake (no scheme); this catches the rest, a host-less or protocol-relative URL, user info, a forbidden character.
+ * A missing URL is no warning here: the language may fall back to another one.
+ */
+export function hasUnusableUrl(action: RedirectActionNodeLike): boolean {
+	if (!action.hasProperty("targetType") || String(action.getProperty("targetType").getString()) !== "url") return false;
+	if (!action.hasProperty("url")) return false;
+	const url = String(action.getProperty("url").getString()).trim();
+	return url !== "" && !isSameOriginPath(url) && !isHttpUrlOnServer(url);
 }

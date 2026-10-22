@@ -123,6 +123,8 @@ export interface ImportReport {
     forms: ImportReportForm[];
     totals: {forms: number; submissionsFound: number; submissionsToImport: number; submissionsImported: number; submissionsFailed?: number};
     nothingToImport: boolean;
+    /** What the run says of no form in particular, once: the displays of the Forms forms it could not read. */
+    notes?: ImportNote[];
     /** Why the import stopped before its end; null when it ran to its end. */
     stopped?: string | null;
     /** The incidents of no form of the export: submissions of a results entry it holds no form for. */

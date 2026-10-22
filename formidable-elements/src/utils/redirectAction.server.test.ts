@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest';
-import {followsAnotherRedirect, type RedirectActionNodeLike, redirectTargetDetail} from './redirectAction.server';
+import {followsAnotherRedirect, hasUnusableUrl, type RedirectActionNodeLike, redirectTargetDetail} from './redirectAction.server';
 
 interface Options {
 	id: string;
@@ -60,5 +60,28 @@ describe('redirectTargetDetail', () => {
 		expect(redirectTargetDetail(listOf({id: 'r', properties: {targetType: 'url', url: '  '}})[0])).toBeUndefined();
 		expect(redirectTargetDetail(listOf({id: 'r', properties: {targetType: 'page'}})[0])).toBeUndefined();
 		expect(redirectTargetDetail(listOf({id: 'r', properties: {page: 'gone'}, page: new Error('ItemNotFound')})[0])).toBeUndefined();
+	});
+});
+
+describe('hasUnusableUrl', () => {
+	const urlAction = (url?: string) => listOf({id: 'r', properties: url === undefined ? {targetType: 'url'} : {targetType: 'url', url}})[0];
+
+	it('is false for an address the redirect follows, and for no address at all', () => {
+		for (const url of ['https://www.example.com/thanks', 'http://example.com', '/sites/mysite/thanks.html', '  /a  ']) {
+			expect(hasUnusableUrl(urlAction(url)), url).toBe(false);
+		}
+		expect(hasUnusableUrl(urlAction())).toBe(false);
+		expect(hasUnusableUrl(urlAction('   '))).toBe(false);
+	});
+
+	it('is true for an address the redirect drops', () => {
+		for (const url of ['www.example.com', '//evil.example', '/\\evil.example', 'https://user@evil.example/', 'https://', 'javascript:alert(1)']) {
+			expect(hasUnusableUrl(urlAction(url)), url).toBe(true);
+		}
+	});
+
+	it('is false for a page target, whatever a url property holds', () => {
+		expect(hasUnusableUrl(listOf({id: 'r', properties: {targetType: 'page', url: 'www.example.com'}})[0])).toBe(false);
+		expect(hasUnusableUrl(listOf({id: 'r', properties: {url: 'www.example.com'}})[0])).toBe(false);
 	});
 });

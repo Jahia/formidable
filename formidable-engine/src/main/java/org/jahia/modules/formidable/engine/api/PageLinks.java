@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import javax.servlet.http.HttpServletResponseWrapper;
 import java.util.Optional;
 
 /**
@@ -51,7 +52,7 @@ public final class PageLinks {
     public static Optional<String> urlOf(JCRNodeWrapper page, HttpServletRequest request, HttpServletResponse response,
                                          Rewriter rewriter, String platformContextPath) {
         try {
-            String rewritten = rewriter.rewrite(page.getUrl(), request, response);
+            String rewritten = rewriter.rewrite(page.getUrl(), request, response == null ? null : new NoSessionIdInUrls(response));
             String url = RedirectTargets.swapContextPath(rewritten, request.getContextPath(), platformContextPath);
             Optional<String> target = RedirectTargets.sameOriginPath(url);
             if (target.isEmpty()) {
@@ -72,6 +73,42 @@ public final class PageLinks {
         } catch (Exception e) {
             log.warn("[PageLinks] The URL of a page could not be rewritten: no redirect.", e);
             return Optional.empty();
+        }
+    }
+
+    /**
+     * The response the rewriting sees: its {@code encodeURL} leaves the URL as it is. The rewriting calls it, and with URL
+     * session tracking on (no {@code <tracking-mode>} in the platform's {@code web.xml}), a visitor whose session was
+     * created by the submission, with no session cookie yet, would get {@code ;jsessionid=...} in the redirect: the
+     * session id in the browser's history and in the referers.
+     */
+    static final class NoSessionIdInUrls extends HttpServletResponseWrapper {
+
+        NoSessionIdInUrls(HttpServletResponse response) {
+            super(response);
+        }
+
+        @Override
+        public String encodeURL(String url) {
+            return url;
+        }
+
+        @Override
+        public String encodeRedirectURL(String url) {
+            return url;
+        }
+
+        // the deprecated spellings would reach the wrapped response, past the two above
+        @Override
+        @SuppressWarnings("deprecation")
+        public String encodeUrl(String url) {
+            return url;
+        }
+
+        @Override
+        @SuppressWarnings("deprecation")
+        public String encodeRedirectUrl(String url) {
+            return url;
         }
     }
 

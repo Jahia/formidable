@@ -2,7 +2,7 @@ import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {useTranslation} from "react-i18next";
 import AuthoringActionCard from "~/design/AuthoringActionCard";
 import {describeActionType} from "~/utils/actionTypeInfo";
-import {followsAnotherRedirect, type RedirectActionNodeLike, redirectTargetDetail} from "~/utils/redirectAction.server";
+import {followsAnotherRedirect, hasUnusableUrl, type RedirectActionNodeLike, redirectTargetDetail} from "~/utils/redirectAction.server";
 
 interface RedirectActionProps {
 	"jcr:title"?: string;
@@ -37,8 +37,15 @@ jahiaComponent(
 				title={title || type.label}
 				detail={redirectTargetDetail(node)}
 				description={type.description}
-				warning={followsAnotherRedirect(node) ? {state: "overridden-redirect", text: t("overridden")} : undefined}
+				warning={warningOf(node, t)}
 			/>
 		);
 	},
 );
+
+/** The one warning a card shows: an address the redirect will not follow first, as the contributor can fix it here. */
+function warningOf(node: RedirectActionNodeLike, t: (key: string) => string): {state: string; text: string} | undefined {
+	if (hasUnusableUrl(node)) return {state: "unusable-redirect-url", text: t("unusableUrl")};
+	if (followsAnotherRedirect(node)) return {state: "overridden-redirect", text: t("overridden")};
+	return undefined;
+}

@@ -30,7 +30,9 @@ not exist; enabled on no site, the button shows nowhere. Install it for the time
     radio or checkbox field per row, its answers under each row. A form keeps the redirect Jahia Forms followed,
     its last one, as a **Redirect** action: to the same page of your site, or to the same address. The redirect
     address a page gave the form it displayed is read too, when the import runs on the instance that holds those
-    pages; otherwise, check the pages that displayed the form.
+    pages; otherwise the report says so once, under **For the whole import**, and you check the pages that displayed
+    the forms. A migrated form whose action fails, an e-mail that cannot be sent for one, shows its error message and
+    does not redirect, where Jahia Forms went on to the redirect target.
   - **Attach to an existing form**: the results go under a form of the site you pick, built by hand or
     reworked, and show on the Results page with the labels and the readers of that form. The dialog shows
     where the values of each Forms field land: a field of the same name is matched, a field with the same

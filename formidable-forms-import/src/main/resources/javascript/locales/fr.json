@@ -16,6 +16,7 @@
 				"title": "Ce que l'import va faire"
 			},
 			"report": {
+				"runNotes": "Pour tout l'import",
 				"totals": "{{submissions}} soumission(s) à importer dans {{forms}} formulaire(s)",
 				"nothing": "Rien à importer : chaque formulaire et chaque soumission sont déjà dans ce site.",
 				"submissions": "{{count}} soumission(s)",
@@ -124,6 +125,10 @@
 				"switch": "interrupteur"
 			},
 			"note": {
+				"report": {
+					"displaysElsewhere": "Les pages qui affichaient les formulaires Jahia Forms ne sont pas sur cette instance : une adresse de redirection définie sur l'une de ces pages n'est pas reprise. Vérifiez-les sur l'instance Jahia Forms, et ajoutez une action Redirection à chaque formulaire dont la page en définissait une",
+					"displaysUnread": "Les pages qui affichaient les formulaires Jahia Forms n'ont pas pu être lues : une adresse de redirection définie sur l'une de ces pages peut manquer. Vérifiez-les, et ajoutez une action Redirection à chaque formulaire dont la page en définissait une"
+				},
 				"field": {
 					"setting": "Son réglage {{setting}} n’est pas repris : un champ {{type}} n’en a pas",
 					"createdAsFallback": "Créé comme champ {{type}} : le champ {{preferred}} n’est pas installé ici",

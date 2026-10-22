@@ -1,6 +1,10 @@
 package org.jahia.modules.formidable.formsimport;
 
+import org.jahia.modules.formidable.formsimport.jahiaforms.FormsDisplay;
+import org.jahia.modules.formidable.formsimport.jahiaforms.ImportEnvironment;
+import org.jahia.services.content.JCRItemWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRWorkspaceWrapper;
 import org.junit.jupiter.api.Test;
@@ -67,6 +71,88 @@ class ImportSitePagesTest {
         when(workspace.getNodeTypeManager()).thenReturn(types);
         when(types.hasNodeType(ImportSitePages.DISPLAY_TYPE)).thenReturn(false);
 
-        assertEquals(List.of(), new ImportSitePages(mock(JCRSessionWrapper.class), live, SITE).displaysOf("uf"));
+        ImportSitePages pages = new ImportSitePages(mock(JCRSessionWrapper.class), live, SITE);
+        assertEquals(Optional.empty(), pages.displaysUnread());
+
+        assertEquals(List.of(), pages.displaysOf("uf"));
+        // the redirects of the displays are lost: the run names it once
+        assertEquals(Optional.of(ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE), pages.displaysUnread());
+    }
+
+    /** A live session that registers the display type, or not. */
+    private static JCRSessionWrapper liveRegistering(boolean displayType) throws RepositoryException {
+        JCRSessionWrapper live = mock(JCRSessionWrapper.class);
+        JCRWorkspaceWrapper workspace = mock(JCRWorkspaceWrapper.class);
+        NodeTypeManager types = mock(NodeTypeManager.class);
+        when(live.getWorkspace()).thenReturn(workspace);
+        when(workspace.getNodeTypeManager()).thenReturn(types);
+        when(types.hasNodeType(ImportSitePages.DISPLAY_TYPE)).thenReturn(displayType);
+        return live;
+    }
+
+    /** A display at this path, under these ancestors (root first), with or without a redirect URL. */
+    private static JCRNodeWrapper display(String path, List<JCRItemWrapper> ancestors, String redirectUrl) throws RepositoryException {
+        JCRNodeWrapper display = mock(JCRNodeWrapper.class);
+        when(display.getPath()).thenReturn(path);
+        when(display.getAncestors()).thenReturn(ancestors);
+        when(display.hasProperty(ImportSitePages.REDIRECT_URL)).thenReturn(redirectUrl != null);
+        if (redirectUrl != null) {
+            JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+            when(property.getString()).thenReturn(redirectUrl);
+            when(display.getProperty(ImportSitePages.REDIRECT_URL)).thenReturn(property);
+        }
+        return display;
+    }
+
+    /** A node above a display: a page, or another node. */
+    private static JCRNodeWrapper ancestor(String path, boolean page) throws RepositoryException {
+        JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        when(node.getPath()).thenReturn(path);
+        when(node.isNodeType(ImportSitePages.PAGE_TYPE)).thenReturn(page);
+        return node;
+    }
+
+    @Test
+    void theDisplaysAreNamedByTheirPageAndOrderedByIt() throws Exception {
+        // Verifies the displays of a form: each is named by the page holding it, not by its own path, a display in no page
+        // by its own path, and they come ordered by that name, whatever order the query returned them in.
+        JCRNodeWrapper sites = ancestor("/sites/source", false);
+        JCRNodeWrapper home = ancestor("/sites/source/home", true);
+        JCRNodeWrapper zebra = ancestor("/sites/source/home/zebra", true);
+        JCRNodeWrapper area = ancestor("/sites/source/home/zebra/main", false);
+        JCRNodeWrapper contents = ancestor("/sites/source/contents", false);
+        // in the reverse order of their pages, as a query may return them; the nearest page wins over the home above it
+        List<JCRNodeWrapper> found = List.of(
+                display("/sites/source/home/zebra/main/display", List.of(sites, home, zebra, area), "https://www.example.com/thanks"),
+                display("/sites/source/contents/display", List.of(sites, contents), null));
+        ImportSitePages pages = new ImportSitePages(mock(JCRSessionWrapper.class), liveRegistering(true), SITE,
+                formUuid -> "uf".equals(formUuid) ? found : List.of());
+
+        assertEquals(List.of(
+                new FormsDisplay("/sites/source/contents/display", null),
+                new FormsDisplay("/sites/source/home/zebra", "https://www.example.com/thanks")), pages.displaysOf("uf"));
+        assertEquals(Optional.empty(), pages.displaysUnread());
+    }
+
+    @Test
+    void aQueryThatFailsFindsNoDisplayAndIsNamedOnce() throws Exception {
+        // Verifies a failed query: no display, and the run is told the displays could not be read; it outranks an
+        // absent type, which a later call cannot turn it back into.
+        JCRSessionWrapper live = liveRegistering(true);
+        ImportSitePages pages = new ImportSitePages(mock(JCRSessionWrapper.class), live, SITE, formUuid -> {
+            throw new RepositoryException("index down");
+        });
+
+        assertEquals(List.of(), pages.displaysOf("uf"));
+        assertEquals(Optional.of(ImportEnvironment.DisplaysUnread.QUERY_FAILED), pages.displaysUnread());
+        when(live.getWorkspace().getNodeTypeManager().hasNodeType(ImportSitePages.DISPLAY_TYPE)).thenReturn(false);
+        pages.displaysOf("other");
+        assertEquals(Optional.of(ImportEnvironment.DisplaysUnread.QUERY_FAILED), pages.displaysUnread());
+    }
+
+    @Test
+    void theQueryNamesTheFormAsAStringLiteral() {
+        // Verifies the statement of the displays: the form's identifier is quoted, a quote in it doubled.
+        assertEquals("SELECT * FROM [fcnt:formDisplay] AS d WHERE d.[referenceForm] = 'u''f'", ImportSitePages.displaysStatement("u'f"));
     }
 }
