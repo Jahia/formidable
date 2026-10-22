@@ -2,7 +2,7 @@ package org.jahia.modules.formidable.formsimport;
 
 import org.jahia.modules.formidable.formsimport.jahiaforms.FormsDisplay;
 import org.jahia.modules.formidable.formsimport.jahiaforms.ImportEnvironment;
-import org.jahia.services.content.JCRContentUtils;
+import org.jahia.services.content.JCRItemWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.slf4j.Logger;
@@ -21,7 +21,8 @@ import java.util.Optional;
  * The pages the redirects of the Forms forms relate to, read in the repository the import runs on
  * (docs/architecture/forms-import.md, "The redirects"): the page a {@code fcnt:redirectToAPageAction} names, looked up
  * in the site the import writes into, and the {@code fcnt:formDisplay} nodes that show a form, which carry the
- * redirect URL of {@code fcmix:formRedirectUrl}. A lookup that fails finds nothing: the redirect is reported.
+ * redirect URL of {@code fcmix:formRedirectUrl}. A lookup that fails finds nothing: the redirect is reported, and
+ * displays that could not be read are named once for the run ({@link #displaysUnread}). One instance per run.
  */
 class ImportSitePages implements ImportEnvironment.SitePages {
 
@@ -36,6 +37,14 @@ class ImportSitePages implements ImportEnvironment.SitePages {
     private final JCRSessionWrapper edit;
     private final JCRSessionWrapper live;
     private final String siteKey;
+    private final DisplayQuery displayQuery;
+    private ImportEnvironment.DisplaysUnread unread;
+
+    /** The display nodes of a form, a seam: the production one queries the live workspace. */
+    @FunctionalInterface
+    interface DisplayQuery {
+        List<JCRNodeWrapper> displaysOf(String formUuid) throws RepositoryException;
+    }
 
     /**
      * @param edit    a session on the edit workspace, where the forms are written and their redirects point
@@ -46,6 +55,15 @@ class ImportSitePages implements ImportEnvironment.SitePages {
         this.edit = edit;
         this.live = live;
         this.siteKey = siteKey;
+        this.displayQuery = this::queryDisplays;
+    }
+
+    /** As {@link #ImportSitePages(JCRSessionWrapper, JCRSessionWrapper, String)} with the query of the displays chosen by the caller. */
+    ImportSitePages(JCRSessionWrapper edit, JCRSessionWrapper live, String siteKey, DisplayQuery displayQuery) {
+        this.edit = edit;
+        this.live = live;
+        this.siteKey = siteKey;
+        this.displayQuery = displayQuery;
     }
 
     /**
@@ -77,15 +95,12 @@ class ImportSitePages implements ImportEnvironment.SitePages {
         }
         try {
             if (!live.getWorkspace().getNodeTypeManager().hasNodeType(DISPLAY_TYPE)) {
+                unread(ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE);
                 return List.of();
             }
-            String statement = "SELECT * FROM [" + DISPLAY_TYPE + "] AS d WHERE d.[" + REFERENCE_FORM + "] = '"
-                    + formUuid.replace("'", "''") + "'";
-            NodeIterator found = live.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2).execute().getNodes();
             List<FormsDisplay> displays = new ArrayList<>();
-            while (found.hasNext()) {
-                JCRNodeWrapper display = (JCRNodeWrapper) found.nextNode();
-                JCRNodeWrapper page = JCRContentUtils.getParentOfType(display, PAGE_TYPE);
+            for (JCRNodeWrapper display : displayQuery.displaysOf(formUuid)) {
+                JCRNodeWrapper page = pageAbove(display);
                 displays.add(new FormsDisplay(page == null ? display.getPath() : page.getPath(),
                         display.hasProperty(REDIRECT_URL) ? display.getProperty(REDIRECT_URL).getString() : null));
             }
@@ -93,7 +108,45 @@ class ImportSitePages implements ImportEnvironment.SitePages {
             return displays;
         } catch (RepositoryException | RuntimeException e) {
             log.warn("[FormsImport] The displays of the Forms form {} could not be read", formUuid, e);
+            unread(ImportEnvironment.DisplaysUnread.QUERY_FAILED);
             return List.of();
+        }
+    }
+
+    /** The nearest page above a node, read from its ancestors (root first, bounded by its depth); null when none is a page. */
+    private static JCRNodeWrapper pageAbove(JCRNodeWrapper node) throws RepositoryException {
+        List<JCRItemWrapper> ancestors = node.getAncestors();
+        for (int i = ancestors.size() - 1; i >= 0; i--) {
+            if (ancestors.get(i) instanceof JCRNodeWrapper ancestor && ancestor.isNodeType(PAGE_TYPE)) {
+                return ancestor;
+            }
+        }
+        return null;
+    }
+
+    private List<JCRNodeWrapper> queryDisplays(String formUuid) throws RepositoryException {
+        NodeIterator found = live.getWorkspace().getQueryManager().createQuery(displaysStatement(formUuid), Query.JCR_SQL2).execute().getNodes();
+        List<JCRNodeWrapper> nodes = new ArrayList<>();
+        while (found.hasNext()) {
+            nodes.add((JCRNodeWrapper) found.nextNode());
+        }
+        return nodes;
+    }
+
+    /** The JCR-SQL2 query of the displays of a form, the identifier quoted as a string literal. */
+    static String displaysStatement(String formUuid) {
+        return "SELECT * FROM [" + DISPLAY_TYPE + "] AS d WHERE d.[" + REFERENCE_FORM + "] = '" + formUuid.replace("'", "''") + "'";
+    }
+
+    @Override
+    public Optional<ImportEnvironment.DisplaysUnread> displaysUnread() {
+        return Optional.ofNullable(unread);
+    }
+
+    /** A failed query says more than an absent type: it wins. */
+    private void unread(ImportEnvironment.DisplaysUnread reason) {
+        if (unread != ImportEnvironment.DisplaysUnread.QUERY_FAILED) {
+            unread = reason;
         }
     }
 

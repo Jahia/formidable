@@ -16,6 +16,7 @@
 				"title": "What the import will do"
 			},
 			"report": {
+				"runNotes": "For the whole import",
 				"totals": "{{submissions}} submission(s) to import in {{forms}} form(s)",
 				"nothing": "Nothing to import: every form and every submission is already in this site.",
 				"submissions": "{{count}} submission(s)",
@@ -124,6 +125,10 @@
 				"switch": "switch"
 			},
 			"note": {
+				"report": {
+					"displaysElsewhere": "The pages that displayed the Jahia Forms forms are not on this instance, so a redirect address set on one of those pages is not carried over. Check them on the Jahia Forms instance, and add a Redirect action to each form whose page set one",
+					"displaysUnread": "The pages that displayed the Jahia Forms forms could not be read, so a redirect address set on one of those pages may be missing. Check them, and add a Redirect action to each form whose page set one"
+				},
 				"field": {
 					"setting": "Its {{setting}} setting is not carried over: a {{type}} field has none",
 					"createdAsFallback": "Created as a {{type}} field: the {{preferred}} field is not installed here",

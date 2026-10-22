@@ -51,6 +51,24 @@ public record ImportEnvironment(Predicate<String> registeredTypes, Predicate<Str
          * @return the displays, ordered by path; empty when Forms is not installed, or the form is shown nowhere
          */
         List<FormsDisplay> displaysOf(String formUuid);
+
+        /**
+         * Why the displays could not be read, once {@link #displaysOf} was asked: a redirect address set on a display
+         * is then lost without a note of its form, and the run says so once.
+         *
+         * @return empty when every call read the displays, or none was made
+         */
+        default Optional<DisplaysUnread> displaysUnread() {
+            return Optional.empty();
+        }
+    }
+
+    /** Why the displays of the Forms forms could not be read. */
+    public enum DisplaysUnread {
+        /** The instance does not register {@code fcnt:formDisplay}: Forms is not installed here, its pages are elsewhere. */
+        NOT_ON_THIS_INSTANCE,
+        /** The query of the displays failed. */
+        QUERY_FAILED
     }
 
     /** A repository that holds no page: a redirect to a page is reported, and no display is found. */

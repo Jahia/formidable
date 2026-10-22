@@ -4,10 +4,12 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.junit.jupiter.api.Test;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -61,6 +63,19 @@ class PageLinksTest {
                 (link, req, resp) -> "https://b\u00fccher.example/fr/accueil", "");
 
         assertEquals(Optional.of("https://b\u00fccher.example/fr/accueil"), url);
+    }
+
+    @Test
+    void theRewritingAddsNoSessionIdToTheUrl() {
+        // Verifies the response the rewriting sees: a container that tracks sessions in URLs adds ;jsessionid=... in
+        // encodeURL, and the redirect must not carry it.
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        when(response.encodeURL(anyString())).thenAnswer(invocation -> invocation.getArgument(0) + ";jsessionid=ABC");
+
+        Optional<String> url = PageLinks.urlOf(page(), request(), response,
+                (link, req, resp) -> resp.encodeURL("/sites/mysite/home.html"), "");
+
+        assertEquals(Optional.of("/sites/mysite/home.html"), url);
     }
 
     @Test

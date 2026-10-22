@@ -115,6 +115,26 @@ describe('reportMarkdown', () => {
     });
 });
 
+describe('reportMarkdown, the notes of the run', () => {
+    const base = {dryRun: false, importedFormsFolder: null, forms: [form('news')], nothingToImport: false, stopped: null,
+        totals: {forms: 1, submissionsFound: 3, submissionsToImport: 0, submissionsImported: 3, submissionsFailed: 0}};
+    const context = {siteKey: 'acme', fileName: 'f.zip', language: 'en', date: new Date('2026-10-13T14:51:00Z'), t,
+        outcomeOf: () => 'outcome', notesApply: () => false};
+
+    it('says a note of the run once, under its own heading, before the forms', () => {
+        const markdown = reportMarkdown({...base, notes: [{code: 'report.displaysElsewhere', level: 'action', params: {}}]} as ImportReport, context);
+
+        const heading = markdown.indexOf('## formResults.import.report.runNotes');
+        expect(heading).toBeGreaterThan(-1);
+        expect(markdown.indexOf('- formResults.import.note.report.displaysElsewhere')).toBeGreaterThan(heading);
+        expect(markdown.indexOf('## NEWS')).toBeGreaterThan(heading);
+    });
+
+    it('has no such section when the run has no note', () => {
+        expect(reportMarkdown(base as ImportReport, context)).not.toContain('formResults.import.report.runNotes');
+    });
+});
+
 describe('reportFileName', () => {
     it('names the file after the site and the minute, in UTC', () => {
         expect(reportFileName('acme', new Date('2026-10-13T14:51:30Z'))).toEqual('forms-import-report-acme-2026-10-13-1451.md');

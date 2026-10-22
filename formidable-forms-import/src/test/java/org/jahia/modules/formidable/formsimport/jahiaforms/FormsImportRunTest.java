@@ -87,6 +87,39 @@ class FormsImportRunTest {
     }
 
     @Test
+    void displaysThatCouldNotBeReadAreNamedOnceForTheRun() throws Exception {
+        // Verifies point 6 of the review: a redirect set on a display is lost when the displays cannot be read, so
+        // the run says it once, at its level, and not once per form; a run that read them says nothing.
+        ImportEnvironment.SitePages elsewhere = new ImportEnvironment.SitePages() {
+            @Override
+            public java.util.Optional<String> pageOf(String reference) {
+                return java.util.Optional.empty();
+            }
+
+            @Override
+            public List<FormsDisplay> displaysOf(String formUuid) {
+                return List.of();
+            }
+
+            @Override
+            public java.util.Optional<ImportEnvironment.DisplaysUnread> displaysUnread() {
+                return java.util.Optional.of(ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE);
+            }
+        };
+        ImportEnvironment environment = new ImportEnvironment(type -> true, source -> true, type -> false,
+                ImportEnvironment.ANY_PROPERTY, false, elsewhere);
+
+        JSONObject report = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer(), true, Map.of(), environment).run().toJson();
+
+        assertEquals(1, report.getJSONArray("notes").length());
+        assertEquals("report.displaysElsewhere", report.getJSONArray("notes").getJSONObject(0).getString("code"));
+        assertEquals("action", report.getJSONArray("notes").getJSONObject(0).getString("level"));
+        JSONObject read = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer(), true, Map.of(), type -> true, source -> true, false)
+                .run().toJson();
+        assertEquals(0, read.getJSONArray("notes").length());
+    }
+
+    @Test
     void theImportSavesAFormBeforeItsEntryAndWritesEverySubmissionByBatches() throws Exception {
         ImportWriter writer = writer();
         JCRNodeWrapper form = node("contact-us", FOLDER + "/contact-us");

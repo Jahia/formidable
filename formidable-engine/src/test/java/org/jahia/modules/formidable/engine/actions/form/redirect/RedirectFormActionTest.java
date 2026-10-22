@@ -4,8 +4,12 @@ import org.jahia.modules.formidable.engine.api.FormActionContext;
 import org.jahia.modules.formidable.engine.api.FormActionResult;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
+import org.jahia.services.content.decorator.JCRSiteNode;
 import org.junit.jupiter.api.Test;
 
+import javax.jcr.ItemNotFoundException;
+import javax.jcr.Node;
+import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
@@ -29,6 +33,9 @@ class RedirectFormActionTest {
 
     private static JCRNodeWrapper action(String targetType, String url, JCRNodeWrapper page) throws Exception {
         JCRNodeWrapper action = mock(JCRNodeWrapper.class);
+        when(action.getPath()).thenReturn("/sites/mysite/contents/form/actions/redirect");
+        NodeIterator noTranslation = translations();
+        when(action.getI18Ns()).thenReturn(noTranslation);
         if (targetType != null) {
             JCRPropertyWrapper type = string(targetType);
             when(action.hasProperty("targetType")).thenReturn(true);
@@ -46,6 +53,29 @@ class RedirectFormActionTest {
             when(action.getProperty("page")).thenReturn(reference);
         }
         return action;
+    }
+
+    /** The translation nodes of an action, in order, each holding its url when given one. */
+    private static NodeIterator translations(String... urls) throws Exception {
+        List<Node> nodes = new java.util.ArrayList<>();
+        for (String url : urls) {
+            nodes.add(translation(url));
+        }
+        java.util.Iterator<Node> iterator = nodes.iterator();
+        NodeIterator translations = mock(NodeIterator.class);
+        when(translations.hasNext()).thenAnswer(invocation -> iterator.hasNext());
+        when(translations.nextNode()).thenAnswer(invocation -> iterator.next());
+        return translations;
+    }
+
+    private static Node translation(String url) throws Exception {
+        Node translation = mock(Node.class);
+        if (url != null) {
+            JCRPropertyWrapper value = string(url);
+            when(translation.hasProperty("url")).thenReturn(true);
+            when(translation.getProperty("url")).thenReturn(value);
+        }
+        return translation;
     }
 
     private static FormActionContext context(JCRNodeWrapper action) {
@@ -120,6 +150,42 @@ class RedirectFormActionTest {
         JCRNodeWrapper broken = mock(JCRNodeWrapper.class);
         when(broken.hasProperty("targetType")).thenThrow(new RepositoryException("down"));
         assertTrue(none.execute(context(broken)).isEmpty());
+    }
+
+    @Test
+    void aLanguageWithoutUrlFallsBackToTheSiteDefaultLanguage() throws Exception {
+        // Verifies the fallback: the submission's language has no URL, the site's default language has one.
+        JCRNodeWrapper action = action("url", null, null);
+        JCRSiteNode site = mock(JCRSiteNode.class);
+        when(site.getDefaultLanguage()).thenReturn("en");
+        when(action.getResolveSite()).thenReturn(site);
+        when(action.hasI18N(Locale.ENGLISH, false)).thenReturn(true);
+        Node english = translation("https://www.example.com/thanks");
+        when(action.getI18N(Locale.ENGLISH, false)).thenReturn(english);
+
+        assertEquals("https://www.example.com/thanks", new RedirectFormAction().execute(context(action)).redirectUrl());
+    }
+
+    @Test
+    void withoutUrlInTheDefaultLanguageTheFirstLanguageThatHasOneIsUsed() throws Exception {
+        // Verifies the last step of the fallback, as Jahia Forms read its first translation: blank values are skipped.
+        JCRNodeWrapper action = action("url", null, null);
+        NodeIterator others = translations(null, "  ", "/de/danke.html");
+        when(action.getI18Ns()).thenReturn(others);
+
+        assertEquals("/de/danke.html", new RedirectFormAction().execute(context(action)).redirectPath());
+    }
+
+    @Test
+    void anUnpublishedOrDeletedPageIsNoRedirect() throws Exception {
+        // Verifies the weak reference that no longer resolves in live: no redirect, and no failure.
+        JCRNodeWrapper action = action("page", null, null);
+        JCRPropertyWrapper reference = mock(JCRPropertyWrapper.class);
+        when(reference.getNode()).thenThrow(new ItemNotFoundException("gone"));
+        when(action.hasProperty("page")).thenReturn(true);
+        when(action.getProperty("page")).thenReturn(reference);
+
+        assertTrue(new RedirectFormAction((node, req, resp) -> Optional.of("/never.html")).execute(context(action)).isEmpty());
     }
 
     @Test

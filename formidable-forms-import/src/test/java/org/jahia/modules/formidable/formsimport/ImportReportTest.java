@@ -86,4 +86,18 @@ class ImportReportTest {
         assertTrue(report.toJson().getBoolean("nothingToImport"));
         assertEquals("found", report.toJson().getJSONArray("forms").getJSONObject(0).getString("outcome"));
     }
+
+    @Test
+    void aNoteOfTheRunIsSaidOnceAboveTheForms() {
+        // Verifies the run-level notes: the same note added for several forms is kept once, at the top of the report.
+        ImportReport report = new ImportReport(true);
+        report.note(ImportNote.action("report.displaysUnread"));
+        report.note(ImportNote.action("report.displaysUnread"));
+
+        JSONArray notes = report.toJson().getJSONArray("notes");
+
+        assertEquals(1, notes.length());
+        assertEquals("report.displaysUnread", notes.getJSONObject(0).getString("code"));
+        assertEquals(0, new ImportReport(true).toJson().getJSONArray("notes").length());
+    }
 }

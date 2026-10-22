@@ -240,6 +240,8 @@ public final class ImportReport {
     private String importedFormsFolder;
     /** The incidents of no form: the submissions of a results entry the export holds no form nor entry for. */
     private final Incidents incidents = new Incidents();
+    /** What the run says of no form in particular: what the instance could not read for any of them. */
+    private final List<ImportNote> notes = new ArrayList<>();
     private String stopped;
 
     public ImportReport(boolean dryRun) {
@@ -261,6 +263,13 @@ public final class ImportReport {
     /** A submission of no form of the export: not imported, and said so. */
     public void orphan(String submission, Instant created, String formName) {
         incidents.add(submission, created, ImportNote.action("submission.noForm", "form", formName));
+    }
+
+    /** A note about the whole run, said once however many forms it concerns. */
+    public void note(ImportNote note) {
+        if (!notes.contains(note)) {
+            notes.add(note);
+        }
     }
 
     /** The import stopped before its end, for this reason: what it wrote stays, a later run goes on from there. */
@@ -294,6 +303,7 @@ public final class ImportReport {
                 .put("dryRun", dryRun)
                 .put("stopped", stopped == null ? JSONObject.NULL : stopped)
                 .put("importedFormsFolder", importedFormsFolder == null ? JSONObject.NULL : importedFormsFolder)
+                .put("notes", FormEntry.notesJson(notes))
                 .put("forms", entries)
                 .put("totals", new JSONObject()
                         .put("forms", forms.size())

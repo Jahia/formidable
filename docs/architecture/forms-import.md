@@ -427,10 +427,12 @@ A display of the form on a page (`fcnt:formDisplay`) may carry a `redirectUrl` (
 puts it in the `redirectToUrl` entry, in place of the action's, or adds it last. The display is on the page, not
 under `formFactory`, so the export does not hold it: the import reads the displays of the form in the live workspace
 of the instance it runs on (`ImportSitePages`, by `referenceForm` = the `jcr:uuid` of the form), when `forms-core`
-registers the type there. An import on another instance, or of a form displayed on another instance, sees no display:
-nothing is reported for them, and the administration guide says to check. A Formidable form redirects the same way on
-every page, so the first display, by path, decides; a display that sent the visitors elsewhere is reported with its
-page.
+registers the type there, and names each display by the page that holds it, the display's own path when no page
+does. An import on another instance, or of a form displayed on another instance, sees no display: the run then says
+once, above the forms, that the redirect addresses of the pages that displayed the Forms forms are to check by hand
+(`report.displaysElsewhere`, `ImportEnvironment.DisplaysUnread`), and `report.displaysUnread` when the query of the
+displays failed. A Formidable form redirects the same way on every page, so the first display, by path, decides; a
+display that sent the visitors elsewhere is reported with its page.
 
 | Forms | Formidable |
 |---|---|
@@ -439,6 +441,11 @@ page.
 | The `redirectUrl` of the display that decides | `targetType` = `url`, the URL in every language of the form, completed and checked the same way |
 
 The created action is last in the list: Formidable redirects once every action has run, wherever the action stands.
+
+A migrated form whose action fails does not redirect any more. Forms caught the failure of an action
+(`FormSubmission.callAction`), went on with the others and still sent the visitor to the redirect target; Formidable
+stops at the failed action and answers `FMDB-008`, so the visitor reads the form's error message on the form's
+page.
 
 ### The submissions
 
@@ -645,6 +652,10 @@ name. The paths and addresses they show are the targets of the Forms redirects, 
 which the contributor needs to check or rebuild them. The notes only matter when the form is created, so the row of a form to create shows a count,
 **N to review**, in a **Notes** column, a button that unfolds the notes under the row: what to review by hand, then the fields mapped to the visitor profile, as a compact grid whose status column takes the rest of the width — field, property, a check when the prefill is on, and the status: a green check when jCustomer declares the property and the mapping is written, a red cross and why when it is not — then the rest of what was carried over; a note met on
 several fields is one line naming the fields by their labels.
+
+What the run says of no form in particular is a list of notes of the report itself (`ImportReport.note`, `notes` of
+the JSON), said once however many forms it concerns: the dialog shows it above the rows, under **For the whole
+import**, and the downloadable report in a section of that name before the forms.
 
 The final report says, on a line above the rows, that the created forms are in `imported-forms`,
 unpublished; until a form is published, its entry shows as **Unpublished** on the Results page, with the
@@ -879,7 +890,9 @@ engine never declared them.
   a profile prefill: mapped when the integration reaches the type, reported with the property otherwise.
   The redirect rule is tested on the sample, whose `contact-us` redirects to a page, and on synthetic forms: the
   redirect Forms followed among several, a page per language, a URL completed with `http://` or refused, the URL of
-  a display taking the place of an action, and a display that sent its visitors elsewhere.
+  a display taking the place of an action, and a display that sent its visitors elsewhere. `ImportSitePagesTest` reads
+  the displays of a form, named by their nearest page and ordered by it, and the reason they could not be read, which
+  `FormsImportRunTest` turns into the one note of the run.
 - **A Cypress spec for iteration 1.** The **Import Jahia Forms results** button is absent, and the upload refused, while the
   module is not enabled on the site; the spec enables it there, as an administrator would. It drops the sample zip on the dialog, reads the dry-run
   report and checks that nothing is written yet, clicks **Import**, waits for the check and reads the final
