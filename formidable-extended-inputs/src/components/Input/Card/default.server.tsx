@@ -3,10 +3,10 @@ import {
   buildModuleFileUrl,
   jahiaComponent,
 } from "@jahia/javascript-modules-library";
+import { useTranslation } from "react-i18next";
 import { type BaseValidationMessageProps, validationDataAttributes } from "@jahia/formidable-library";
-import { HelpText, helpTextId } from "@jahia/formidable-library";
+import { HelpText, helpTextId, OptionsSourceError } from "@jahia/formidable-library";
 import { resolveFieldOptions } from "@jahia/formidable-library/server";
-import OptionsSourceError from "~/design/OptionsSourceError";
 import "./card.css";
 
 interface CardProps extends BaseValidationMessageProps {
@@ -32,11 +32,18 @@ jahiaComponent(
     }: CardProps,
     { currentNode, renderContext },
   ) => {
+    const { t } = useTranslation("formidable-extended-inputs", { keyPrefix: "fmdbext_choiceField" });
     const inputName = currentNode.getName();
     const nodeId = currentNode.getIdentifier();
     const { choices, sourceError } = resolveFieldOptions(currentNode, rawChoices, renderContext);
     if (sourceError) {
-      return <OptionsSourceError label={label} required={required} />;
+      return (
+        <OptionsSourceError
+          label={label}
+          required={required}
+          message={t(required ? "sourceUnavailableRequired" : "sourceUnavailable")}
+        />
+      );
     }
 
     const vAttrs = validationDataAttributes(validationMsgs);
