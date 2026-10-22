@@ -7,10 +7,12 @@ import org.jahia.services.seo.urlrewrite.UrlRewriteService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.jcr.RepositoryException;
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
+import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Optional;
 
 /**
@@ -31,8 +33,9 @@ public final class PageLinks {
     /** The outbound rewriting, a seam: the production one asks the platform's {@code UrlRewriteService}. */
     @FunctionalInterface
     public interface Rewriter {
-        /** @return the rewritten URL, possibly relative to the servlet context path */
-        String rewrite(String url, HttpServletRequest request, HttpServletResponse response) throws Exception;
+        /** @return the rewritten URL, possibly relative to the servlet context path; it throws what the platform's rewriting throws */
+        String rewrite(String url, HttpServletRequest request, HttpServletResponse response)
+                throws IOException, ServletException, InvocationTargetException;
     }
 
     private PageLinks() {
@@ -67,10 +70,7 @@ public final class PageLinks {
                 log.warn("[PageLinks] The URL of '{}' is neither a path nor an http(s) URL: no redirect.", page.getPath());
             }
             return target;
-        } catch (RepositoryException e) {
-            log.warn("[PageLinks] The URL of a page could not be read: no redirect.", e);
-            return Optional.empty();
-        } catch (Exception e) {
+        } catch (IOException | ServletException | InvocationTargetException | RuntimeException e) {
             log.warn("[PageLinks] The URL of a page could not be rewritten: no redirect.", e);
             return Optional.empty();
         }
@@ -112,7 +112,8 @@ public final class PageLinks {
         }
     }
 
-    private static String platformRewriter(String url, HttpServletRequest request, HttpServletResponse response) throws Exception {
+    private static String platformRewriter(String url, HttpServletRequest request, HttpServletResponse response)
+            throws IOException, ServletException, InvocationTargetException {
         UrlRewriteService service = (UrlRewriteService) SpringContextSingleton.getBean("UrlRewriteService");
         return service == null ? url : service.rewriteOutbound(url, request, response);
     }

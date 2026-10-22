@@ -62,32 +62,14 @@ final class FormsRedirects {
                 .toList();
         List<FormsDisplay> displays = form.uuid() == null ? List.of() : pages.displaysOf(form.uuid());
         Set<Candidate> followed = new HashSet<>();
-        Candidate chosen;
-        if (displays.isEmpty()) {
-            chosen = followed(redirects, null);
-        } else {
-            // a Formidable form redirects the same way on every page: the first display decides, the others are reported
-            chosen = followed(redirects, urlOf(displays.get(0)));
-            for (FormsDisplay display : displays.subList(1, displays.size())) {
-                Candidate other = followed(redirects, urlOf(display));
-                if (other != null && !other.equals(chosen)) {
-                    report.add(ImportNote.action("form.redirectOtherPage", PAGE, display.page(), TARGET, targetOf(other, buildingLang)));
-                    followed.add(other);
-                }
-            }
-        }
+        Candidate chosen = chosen(redirects, displays, buildingLang, followed, report);
         if (chosen == null) {
             return Optional.empty();
         }
         followed.add(chosen);
-        for (FormsAction redirect : redirects) {
-            Candidate candidate = new Candidate(redirect, null);
-            if (!followed.contains(candidate)) {
-                report.add(ImportNote.info("form.redirectIgnored", TARGET, targetOf(candidate, buildingLang)));
-            }
-        }
+        reportIgnored(redirects, followed, buildingLang, report);
         if (chosen.displayUrl() != null) {
-            return urlAction(spread(chosen.displayUrl(), languages), languages, report, displays.get(0).page());
+            return urlAction(spread(chosen.displayUrl(), languages), report, displays.get(0).page());
         }
         FormsOption target = chosen.action().option(FormsOptionNames.REDIRECT_TO);
         if (target == null || target.isBlank()) {
@@ -96,7 +78,39 @@ final class FormsRedirects {
         }
         return chosen.isPage()
                 ? pageAction(target, buildingLang, pages, report)
-                : urlAction(byLanguage(target, languages), languages, report, null);
+                : urlAction(byLanguage(target, languages), report, null);
+    }
+
+    /**
+     * The redirect the form keeps: the one Forms followed from its first display, or with no display. A Formidable form
+     * redirects the same way on every page, so a display that led elsewhere is reported, its redirect added to
+     * {@code followed}.
+     */
+    private static Candidate chosen(List<FormsAction> redirects, List<FormsDisplay> displays, String buildingLang,
+                                    Set<Candidate> followed, List<ImportNote> report) {
+        if (displays.isEmpty()) {
+            return followed(redirects, null);
+        }
+        Candidate chosen = followed(redirects, urlOf(displays.get(0)));
+        for (FormsDisplay display : displays.subList(1, displays.size())) {
+            Candidate other = followed(redirects, urlOf(display));
+            if (other != null && !other.equals(chosen)) {
+                report.add(ImportNote.action("form.redirectOtherPage", PAGE, display.page(), TARGET, targetOf(other, buildingLang)));
+                followed.add(other);
+            }
+        }
+        return chosen;
+    }
+
+    /** The redirect actions Forms never followed, reported. */
+    private static void reportIgnored(List<FormsAction> redirects, Set<Candidate> followed, String buildingLang,
+                                      List<ImportNote> report) {
+        for (FormsAction redirect : redirects) {
+            Candidate candidate = new Candidate(redirect, null);
+            if (!followed.contains(candidate)) {
+                report.add(ImportNote.info("form.redirectIgnored", TARGET, targetOf(candidate, buildingLang)));
+            }
+        }
     }
 
     /** The redirect Forms followed after a submission from a display with that URL, or with none; null when none. */
@@ -169,8 +183,7 @@ final class FormsRedirects {
      *
      * @param display the page of the display the URL comes from, null for the URL of an action
      */
-    private static Optional<ImportedAction> urlAction(Map<String, String> stored, Collection<String> languages,
-                                                      List<ImportNote> report, String display) {
+    private static Optional<ImportedAction> urlAction(Map<String, String> stored, List<ImportNote> report, String display) {
         Map<String, String> urls = new LinkedHashMap<>();
         Set<String> refused = new HashSet<>();
         Set<String> completed = new HashSet<>();

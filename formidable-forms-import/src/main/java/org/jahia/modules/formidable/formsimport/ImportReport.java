@@ -23,6 +23,9 @@ import java.util.Set;
  */
 public final class ImportReport {
 
+    /** The key of a list of notes, on a field, on a form and on the run. */
+    private static final String NOTES = "notes";
+
     /**
      * What receives the results of a source form: a form created for them, a form or an entry found from an
      * earlier run, an entry alone, without a form, an existing form they attach to, or nothing: the form left
@@ -119,7 +122,7 @@ public final class ImportReport {
          */
         public FormEntry field(String name, String nodeType, Map<String, String> titles, List<ImportNote> report) {
             fields.add(new JSONObject().put("name", name).put("type", nodeType).put("titles", new JSONObject(titles))
-                    .put("notes", notesJson(report)));
+                    .put(NOTES, notesJson(report)));
             return this;
         }
 
@@ -218,7 +221,7 @@ public final class ImportReport {
                     .put("targetPath", targetPath)
                     .put("outcome", outcome == null ? JSONObject.NULL : outcome.json)
                     .put("fields", reported)
-                    .put("notes", notesJson(notes))
+                    .put(NOTES, notesJson(notes))
                     .put("submissions", new JSONObject()
                             .put("found", submissionsFound)
                             .put("imported", submissionsImported)
@@ -303,7 +306,7 @@ public final class ImportReport {
                 .put("dryRun", dryRun)
                 .put("stopped", stopped == null ? JSONObject.NULL : stopped)
                 .put("importedFormsFolder", importedFormsFolder == null ? JSONObject.NULL : importedFormsFolder)
-                .put("notes", FormEntry.notesJson(notes))
+                .put(NOTES, FormEntry.notesJson(notes))
                 .put("forms", entries)
                 .put("totals", new JSONObject()
                         .put("forms", forms.size())
