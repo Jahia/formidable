@@ -115,6 +115,8 @@ The public API — custom actions, the submission response, the names of the con
 - `FormResultsStore.java` — the results of a site as the engine keeps them (root, an entry's own ACL, day split, submission names, readers synced from the form), for a module that writes results of its own: the Forms import, to become a module
 - `CaptchaSetup.java` — whether the captcha widget and its verification are both configured
 - `ChoiceOptionsSources.java` — whether the configuration declares an options source under a key
+- `ContextualFormAction.java` + `FormActionContext.java` + `FormActionResult.java` — a `FormAction` that gets the response, the locale and site, and may return a redirect (a path of this server, or an http(s) URL read from the configuration) or a message for the browser
+- `RedirectTargets.java` — the two rules of a redirect target: a path of this server, or an absolute http(s) URL read from the configuration
 - `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission
 - `FmdbNodeType.java` — the primary types the engine's CND declares (logic storage, built-in actions, submission storage)
 - `FmdbMixin.java` — every mixin it declares, the extension surface a third-party type opts into

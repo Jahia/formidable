@@ -21,6 +21,8 @@ const MAINTENANCE_ERROR_CODE = 'FMDB-014';
 // under the field like one — the contributor's message anchored there, the focus moved, no global
 // error box, no code on screen. The pre-check is a courtesy; this is the authority saying the same.
 const FIELD_ACTION_REFUSED_CODE = 'FMDB-015';
+/** How long a redirect may leave the page in place before the page ends as a submission without redirect. */
+const REDIRECT_FALLBACK_MS = 3000;
 /** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
 export const SUBMITTED_EVENT = 'formidable:submitted';
 
@@ -46,6 +48,46 @@ async function completeFeedbackPause(spinnerShownAt: number): Promise<void> {
 	if (pause > 0) {
 		await new Promise(resolve => setTimeout(resolve, pause));
 	}
+}
+
+/**
+ * What no redirect target may hold: a backslash, a control character, any space or line separator, an invisible format
+ * character such as U+FEFF. The server refuses the same set (`RedirectTargets`), so the two checks agree.
+ */
+const FORBIDDEN_IN_TARGET = /[\\\p{Cc}\p{Z}\p{Cf}]/u;
+
+/**
+ * A path of this server: one leading slash, no scheme, no host, no forbidden character. The check is the origin, not
+ * the site: a path of another site served by this server passes.
+ */
+export function isSameOriginPath(target: unknown): target is string {
+	if (typeof target !== 'string' || target.length === 0 || target.length > 2048 || !target.startsWith('/')) return false;
+	if (target.startsWith('//') || target.startsWith('/\\')) return false;
+	return !FORBIDDEN_IN_TARGET.test(target);
+}
+
+/**
+ * An absolute `http` or `https` URL with a host and no user info (`https://user@host` reads as another host to a
+ * visitor), no forbidden character, at most 2048 characters. The server sends one only for a URL read from the
+ * configuration.
+ */
+export function isHttpUrl(target: unknown): target is string {
+	if (typeof target !== 'string' || target.length > 2048 || !/^https?:\/\//i.test(target) || FORBIDDEN_IN_TARGET.test(target)) return false;
+	try {
+		const url = new URL(target);
+		return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname !== '' && url.username === '' && url.password === '';
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Where the browser may be sent: a path of this server or an absolute http(s) URL. The server validated the target;
+ * this second check keeps a body tampered with on the way, or written by a module of the page, from sending the
+ * visitor to a `javascript:` or any other target.
+ */
+function isRedirectTarget(target: unknown): target is string {
+	return isSameOriginPath(target) || isHttpUrl(target);
 }
 
 /** The server's JSON answer, or null for a body that is not JSON: the event never fails on it. */
@@ -220,6 +262,8 @@ export function useFormSubmission({
 
 	const send = async (form: HTMLFormElement, spinnerShownAt: number) => {
 		let rejection: Rejection = {messages: []};
+		// The browser is leaving for a redirect: the spinner stays on screen until the next page replaces this one
+		let leaving = false;
 		// A message of an earlier attempt goes as the next one leaves: a refusal anchored under a field
 		// must not read next to a stale "An error occurred" above the form.
 		setMessage(null);
@@ -255,20 +299,58 @@ export function useFormSubmission({
 				detail: {formId, response: parseJsonBody(response.responseText)},
 			}));
 
+			// An action's own sentence (already escaped by the server) replaces the form's message: "check your mailbox"
+			const accepted = parseJsonBody(response.responseText) as {redirect?: unknown; userMessage?: unknown} | null;
+			const actionMessage = typeof accepted?.userMessage === 'string' && accepted.userMessage.trim() ? accepted.userMessage : undefined;
+			const showSuccess = () => {
+				setMessage(actionMessage || interpolatedSubmissionMessage || 'Form submitted successfully!');
+				setMessageType('success');
+				// called off the prototype: a control named "reset" shadows the method, and this runs after the
+				// 200 and after every action, so throwing here would tell the visitor the submission failed
+				HTMLFormElement.prototype.reset.call(form);
+				if (isMultiStep) setCurrentStep(0);
+			};
+
+			// A redirect replaces the success message: the spinner stays until the next page shows
+			if (isRedirectTarget(accepted?.redirect)) {
+				leaving = true;
+				leaveFor(accepted.redirect, showSuccess);
+				return;
+			}
+
 			// The spinner has been visible since before the request: only the rest of the floor is waited for
 			await completeFeedbackPause(spinnerShownAt);
-
-			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
-			setMessageType('success');
-			// called off the prototype: a control named "reset" shadows the method, and this runs after the
-			// 200 and after every action, so throwing here would tell the visitor the submission failed
-			HTMLFormElement.prototype.reset.call(form);
-			if (isMultiStep) setCurrentStep(0);
+			showSuccess();
 		} catch (error) {
 			showRejection(form, rejection, error);
 		} finally {
-			setIsLoading(false);
+			if (!leaving) setIsLoading(false);
 		}
+	};
+
+	/**
+	 * Sends the visitor where an action asked, the spinner left on. Done in a task of its own so that what the
+	 * listeners of the submitted event queued runs first; `assign`, not `replace`, so the form page stays reachable
+	 * with the Back button. The page then ends as a submission without redirect does, success message shown and
+	 * spinner off, in two cases: the browser restores it from its back-forward cache, or the navigation leaves it in
+	 * place after REDIRECT_FALLBACK_MS (a target that answers with a download, a target that only changes the
+	 * fragment). A page that unloads never runs the fallback.
+	 */
+	const leaveFor = (target: string, showSuccess: () => void) => {
+		let ended = false;
+		const end = () => {
+			if (ended) return;
+			ended = true;
+			showSuccess();
+			setIsLoading(false);
+		};
+		globalThis.addEventListener('pageshow', (event: PageTransitionEvent) => {
+			if (event.persisted) end();
+		}, {once: true});
+		setTimeout(() => {
+			globalThis.location.assign(target);
+			setTimeout(end, REDIRECT_FALLBACK_MS);
+		}, 0);
 	};
 
 	/** What the visitor sees of a rejection — or of a request that never got an answer. */

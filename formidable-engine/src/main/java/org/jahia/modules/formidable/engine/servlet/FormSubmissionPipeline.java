@@ -2,13 +2,16 @@ package org.jahia.modules.formidable.engine.servlet;
 
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
+import org.jahia.modules.formidable.engine.api.ContextualFormAction;
 import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FormAction;
+import org.jahia.modules.formidable.engine.api.FormActionContext;
+import org.jahia.modules.formidable.engine.api.FormActionResult;
+import org.jahia.modules.formidable.engine.api.RedirectTargets;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionMessage;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionDispatcher;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
-import org.jahia.modules.formidable.engine.servlet.FormDataParser;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeName;
@@ -64,7 +67,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  *   10. validateLogicCoherence   — reject values for fields provably hidden by conditional logic
  *   11. validateRequired         — post-parse check for required fields (catches absent fields)
  *   11b. runFieldActions         — the blocking field actions run again server-side (FMDB-015 with messages)
- *   12. dispatchActions          — execute fmdb:actionList nodes in order
+ *   12. dispatchActions          — execute fmdb:actionList nodes in order; a ContextualFormAction may answer the browser
+ *                                  (redirect, message)
  */
 class FormSubmissionPipeline {
 
@@ -145,6 +149,8 @@ class FormSubmissionPipeline {
     private ConditionalLogicEvaluator logicEvaluator;
     private List<ResolvedAction> resolvedActions;
     private HttpServletResponse response;
+    /** What the contextual actions told the browser, first redirect and first message winning; empty until dispatched. */
+    private FormActionResult browserInstruction = FormActionResult.none();
 
     FormSubmissionPipeline(Themes themes, List<FormAction> formActions,
                            FormidableOptionsSourceService optionsSourceService,
@@ -207,6 +213,14 @@ class FormSubmissionPipeline {
         validateRequired();
         runFieldActions();
         dispatchActions(req);
+    }
+
+    /**
+     * What the contextual actions asked the browser to do, for the servlet to put in the body once {@link #run}
+     * returned: the first redirect and the first message, in action-list order. Never {@code null}.
+     */
+    FormActionResult browserInstruction() {
+        return browserInstruction;
     }
 
     /**
@@ -616,6 +630,7 @@ class FormSubmissionPipeline {
         List<SubmittedFile> submittedFiles = toSubmittedFiles(parsed.files());
         int total = actions.size();
         int executed = 0;
+        String siteKey = siteKeyOrNull();
 
         for (ResolvedAction action : actions) {
             String nodeType = action.nodeType();
@@ -633,16 +648,10 @@ class FormSubmissionPipeline {
                 );
             }
             try {
-                jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
-                    JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
-                    try {
-                        handler.execute(actionNode, req, session, parsed.parameters(), submittedFiles);
-                    } catch (FormActionException e) {
-                        throw new WrappedFormActionException(e);
-                    }
-                    return null;
-                });
+                FormActionResult result = jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale,
+                        systemSession -> executeAction(handler, action.id(), systemSession, req, siteKey, submittedFiles));
                 executed++;
+                keepFirstInstruction(result, nodeType);
             } catch (WrappedFormActionException e) {
                 FormActionException cause = e.getFormActionException();
                 throw actionFailure(nodeType, executed, total, cause);
@@ -655,6 +664,75 @@ class FormSubmissionPipeline {
                 throw actionFailure(nodeType, executed, total, e);
             }
         }
+    }
+
+    /**
+     * Runs one action in the system session of the call: a contextual action is handed its context and answers a
+     * result, a plain action receives its five arguments and answers nothing.
+     */
+    private FormActionResult executeAction(FormAction handler, String actionId, JCRSessionWrapper systemSession,
+                                           HttpServletRequest req, String siteKey, List<SubmittedFile> files)
+            throws RepositoryException {
+        JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(actionId);
+        try {
+            if (handler instanceof ContextualFormAction contextual) {
+                return contextual.execute(contextFor(actionNode, systemSession, req, siteKey, files));
+            }
+            handler.execute(actionNode, req, session, parsed.parameters(), files);
+            return FormActionResult.none();
+        } catch (FormActionException e) {
+            throw new WrappedFormActionException(e);
+        }
+    }
+
+    /** The key of the form's site, or {@code null} when the form cannot say (the context then carries an empty key). */
+    private String siteKeyOrNull() {
+        try {
+            return formNode.getResolveSite().getSiteKey();
+        } catch (RepositoryException | RuntimeException e) {
+            log.warn("[FormSubmissionPipeline] The site of the submitted form could not be resolved", e);
+            return null;
+        }
+    }
+
+    private FormActionContext contextFor(JCRNodeWrapper actionNode, JCRSessionWrapper systemSession,
+                                         HttpServletRequest req, String siteKey, List<SubmittedFile> files)
+            throws RepositoryException {
+        // no field type is sensitive yet: the map of sensitive values is empty for every action
+        return new FormActionContext(actionNode, systemSession.getNodeByIdentifier(formId), req, response, session,
+                locale, siteKey == null ? "" : siteKey, parsed.parameters(), Map.of(), files);
+    }
+
+    /**
+     * Keeps what a contextual action told the browser: the first redirect, of either kind, and the first message win,
+     * in list order. Each kind of redirect is held to its own rule, and a target the rule refuses is dropped with a
+     * warning, never sent: a path must be a path of this server ({@link RedirectTargets#sameOriginPath}), whatever an
+     * action computed, and a URL an absolute http(s) URL ({@link RedirectTargets#httpUrl}).
+     */
+    private void keepFirstInstruction(FormActionResult result, String nodeType) {
+        if (result == null || result.isEmpty()) {
+            return;
+        }
+        String path = browserInstruction.redirectPath();
+        String url = browserInstruction.redirectUrl();
+        if (path == null && url == null) {
+            if (result.redirectPath() != null) {
+                path = RedirectTargets.sameOriginPath(result.redirectPath()).orElse(null);
+                if (path == null) {
+                    log.warn("[FormSubmissionPipeline] Action '{}' asked for a redirect that is not a same-origin path: dropped.", nodeType);
+                }
+            } else if (result.redirectUrl() != null) {
+                url = RedirectTargets.httpUrl(result.redirectUrl()).orElse(null);
+                if (url == null) {
+                    log.warn("[FormSubmissionPipeline] Action '{}' asked for a redirect to a URL that is not an absolute http(s) URL: dropped.", nodeType);
+                }
+            }
+        }
+        String message = browserInstruction.message();
+        if (message == null && result.message() != null && !result.message().isBlank()) {
+            message = result.message();
+        }
+        browserInstruction = new FormActionResult(path, url, message);
     }
 
     /**

@@ -293,3 +293,101 @@ describe('useFormSubmission: a rejection that names a field', () => {
 		await done;
 	});
 });
+
+describe('useFormSubmission: what an action answers', () => {
+	const assign = vi.fn();
+	/** The success message is held back by the feedback floor, and a redirect leaves in a task of its own: fake timers move both. */
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.stubGlobal('XMLHttpRequest', FakeXhr);
+		vi.stubGlobal('location', {assign, href: 'https://www.example.com/fr/connexion'});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		requests.length = 0;
+		assign.mockClear();
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+		document.body.replaceChildren();
+	});
+
+	const accepted = async (body: string) => {
+		const result = submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, body);
+		await vi.advanceTimersByTimeAsync(600);
+		return result;
+	};
+
+	it('navigates to the redirect instead of showing the success message, the spinner left on', async () => {
+		const {successShown, setMessage, setIsLoading} = await accepted('{"success":true,"redirect":"/sites/mysite/account.html","userMessage":"Welcome."}');
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/sites/mysite/account.html');
+		expect(successShown()).toBe(false);
+		// the action's own sentence beside a redirect is not shown either
+		expect(setMessage).not.toHaveBeenCalledWith('Welcome.');
+		expect(setIsLoading).toHaveBeenLastCalledWith(true);
+	});
+
+	it('navigates in a task of its own, without waiting for the feedback pause', async () => {
+		const result = submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/home.html"}');
+		await vi.advanceTimersByTimeAsync(1);
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
+		expect(result.successShown()).toBe(false);
+	});
+
+	it('shows the success outcome when the redirect leaves the page in place, a download or a fragment change', async () => {
+		const {successShown, setIsLoading} = await accepted('{"success":true,"redirect":"/files/brochure.zip"}');
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/files/brochure.zip');
+		expect(successShown()).toBe(false);
+
+		await vi.advanceTimersByTimeAsync(3000);
+
+		expect(successShown()).toBe(true);
+		expect(setIsLoading).toHaveBeenLastCalledWith(false);
+	});
+
+	it('shows the success outcome when the browser brings the page back from its back-forward cache', async () => {
+		const {successShown, setIsLoading} = await accepted('{"success":true,"redirect":"/home.html"}');
+		const restored = new Event('pageshow');
+		Object.defineProperty(restored, 'persisted', {value: true});
+
+		globalThis.dispatchEvent(restored);
+
+		expect(successShown()).toBe(true);
+		expect(setIsLoading).toHaveBeenLastCalledWith(false);
+	});
+
+	it('navigates to an absolute https URL, the second kind of redirect', async () => {
+		await accepted('{"success":true,"redirect":"https://www.example.com/merci"}');
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('https://www.example.com/merci');
+	});
+
+	it('refuses a redirect that is neither a path of this server nor an absolute http(s) URL, whatever the body says', async () => {
+		for (const hostile of ['//evil.example', String.raw`/\\evil.example`, 'javascript:alert(1)', 'https://user@evil.example/', 'home.html', '/a b', '/a\uFEFFb', '']) {
+			await accepted(JSON.stringify({success: true, redirect: hostile}));
+		}
+		await accepted('{"success":true,"redirect":42}');
+
+		expect(assign).not.toHaveBeenCalled();
+	});
+
+	it('shows the action\'s own sentence instead of the form\'s submission message', async () => {
+		const {setMessage} = await accepted('{"success":true,"userMessage":"Check your mailbox to activate your account."}');
+
+		expect(setMessage).toHaveBeenLastCalledWith('Check your mailbox to activate your account.');
+	});
+
+	it('keeps the form\'s message when the action said nothing', async () => {
+		const {setMessage} = await accepted('{"success":true}');
+
+		expect(setMessage).toHaveBeenLastCalledWith('Form submitted successfully!');
+		expect(assign).not.toHaveBeenCalled();
+	});
+});
