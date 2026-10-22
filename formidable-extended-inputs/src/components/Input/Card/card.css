@@ -1,0 +1,52 @@
+/* Class hooks and variables are a documented contract: docs/styling/ (class-hooks.md, css-variables.md). */
+/* Card field — a radio group whose labels are drawn as cards. Every rule but the hidden radio sits in :where(),
+   at zero specificity, so any rule of a template set wins; the colours default to the primary button's. */
+:where(.fmdbext-card-items) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--fmdbext-card-min-width, 10rem), 1fr));
+  gap: var(--fmdbext-card-gap, 0.75rem);
+}
+
+:where(.fmdbext-card-item) {
+  display: flex;
+}
+
+/* The radio stays in the page for the keyboard, the validation and the submission; the label draws it */
+.fmdbext-card-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+}
+
+:where(.fmdbext-card-label) {
+  flex: 1;
+  padding: var(--fmdbext-card-padding, 1rem);
+  cursor: pointer;
+  border: 1px solid var(--fmdbext-card-border, var(--fmdb-btn-secondary-border, #d1d5db));
+  border-radius: var(--fmdbext-card-radius, var(--fmdb-btn-radius, 0.375rem));
+  background: var(--fmdbext-card-bg, transparent);
+  color: var(--fmdbext-card-color, inherit);
+}
+
+:where(.fmdbext-card-label:hover) {
+  border-color: var(--fmdbext-card-selected-color, var(--fmdb-btn-primary-bg, #2563eb));
+}
+
+/* The selected card doubles its border with an inset shadow: no change of size, so the grid does not move */
+:where(.fmdbext-card-input:checked + .fmdbext-card-label) {
+  border-color: var(--fmdbext-card-selected-color, var(--fmdb-btn-primary-bg, #2563eb));
+  box-shadow: inset 0 0 0 1px var(--fmdbext-card-selected-color, var(--fmdb-btn-primary-bg, #2563eb));
+  background: var(--fmdbext-card-selected-bg, transparent);
+}
+
+:where(.fmdbext-card-input:focus-visible + .fmdbext-card-label) {
+  outline: 2px solid var(--fmdbext-card-focus-color, var(--fmdb-btn-focus-outline-color, #2563eb));
+  outline-offset: 2px;
+}
+
+:where(.fmdbext-card-input.fmdb-invalid + .fmdbext-card-label) {
+  border-color: var(--fmdb-invalid-border-color, #dc2626);
+}

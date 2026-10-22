@@ -91,6 +91,8 @@ The key point is this:
 
 - your custom container view can control layout
 - but child rendering should still go through `hidden.logic`
+- and a fieldset view renders the fieldset's own help text itself, under the legend, with
+  `aria-describedby` on the fieldset: the **Group help** a contributor fills is shown by no one else
 
 Example:
 
@@ -101,10 +103,12 @@ import {
   jahiaComponent,
   Render,
 } from "@jahia/javascript-modules-library";
+import { HelpText, helpTextId } from "@jahia/formidable-library";
 import classes from "./twoColumns.module.css";
 
 interface FieldsetProps {
   "jcr:title"?: string;
+  helpText?: string;
 }
 
 jahiaComponent(
@@ -114,18 +118,21 @@ jahiaComponent(
     name: "twoColumns",
     displayName: "Fieldset - Two columns",
   },
-  ({ "jcr:title": title }: FieldsetProps, { currentNode, currentResource }) => {
+  ({ "jcr:title": title, helpText }: FieldsetProps, { currentNode, currentResource }) => {
     // Forward showLogicHidden: jContent's inspection previews pass it down so
     // logic-hidden fields stay visible there — a container that drops it makes
     // its children's conditional fields invisible in the preview drawer.
     const showLogicHidden =
       currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
+    // The help of the fieldset: rendered by the view, read with the group through aria-describedby.
+    const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
 
     return (
       <>
         <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
-        <fieldset>
+        <fieldset aria-describedby={helpId}>
           {title && <legend>{title}</legend>}
+          <HelpText id={helpId} text={helpText} />
 
           <Render
             node={currentNode}
@@ -146,7 +153,7 @@ jahiaComponent(
 
 What this does:
 
-- your view owns the wrapper markup and layout
+- your view owns the wrapper markup and layout, the legend and the help text of the fieldset included
 - `hidden.logic` still owns the rendering contract for child nodes
 - the `showLogicHidden` forwarding keeps your children inspectable in jContent's
   preview drawer (the parameter only travels if every container on the way relays it)
@@ -547,7 +554,11 @@ Semantics to know:
   declared by `fmdbmix:manualOptions` (same JSON-encoded `{value, label}` entries
   as the built-in select/radio/checkbox); apply that mixin to your field nodes —
   there is no registration API for a custom choice property (the editor's source
-  descriptors are a fixed map inside the engine's admin bundle).
+  descriptors are a fixed map inside the engine's admin bundle). Render the options
+  with `resolveFieldOptions` from `@jahia/formidable-library/server`, and
+  `OptionsSourceError` when it reports a source error, as `fmdbext:card` does: the
+  manual options then follow the default language the server validates against, and
+  every options mode works in your field.
 - **text**: emptiness is whitespace-blankness on both evaluators (a value of
   spaces counts as empty); `equals` is an exact match on the raw submitted
   value and `contains` a substring match, both case-sensitive, and both require

@@ -130,6 +130,8 @@
 					"createdAsNearest": "Créé comme champ {{type}}, le plus proche : Formidable n’a pas de champ {{kind}}",
 					"createdAsText": "Créé comme champ texte : Formidable n’a pas d’équivalent de {{source}}",
 					"logic": "Sa logique conditionnelle n’est pas reprise : reconstruisez-la",
+					"matrixAnyRow": "Sa règle « au moins une ligne répondue » n’est pas reprise : Formidable n’a pas cette règle, aucune ligne n’est obligatoire",
+					"matrixRow": "Une ligne de la {{kind}}, dans un groupe de champs présenté en matrice : les colonnes sont ses options",
 					"prefillOther": "Son préremplissage ({{prefill}}) n’est pas repris : liez plutôt le champ au profil visiteur",
 					"prefillAlreadyMapped": "Son second préremplissage, depuis {{property}}, n’est pas repris : un champ n’a qu’un lien au profil visiteur",
 					"prefillNoIntegration": "Non lié à la propriété {{property}} du profil visiteur : l’intégration jExperience n’est pas installée",
@@ -147,6 +149,7 @@
 					"profileUnchecked": "Lié à la propriété {{property}} du profil visiteur, sans vérification : jCustomer était injoignable. Vérifiez que la propriété existe"
 				},
 				"form": {
+					"fieldsetAroundMatrix": "Le groupe de champs {{fieldset}} ne contenait que la matrice {{matrix}} : la matrice est devenue le groupe, intitulé {{matrix}}, et le titre {{fieldset}} n’est pas repris",
 					"fromLabels": "Reconstruit à partir des libellés de ses résultats : Jahia Forms ne contient plus le formulaire",
 					"submitterMail": "Le mail à l’auteur de la soumission est devenu une notification sans destinataire : complétez-la ou supprimez-la",
 					"redirect": "La redirection de page (vers {{target}} sur le site source) n’est pas reprise : Formidable n’a pas encore de redirection",
@@ -165,6 +168,7 @@
 				},
 				"submission": {
 					"keptUnderSourceName": "{{field}} : gardé sous son nom Forms {{name}}, le formulaire n’a pas de champ pour lui",
+					"matrixRowsWithoutField": "{{field}} : {{rows}} — lignes sans champ dans le formulaire, gardées en texte sous son nom Forms",
 					"passwordDropped": "{{field}} : un mot de passe, non importé",
 					"notConverted": "{{field}} : {{count}} valeur(s) gardée(s) telles quelles, elles n’ont pas pu être converties",
 					"consentUnknown": "{{field}} : {{count}} valeur(s) gardée(s) telles quelles, ni le texte accepté ni le texte refusé",

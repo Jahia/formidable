@@ -48,7 +48,7 @@ for (const [subpath, conditions] of Object.entries(manifest.exports ?? {})) {
 writeFileSync(join(scratch, "package.json"), JSON.stringify({name: "smoke", private: true, type: "module"}));
 const probe = join(scratch, "probe.mjs");
 writeFileSync(probe, `
-import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask} from "${name}";
+import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask, parseChoices, OptionsSourceError} from "${name}";
 
 const checks = {
 	helpTextId: helpTextId("n1") === "help-n1",
@@ -56,7 +56,9 @@ const checks = {
 	validationDataAttributes: validationDataAttributes({msgValueMissing: "x"})["data-fmdb-msg-value-missing"] === "x",
 	maskToPattern: maskToPattern("AA-9999") === "^[A-Za-z][A-Za-z]-[0-9][0-9][0-9][0-9]$",
 	applyMask: applyMask("ab1234", "AA-9999") === "AB-1234",
-	useMask: typeof useMask === "function"
+	useMask: typeof useMask === "function",
+	parseChoices: parseChoices(['{"value":"s","label":"Small","selected":true}'])[0].selected === true,
+	OptionsSourceError: typeof OptionsSourceError === "function"
 };
 const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
 if (failed.length > 0) {
@@ -71,8 +73,8 @@ execFileSync(process.execPath, [probe], {stdio: "inherit"});
 // `.d.ts` behind a re-export is an error here, not something the first user of the package finds.
 const typeProbe = join(scratch, "probe.ts");
 writeFileSync(typeProbe, `
-import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask} from "${name}";
-import type {HelpTextProps, TextValidationMessageProps, UseMaskOptions} from "${name}";
+import {HelpText, helpTextId, validationDataAttributes, maskToPattern, applyMask, useMask, parseChoices, OptionsSourceError} from "${name}";
+import type {HelpTextProps, TextValidationMessageProps, UseMaskOptions, ParsedChoice, OptionsSourceErrorProps} from "${name}";
 
 const props: HelpTextProps = {id: helpTextId("n1"), text: "help", decorative: false};
 const messages: TextValidationMessageProps = {msgValueMissing: "required"};
@@ -80,10 +82,28 @@ const options: UseMaskOptions = {mask: "AA-9999"};
 const pattern: string | undefined = maskToPattern(options.mask);
 const formatted: string = applyMask("ab1234", "AA-9999");
 const attributes: Record<string, string | undefined> = validationDataAttributes(messages);
-export const probe = {HelpText, useMask, props, pattern, formatted, attributes};
+const choices: ParsedChoice[] = parseChoices(['{"value":"s","label":"Small"}']);
+const errorProps: OptionsSourceErrorProps = {label: "Country", required: true, message: "Unavailable"};
+export const probe = {HelpText, useMask, props, pattern, formatted, attributes, choices, OptionsSourceError, errorProps};
 `);
 const tsc = createRequire(import.meta.url).resolve("typescript/bin/tsc");
 execFileSync(process.execPath, [tsc, "--noEmit", "--strict", "--skipLibCheck", "false", "--module", "nodenext", "--moduleResolution", "nodenext", "--target", "es2022", "--jsx", "react-jsx", typeProbe], {stdio: "inherit"});
 console.log("smoke: the declarations of the packed tarball type-check for a nodenext consumer");
+
+// The server entry, type-checked only: it runs on the GraalVM bridge, which Node has not. It is
+// checked as a Jahia JavaScript module builds: bundler resolution and skipLibCheck. The declarations
+// of @jahia/javascript-modules-library, which the entry imports, hold under neither nodenext nor a
+// full library check (extensionless re-exports, files that are not modules), so the probe checks
+// a consumer's call against the entry's signature, and the build of this package checks its body.
+const serverProbe = join(scratch, "server-probe.ts");
+writeFileSync(serverProbe, `
+import {resolveFieldOptions} from "${name}/server";
+import type {ChoiceFieldNode, FieldOptions} from "${name}/server";
+
+const resolve: (node: ChoiceFieldNode, options: string[], renderContext: Parameters<typeof resolveFieldOptions>[2]) => FieldOptions = resolveFieldOptions;
+export const probe = {resolve};
+`);
+execFileSync(process.execPath, [tsc, "--noEmit", "--strict", "--skipLibCheck", "--module", "esnext", "--moduleResolution", "bundler", "--target", "es2022", "--jsx", "react-jsx", serverProbe], {stdio: "inherit"});
+console.log("smoke: the server entry of the packed tarball type-checks for a bundler consumer");
 
 rmSync(scratch, {recursive: true, force: true});

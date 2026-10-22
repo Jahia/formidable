@@ -15,5 +15,9 @@
   "fmdbext_consent": {
     "defaultTermsLinkLabel": "Read the full terms",
     "termsTargetUnresolved": "Consent: the linked terms target cannot be resolved (unpublished or not visible to visitors); the link will not be shown."
+  },
+  "fmdbext_choiceField": {
+    "sourceUnavailable": "The options of this field are currently unavailable.",
+    "sourceUnavailableRequired": "The options of this required field are currently unavailable. The form cannot be submitted, please try again later."
   }
 }

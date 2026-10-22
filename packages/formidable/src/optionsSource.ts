@@ -1,7 +1,22 @@
 import {server} from "@jahia/javascript-modules-library";
-import type {JCRNodeWrapper} from "org.jahia.services.content";
-import type {RenderContext} from "org.jahia.services.render";
-import {parseChoices, type ParsedChoice} from "./choiceUtils";
+import {parseChoices, type ParsedChoice} from "./choices.js";
+
+// The Java types are named by what this code uses of them. @jahia/javascript-modules-library declares
+// them in files its index re-exports without an extension, which a nodenext build (this package's, and
+// a consumer's) cannot follow: a JCRNodeWrapper satisfies this shape, and the render context keeps the
+// type the render helper declares wherever that declaration loads.
+
+/** The members of the field's JCRNodeWrapper the resolution reads. */
+export interface ChoiceFieldNode {
+	isNodeType(type: string): boolean;
+	hasProperty(name: string): boolean;
+	getProperty(name: string): {getNode(): {getPath(): string}};
+	getResolveSite(): unknown;
+	getLanguage(): string;
+	getPath(): string;
+}
+
+type RenderContext = Parameters<typeof server.render.addCacheDependency>[1];
 
 const OPTIONS_SOURCE_SERVICE = "org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService";
 const MANUAL_OPTIONS_DISPLAY_SERVICE = "org.jahia.modules.formidable.engine.options.ManualOptionsDisplayService";
@@ -42,7 +57,7 @@ const toStringArray = (javaArray: {length: number}): string[] => {
  * fragment depends on the site node: the setting is saved in edit and auto-published,
  * and that live change is what flushes the fragment.
  */
-const alignManualOptions = (currentNode: JCRNodeWrapper, manualOptions: string[], renderContext: RenderContext): string[] => {
+const alignManualOptions = (currentNode: ChoiceFieldNode, manualOptions: string[], renderContext: RenderContext): string[] => {
 	try {
 		const site = currentNode.getResolveSite();
 		if (site) {
@@ -62,7 +77,7 @@ const alignManualOptions = (currentNode: JCRNodeWrapper, manualOptions: string[]
 // The root a category- or content-mode field reads its options under, by mixin.
 const SOURCE_ROOT_PROPERTIES = ["optionsRootCategory", "optionsRootNode"];
 
-const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+export const escapeRegExp = (value: string): string => value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 /**
  * Category and content options are read live under a picked root, so the fragment
@@ -71,7 +86,7 @@ const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\
  * every modified node path against it. An unreadable root is left to the resolution,
  * which reports it as a failing source.
  */
-const declareSourceRootDependency = (currentNode: JCRNodeWrapper, renderContext: RenderContext): void => {
+const declareSourceRootDependency = (currentNode: ChoiceFieldNode, renderContext: RenderContext): void => {
 	for (const property of SOURCE_ROOT_PROPERTIES) {
 		try {
 			if (currentNode.hasProperty(property)) {
@@ -93,7 +108,7 @@ const declareSourceRootDependency = (currentNode: JCRNodeWrapper, renderContext:
  * resolver answers in the manual-options JSON format, so both modes feed the same
  * parsing and rendering path.
  */
-export const resolveFieldOptions = (currentNode: JCRNodeWrapper, manualOptions: string[], renderContext: RenderContext): FieldOptions => {
+export const resolveFieldOptions = (currentNode: ChoiceFieldNode, manualOptions: string[], renderContext: RenderContext): FieldOptions => {
 	try {
 		if (!RESOLVED_OPTIONS_MIXINS.some(mixin => currentNode.isNodeType(mixin))) {
 			return {choices: parseChoices(alignManualOptions(currentNode, manualOptions, renderContext)), sourceError: false};

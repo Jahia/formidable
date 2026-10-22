@@ -4,10 +4,12 @@ import {
   jahiaComponent,
   Render,
 } from "@jahia/javascript-modules-library";
+import { HelpText, helpTextId } from "@jahia/formidable-library";
 import classes from "./twoColumns.module.css";
 
 interface FieldsetProps {
   "jcr:title"?: string;
+  helpText?: string;
 }
 
 jahiaComponent(
@@ -17,12 +19,15 @@ jahiaComponent(
     name: "twoColumns",
     displayName: "Fieldset - Two columns",
   },
-  ({ "jcr:title": title }: FieldsetProps, { currentNode }) => {
+  ({ "jcr:title": title, helpText }: FieldsetProps, { currentNode }) => {
+    // A view of its own still renders the help of the fieldset, under the legend, and points at it
+    const helpId = helpText ? helpTextId(currentNode.getIdentifier()) : undefined;
     return (
       <>
         <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
-        <fieldset>
+        <fieldset aria-describedby={helpId}>
           {title && <legend>{title}</legend>}
+          <HelpText id={helpId} text={helpText} />
 
           <Render
             node={currentNode}

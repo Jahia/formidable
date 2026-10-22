@@ -4,7 +4,9 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,6 +74,18 @@ class FormsValuesTest {
         assertEquals(Optional.of("Price: Good, Fair"), FormsValues.matrix(checkboxes));
         assertTrue(FormsValues.matrix("{\"rendererName\":\"matrixRadios\"}").isEmpty());
         assertTrue(FormsValues.matrix("{\"Price\":\"Good\"}").isEmpty());
+    }
+
+    @Test
+    void theAnswersOfAMatrixAreReadRowByRow() {
+        String radios = "{\"q1\":\"good\",\"q2\":\"poor\",\"rendererName\":\"matrixRadios\"}";
+        assertEquals(Map.of("q1", List.of("good"), "q2", List.of("poor")), FormsValues.matrixRows(radios).orElseThrow());
+        assertEquals(List.of("q1", "q2"), new ArrayList<>(FormsValues.matrixRows(radios).orElseThrow().keySet()));
+        String checkboxes = "{\"rendererName\":\"matrixCheckboxes\",\"r1\":[\"fast\",\"cheap\"]}";
+        assertEquals(Map.of("r1", List.of("fast", "cheap")), FormsValues.matrixRows(checkboxes).orElseThrow());
+        assertTrue(FormsValues.matrixRows("{\"rendererName\":\"matrixRadios\"}").isEmpty());
+        assertTrue(FormsValues.matrixRows("{\"q1\":\"good\"}").isEmpty());
+        assertTrue(FormsValues.matrixRows("q1: good").isEmpty());
     }
 
     @Test

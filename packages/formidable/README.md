@@ -16,7 +16,8 @@ your module builds, not as a silent drift.
 yarn add @jahia/formidable-library
 ```
 
-React 19 is a peer dependency, as in every Jahia JavaScript module. The package follows
+React 19 is a peer dependency, as in every Jahia JavaScript module, and so is
+`@jahia/javascript-modules-library`, which the server entry point calls. The package follows
 Formidable's version numbers: take the version matching the Formidable release your module
 targets.
 
@@ -75,6 +76,37 @@ export default function MaskedInput({ mask, defaultValue, inputAttributes }) {
   return <input {...inputAttributes} ref={inputRef} defaultValue={defaultValue} onInput={handleInput} />;
 }
 ```
+
+### Choice fields
+
+A choice field stores its options in the `options` property of `fmdbmix:manualOptions`, one JSON
+object per option, or reads them from a source: a declared choicelist, categories or contents.
+Three exports render them the way Formidable's radio, checkbox and select do:
+
+- `resolveFieldOptions(currentNode, options, renderContext)`, from the
+  **`@jahia/formidable-library/server`** entry point, returns `{choices, sourceError}`, the options to
+  render in every mode. Manual options come aligned on the site's default language, whose values the
+  submission validation accepts. The function also declares the cache dependencies that keep a
+  rendered field current. It calls the engine on the server, so it has an entry point of its own,
+  which a client island never imports.
+- `parseChoices(options)` reads the stored JSON into `{value, label, selected}` entries.
+- `OptionsSourceError` is what the field renders when `sourceError` is true: the
+  `data-fmdb-source-error` block that keeps the form of a required field from being submitted. The
+  `message` is yours to translate.
+
+```tsx
+import { OptionsSourceError } from "@jahia/formidable-library";
+import { resolveFieldOptions } from "@jahia/formidable-library/server";
+
+const { choices, sourceError } = resolveFieldOptions(currentNode, options, renderContext);
+if (sourceError) {
+  return <OptionsSourceError label={label} required={required} message={t("optionsUnavailable")} />;
+}
+```
+
+The server entry point needs `@jahia/javascript-modules-library`, a peer dependency every Jahia
+JavaScript module already has. `resolveFieldOptions` types the node by the members it reads
+(`ChoiceFieldNode`), which a `JCRNodeWrapper` satisfies.
 
 These, with the help text, validation and mask exports above, are the whole public API: the mask
 tokens and the caret arithmetic the hook is built on stay inside the package.

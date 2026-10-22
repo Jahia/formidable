@@ -1,10 +1,11 @@
 import {getNodeProps, jahiaComponent} from "@jahia/javascript-modules-library";
 import type {CSSProperties} from "react";
-import {resolveFieldOptions} from "~/utils/optionsSource.server";
+import {resolveFieldOptions} from "@jahia/formidable-library/server";
 import FieldsetBody from "./FieldsetBody";
 
 interface FieldsetProps {
 	"jcr:title"?: string;
+	helpText?: string;
 }
 
 type FieldsetNode = Parameters<typeof getNodeProps>[0];
@@ -66,13 +67,13 @@ jahiaComponent(
 		displayName: "Matrix"
 	},
 	(
-		{"jcr:title": title}: FieldsetProps,
+		{"jcr:title": title, helpText}: FieldsetProps,
 		{currentNode, currentResource, renderContext}
 	) => {
 		const showLogicHidden = currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
 		const columns = columnsOf(currentNode, renderContext);
 		if (!columns) {
-			return <FieldsetBody title={title} currentNode={currentNode} showLogicHidden={showLogicHidden}/>;
+			return <FieldsetBody title={title} helpText={helpText} currentNode={currentNode} showLogicHidden={showLogicHidden}/>;
 		}
 
 		// decorative: every input is labelled by its own option label and grouped under its question
@@ -89,6 +90,7 @@ jahiaComponent(
 		return (
 			<FieldsetBody
 				title={title}
+				helpText={helpText}
 				currentNode={currentNode}
 				showLogicHidden={showLogicHidden}
 				className="fmdb-matrix"

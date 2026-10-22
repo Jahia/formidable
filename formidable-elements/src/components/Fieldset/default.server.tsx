@@ -3,6 +3,7 @@ import FieldsetBody from "./FieldsetBody";
 
 interface FieldsetProps {
 	"jcr:title"?: string;
+	helpText?: string;
 }
 
 jahiaComponent(
@@ -12,11 +13,11 @@ jahiaComponent(
 		name: "default"
 	},
 	(
-		{"jcr:title": title}: FieldsetProps,
+		{"jcr:title": title, helpText}: FieldsetProps,
 		{currentNode, currentResource}
 	) => {
 		const showLogicHidden = currentResource.getModuleParams().get("showLogicHidden")?.toString() === "true";
 
-		return <FieldsetBody title={title} currentNode={currentNode} showLogicHidden={showLogicHidden}/>;
+		return <FieldsetBody title={title} helpText={helpText} currentNode={currentNode} showLogicHidden={showLogicHidden}/>;
 	}
 );

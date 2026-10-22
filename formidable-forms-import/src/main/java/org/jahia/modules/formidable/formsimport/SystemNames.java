@@ -43,6 +43,13 @@ public final class SystemNames {
         return reserve(candidate);
     }
 
+    /** Gives a name back when the element it was taken for is finally not written, for the next one to take. */
+    public void release(String name) {
+        if (!RESERVED.contains(name)) {
+            taken.remove(name);
+        }
+    }
+
     /** Registers a name chosen by the caller, so that a generated one never takes it. */
     public String reserve(String name) {
         String free = name;

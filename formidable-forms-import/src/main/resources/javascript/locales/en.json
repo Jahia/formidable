@@ -130,6 +130,8 @@
 					"createdAsNearest": "Created as a {{type}} field, the closest: Formidable has no {{kind}} field",
 					"createdAsText": "Created as a text field: Formidable has no equivalent of {{source}}",
 					"logic": "Its conditional logic is not carried over: rebuild it",
+					"matrixAnyRow": "Its rule \"at least one row answered\" is not carried over: Formidable has no such rule, no row is required",
+					"matrixRow": "One row of the {{kind}}, in a fieldset laid out as a matrix: the columns are its options",
 					"prefillOther": "Its prefill ({{prefill}}) is not carried over: map the field to the visitor profile instead",
 					"prefillAlreadyMapped": "Its second prefill, from {{property}}, is not carried over: the field takes one mapping to the visitor profile",
 					"prefillNoIntegration": "Not mapped to the visitor profile property {{property}}: the jExperience integration is not installed",
@@ -148,6 +150,7 @@
 				},
 				"form": {
 					"fromLabels": "Rebuilt from the labels of its results: Jahia Forms no longer holds the form",
+					"fieldsetAroundMatrix": "The fieldset {{fieldset}} held the matrix {{matrix}} alone: the matrix became the fieldset, titled {{matrix}}, and the title {{fieldset}} is not carried over",
 					"submitterMail": "The mail to the submitter became a notification without recipient: complete or remove it",
 					"redirect": "The page redirect (to {{target}} on the source site) is not carried over: Formidable has no redirect yet",
 					"action": "The action {{action}} is not carried over: Formidable has no equivalent",
@@ -165,6 +168,7 @@
 				},
 				"submission": {
 					"keptUnderSourceName": "{{field}}: kept under its Forms name {{name}}, the form holds no field for it",
+					"matrixRowsWithoutField": "{{field}}: {{rows}} — rows the form holds no field for, kept as lines under its Forms name",
 					"passwordDropped": "{{field}}: a password, not imported",
 					"notConverted": "{{field}}: {{count}} value(s) kept as stored, they could not be converted",
 					"consentUnknown": "{{field}}: {{count}} value(s) kept as stored, neither the accepted nor the refused text",

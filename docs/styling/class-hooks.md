@@ -25,7 +25,7 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 | `fmdb-matrix`, `fmdb-matrix-header`, `fmdb-matrix-corner`, `fmdb-matrix-column` | A fieldset rendered with the **Matrix** view (see [Styling a form](README.md#the-matrix-view-of-a-fieldset)): the fieldset carries the first, with `--fmdb-matrix-columns` set inline to the number of options, and holds a heading row (`aria-hidden`) of one empty corner cell and one cell per option. Its radio and checkbox groups keep their usual hooks; only the stylesheet lays them out as rows |
 | `fmdb-step`, `fmdb-step-title`, `fmdb-step-intro`, `fmdb-steps-nav`, `fmdb-step-indicator`, `fmdb-step-number`, `fmdb-step-label` | Multi-step structure and navigation; an indicator holds its number badge and its label |
 | `fmdb-form-actions`, `fmdb-btn`, `fmdb-btn-primary`, `fmdb-btn-secondary`, `fmdb-btn-danger`, `fmdb-new-form-btn`, `fmdb-next-btn`, `fmdb-prev-btn` | Buttons, including the multi-step navigation pair; a Button field carries the variant the contributor chose (`primary`, `secondary`, `danger`). The modules style these hooks themselves (variables: `--fmdb-btn-*`). The message's button — new form, try again — is **outside** `<form>`, so a stylesheet scoping its buttons under `.fmdb-form` leaves that one raw |
-| `fmdb-form-help` | Help text under a field (present on nearly every field) |
+| `fmdb-form-help` | Help text under a field (present on nearly every field), and under the legend of a fieldset that has one; the field's control, or the fieldset, points at it with `aria-describedby` |
 | `fmdb-range`, `fmdb-range-row`, `fmdb-range-output`, `fmdb-range-end-label` | Range slider structure (variables: `--fmdb-range-gap`, `--fmdb-range-output-min-width`, `--fmdb-range-end-label-size`) |
 | `fmdb-message`, `fmdb-message-content`, `fmdb-message-success`, `fmdb-message-error`, `fmdb-message-maintenance`, `fmdb-message-details`, `fmdb-message-error-details` | Submission feedback; the two `-details` classes sit on the `<small>` under an error, carrying the error code and the actions' progress |
 | `fmdb-file-*` (`-input-container`, `-list`, `-item`, `-info`, `-name`, `-size`, `-remove`, `-selection-note`), `fmdb-selected-files`, `fmdb-selected-files-title` | File field and its selected files: `fmdb-selected-files` wraps the list under its heading, `fmdb-file-info` holds a file's name and size |
@@ -48,14 +48,16 @@ core tones the read-only one down and takes the pointer off its select, radio, c
 (variables in [CSS variables](css-variables.md#prefilled-fields)), and hides the other inline, its value
 still submitted.
 
-Five other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
+Six other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
 and they may change with the feature they serve: `data-fmdb-step` on each step wrapper (the
 class `fmdb-step` is the hook), `data-fmdb-msg-*` on the controls (the contributor's validation
 messages, see [Custom validation](../architecture/custom-validation.md)), `data-fmdb-logics` and
 `data-fmdb-logic-value` (conditional logic, see
 [How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md)),
-and `data-fmdb-field-action` on the wrapper of a field with actions (`blur` or `submit`, when the
-page asks the engine about the value — see [Field actions](../architecture/field-actions.md)).
+`data-fmdb-field-action` on the wrapper of a field with actions (`blur` or `submit`, when the
+page asks the engine about the value — see [Field actions](../architecture/field-actions.md)), and
+`data-fmdb-advance-on-change` on a field whose one answer is enough (the card), which a form showing one
+field at a time may read to move on once the answer is picked ([formidable#423](https://github.com/Jahia/formidable/issues/423)).
 
 ## Surfaces: live, edit mode, inspection previews
 
@@ -178,7 +180,7 @@ submission is refused. Nothing of these lines exists in live or preview.
 
 ## Extended inputs
 
-The optional `formidable-extended-inputs` module adds four fields — consent, rating, scale and
+The optional `formidable-extended-inputs` module adds five fields — card, consent, rating, scale and
 switch — rendered server-side with no client island: every state is native HTML and CSS. Each keeps
 the shared hooks of the form (`fmdb-form-group` on its wrapper, `fmdb-group-legend`,
 `fmdb-required-indicator`, `fmdb-form-help`, `fmdb-form-control` on the consent checkbox) and adds
@@ -188,6 +190,7 @@ hooks of its own under the `fmdbext-` prefix. Its stylesheet hard-codes nothing 
 
 | Class | Element |
 |---|---|
+| `fmdbext-card`, `fmdbext-card-items`, `fmdbext-card-item`, `fmdbext-card-input`, `fmdbext-card-label` | The card field: a `fieldset`, the grid of cards, and each card's radio input and label — the label is the card |
 | `fmdbext-consent`, `fmdbext-consent-input`, `fmdbext-consent-label`, `fmdbext-consent-statement`, `fmdbext-consent-terms-link` | The consent field: its group, the checkbox, the label, the statement in it, and the link to the terms |
 | `fmdbext-rating`, `fmdbext-rating-body`, `fmdbext-rating-items`, `fmdbext-rating-item`, `fmdbext-rating-input`, `fmdbext-rating-label` | The rating field: a `fieldset`, its body, the row of items (carries `data-fmdbext-icon`: `star`, `heart`, `thumb` or `number`), and each item's radio input and label |
 | `fmdbext-scale`, `fmdbext-scale-body`, `fmdbext-scale-items`, `fmdbext-scale-item`, `fmdbext-scale-input`, `fmdbext-scale-label` | The scale field: a `fieldset`, its body, the row of chips, and each chip's radio input and label |

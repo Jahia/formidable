@@ -15,6 +15,7 @@ import {useFormidableSite} from './support';
 const MATRIX = {
 	name: 'satisfaction',
 	title: 'How satisfied are you with',
+	helpText: 'One answer per line',
 	columns: ['Poor', 'Fair', 'Good'],
 	rows: [
 		{name: 'price', title: 'The price'},
@@ -46,10 +47,12 @@ describe('Form fields - 27 Fieldset', () => {
 		).then(({livePath}) => {
 			const form = visitLiveForm(livePath);
 			const fieldset = form.getFieldset(MATRIX.title);
-			fieldset.shouldBeVisible().shouldHaveLegend(MATRIX.title);
+			fieldset.shouldBeVisible().shouldHaveLegend(MATRIX.title).shouldHaveHelpText(MATRIX.helpText);
 			// the view marks the fieldset and tells the stylesheet how many columns there are
 			fieldset.get().should('have.class', 'fmdb-matrix')
 				.invoke('attr', 'style').should('match', /--fmdb-matrix-columns:\s*3/);
+			// the help of the fieldset comes before the heading row, under the legend
+			fieldset.getHelpText().next().should('have.class', 'fmdb-matrix-header');
 			// one heading row, for the eye only: the inputs keep their own labels
 			fieldset.get().find('.fmdb-matrix-header').should('have.attr', 'aria-hidden', 'true')
 				.find('.fmdb-matrix-column').should('have.length', MATRIX.columns.length)
@@ -107,7 +110,7 @@ describe('Form fields - 27 Fieldset', () => {
 		).then(({livePath}) => {
 			const form = visitLiveForm(livePath);
 			const fieldset = form.getFieldset(FIELDSET_PROFILE.title!);
-			fieldset.shouldBeVisible().shouldHaveLegend(FIELDSET_PROFILE.title!);
+			fieldset.shouldBeVisible().shouldHaveLegend(FIELDSET_PROFILE.title!).shouldNotHaveHelpText();
 			fieldset.get().should('not.have.class', 'fmdb-matrix').find('.fmdb-matrix-header').should('not.exist');
 			fieldset.getRadioGroup(MATRIX.rows[0].name).get().should('not.have.css', 'display', 'grid')
 				.find('label.fmdb-radio-label').first().should('be.visible');
@@ -115,13 +118,14 @@ describe('Form fields - 27 Fieldset', () => {
 		});
 	});
 
-	it('groups several fields under the same fieldset in live mode', () => {
+	it('groups several fields under the same fieldset in live mode, with its own help text under the legend', () => {
 		createPublishedLiveFormPage(
 			'fieldset-form',
 			'Fieldset Form',
 			[
 				getFieldsetNode({
 					...FIELDSET_PROFILE,
+					helpText: 'Tell us who you are',
 					children: [
 						getInputTextNode({...INPUT_TEXT_COMPLETE, defaultValue: 'AB-1234'}),
 						getInputEmailNode({...INPUT_EMAIL_COMPLETE, defaultValue: 'grouped@example.com'})
@@ -134,7 +138,10 @@ describe('Form fields - 27 Fieldset', () => {
 
 			fieldset
 				.shouldBeVisible()
-				.shouldHaveLegend(FIELDSET_PROFILE.title!);
+				.shouldHaveLegend(FIELDSET_PROFILE.title!)
+				.shouldHaveHelpText('Tell us who you are');
+			// the help of the fieldset sits right under the legend, before its fields
+			fieldset.getLegend().next().should('have.class', 'fmdb-form-help');
 
 			fieldset.getTextInput(INPUT_TEXT_COMPLETE.name!)
 				.shouldBeVisible()
