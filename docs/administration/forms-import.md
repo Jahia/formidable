@@ -25,9 +25,12 @@ not exist; enabled on no site, the button shows nowhere. Install it for the time
     labels; a field that Jahia Forms prefilled from the visitor profile is mapped to that profile property
     when the jExperience integration of Formidable is installed, prefilled from it as before, and the
     report says so for you to check it in the editor. What Formidable has no equivalent for is listed in the
-    report, never dropped in silence: a password field (not recreated), a redirect action, another kind
-    of prefill, a conditional logic, a save-for-later setting. A matrix of radios or checkboxes becomes a
-    fieldset laid out as a grid, one radio or checkbox field per row, its answers under each row.
+    report, never dropped in silence: a password field (not recreated), another kind of prefill, a conditional
+    logic, a save-for-later setting. A matrix of radios or checkboxes becomes a fieldset laid out as a grid, one
+    radio or checkbox field per row, its answers under each row. A form keeps the redirect Jahia Forms followed,
+    its last one, as a **Redirect** action: to the same page of your site, or to the same address. The redirect
+    address a page gave the form it displayed is read too, when the import runs on the instance that holds those
+    pages; otherwise, check the pages that displayed the form.
   - **Attach to an existing form**: the results go under a form of the site you pick, built by hand or
     reworked, and show on the Results page with the labels and the readers of that form. The dialog shows
     where the values of each Forms field land: a field of the same name is matched, a field with the same

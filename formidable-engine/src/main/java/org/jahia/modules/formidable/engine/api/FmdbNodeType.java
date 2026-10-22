@@ -23,6 +23,7 @@ public final class FmdbNodeType {
     public static final String EMAIL_CONTENT_ACTION = "fmdb:emailContentAction";
     public static final String FORWARD_ACTION = "fmdb:forwardAction";
     public static final String SAVE_TO_JCR_ACTION = "fmdb:save2jcrAction";
+    public static final String REDIRECT_ACTION = "fmdb:redirectAction";
     /** The ordered list of a field's actions, the child named {@link FmdbNodeName#ACTIONS} of a field carrying {@link FmdbMixin#FIELD_ACTIONS}. */
     public static final String FIELD_ACTION_LIST = "fmdb:fieldActionList";
 

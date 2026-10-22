@@ -72,4 +72,23 @@ class RedirectTargetsTest {
             assertTrue(RedirectTargets.httpUrl(candidate).isEmpty(), candidate);
         }
     }
+
+    @Test
+    void anAbsoluteUrlOfThisServerIsReducedToItsPath() {
+        // Verifies pathOnServer: the path and query of a URL of the host the request reached, never another host's.
+        assertEquals(Optional.of("/fr/merci.html?x=1"), RedirectTargets.pathOnServer("https://www.mysite.com/fr/merci.html?x=1", "www.mysite.com"));
+        assertEquals(Optional.of("/"), RedirectTargets.pathOnServer("http://WWW.mysite.com", "www.mysite.com"));
+        assertTrue(RedirectTargets.pathOnServer("https://other.example/fr/merci.html", "www.mysite.com").isEmpty());
+        assertTrue(RedirectTargets.pathOnServer("javascript://www.mysite.com/%0aalert(1)", "www.mysite.com").isEmpty());
+        assertTrue(RedirectTargets.pathOnServer(null, "www.mysite.com").isEmpty());
+    }
+
+    @Test
+    void theServletContextPathIsSwappedForThePlatforms() {
+        // Verifies swapContextPath: a link rewritten under the OSGi servlet's /modules carries the platform's context.
+        assertEquals("/jahia/fr/merci.html", RedirectTargets.swapContextPath("/modules/fr/merci.html", "/modules", "/jahia"));
+        assertEquals("/fr/merci.html", RedirectTargets.swapContextPath("/modules/fr/merci.html", "/modules", ""));
+        assertEquals("/fr/merci.html", RedirectTargets.swapContextPath("/fr/merci.html", "/modules", "/jahia"));
+        assertEquals("/modulesx/a", RedirectTargets.swapContextPath("/modulesx/a", "/modules", ""));
+    }
 }

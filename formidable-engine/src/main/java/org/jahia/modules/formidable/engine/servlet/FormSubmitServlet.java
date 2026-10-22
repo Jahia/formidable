@@ -197,15 +197,15 @@ public class FormSubmitServlet extends HttpServlet {
     }
 
     /**
-     * What the contextual actions asked of the browser, as the two reserved keys: {@code redirect} (a same-origin path,
-     * already validated by the pipeline) and {@code userMessage} (HTML-escaped here, the action's text being plain).
-     * Written after the enrichers, whose entries can never take these keys.
+     * What the contextual actions asked of the browser, as the two reserved keys: {@code redirect} (a path or an http(s)
+     * URL, of either kind, already validated by the pipeline) and {@code userMessage} (HTML-escaped here, the action's
+     * text being plain). Written after the enrichers, whose entries can never take these keys.
      */
     static void addBrowserInstruction(JSONObject entries, FormActionResult instruction) {
         if (instruction == null) {
             return;
         }
-        instruction.redirect().ifPresent(path -> entries.put("redirect", path));
+        instruction.redirect().ifPresent(target -> entries.put("redirect", target));
         if (instruction.message() != null && !instruction.message().isBlank()) {
             entries.put("userMessage", FieldEscaper.html(instruction.message()));
         }

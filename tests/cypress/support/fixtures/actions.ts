@@ -62,3 +62,20 @@ export function getForwardActionNode(data: {name?: string; title?: string; targe
 		properties
 	};
 }
+
+/**
+ * The redirect action (fmdb:redirectAction): a page (weak reference to a page UUID) or a URL, an http(s) URL or a
+ * same-origin path. The URL is stored as the contributor typed it, an unusable one included: the server decides.
+ */
+export function getRedirectActionNode(data: {name?: string; title?: string; url?: string; pageUuid?: string}): JahiaNode {
+	const properties: NodeProperty[] = [{name: 'targetType', value: data.pageUuid ? 'page' : 'url'}];
+	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.url) properties.push({name: 'url', value: data.url, language: 'en'});
+	if (data.pageUuid) properties.push({name: 'page', value: data.pageUuid, type: 'WEAKREFERENCE'});
+
+	return {
+		name: data.name || 'redirect',
+		primaryNodeType: 'fmdb:redirectAction',
+		properties
+	};
+}

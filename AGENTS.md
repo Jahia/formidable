@@ -117,6 +117,7 @@ The public API — custom actions, the submission response, the names of the con
 - `ChoiceOptionsSources.java` — whether the configuration declares an options source under a key
 - `ContextualFormAction.java` + `FormActionContext.java` + `FormActionResult.java` — a `FormAction` that gets the response, the locale and site, and may return a redirect (a path of this server, or an http(s) URL read from the configuration) or a message for the browser
 - `RedirectTargets.java` — the two rules of a redirect target: a path of this server, or an absolute http(s) URL read from the configuration
+- `PageLinks.java` — the URL of a page as the platform prints it (URL rewriting, vanity URLs), for an action that sends the visitor to a page
 - `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission
 - `FmdbNodeType.java` — the primary types the engine's CND declares (logic storage, built-in actions, submission storage)
 - `FmdbMixin.java` — every mixin it declares, the extension surface a third-party type opts into
@@ -125,7 +126,7 @@ The public API — custom actions, the submission response, the names of the con
 
 The four name holders are used qualified (`FmdbMixin.TEXT_FIELD`), never statically imported — the class states the kind, the constant the thing (`docs/architecture/cnd-module-ownership.md`, "Naming these types from Java").
 
-Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction` (four — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
+Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction`, `RedirectFormAction` (five — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
 
 ### Adding a New Field Type
 

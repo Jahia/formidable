@@ -344,6 +344,16 @@ orderable
 [fmdb:save2jcrAction] > jnt:content, fmdbmix:formAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_save2jcrAction') autocreated i18n
 
+// Sends the visitor to a page or to a web address once the submission is accepted, instead of the submission message
+// (docs/architecture/redirect-action.md). The target is a page (page, a weak reference: it follows a move or a rename,
+// resolved in live in the submission's language) or a URL typed per language (url): an absolute http or https URL, or a
+// same-origin path. The first redirect of the action list wins.
+[fmdb:redirectAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdb_redirectAction') autocreated i18n
+ - targetType (string, choicelist[resourceBundle]) = 'page' autocreated indexed=no < 'page', 'url'
+ - page (weakreference, picker[type='page'])
+ - url (string) i18n indexed=no
+
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults
 

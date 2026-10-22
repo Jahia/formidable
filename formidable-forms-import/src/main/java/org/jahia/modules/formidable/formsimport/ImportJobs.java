@@ -361,7 +361,8 @@ public class ImportJobs {
             try (FormsExportReader reader = FormsExportReader.open(export)) {
                 ImportWriter writer = new ImportWriter(edit, live, siteKey, FOLDER_TITLE, store.get());
                 ImportEnvironment environment = new ImportEnvironment(type -> hasNodeType(edit, type), this::isOptionsSourceDeclared,
-                        type -> isProfileMappable(edit, type), profileFitOf(siteKey), isCaptchaConfigured());
+                        type -> isProfileMappable(edit, type), profileFitOf(siteKey), isCaptchaConfigured(),
+                        new ImportSitePages(edit, live, siteKey));
                 FormsImportRun run = new FormsImportRun(reader, writer, phase == Phase.DRY_RUN, choices, environment);
                 return run.run();
             } catch (IOException | FormsExportException e) {
