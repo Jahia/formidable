@@ -9,6 +9,7 @@ export function getFieldsetNode(data: FieldsetData = FIELDSET_PROFILE): JahiaNod
 	const properties: NodeProperty[] = [];
 
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	// j:view belongs to jmix:renderable, which the Content Editor adds with the property
 	if (data.view) properties.push({name: 'j:view', value: data.view});
 

@@ -3,6 +3,7 @@ import {enableModule} from '@jahia/cypress';
 import {
 	createPublishedLiveFormPage,
 	FORMIDABLE_TEST_SITE,
+	getFieldsetNode,
 	getInputTextNode,
 	getSelectNode,
 	visitLiveForm
@@ -32,6 +33,11 @@ const FIELDS = {
 	// formatting while typing.
 	masked: {name: 'helpMasked', title: 'Masked code', helpText: HELP, mask: 'AA-9999', defaultValue: 'ab1234'}
 };
+/** The fieldset views the sample module ships, each building its own fieldset: they render its help text too. */
+const SAMPLE_FIELDSET_VIEWS = [
+	{view: 'twoColumns', name: 'twoColumnsGroup', title: 'Two columns group', helpText: 'Help of the two columns group'},
+	{view: 'customStyle', name: 'customStyleGroup', title: 'Custom style group', helpText: 'Help of the custom style group'}
+];
 const MASK_PATTERN = '^[A-Za-z][A-Za-z]-[0-9][0-9][0-9][0-9]$';
 
 // The mixin extends every built-in field type with a help text, not the text input alone.
@@ -227,6 +233,26 @@ describe('Form fields - 222 Help text position (third-party sample)', () => {
 					expect(position?.valueConstraints?.map(constraint => constraint.displayValue), `labels for ${type}`)
 						.to.deep.equal(['Above the field', 'Below the field', 'Above and below the field']);
 				});
+			});
+		});
+	});
+
+	it('renders the help text of a fieldset under its legend in the fieldset views of the sample, read with the group', () => {
+		createPublishedLiveFormPage('sample-fieldset-help-form', 'Sample Fieldset Help Form',
+			SAMPLE_FIELDSET_VIEWS.map(fieldset => getFieldsetNode({
+				...fieldset,
+				children: [getInputTextNode({name: `${fieldset.name}Field`, title: `Field of ${fieldset.title}`})]
+			}))
+		).then(({livePath}) => {
+			visitLiveForm(livePath);
+			SAMPLE_FIELDSET_VIEWS.forEach(({title, helpText}) => {
+				cy.contains('legend', title).closest('fieldset').as('fieldset');
+				// right under the legend, and the one the fieldset is described by
+				cy.contains('legend', title).next().should('have.class', 'fmdb-form-help').and('have.text', helpText)
+					.invoke('attr', 'id').then(helpId => {
+						expect(helpId, `help id of ${title}`).to.match(/^help-/);
+						cy.get('@fieldset').should('have.attr', 'aria-describedby', helpId);
+					});
 			});
 		});
 	});
