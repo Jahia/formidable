@@ -52,8 +52,7 @@ async function completeFeedbackPause(spinnerShownAt: number): Promise<void> {
  * What no redirect target may hold: a backslash, a control character, any space or line separator, an invisible format
  * character such as U+FEFF. The server refuses the same set (`RedirectTargets`), so the two checks agree.
  */
-// eslint-disable-next-line no-control-regex
-const FORBIDDEN_IN_TARGET = /[\\\s\u0000-\u001f\u007f-\u009f\p{Cf}]/u;
+const FORBIDDEN_IN_TARGET = /[\\\p{Cc}\p{Z}\p{Cf}]/u;
 
 /**
  * A path of this server: one leading slash, no scheme, no host, no forbidden character. The check is the origin, not

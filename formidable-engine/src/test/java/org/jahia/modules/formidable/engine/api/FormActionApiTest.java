@@ -49,8 +49,11 @@ class FormActionApiTest {
         assertEquals("ada@example.com", context.parameter("email"));
         assertNull(context.parameter("missing"));
         assertEquals(List.of("s3cret"), context.sensitiveParameters().get("password"));
-        assertThrows(UnsupportedOperationException.class, () -> context.parameters().put("x", List.of()));
-        assertThrows(UnsupportedOperationException.class, () -> context.parameters().get("email").add("y"));
+        Map<String, List<String>> parameters = context.parameters();
+        List<String> noValues = List.of();
+        assertThrows(UnsupportedOperationException.class, () -> parameters.put("x", noValues));
+        List<String> emails = parameters.get("email");
+        assertThrows(UnsupportedOperationException.class, () -> emails.add("y"));
         assertTrue(context.files().isEmpty());
     }
 
@@ -61,6 +64,8 @@ class FormActionApiTest {
             @Override public String getNodeType() { return "t:x"; }
             @Override public FormActionResult execute(FormActionContext context) { return FormActionResult.none(); }
         };
-        assertThrows(UnsupportedOperationException.class, () -> action.execute(null, null, null, Map.of(), List.of()));
+        Map<String, List<String>> noParameters = Map.of();
+        List<SubmittedFile> noFiles = List.of();
+        assertThrows(UnsupportedOperationException.class, () -> action.execute(null, null, null, noParameters, noFiles));
     }
 }

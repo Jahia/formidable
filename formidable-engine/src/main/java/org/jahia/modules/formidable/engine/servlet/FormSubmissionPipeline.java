@@ -648,18 +648,8 @@ class FormSubmissionPipeline {
                 );
             }
             try {
-                FormActionResult result = jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
-                    JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(action.id());
-                    try {
-                        if (handler instanceof ContextualFormAction contextual) {
-                            return contextual.execute(contextFor(actionNode, systemSession, req, siteKey, submittedFiles));
-                        }
-                        handler.execute(actionNode, req, session, parsed.parameters(), submittedFiles);
-                        return FormActionResult.none();
-                    } catch (FormActionException e) {
-                        throw new WrappedFormActionException(e);
-                    }
-                });
+                FormActionResult result = jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale,
+                        systemSession -> executeAction(handler, action.id(), systemSession, req, siteKey, submittedFiles));
                 executed++;
                 keepFirstInstruction(result, nodeType);
             } catch (WrappedFormActionException e) {
@@ -673,6 +663,25 @@ class FormSubmissionPipeline {
                 }
                 throw actionFailure(nodeType, executed, total, e);
             }
+        }
+    }
+
+    /**
+     * Runs one action in the system session of the call: a contextual action is handed its context and answers a
+     * result, a plain action receives its five arguments and answers nothing.
+     */
+    private FormActionResult executeAction(FormAction handler, String actionId, JCRSessionWrapper systemSession,
+                                           HttpServletRequest req, String siteKey, List<SubmittedFile> files)
+            throws RepositoryException {
+        JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(actionId);
+        try {
+            if (handler instanceof ContextualFormAction contextual) {
+                return contextual.execute(contextFor(actionNode, systemSession, req, siteKey, files));
+            }
+            handler.execute(actionNode, req, session, parsed.parameters(), files);
+            return FormActionResult.none();
+        } catch (FormActionException e) {
+            throw new WrappedFormActionException(e);
         }
     }
 

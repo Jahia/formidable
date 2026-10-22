@@ -345,7 +345,7 @@ describe('useFormSubmission: what an action answers', () => {
 	});
 
 	it('refuses a redirect that is neither a path of this server nor an absolute http(s) URL, whatever the body says', async () => {
-		for (const hostile of ['//evil.example', '/\\\\evil.example', 'javascript:alert(1)', 'https://user@evil.example/', 'home.html', '/a b', '/a\uFEFFb', '']) {
+		for (const hostile of ['//evil.example', String.raw`/\\evil.example`, 'javascript:alert(1)', 'https://user@evil.example/', 'home.html', '/a b', '/a\uFEFFb', '']) {
 			await accepted(JSON.stringify({success: true, redirect: hostile}));
 		}
 		await accepted('{"success":true,"redirect":42}');

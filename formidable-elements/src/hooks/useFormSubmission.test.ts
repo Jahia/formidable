@@ -31,7 +31,7 @@ describe('isSameOriginPath', () => {
 	});
 
 	it('refuses everything that could leave the site or break the header it travels in', () => {
-		for (const target of ['https://evil.example/', '//evil.example', '/\\evil.example', 'javascript:alert(1)', 'home.html', '', '/a b', '/a\nb', '/a\\b', '/\u0000']) {
+		for (const target of ['https://evil.example/', '//evil.example', String.raw`/\evil.example`, 'javascript:alert(1)', 'home.html', '', '/a b', '/a\nb', String.raw`/a\b`, '/\u0000']) {
 			expect(isSameOriginPath(target), target).toBe(false);
 		}
 		expect(isSameOriginPath(undefined)).toBe(false);
@@ -54,7 +54,7 @@ describe('isHttpUrl', () => {
 	});
 
 	it('refuses another scheme, a missing host, a relative target and user info', () => {
-		for (const target of ['javascript:alert(1)', 'data:text/html,x', 'ftp://www.example.com/', '//evil.example/x', '/sites/mysite/home.html', 'home.html', 'https://user@evil.example/', 'https://www.example.com@evil.example/', 'https://user:pass@www.example.com/', 'https://www.example.com/a b', 'https://www.example.com/\\evil', 'https://www.example.com/a\uFEFFb', '']) {
+		for (const target of ['javascript:alert(1)', 'data:text/html,x', 'ftp://www.example.com/', '//evil.example/x', '/sites/mysite/home.html', 'home.html', 'https://user@evil.example/', 'https://www.example.com@evil.example/', 'https://user:pass@www.example.com/', 'https://www.example.com/a b', String.raw`https://www.example.com/\evil`, 'https://www.example.com/a\uFEFFb', '']) {
 			expect(isHttpUrl(target), JSON.stringify(target)).toBe(false);
 		}
 		expect(isHttpUrl(undefined)).toBe(false);
