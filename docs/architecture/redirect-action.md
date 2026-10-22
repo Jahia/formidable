@@ -60,10 +60,9 @@ key parameter (the page's title, or the URL).
 
 ## Client
 
-The island already navigates to `redirect` once it checked the target again ([contextual actions](form-submission-flow.md#contextual-actions-the-response-a-redirect-a-message-for-the-visitor)). The
-action adds one change to `useFormSubmission`: when the body holds `redirect`, the island skips the submission
-message, so the redirect replaces it. It still dispatches the success event first — the jExperience integration
-sends its submission event from it.
+The island already navigates to `redirect` once it checked the target again, and the redirect replaces the
+submission message ([contextual actions](form-submission-flow.md#contextual-actions-the-response-a-redirect-a-message-for-the-visitor)). It dispatches the success event first — the jExperience
+integration sends its submission event from it — so the action needs no change in the browser.
 
 No redirect in edit mode or preview, where submission is already disabled.
 

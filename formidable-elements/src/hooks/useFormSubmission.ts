@@ -80,15 +80,12 @@ export function isHttpUrl(target: unknown): target is string {
 }
 
 /**
- * Sends the visitor where an action asked, once the success message was shown and the form reset. Done in a task of
- * its own so the listeners of the submitted event have run, and only for a path of this server or an absolute http(s)
- * URL: the server validated the target, and the browser checks it again, so a body that was tampered with on the way,
- * or written by a module of the page, cannot send the visitor to a `javascript:` or other target. `assign`, not
- * `replace`, so the form page stays reachable with the Back button.
+ * Where the browser may be sent: a path of this server or an absolute http(s) URL. The server validated the target;
+ * this second check keeps a body tampered with on the way, or written by a module of the page, from sending the
+ * visitor to a `javascript:` or any other target.
  */
-function navigateTo(target: unknown): void {
-	if (!isSameOriginPath(target) && !isHttpUrl(target)) return;
-	setTimeout(() => globalThis.location.assign(target), 0);
+function isRedirectTarget(target: unknown): target is string {
+	return isSameOriginPath(target) || isHttpUrl(target);
 }
 
 /** The server's JSON answer, or null for a body that is not JSON: the event never fails on it. */
@@ -263,6 +260,8 @@ export function useFormSubmission({
 
 	const send = async (form: HTMLFormElement, spinnerShownAt: number) => {
 		let rejection: Rejection = {messages: []};
+		// The browser is leaving for a redirect: the spinner stays on screen until the next page replaces this one
+		let leaving = false;
 		// A message of an earlier attempt goes as the next one leaves: a refusal anchored under a field
 		// must not read next to a stale "An error occurred" above the form.
 		setMessage(null);
@@ -298,24 +297,48 @@ export function useFormSubmission({
 				detail: {formId, response: parseJsonBody(response.responseText)},
 			}));
 
-			// The spinner has been visible since before the request: only the rest of the floor is waited for
-			await completeFeedbackPause(spinnerShownAt);
-
 			// An action's own sentence (already escaped by the server) replaces the form's message: "check your mailbox"
 			const accepted = parseJsonBody(response.responseText) as {redirect?: unknown; userMessage?: unknown} | null;
 			const actionMessage = typeof accepted?.userMessage === 'string' && accepted.userMessage.trim() ? accepted.userMessage : undefined;
-			setMessage(actionMessage || interpolatedSubmissionMessage || 'Form submitted successfully!');
-			setMessageType('success');
-			// called off the prototype: a control named "reset" shadows the method, and this runs after the
-			// 200 and after every action, so throwing here would tell the visitor the submission failed
-			HTMLFormElement.prototype.reset.call(form);
-			if (isMultiStep) setCurrentStep(0);
-			navigateTo(accepted?.redirect);
+			const showSuccess = () => {
+				setMessage(actionMessage || interpolatedSubmissionMessage || 'Form submitted successfully!');
+				setMessageType('success');
+				// called off the prototype: a control named "reset" shadows the method, and this runs after the
+				// 200 and after every action, so throwing here would tell the visitor the submission failed
+				HTMLFormElement.prototype.reset.call(form);
+				if (isMultiStep) setCurrentStep(0);
+			};
+
+			// A redirect replaces the success message: the spinner stays until the next page shows
+			if (isRedirectTarget(accepted?.redirect)) {
+				leaving = true;
+				leaveFor(accepted.redirect, showSuccess);
+				return;
+			}
+
+			// The spinner has been visible since before the request: only the rest of the floor is waited for
+			await completeFeedbackPause(spinnerShownAt);
+			showSuccess();
 		} catch (error) {
 			showRejection(form, rejection, error);
 		} finally {
-			setIsLoading(false);
+			if (!leaving) setIsLoading(false);
 		}
+	};
+
+	/**
+	 * Sends the visitor where an action asked, the spinner left on. Done in a task of its own so that what the
+	 * listeners of the submitted event queued runs first; `assign`, not `replace`, so the form page stays reachable
+	 * with the Back button. A page the browser restores from its back-forward cache comes back as it was left, spinner
+	 * included: it then shows the outcome a submission without redirect ends with.
+	 */
+	const leaveFor = (target: string, showSuccess: () => void) => {
+		globalThis.addEventListener('pageshow', (event: PageTransitionEvent) => {
+			if (!event.persisted) return;
+			showSuccess();
+			setIsLoading(false);
+		}, {once: true});
+		setTimeout(() => globalThis.location.assign(target), 0);
 	};
 
 	/** What the visitor sees of a rejection — or of a request that never got an answer. */

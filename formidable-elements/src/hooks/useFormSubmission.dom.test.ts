@@ -296,7 +296,7 @@ describe('useFormSubmission: a rejection that names a field', () => {
 
 describe('useFormSubmission: what an action answers', () => {
 	const assign = vi.fn();
-	/** The success message is held back by the feedback floor: fake timers move it, and the navigation after it. */
+	/** The success message is held back by the feedback floor, and a redirect leaves in a task of its own: fake timers move both. */
 	beforeEach(() => {
 		vi.useFakeTimers();
 		vi.stubGlobal('XMLHttpRequest', FakeXhr);
@@ -321,21 +321,35 @@ describe('useFormSubmission: what an action answers', () => {
 		return result;
 	};
 
-	it('navigates to the redirect once the success message is shown, in a task of its own', async () => {
-		const {successShown} = await accepted('{"success":true,"redirect":"/sites/mysite/account.html"}');
+	it('navigates to the redirect instead of showing the success message, the spinner left on', async () => {
+		const {successShown, setMessage, setIsLoading} = await accepted('{"success":true,"redirect":"/sites/mysite/account.html","userMessage":"Welcome."}');
 
-		expect(successShown()).toBe(true);
 		expect(assign).toHaveBeenCalledExactlyOnceWith('/sites/mysite/account.html');
+		expect(successShown()).toBe(false);
+		// the action's own sentence beside a redirect is not shown either
+		expect(setMessage).not.toHaveBeenCalledWith('Welcome.');
+		expect(setIsLoading).toHaveBeenLastCalledWith(true);
 	});
 
-	it('does not navigate before the success message', async () => {
+	it('navigates in a task of its own, without waiting for the feedback pause', async () => {
 		const result = submitForm('');
 		await vi.advanceTimersByTimeAsync(0);
 		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/home.html"}');
-		await vi.advanceTimersByTimeAsync(100);
+		await vi.advanceTimersByTimeAsync(1);
 
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
 		expect(result.successShown()).toBe(false);
-		expect(assign).not.toHaveBeenCalled();
+	});
+
+	it('shows the success outcome when the browser brings the page back from its back-forward cache', async () => {
+		const {successShown, setIsLoading} = await accepted('{"success":true,"redirect":"/home.html"}');
+		const restored = new Event('pageshow');
+		Object.defineProperty(restored, 'persisted', {value: true});
+
+		globalThis.dispatchEvent(restored);
+
+		expect(successShown()).toBe(true);
+		expect(setIsLoading).toHaveBeenLastCalledWith(false);
 	});
 
 	it('navigates to an absolute https URL, the second kind of redirect', async () => {

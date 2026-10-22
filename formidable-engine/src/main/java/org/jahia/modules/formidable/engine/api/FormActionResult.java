@@ -7,8 +7,8 @@ import java.util.Optional;
  *
  * <p>The servlet adds it to the JSON body of the accepted submission: {@code redirect} (the island navigates
  * there) and {@code userMessage} (shown instead of the form's own submission message). When several actions answer,
- * the first redirect, of either kind, and the first message win, in action-list order. A message beside a redirect is
- * not guaranteed to be shown: do not rely on the visitor reading both.</p>
+ * the first redirect, of either kind, and the first message win, in action-list order. A redirect replaces the
+ * message: the island navigates without showing any, so a message beside a redirect is never read.</p>
  *
  * <p>A redirect has two kinds, each held to its own rule by the pipeline; a target its rule refuses is dropped with a
  * warning, never sent to the browser:</p>

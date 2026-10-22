@@ -129,11 +129,16 @@ path of another site served by this server passes.
 The servlet writes the redirect, of either kind, as `redirect` and the message as `userMessage` (HTML-escaped) in the
 `200` body, after the enrichers, which cannot take these keys. A rejected submission carries neither.
 
-The island fires `formidable:submitted`, shows `userMessage` instead of the form's submission message when there is
-one, resets the form, then navigates to `redirect` with `location.assign` in a task of its own, once it checked the
-target again with the same rules and forbidden characters (`isSameOriginPath`, `isHttpUrl`). A message beside a
-redirect is not guaranteed to be shown. A failure of a contextual action is the opaque `FMDB-008`, as for a plain
-action.
+The island fires `formidable:submitted`, then:
+
+- with a `redirect` it checked again with the same rules and forbidden characters (`isSameOriginPath`,
+  `isHttpUrl`), it navigates there with `location.assign` in a task of its own, without the minimum feedback pause.
+  The redirect replaces the success message, `userMessage` included, and the spinner stays until the next page shows.
+  A page the browser restores from its back-forward cache shows the success outcome;
+- without one, it waits for the rest of the minimum feedback pause, shows `userMessage` instead of the form's
+  submission message when there is one, and resets the form.
+
+A failure of a contextual action is the opaque `FMDB-008`, as for a plain action.
 
 > **DoS mitigation (defence in depth):**
 - Gate 0: cross-origin requests are rejected before the multipart pipeline starts

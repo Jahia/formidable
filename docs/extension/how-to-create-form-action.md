@@ -244,7 +244,7 @@ public class ThankYouFormAction implements ContextualFormAction {
     configuration only, such as a property of the action node. Never pass it a value taken from the request: that
     is an open redirect.
 - A **message** is plain text, already translated in `context.locale()`; the servlet escapes it. A message beside a
-  redirect is not guaranteed to be shown, so return one or the other.
+  redirect is never shown, because a redirect replaces the success message: return one or the other.
 - A **failure** is a `FormActionException`, as in step 6: the browser reads `FMDB-008`.
 
 ## Step 7: Add authoring support
