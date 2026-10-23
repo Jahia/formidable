@@ -91,8 +91,7 @@ describe('Validation - 46 One-at-a-time', () => {
 			form.get().find('input[type="radio"][value="support"]').focus();
 			cy.realPress('ArrowDown');
 			form.getRadioGroup('topic').shouldHaveSelected('Press');
-			cy.wait(600);
-			form.shouldShowScreenOf('topic');
+			form.shouldStayOnScreenOf('topic');
 			cy.realPress('Enter');
 			form.shouldShowScreenOf('company');
 

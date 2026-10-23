@@ -25,6 +25,9 @@ import {RangeInput} from './elements/RangeInput';
  */
 export const FORM_HYDRATION_TIMEOUT_MS = 30000;
 
+/** The pause between a pick and the move to the next screen in One-at-a-time (ADVANCE_DELAY_MS of useScreens). */
+const ADVANCE_DELAY_MS = 300;
+
 /**
  * Hydration marker: the island sets noValidate on mount (custom inline validation
  * replaces the native browser one), so the flag is only true once React runs.
@@ -309,6 +312,16 @@ export class Form extends BaseComponent {
 
 	previousStep(): void {
 		this.getPreviousButton().click();
+	}
+
+	/**
+	 * One-at-a-time: the screen of the named element stays on display past the pause a pick waits before it
+	 * moves on (300 ms, useScreens) — what a pick that must not move the form is checked with.
+	 */
+	shouldStayOnScreenOf(nodeName: string): this {
+		// An absence is asserted over time: the move a pick schedules must not have happened after twice its pause
+		cy.wait(2 * ADVANCE_DELAY_MS);
+		return this.shouldShowScreenOf(nodeName);
 	}
 
 	/** One-at-a-time: the screen on display is the one of the named element, and only it. */

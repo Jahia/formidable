@@ -90,23 +90,20 @@ describe('Validation - 49 One-at-a-time fields that move on with a pick', () => 
 			form.previousStep();
 			form.shouldShowScreenOf('terms');
 			form.get().find('[data-fmdb-node-name="terms"] label').realClick();
-			cy.wait(600);
-			form.shouldShowScreenOf('terms');
+			form.shouldStayOnScreenOf('terms');
 			form.get().find('input[name="terms"]').should('not.be.checked');
 			form.get().find('[data-fmdb-node-name="terms"] label').realClick();
 			form.shouldShowScreenOf('interests');
 
 			// A group takes several answers: a pick does not move on, Next does
 			form.get().find('[data-fmdb-node-name="interests"] label').contains('Music').realClick();
-			cy.wait(600);
-			form.shouldShowScreenOf('interests');
+			form.shouldStayOnScreenOf('interests');
 			form.nextStep();
 
 			// Nor does a select, whose arrow keys change the value
 			form.shouldShowScreenOf('country');
 			form.get().find('select[name="country"]').select('Switzerland');
-			cy.wait(600);
-			form.shouldShowScreenOf('country');
+			form.shouldStayOnScreenOf('country');
 			form.nextStep();
 			form.shouldShowScreenOf('closing');
 		});
