@@ -2,7 +2,7 @@
 import {type FormEvent} from 'react';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import '~/utils/testSupport/cssEscape';
-import {SUBMITTED_EVENT, useFormSubmission} from './useFormSubmission';
+import {REDIRECT_HOLD_MS, SUBMITTED_EVENT, type SubmittedDetail, useFormSubmission} from './useFormSubmission';
 
 /**
  * The submission hook driven end to end against a fake `XMLHttpRequest`: the minimum feedback
@@ -361,6 +361,59 @@ describe('useFormSubmission: what an action answers', () => {
 
 		expect(successShown()).toBe(true);
 		expect(setIsLoading).toHaveBeenLastCalledWith(false);
+	});
+
+	it('waits for the work a listener of the submitted event handed to waitUntil before it navigates', async () => {
+		let land: () => void = () => undefined;
+		const holder = (event: Event) => {
+			(event as CustomEvent<SubmittedDetail>).detail.waitUntil(new Promise<void>(resolve => {
+				land = resolve;
+			}));
+		};
+		document.body.addEventListener(SUBMITTED_EVENT, holder);
+		try {
+			const {successShown} = await accepted('{"success":true,"redirect":"/home.html"}');
+			expect(assign).not.toHaveBeenCalled();
+			expect(successShown()).toBe(false);
+
+			land();
+			await vi.advanceTimersByTimeAsync(0);
+
+			expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
+		} finally {
+			document.body.removeEventListener(SUBMITTED_EVENT, holder);
+		}
+	});
+
+	it('navigates after REDIRECT_HOLD_MS when the work handed to waitUntil never settles, and once only', async () => {
+		const holder = (event: Event) => {
+			(event as CustomEvent<SubmittedDetail>).detail.waitUntil(new Promise(() => undefined));
+		};
+		document.body.addEventListener(SUBMITTED_EVENT, holder);
+		try {
+			await accepted('{"success":true,"redirect":"/home.html"}');
+			expect(assign).not.toHaveBeenCalled();
+
+			await vi.advanceTimersByTimeAsync(REDIRECT_HOLD_MS);
+
+			expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
+		} finally {
+			document.body.removeEventListener(SUBMITTED_EVENT, holder);
+		}
+	});
+
+	it('navigates when the work handed to waitUntil fails', async () => {
+		const holder = (event: Event) => {
+			(event as CustomEvent<SubmittedDetail>).detail.waitUntil(Promise.reject(new Error('tracker down')));
+		};
+		document.body.addEventListener(SUBMITTED_EVENT, holder);
+		try {
+			await accepted('{"success":true,"redirect":"/home.html"}');
+
+			expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
+		} finally {
+			document.body.removeEventListener(SUBMITTED_EVENT, holder);
+		}
 	});
 
 	it('navigates to an absolute https URL, the second kind of redirect', async () => {

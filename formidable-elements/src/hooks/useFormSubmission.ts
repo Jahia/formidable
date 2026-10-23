@@ -23,8 +23,26 @@ const MAINTENANCE_ERROR_CODE = 'FMDB-014';
 const FIELD_ACTION_REFUSED_CODE = 'FMDB-015';
 /** How long a redirect may leave the page in place before the page ends as a submission without redirect. */
 const REDIRECT_FALLBACK_MS = 3000;
-/** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
+/**
+ * How long a redirect waits, at most, for the work the listeners of the submitted event handed to `waitUntil` (the
+ * jExperience module's form event): long enough for a tracker to land its event, short enough that a tracker that never
+ * answers does not keep the visitor on the form.
+ */
+export const REDIRECT_HOLD_MS = 3000;
+/**
+ * Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response, waitUntil}. A listener
+ * whose work must land before the visitor leaves for a redirect (an event the next page is rendered from) passes its
+ * promise to `waitUntil`, synchronously: the redirect waits for every such promise, settled either way, or
+ * REDIRECT_HOLD_MS. Without a redirect nothing waits.
+ */
 export const SUBMITTED_EVENT = 'formidable:submitted';
+
+/** What a listener of the submitted event receives in `detail`. */
+export interface SubmittedDetail {
+	formId: string;
+	response: unknown;
+	waitUntil: (work: PromiseLike<unknown>) => void;
+}
 
 /**
  * How long the spinner stays on screen at least. A submission answered faster than the eye would
@@ -294,10 +312,16 @@ export function useFormSubmission({
 			// that know nothing of this island (the jExperience module listens for it). The
 			// event says "accepted, here is what the server answered" and nothing else; a listener
 			// that throws does not reach this code (dispatchEvent reports it to the window).
-			form.dispatchEvent(new CustomEvent(SUBMITTED_EVENT, {
-				bubbles: true,
-				detail: {formId, response: parseJsonBody(response.responseText)},
-			}));
+			const holds: Promise<unknown>[] = [];
+			const detail: SubmittedDetail = {
+				formId,
+				response: parseJsonBody(response.responseText),
+				// settled at once either way, so a rejected promise is never left unhandled until the redirect looks at it
+				waitUntil: work => {
+					holds.push(Promise.resolve(work).then(() => undefined, () => undefined));
+				},
+			};
+			form.dispatchEvent(new CustomEvent<SubmittedDetail>(SUBMITTED_EVENT, {bubbles: true, detail}));
 
 			// An action's own sentence (already escaped by the server) replaces the form's message: "check your mailbox"
 			const accepted = parseJsonBody(response.responseText) as {redirect?: unknown; userMessage?: unknown} | null;
@@ -314,7 +338,7 @@ export function useFormSubmission({
 			// A redirect replaces the success message: the spinner stays until the next page shows
 			if (isRedirectTarget(accepted?.redirect)) {
 				leaving = true;
-				leaveFor(accepted.redirect, showSuccess);
+				leaveFor(accepted.redirect, showSuccess, holds);
 				return;
 			}
 
@@ -330,13 +354,15 @@ export function useFormSubmission({
 
 	/**
 	 * Sends the visitor where an action asked, the spinner left on. Done in a task of its own so that what the
-	 * listeners of the submitted event queued runs first; `assign`, not `replace`, so the form page stays reachable
+	 * listeners of the submitted event queued runs first, and once the work they handed to `waitUntil` has settled or
+	 * REDIRECT_HOLD_MS has passed: the jExperience module's form event must reach jCustomer before the next page is
+	 * rendered from the profile, and a navigation started earlier cancels it. `assign`, not `replace`, so the form page stays reachable
 	 * with the Back button. The page then ends as a submission without redirect does, success message shown and
 	 * spinner off, in two cases: the browser restores it from its back-forward cache, or the navigation leaves it in
 	 * place after REDIRECT_FALLBACK_MS (a target that answers with a download, a target that only changes the
 	 * fragment). A page that unloads never runs the fallback.
 	 */
-	const leaveFor = (target: string, showSuccess: () => void) => {
+	const leaveFor = (target: string, showSuccess: () => void, holds: Promise<unknown>[]) => {
 		let ended = false;
 		const end = () => {
 			if (ended) return;
@@ -347,9 +373,20 @@ export function useFormSubmission({
 		globalThis.addEventListener('pageshow', (event: PageTransitionEvent) => {
 			if (event.persisted) end();
 		}, {once: true});
-		setTimeout(() => {
+		let gone = false;
+		const go = () => {
+			if (gone) return;
+			gone = true;
 			globalThis.location.assign(target);
 			setTimeout(end, REDIRECT_FALLBACK_MS);
+		};
+		setTimeout(() => {
+			if (holds.length === 0) {
+				go();
+				return;
+			}
+			void Promise.all(holds).then(go);
+			setTimeout(go, REDIRECT_HOLD_MS);
 		}, 0);
 	};
 
