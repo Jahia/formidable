@@ -27,6 +27,13 @@ button rules are written at the lowest specificity (`.fmdb-btn`, one class) so t
 yours scoped under `.fmdb-form` wins over them. The extended inputs follow the same rule with
 their own prefix.
 
+A complete example of a template set stylesheet is the one the TSX test template set ships:
+[`registration-yellow-theme.css`](../../jahia-test-module/formidable-test-module-templateset-tsx/src/design/registration-yellow-theme.css),
+imported by its `Layout.tsx` and served from `dist/assets/style.css`. It sets every variable
+family of [CSS variables](css-variables.md) and writes a rule for the class hooks a visitor
+sees; the manual-testing playground renders it on one site next to a plain one
+([tests/README.md](../../tests/README.md#manual-testing-playground)).
+
 ## What the markup looks like
 
 Every form renders the same structure, whatever the template set. Most of it is server-rendered;

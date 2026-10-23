@@ -17,18 +17,18 @@ yarn typecheck   # type-checks the whole suite (specs, support, page objects) in
 yarn playground
 ```
 
-Rebuilds the `FormidableSite4Tests` site with a ready-to-use, published set of
-live forms for manual UI and submission testing (this is provisioning, not a
-test — CI never runs it). The forms sit in the content folder
-`/sites/FormidableSite4Tests/contents/forms/playground`, each on a page of its own under
-`/sites/FormidableSite4Tests/home` (`<form name>-page.html`), and every one of them comes in
-two looks, told apart by the prefix of its name and title. The nodes are created in title
-order (CSS before Plain, Complete form first), which is the order jContent's trees show them in:
+Rebuilds two sites with the same ready-to-use, published set of live forms for manual UI and
+submission testing (this is provisioning, not a test — CI never runs it; the specs' own site,
+`FormidableSite4Tests`, is left alone). On each site the forms sit in the content folder
+`/sites/<site>/contents/forms/playground`, each on a page of its own under `/sites/<site>/home`
+(`<form name>-page.html`). The sites alone tell the two looks apart: no form carries a **Custom
+CSS** property. The nodes are created in title order (Complete form first), which is the order
+jContent's trees show them in:
 
-| Look | Prefix | What it shows |
+| Site | Template set | What it shows |
 |---|---|---|
-| **CSS** | `css-` / "CSS - …" | The sample theme (`jahia-test-module/sample-form-css/registration-yellow-theme.css`) in the form's **Custom CSS** property — a business stylesheet on top of the modules' markup, the case the authoring UI must stay readable in |
-| **Plain** | `plain-` / "Plain - …" | No `css` property — the modules' own look, the markup and the class hooks as [the styling contract](../docs/styling/README.md) describes them |
+| **Formidable Playground Plain** (`FormidablePlaygroundPlain`) | `formidable-test-module-templateset-jsp`, which ships no stylesheet | The modules' own look, the markup and the class hooks as [the styling contract](../docs/styling/README.md) describes them |
+| **Formidable Playground CSS** (`FormidablePlaygroundCss`) | `formidable-test-module-templateset-tsx`, whose `Layout` ships `src/design/registration-yellow-theme.css` | The complete stylesheet written against that contract, every variable family and the class hooks a visitor sees — a business look on top of the same markup, the case the authoring UI must stay readable in |
 
 | Form | Content |
 |---|---|
@@ -37,7 +37,8 @@ order (CSS before Plain, Complete form first), which is the order jContent's tre
 | `steps` | Three-step form with navigation, a fieldset inside step 2 and conditional logic driven by the delivery method |
 | `complete` | Every built-in field type, in three blocks: the visitor profile fields first (mapped and prefilled when jExperience is there), the other field types, and the choice fields completing the options matrix below |
 | `languages` | Choice field whose French labels are only half translated, to try the site's *Replace untranslated content with the default language content* setting both ways |
-| `<look>-two-forms-page` | A page holding the simple form (referenced) next to the newsletter one: two results sets, two mappings, one tracking script |
+| `two-forms-page` | A page holding the simple form (referenced) next to the newsletter one: two results sets, two mappings, one tracking script |
+| `vanished`, `unpublished`, `emptied` (Plain site only) | Three throwaway forms that leave results behind them — deleted from both workspaces, unpublished, emptied of its only submission — the entries the Results page flags or shows empty |
 
 The complete form covers every options mode of a choice field, single and multiple:
 
@@ -62,18 +63,20 @@ screens. The script also:
   `/sites/systemsite/categories/product/tv/{plasma,oled,led}` and
   `product/audio/{headphones,speakers,soundbar}` the category-mode fields point at;
 - provisions the results reader user **john-doe / John#1234** (server-level,
-  kept across runs, site member as editor) with `fmdb-results-reader` granted
-  on the two simple forms only — to exercise the results access rights.
+  kept across runs, member of both sites as editor) with `fmdb-results-reader` granted
+  on the simple form of each site only — to exercise the results access rights.
 
 Prerequisites: current `formidable-engine`, `formidable-elements`,
 `formidable-extended-inputs` and `formidable-test-module-samples-java`
-deployed on the target instance.
+deployed on the target instance, plus the two test template sets,
+`formidable-test-module-templateset-jsp` and `formidable-test-module-templateset-tsx`
+(the CSS site renders the stylesheet the latter ships).
 
 `yarn playground:maintenance` adds a form with no repository-writing
 action (`maintenance-free`, the contrast case for the read-only maintenance mode) to the
-same folder, which it creates and publishes if the main script has not run yet. Only the
-folder is its own: it needs a site `yarn playground` has already built, and its form renders
-live once that script has published the site's home in the page language.
+same folder of each playground site, which it creates and publishes if the main script has not
+run yet. Only the folder is its own: it needs the sites `yarn playground` has already built, and
+its forms render live once that script has published each site's home in the page language.
 
 ### With the Forms import
 
@@ -87,7 +90,7 @@ is deployed.
 
 When `formidable-jexperience-engine` is deployed (the script asks the repository for its
 mapping mixin, and goes on without mappings when the type is unknown), the playground also
-enables jExperience and the module on the site, and maps the two contact forms to jCustomer's
+enables jExperience and the module on both sites, and maps the two contact forms of each to jCustomer's
 default visitor profile properties, so the whole chain — editor section, mapping rule written at
 publication, submission event, profile update — is testable at once:
 

@@ -10,15 +10,17 @@ export const FORMIDABLE_MODULE_IDS = [
 	'formidable-test-module-samples-java'
 ] as const
 
+/** The contents folder of a site, where the forms are created. */
+export const contentPathOf = (siteKey: string): string => `/sites/${siteKey}/contents`
+/** The home page of a site, under which the form pages are created. */
+export const siteHomePathOf = (siteKey: string): string => `/sites/${siteKey}/home`
+
 /**
  * Base content path for the test site
  * Used as the parent path for creating form content nodes
  */
-export const CONTENT_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}/contents`
-// Where the manual-testing playground puts its forms (cypress/playground/*.play.ts): a folder of their own, so
-// the contents root stays what the specs expect and the set is found at a glance in jContent.
-export const PLAYGROUND_FORMS_PATH = `${CONTENT_PATH}/forms/playground`
-export const SITE_HOME_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}/home`
+export const CONTENT_PATH = contentPathOf(FORMIDABLE_TEST_SITE.key)
+export const SITE_HOME_PATH = siteHomePathOf(FORMIDABLE_TEST_SITE.key)
 
 /**
  * JContent selectors for test automation

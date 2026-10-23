@@ -1,9 +1,11 @@
 import gql from 'graphql-tag';
 
 /**
- * Formidable site configuration for Formidable tests
+ * A site forms are provisioned on: how it is created, and what its template set names the page template and
+ * the area a form page holds its form in (the JSP test template set: `simple` and `pagecontent`; the TSX one:
+ * `basic` and `main`).
  */
-export const FORMIDABLE_TEST_SITE: {
+export interface FormSite {
 	key: string
 	config: {
 		templateSet: string
@@ -11,7 +13,16 @@ export const FORMIDABLE_TEST_SITE: {
 		locale: string
 		languages: string
 	}
-} = {
+	/** The page template of a form page, as the template set names it. */
+	templateName: string
+	/** The area of a form page the form reference lands in, as the template set names it. */
+	areaName: string
+}
+
+/**
+ * Formidable site configuration for Formidable tests
+ */
+export const FORMIDABLE_TEST_SITE: FormSite = {
 	key: 'FormidableSite4Tests',
 	config: {
 		templateSet: 'formidable-test-module-templateset-jsp',
@@ -19,6 +30,8 @@ export const FORMIDABLE_TEST_SITE: {
 		locale: 'en',
 		languages: 'en,fr',
 	},
+	templateName: 'simple',
+	areaName: 'pagecontent',
 }
 
 /**
