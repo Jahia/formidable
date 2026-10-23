@@ -8,7 +8,8 @@ type ContainerNode = Parameters<typeof getNodeProps>[0];
  * step, a fieldset): without it the preview drawer falls back to the engine's generic
  * rendering — the fmdb markup comes out, but the stylesheet and the form's own CSS only
  * travel with the form views, so the container renders bare. Same shell as the form's cm
- * view: the enclosing form's CSS, the module stylesheet, and logic-driven fields visible.
+ * view: the enclosing form's CSS, the site's template set stylesheet when it ships one, the
+ * module stylesheet, and logic-driven fields visible.
  */
 jahiaComponent(
 	{
@@ -17,7 +18,7 @@ jahiaComponent(
 		name: "cm",
 		displayName: "jContent internal view"
 	},
-	(_, {currentNode}) => {
+	(_, {currentNode, renderContext}) => {
 		// The css property lives on the enclosing form (the list's parent, a step's
 		// grandparent, deeper for a nested fieldset).
 		let formNode: ContainerNode | null = null;
@@ -40,7 +41,7 @@ jahiaComponent(
 		const isFieldList = currentNode.isNodeType("fmdb:fieldList");
 
 		return (
-			<CmShell css={css}>
+			<CmShell css={css} renderContext={renderContext}>
 				{isFieldList
 					? (
 						<Render

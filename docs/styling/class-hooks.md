@@ -70,9 +70,13 @@ render the `cm` view: an inspection of the form's content — every step stacked
 title, logic-driven fields visible on their card, no buttons. There the `fmdb-form` hook is
 a `div` (nothing submits), and it carries `data-fmdb-cm-view="true"` instead of the edit-mode
 attribute: a stylesheet targets that surface with
-`.fmdb-form[data-fmdb-cm-view="true"] { … }`. The form's own CSS and this module's
-stylesheet apply; a template set's stylesheet only reaches previews opened from a page
-(jContent injects the hosting page's CSS there).
+`.fmdb-form[data-fmdb-cm-view="true"] { … }`. The form's own CSS, the site's template set
+stylesheet and this module's stylesheet apply, in that order, as on a live page. The template
+set's stylesheet is the one Vite bundles for a JavaScript module, `dist/assets/style.css`, the
+file its Layout serves through `AddResources`: the previews add it when the site's template set
+ships that file, and nothing otherwise (a JSP template set, or a module that imports no
+stylesheet). A preview opened from a page also gets the hosting page's CSS, which jContent
+injects there.
 
 In edit mode the form gets what authoring needs and live never sees: the field list is wrapped
 in `fmdb-form-fields` (so it can be clicked around its steps), a form reference with no form

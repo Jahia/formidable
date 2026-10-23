@@ -8,7 +8,8 @@ import {CmShell} from "~/design/CmShell";
  * fields are unreachable. Instead of simulating a visit, this view shows what the form
  * CONTAINS: every step stacked under its title, conditional fields visible, and none of
  * the buttons (navigation, submit) that cannot work without a script. The form's own CSS
- * still applies, so the contributor recognises the form's look.
+ * and the site's template set stylesheet, when it ships one, still apply, so the
+ * contributor recognises the form's look.
  *
  * Reached through graphql-core's cm fallback: jContent asks for no view at all while the
  * form is not a displayable node. The day fmdb:form becomes a displayable main resource
@@ -23,8 +24,8 @@ jahiaComponent(
 		name: "cm",
 		displayName: "jContent internal view"
 	},
-	({intro, css}: {intro?: string; css?: string}, {currentNode}) => (
-		<CmShell css={css}>
+	({intro, css}: {intro?: string; css?: string}, {currentNode, renderContext}) => (
+		<CmShell css={css} renderContext={renderContext}>
 			{intro && <div className="fmdb-form-intro" dangerouslySetInnerHTML={{__html: intro}}/>}
 			{currentNode.hasNode("fields") && (
 				<Render
