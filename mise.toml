@@ -2,4 +2,4 @@
 java = "temurin-17"
 node = "lts"
 yarn = "4"
-maven = "3"
+maven = "3.9"
