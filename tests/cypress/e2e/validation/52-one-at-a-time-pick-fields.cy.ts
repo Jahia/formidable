@@ -38,7 +38,7 @@ const quickConfirm = (name: string, title: string, required: boolean): JahiaNode
 	]
 });
 
-describe('Validation - 49 One-at-a-time fields that move on with a pick', () => {
+describe('Validation - 52 One-at-a-time fields that move on with a pick', () => {
 	useFormidableSite();
 
 	before(() => {

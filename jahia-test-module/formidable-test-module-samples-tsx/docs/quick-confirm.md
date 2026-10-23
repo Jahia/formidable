@@ -16,4 +16,4 @@ It shows two things:
   next screen. Unchecking it asks for the next screen too, and a required box refuses it. A field that
   takes several answers does not set the attribute.
 
-The Cypress spec `tests/cypress/e2e/validation/49-one-at-a-time-pick-fields.cy.ts` exercises it.
+The Cypress spec `tests/cypress/e2e/validation/52-one-at-a-time-pick-fields.cy.ts` exercises it.
