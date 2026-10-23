@@ -79,8 +79,11 @@ const TEXT_MESSAGES = ['msgValueMissing', 'msgTypeMismatch', 'msgPatternMismatch
 const RANGE_MESSAGES = ['msgValueMissing', 'msgRangeUnderflow', 'msgRangeOverflow', 'msgStepMismatch', 'msgBadInput'];
 /** The one note under the Validation messages title, said once instead of under each message. */
 const VALIDATION_MESSAGES_NOTE = /browser/;
-/** The form's Step navigation fieldset in Buttons: the switch of the steps bar, then the two labels it governs. */
-const STEP_NAVIGATION = ['showStepsNav', 'previousBtnLabel', 'nextBtnLabel'];
+/**
+ * The form's Step navigation fieldset in Buttons: the Form experience choice, which decides what Previous and
+ * Next move between, then the switch of the steps bar, then the two labels.
+ */
+const STEP_NAVIGATION = ['formExperience', 'showStepsNav', 'previousBtnLabel', 'nextBtnLabel'];
 /** The four dynamic bound fieldsets of a date contract, at ranks 3.1 to 3.4, each carrying one mode's value. */
 const boundFieldSets = (kind: 'Date' | 'Datetime'): [string, string[]][] => [
 	[`fmdbmix:fixedMin${kind}`, ['min']],
@@ -389,7 +392,7 @@ describe('Form fields - 225 The field editor layout', () => {
 		});
 	});
 
-	it('lays out the form: the steps bar switch with the Previous/Next labels in Buttons, no Multi-step section, no children block', () => {
+	it('lays out the form: the Form experience and the steps bar switch with the Previous/Next labels in Buttons, no Multi-step section, no children block', () => {
 		editFormAt(`${CONTENT_PATH}/${formName}`, 'the form').then(sections => {
 			const names = sections.map(section => section.name);
 			// One checkbox had a section to itself; it governs the step labels, so it sits with them (#150).

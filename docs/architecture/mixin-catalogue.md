@@ -142,7 +142,7 @@ same two semantics.
 | `fmdbmix:authenticatedOnlyForm` | engine | supertype of the switch | the semantic: a guest submission is rejected with `FMDB-009` before any file data is read. | `FormSubmissionPipeline`; the form view shows the sign-in notice instead of the fields |
 | `fmdbmix:buttons` | elements | supertype of `fmdb:form` | the labels of the submit, reset, new-form, try-again, previous and next buttons, and whether the three optional ones show. | the form views; the elements' override lays them out in the **Buttons** section |
 | `fmdbmix:responses` | elements | supertype of `fmdb:form` | the three rich-text messages: on success, on error, and the maintenance message shown while the platform is read-only. The light editor configuration of the help texts: formatting, links and lists, no structural markup. | the form views (`Form.client.tsx` for the maintenance message); the elements' override |
-| `fmdbmix:multiStep` | elements | supertype of `fmdb:form` | `showStepsNav`: the step navigation of a multi-step form. | the form views; placed first in the **Step navigation** fieldset of Buttons |
+| `fmdbmix:multiStep` | elements | supertype of `fmdb:form` | `showStepsNav`: the step navigation of a multi-step form. `formExperience`: `classic`, or `oneAtATime` for one field or fieldset per screen ([One-at-a-time](one-at-a-time.md)). | the form views; placed first in the **Step navigation** fieldset of Buttons |
 | `fmdbmix:style` | elements | supertype of `fmdb:form` | `css`, a stylesheet of the form's own, inlined by the view. | the form views; the elements' override |
 
 ## Actions

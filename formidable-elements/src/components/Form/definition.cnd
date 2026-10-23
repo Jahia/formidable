@@ -17,8 +17,11 @@
    - previousBtnLabel (string) = resourceBundle('label.previousBtn') autocreated i18n indexed=no
    - nextBtnLabel (string) = resourceBundle('label.nextBtn') autocreated i18n indexed=no
 
+// formExperience: how the form is walked through. classic shows the form, or one step at a time;
+// oneAtATime shows one field or fieldset per screen, inside the steps (docs/architecture/one-at-a-time.md).
 [fmdbmix:multiStep] mixin
    - showStepsNav (boolean) = true autocreated indexed=no
+   - formExperience (string, choicelist[resourceBundle]) = 'classic' autocreated indexed=no < 'classic', 'oneAtATime'
 
 [fmdbmix:style] mixin
   - css (string,textarea) indexed=no

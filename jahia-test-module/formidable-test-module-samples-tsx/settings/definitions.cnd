@@ -1,6 +1,8 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
 <jmix = 'http://www.jahia.org/jahia/mix/1.0'>
 <fmdb = 'http://www.jahia.org/jahia/fmdb/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+<fmdbsample = 'http://www.jahia.org/jahia/fmdbsample/nt/1.0'>
 <fmdbsamplemix = 'http://www.jahia.org/jahia/fmdb/sample/mix/1.0'>
 
 // Adds contributor-defined CSS class names to a content type.
@@ -25,3 +27,10 @@
  extends = fmdb:inputText, fmdb:inputEmail, fmdb:textarea, fmdb:inputNumber, fmdb:inputRange, fmdb:inputDate, fmdb:inputDatetimeLocal, fmdb:inputColor, fmdb:inputFile, fmdb:checkbox, fmdb:radio, fmdb:select
  itemtype = content
  - helpTextPosition (string, choicelist[resourceBundle]) = 'up' autocreated indexed=no < 'up', 'down', 'both'
+
+// A field type of a third-party module: one checkbox confirming a statement (its title). Checked, it is
+// the whole answer, so its view declares data-fmdb-advance-on-change and a One-at-a-time form moves on
+// once the visitor checks it (docs/architecture/one-at-a-time.md). A sample of the contract on a control
+// that is not a radio button: unchecking it asks for the next screen too, which a required one refuses.
+[fmdbsample:quickConfirm] > jnt:content, fmdbmix:element, fmdbmix:submittableField
+ - required (boolean) = false
