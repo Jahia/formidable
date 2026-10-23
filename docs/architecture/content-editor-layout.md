@@ -30,7 +30,8 @@ Field settings  1.05    1 Help & presentation                           help tex
                         4 Behaviour                                     read-only, disabled, autofocus
                         5 Validation messages                           the messages replacing the browser's
                         6 Field actions                                 the switch (docs/architecture/field-actions.md)
-Conditional display  1.10  renamed from "Logic" (2026-10-02): the rules show or hide the field
+Conditional display  1.10  renamed from "Logic" (2026-10-02): the rules show or hide the field;
+                           edit dialog only (2026-10-23): absent while the field is being created
 jExperience     1.15    unchanged (formidable-jexperience-engine)
 Metadata, Layout, List ordering, Visibility: the platform's own sections, unchanged
 ```
@@ -158,7 +159,7 @@ cannot depend on which file is read first):
 | ---- | ------------------- | --------------------------------------------------------------------------- | --------------------- |
 | 1.05 | Field settings      | the field types and their mixins (elements), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample), the fieldset (elements) | fields, and the fieldset for its help text |
 | 1.06 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field |
-| 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
+| 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine), `displayModes: ["edit"]`: the edit dialog only | fields and containers |
 | 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
 | 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` (jexperience-engine) | fields |
 | 1.20 | Buttons             | `fmdbmix:buttons` and `fmdbmix:multiStep` (elements) — the step navigation switch sits with the Previous/Next labels | form                  |
@@ -321,3 +322,4 @@ the sample's setting and `fields/223` for the switch.
 | 2026-10-02 | **The field-action feedback mixin follows: a supertype of `fmdbmix:fieldAction`, its always-activated fieldset gone** (#365) | Same finding, same remedy as the row above — the marker reaches every field-action type whatever its module, so a supertype of the marker reaches them all, which is what `extends` was there for; `RedundantMixinMigration` (renamed from `AdvancedSettingsMixinMigration`, since it now serves two families) drops the redundant mixin from the actions saved before |
 | 2026-10-05 | **The Field actions switch closes Field settings** (HDU: « déplace Field actions à la fin de FIELD SETTINGS »), superseding the 2026-10-01 choice | The children block that kept it next to Content is hidden since #371, so nothing ties the switch to Content any more; at the end of Field settings it follows the settings instead of sitting alone between the title fields and the section titles. Moved from the mixin's own file with `"alwaysPresent"` and the section declared there, so that the hidden input, with no other setting, keeps it |
 | 2026-10-05 | **The Field actions switch is placed by elements' override of the engine mixin**, the engine's file keeping only the children-block hide (HDU review of #377, then « pourquoi le design n'était pas le bon dès le début ? ») | The first cut shipped the placement from the engine, whose bundle then had to hold a copy of the section's label; every other engine mixin of Field settings is placed by elements, from elements' bundle. Measured on 8.2.4: last in Field settings on every type, alone in the section on the hidden input (en, fr), saved from the editor with its list |
+| 2026-10-23 | **Conditional display is an edit-dialog section**: `"displayModes": ["edit"]` on the `logic` section of the engine override, so the create dialog of a field or a container has no such section (HDU, #448) | At creation the author names and configures the field; the rules come once it exists among its siblings. jContent keeps a section only when its `displayModes` is unset or names the dialog's mode, `create` when no node exists yet, `edit` otherwise (`EditorFormServiceImpl.getEditorForm`, after `hide` and `requiredPermission`); jcontent's own `nt_base.json` does the same for its `listOrdering` section, and an override's `condition` block has no mode key. Verified on jcontent 3.7.2 through the `createForm` / `editForm` queries, which spec 513 repeats |
