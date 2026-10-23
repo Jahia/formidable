@@ -1,7 +1,7 @@
-import {CONTENT_PATH, JCONTENT_SELECTORS, SITE_HOME_PATH} from "../constants";
+import {contentPathOf, JCONTENT_SELECTORS, siteHomePathOf} from "../constants";
 import {addNode, publishAndWaitJobEnding} from "@jahia/cypress";
 import {JContent} from '@jahia/jcontent-cypress/dist/page-object/jcontent';
-import {FORMIDABLE_TEST_SITE} from "./site";
+import {FORMIDABLE_TEST_SITE, FormSite} from "./site";
 import {Form, FORM_HYDRATION_TIMEOUT_MS, isFormHydrated} from '../../page-object';
 import {JahiaNode, NodeProperty} from './types';
 
@@ -17,6 +17,8 @@ interface CreateFormNodeOptions {
 	properties?: NodeProperty[];
 	pageProperties?: NodeProperty[];
 	publishLanguages?: string[];
+	/** The site the form and its page go on; the test site by default. Its template set names the page template and the area. */
+	site?: FormSite;
 }
 
 export interface LiveFormPageInfo {
@@ -93,7 +95,7 @@ export const createFormNode = (
 	options: CreateFormNodeOptions = {}
 ) => {
 	return addNode({
-		parentPathOrId: options.parentPath ?? CONTENT_PATH,
+		parentPathOrId: options.parentPath ?? contentPathOf((options.site ?? FORMIDABLE_TEST_SITE).key),
 		name: formName,
 		primaryNodeType: 'fmdb:form',
 		mixins: options.mixins || [],
@@ -105,6 +107,45 @@ export const createFormNode = (
 	});
 };
 
+/**
+ * A page holding forms: the page template and the area are the site's template set's, and each form is
+ * placed in that area as a reference named `<form name>-reference`.
+ */
+export const formPageNode = (
+	site: FormSite,
+	pageName: string,
+	pageProperties: NodeProperty[],
+	forms: Array<{name: string; formId: string}>
+): JahiaNode => ({
+	name: pageName,
+	primaryNodeType: 'jnt:page',
+	properties: [
+		{name: 'j:templateName', value: site.templateName},
+		...pageProperties
+	],
+	children: [
+		{
+			name: site.areaName,
+			primaryNodeType: 'jnt:contentList',
+			properties: [],
+			children: [
+				{
+					name: 'main-resource-display',
+					primaryNodeType: 'jnt:mainResourceDisplay',
+					properties: []
+				},
+				...forms.map(({name, formId}) => ({
+					name: `${name}-reference`,
+					primaryNodeType: 'fmdb:formReference',
+					properties: [
+						{name: 'j:node', value: formId, type: 'WEAKREFERENCE' as const}
+					]
+				}))
+			]
+		}
+	]
+});
+
 export const createPublishedLiveFormPage = (
 	formName: string,
 	formTitle: string,
@@ -113,10 +154,12 @@ export const createPublishedLiveFormPage = (
 	pageTitle: string = formTitle,
 	options: CreateFormNodeOptions = {}
 ): Cypress.Chainable<LiveFormPageInfo> => {
-	const formPath = `${options.parentPath ?? CONTENT_PATH}/${formName}`;
-	const pagePath = `${SITE_HOME_PATH}/${pageName}`;
+	const site = options.site ?? FORMIDABLE_TEST_SITE;
+	const formPath = `${options.parentPath ?? contentPathOf(site.key)}/${formName}`;
+	const homePath = siteHomePathOf(site.key);
+	const pagePath = `${homePath}/${pageName}`;
 	const livePath = `home/${pageName}.html`;
-	const referencePath = `${pagePath}/pagecontent/${formName}-reference`;
+	const referencePath = `${pagePath}/${site.areaName}/${formName}-reference`;
 	let formId: string;
 
 	return createFormNode(formName, formTitle, formElements, options)
@@ -127,35 +170,13 @@ export const createPublishedLiveFormPage = (
 			}
 
 			return addNode({
-				parentPathOrId: SITE_HOME_PATH,
-				name: pageName,
-				primaryNodeType: 'jnt:page',
-				properties: [
-					{name: 'jcr:title', value: pageTitle, language: 'en'},
-					{name: 'j:templateName', value: 'simple'},
-					...(options.pageProperties || [])
-				],
-				children: [
-					{
-						name: 'pagecontent',
-						primaryNodeType: 'jnt:contentList',
-						properties: [],
-						children: [
-							{
-								name: 'main-resource-display',
-								primaryNodeType: 'jnt:mainResourceDisplay',
-								properties: []
-							},
-							{
-								name: `${formName}-reference`,
-								primaryNodeType: 'fmdb:formReference',
-								properties: [
-									{name: 'j:node', value: formId, type: 'WEAKREFERENCE'}
-								]
-							}
-						]
-					}
-				]
+				parentPathOrId: homePath,
+				...formPageNode(
+					site,
+					pageName,
+					[{name: 'jcr:title', value: pageTitle, language: 'en'}, ...(options.pageProperties || [])],
+					[{name: formName, formId}]
+				)
 			});
 		})
 		.then(() => {
@@ -183,10 +204,6 @@ export function getFormPreview(formTitle: string): Form {
 	);
 }
 
-/**
- * @param query optional query string (without the leading "?"), for logic rules whose
- *              source is a URL parameter.
- */
 /**
  * Most hydrations land within a few seconds; a first budget larger than that but
  * far below the full one keeps the recovery path cheap when the island is stuck.
@@ -241,9 +258,14 @@ function getHydratedForm(): Form {
 	);
 }
 
-export function visitLiveForm(livePath: string, lang: string = 'en', query?: string): Form {
+/**
+ * @param query optional query string (without the leading "?"), for logic rules whose
+ *              source is a URL parameter.
+ * @param siteKey the site the page belongs to; the test site by default.
+ */
+export function visitLiveForm(livePath: string, lang: string = 'en', query?: string, siteKey: string = FORMIDABLE_TEST_SITE.key): Form {
 	const search = query ? `?${query}` : '';
-	cy.visit(`/${lang}/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}${search}`);
+	cy.visit(`/${lang}/sites/${siteKey}/${livePath}${search}`);
 
 	return getHydratedForm();
 }

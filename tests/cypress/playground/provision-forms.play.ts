@@ -1,20 +1,15 @@
 /**
  * Manual-testing playground provisioning — NOT a test.
  *
- * Rebuilds the Formidable test site with a ready-to-use set of published live
+ * Rebuilds the two playground sites (sites.ts) with a ready-to-use set of published live
  * forms, so the whole UI and submission process can be exercised by hand on a
  * stable model. Run it with: yarn playground (from the tests/ folder).
  *
- * The forms live under /sites/<site>/contents/forms/playground, each on a page of its own
- * under /sites/<site>/home (<form name>-page), all with a save-to-JCR action so the results
- * screens can be exercised. Every form comes in TWO looks, told apart by the prefix of its
- * name and of its title:
- *   - css-*    "CSS - …"    the sample theme (registration-yellow-theme.css) in the form's
- *                           "Custom CSS" property: a business stylesheet on top of the modules'
- *                           markup, the case the authoring UI (Page Builder zones, boxes) must
- *                           stay readable in
- *   - plain-*  "Plain - …"  no css property: the modules' own look, the markup and the class
- *                           hooks as the styling contract (docs/styling/) describes them
+ * The same forms are built on both sites, under /sites/<site>/contents/forms/playground, each on
+ * a page of its own under /sites/<site>/home (<form name>-page), all with a save-to-JCR action so
+ * the results screens can be exercised. The sites alone tell the two looks apart: Plain renders the
+ * modules' own look on the JSP test template set, CSS renders the complete stylesheet the TSX test
+ * template set ships on the same markup; no form carries a Custom CSS property.
  * The forms:
  *   - simple      minimal contact form, the visitor named by a first and a last name so that
  *                 each maps to its own visitor-profile property; a select drives a conditional
@@ -30,13 +25,13 @@
  *                 to showcase that only published contents reach live)
  *   - languages   a choice field whose French labels are half translated, to try the site's
  *                 "replace untranslated content" setting both ways
- * And one page per look holding two forms, <look>-two-forms-page: the simple form (referenced)
- * next to the newsletter one — the case a page with one form never shows (two results sets,
- * two mappings, one tracking script).
+ * And one page holding two forms, two-forms-page: the simple form (referenced) next to the
+ * newsletter one — the case a page with one form never shows (two results sets, two mappings,
+ * one tracking script).
  *
  * jContent's trees (pages, content folders) list nodes in creation order, so the set is created
- * in the order a reader expects to find it: the looks by label, and within a look the forms by
- * title — CSS before Plain, Complete form first, Two forms on one page last.
+ * in the order a reader expects to find it, the forms by title — Complete form first, Two forms
+ * on one page last.
  *
  * When formidable-jexperience-engine is on the instance, the simple and the complete forms map their
  * fields to jCustomer's default visitor profile properties (firstName, lastName, email, phoneNumber,
@@ -63,10 +58,10 @@
  * category-mode fields point at and the contents/agencies and
  * contents/services folders the content-mode ones read, and
  * provisions the results reader user john-doe (password John#1234, kept on
- * the server across runs, site member as editor) with fmdb-results-reader
- * granted on the two simple forms only — to test the results access rights.
+ * the server across runs, member of both sites as editor) with fmdb-results-reader
+ * granted on the simple form of each site only — to test the results access rights.
  *
- * Three more forms in the plain look leave results behind them: one deleted from both
+ * Three more forms on the Plain site leave results behind them: one deleted from both
  * workspaces, one unpublished — the two cases the Results page flags (Form deleted /
  * Form unpublished) — and one whose only submission was deleted, an entry with no
  * result; "Delete all results" clears all three.
@@ -76,7 +71,6 @@ import {addNode, createSite, createUser, deleteNode, deleteSite, enableModule, g
 import {
 	CHECKBOX_GROUP_COMPLETE,
 	CHECKBOX_SINGLE_COMPLETE,
-	FORMIDABLE_TEST_SITE,
 	getBlockedWordsFieldActionNode,
 	getCategoryChoiceFieldNode,
 	getCategoryNode,
@@ -109,49 +103,23 @@ import {
 	withFieldActions,
 	TEXTAREA_COMPLETE
 } from '../support/fixtures';
-import {createFormNode, createPublishedLiveFormPage, visitLiveForm} from '../support/fixtures/forms';
-import {CONTENT_PATH, FORMIDABLE_MODULE_IDS, PLAYGROUND_FORMS_PATH, SITE_HOME_PATH} from '../support/constants';
+import {createFormNode, createPublishedLiveFormPage, formPageNode, visitLiveForm} from '../support/fixtures/forms';
+import {contentPathOf, FORMIDABLE_MODULE_IDS, siteHomePathOf} from '../support/constants';
 import type {JahiaNode, NodeProperty} from '../support/fixtures/types';
+import {ensurePlaygroundFolders, PLAIN_SITE, PLAYGROUND_SITES, playgroundFormsPathOf, type PlaygroundSite} from './sites';
 
-// Sample theme written into the CSS forms' css property; lives with the
-// sample code so module developers can pick it up as a starting point.
-const SAMPLE_THEME_PATH = '../jahia-test-module/sample-form-css/registration-yellow-theme.css';
-// Read once, before the first form is built (see the before hook).
-let themeCss = '';
-
-// The folder holding the forms (contents/forms/playground) and its parent, created and published with the site.
-const FORMS_FOLDER_PATH = `${CONTENT_PATH}/forms`;
-
-const AGENCIES_ROOT_PATH = `${CONTENT_PATH}/agencies`;
-const SERVICES_ROOT_PATH = `${CONTENT_PATH}/services`;
+const agenciesRootOf = (site: PlaygroundSite): string => `${contentPathOf(site.key)}/agencies`;
+const servicesRootOf = (site: PlaygroundSite): string => `${contentPathOf(site.key)}/services`;
 const CATEGORY_ROOT = '/sites/systemsite/categories';
 
 const RESULTS_READER = {name: 'john-doe', password: 'John#1234'};
 
-/**
- * One of the two looks every form is provisioned in. The key prefixes the system names
- * (`css-simple`, `plain-simple`), the labels prefix the titles ("CSS - Simple contact form").
- */
-interface Look {
-	key: 'css' | 'plain';
-	label: string;
-	frLabel: string;
-	/** Whether the sample theme goes into the form's "Custom CSS" property; the plain look shows the modules' own styles. */
-	css: boolean;
-}
+const livePageOf = (base: string): string => `home/${base}-page.html`;
 
-// In label order: the order the looks are created in, hence the order the trees show them in.
-const LOOKS: Look[] = [
-	{key: 'css', label: 'CSS', frLabel: 'CSS', css: true},
-	{key: 'plain', label: 'Plain', frLabel: 'Brut', css: false}
-];
-
-const nameOf = (look: Look, base: string): string => `${look.key}-${base}`;
-const titleOf = (look: Look, title: string): string => `${look.label} - ${title}`;
-const frTitleOf = (look: Look, frTitle: string): string => `${look.frLabel} - ${frTitle}`;
-// Read at provisioning time: the theme is loaded in the before hook.
-const cssOf = (look: Look): NodeProperty[] => (look.css ? [{name: 'css', value: themeCss}] : []);
-const livePageOf = (look: Look, base: string): string => `home/${nameOf(look, base)}-page.html`;
+/** The site switcher shows a site's title, which createSite sets to the key: the playground sites get theirs. */
+const nameSite = (site: PlaygroundSite): void => {
+	cy.executeGroovy('groovy/setSiteTitle.groovy', {__SITE_KEY__: site.key, __TITLE__: site.title});
+};
 
 /** Titles are in ascending order, as the trees will show the nodes created in that order. */
 const inTitleOrder = (titles: string[]): boolean => titles.every((title, index) => index === 0 || titles[index - 1].localeCompare(title, 'en') < 0);
@@ -178,24 +146,25 @@ const LIST_TITLES = {
 };
 
 /**
- * Creates and publishes one form in the playground folder, in the given look, with its page under
+ * Creates and publishes one form in the playground folder of the site, with its page under its
  * home — both titled in both site languages (the actions get localized default titles at creation,
  * so an en-only publication would leave their fr translation unpublished). formProperties adds what
  * a given form wants on top (the buttons it shows, for one).
  */
-const provisionForm = (look: Look, base: string, title: string, frTitle: string, fields: JahiaNode[], formProperties: NodeProperty[] = []) =>
+const provisionForm = (site: PlaygroundSite, base: string, title: string, frTitle: string, fields: JahiaNode[], formProperties: NodeProperty[] = []) =>
 	createPublishedLiveFormPage(
-		nameOf(look, base),
-		titleOf(look, title),
+		base,
+		title,
 		fields,
 		undefined,
 		undefined,
 		{
-			parentPath: PLAYGROUND_FORMS_PATH,
+			site,
+			parentPath: playgroundFormsPathOf(site.key),
 			actions: [saveToJcrAction()],
 			...LIST_TITLES,
-			properties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}, ...cssOf(look), ...formProperties],
-			pageProperties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}],
+			properties: [{name: 'jcr:title', value: frTitle, language: 'fr'}, ...formProperties],
+			pageProperties: [{name: 'jcr:title', value: frTitle, language: 'fr'}],
 			publishLanguages: ['en', 'fr']
 		}
 	);
@@ -277,8 +246,8 @@ const CUSTOM_PROFILE_PROPERTIES = [
 	{id: 'formidableInterests', name: 'Interests (Formidable playground)', type: 'string', multivalued: true},
 	{id: 'formidableOptIn', name: 'Newsletter opt-in (Formidable playground)', type: 'boolean', multivalued: false}
 ];
-const ensureCustomProfileProperties = (): void => {
-	const endpoint = `/modules/jexperience/proxy/${FORMIDABLE_TEST_SITE.key}/cxs/profiles/properties`;
+const ensureCustomProfileProperties = (siteKey: string): void => {
+	const endpoint = `/modules/jexperience/proxy/${siteKey}/cxs/profiles/properties`;
 	cy.request({url: `${endpoint}/targets/profiles`, failOnStatusCode: false}).then(response => {
 		if (response.status !== 200 || !Array.isArray(response.body)) {
 			cy.log(`jCustomer not reachable through jExperience (HTTP ${response.status}): the playground's profile properties are not created`);
@@ -308,16 +277,16 @@ const ensureCustomProfileProperties = (): void => {
 // be resolved), so each run would leave the previous run's rules behind in jCustomer — and every one of them
 // would still put a stale form id in the tracker's watch list. The rules of the site are deleted before the
 // site is, by the id prefix the synchroniser writes.
-const MAPPING_RULE_PREFIX = `formidable-form-mapping_${FORMIDABLE_TEST_SITE.key}_`;
-const deleteMappingRulesOfTheSite = (): void => {
-	const endpoint = `/modules/jexperience/proxy/${FORMIDABLE_TEST_SITE.key}/cxs/rules`;
+const deleteMappingRulesOfTheSite = (siteKey: string): void => {
+	const endpoint = `/modules/jexperience/proxy/${siteKey}/cxs/rules`;
+	const prefix = `formidable-form-mapping_${siteKey}_`;
 	cy.request({url: endpoint, failOnStatusCode: false}).then(response => {
 		if (response.status !== 200 || !Array.isArray(response.body)) {
 			cy.log(`jCustomer not reachable through jExperience (HTTP ${response.status}): the previous run's mapping rules are left as they are`);
 			return;
 		}
-		const stale = (response.body as Array<{id: string}>).map(rule => rule.id).filter(id => id.startsWith(MAPPING_RULE_PREFIX));
-		cy.log(`${stale.length} mapping rule(s) of a previous run to delete`);
+		const stale = (response.body as Array<{id: string}>).map(rule => rule.id).filter(id => id.startsWith(prefix));
+		cy.log(`${stale.length} mapping rule(s) of a previous run on ${siteKey} to delete`);
 		stale.forEach(id => cy.request({method: 'DELETE', url: `${endpoint}/${id}`, failOnStatusCode: false}));
 	});
 };
@@ -392,7 +361,7 @@ const withLogics = (node: JahiaNode, ...rules: string[]): JahiaNode => ({
 	properties: [...node.properties, {name: 'logics', values: rules}]
 });
 
-// Second conditional case, on the simple form this time: in its plain look that
+// Second conditional case, on the simple form this time: on the Plain site that
 // form shows how the core renders a conditional field by default.
 const PHONE_NUMBER_RULE = JSON.stringify({
 	logicId: 'pg-phone-number',
@@ -738,52 +707,54 @@ const OPTIONS_SOURCES = [
 describe('Playground - provision manual-testing forms', () => {
 	before(() => {
 		cy.login();
-		cy.readFile(SAMPLE_THEME_PATH).then((content: string) => {
-			themeCss = content;
-		});
 	});
 
-	it('resets the test site', () => {
+	it('resets the two playground sites', () => {
 		detectJExperience();
-		// not gated on the module: the rules to clean up are the ones written while it *was* deployed
-		cy.then(() => deleteMappingRulesOfTheSite());
-		deleteSite(FORMIDABLE_TEST_SITE.key);
-		createSite(FORMIDABLE_TEST_SITE.key, FORMIDABLE_TEST_SITE.config);
-		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
-		// the Forms import is an add-on the site must enable: when it is deployed, the Results page keeps its Import button
-		cy.request({url: `${FORMS_IMPORT_ENDPOINT}/settings?site=${FORMIDABLE_TEST_SITE.key}`, failOnStatusCode: false})
-			.then(response => {
-				if (response.status !== 404) {
-					enableModule(FORMS_IMPORT_MODULE, FORMIDABLE_TEST_SITE.key);
-				} else {
-					cy.log(`${FORMS_IMPORT_MODULE} absent: the Results page has no Import button`);
+		PLAYGROUND_SITES.forEach(site => {
+			// not gated on the module: the rules to clean up are the ones written while it *was* deployed
+			cy.then(() => deleteMappingRulesOfTheSite(site.key));
+			deleteSite(site.key);
+			createSite(site.key, site.config);
+			nameSite(site);
+			FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, site.key));
+			// the Forms import is an add-on the site must enable: when it is deployed, the Results page keeps its Import button
+			cy.request({url: `${FORMS_IMPORT_ENDPOINT}/settings?site=${site.key}`, failOnStatusCode: false})
+				.then(response => {
+					if (response.status !== 404) {
+						enableModule(FORMS_IMPORT_MODULE, site.key);
+					} else {
+						cy.log(`${FORMS_IMPORT_MODULE} absent: the Results page has no Import button`);
+					}
+				});
+			cy.apollo({query: gql`query sampleHelpTextPositionMixin { jcr { nodeTypeByName(name: "${SAMPLE_TSX_MIXIN}") { name } } }`})
+				.then((response: {errors?: unknown; data?: {jcr?: {nodeTypeByName?: {name?: string} | null}}}) => {
+					if (!response.errors && response.data?.jcr?.nodeTypeByName?.name) {
+						enableModule(SAMPLE_TSX_MODULE, site.key);
+					} else {
+						cy.log(`${SAMPLE_TSX_MODULE} absent: the fields show no help text position setting`);
+					}
+				});
+			cy.then(() => {
+				if (jExperienceAvailable) {
+					// Both halves of the render filter's site check: jExperience among the site's modules, and ours.
+					enableModule('jexperience', site.key);
+					enableModule('formidable-jexperience-engine', site.key);
 				}
 			});
-		cy.apollo({query: gql`query sampleHelpTextPositionMixin { jcr { nodeTypeByName(name: "${SAMPLE_TSX_MIXIN}") { name } } }`})
-			.then((response: {errors?: unknown; data?: {jcr?: {nodeTypeByName?: {name?: string} | null}}}) => {
-				if (!response.errors && response.data?.jcr?.nodeTypeByName?.name) {
-					enableModule(SAMPLE_TSX_MODULE, FORMIDABLE_TEST_SITE.key);
-				} else {
-					cy.log(`${SAMPLE_TSX_MODULE} absent: the fields show no help text position setting`);
-				}
-			});
+			// A live page renders only if the site home is published in the page
+			// language (getSite().getHome() resolves to null otherwise -> 500),
+			// and publishing a page does not cascade up to its home: publish the
+			// home in every site language now, while it is still empty.
+			publishAndWaitJobEnding(siteHomePathOf(site.key), ['en', 'fr']);
+			ensurePlaygroundFolders(site);
+		});
+		// The profile properties are jCustomer's, not a site's: made once, through the proxy of the first site.
 		cy.then(() => {
 			if (jExperienceAvailable) {
-				// Both halves of the render filter's site check: jExperience among the site's modules, and ours.
-				enableModule('jexperience', FORMIDABLE_TEST_SITE.key);
-				enableModule('formidable-jexperience-engine', FORMIDABLE_TEST_SITE.key);
-				ensureCustomProfileProperties();
+				ensureCustomProfileProperties(PLAIN_SITE.key);
 			}
 		});
-		// A live page renders only if the site home is published in the page
-		// language (getSite().getHome() resolves to null otherwise -> 500),
-		// and publishing a page does not cascade up to its home: publish the
-		// home in every site language now, while it is still empty.
-		publishAndWaitJobEnding(SITE_HOME_PATH, ['en', 'fr']);
-		// The forms' folder, published while still empty so that every form finds its parent in live.
-		addNode({parentPathOrId: CONTENT_PATH, name: 'forms', primaryNodeType: 'jnt:contentFolder', properties: []});
-		addNode({parentPathOrId: FORMS_FOLDER_PATH, name: 'playground', primaryNodeType: 'jnt:contentFolder', properties: []});
-		publishAndWaitJobEnding(FORMS_FOLDER_PATH, ['en', 'fr']);
 	});
 
 	it('declares the options sources in the module configuration', () => {
@@ -821,27 +792,31 @@ describe('Playground - provision manual-testing forms', () => {
 		publishAndWaitJobEnding(`${CATEGORY_ROOT}/product`, ['en', 'fr']);
 	});
 
-	it('creates and publishes the agency and service contents (content-mode targets)', () => {
-		addNode({parentPathOrId: CONTENT_PATH, name: 'agencies', primaryNodeType: 'jnt:contentFolder', properties: []});
-		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('paris', 'Paris agency', 'Agence de Paris')});
-		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('lyon', 'Lyon agency', 'Agence de Lyon')});
-		addNode({parentPathOrId: AGENCIES_ROOT_PATH, name: 'europe', primaryNodeType: 'jnt:contentFolder', properties: []});
-		addNode({parentPathOrId: `${AGENCIES_ROOT_PATH}/europe`, ...getTitledTextNode('berlin', 'Berlin agency', 'Agence de Berlin')});
-		publishAndWaitJobEnding(AGENCIES_ROOT_PATH, ['en', 'fr']);
-		// A second root for the multiple content field, so that the two do not show the same words.
-		addNode({parentPathOrId: CONTENT_PATH, name: 'services', primaryNodeType: 'jnt:contentFolder', properties: []});
-		addNode({parentPathOrId: SERVICES_ROOT_PATH, ...getTitledTextNode('repair', 'Repair', 'Réparation')});
-		addNode({parentPathOrId: SERVICES_ROOT_PATH, ...getTitledTextNode('installation', 'Installation', 'Installation')});
-		addNode({parentPathOrId: SERVICES_ROOT_PATH, ...getTitledTextNode('training', 'Training', 'Formation')});
-		publishAndWaitJobEnding(SERVICES_ROOT_PATH, ['en', 'fr']);
+	it('creates and publishes the agency and service contents (content-mode targets) on each site', () => {
+		PLAYGROUND_SITES.forEach(site => {
+			const agenciesRoot = agenciesRootOf(site);
+			addNode({parentPathOrId: contentPathOf(site.key), name: 'agencies', primaryNodeType: 'jnt:contentFolder', properties: []});
+			addNode({parentPathOrId: agenciesRoot, ...getTitledTextNode('paris', 'Paris agency', 'Agence de Paris')});
+			addNode({parentPathOrId: agenciesRoot, ...getTitledTextNode('lyon', 'Lyon agency', 'Agence de Lyon')});
+			addNode({parentPathOrId: agenciesRoot, name: 'europe', primaryNodeType: 'jnt:contentFolder', properties: []});
+			addNode({parentPathOrId: `${agenciesRoot}/europe`, ...getTitledTextNode('berlin', 'Berlin agency', 'Agence de Berlin')});
+			publishAndWaitJobEnding(agenciesRoot, ['en', 'fr']);
+			// A second root for the multiple content field, so that the two do not show the same words.
+			const servicesRoot = servicesRootOf(site);
+			addNode({parentPathOrId: contentPathOf(site.key), name: 'services', primaryNodeType: 'jnt:contentFolder', properties: []});
+			addNode({parentPathOrId: servicesRoot, ...getTitledTextNode('repair', 'Repair', 'Réparation')});
+			addNode({parentPathOrId: servicesRoot, ...getTitledTextNode('installation', 'Installation', 'Installation')});
+			addNode({parentPathOrId: servicesRoot, ...getTitledTextNode('training', 'Training', 'Formation')});
+			publishAndWaitJobEnding(servicesRoot, ['en', 'fr']);
+		});
 	});
 
 	it('provisions the results reader user', () => {
-		// Server-level user, kept across runs; site member so jContent is reachable. The results
-		// themselves are granted form by form below, on the two simple forms.
+		// Server-level user, kept across runs; member of both sites so jContent is reachable. The results
+		// themselves are granted form by form below, on the simple form of each site.
 		createUser(RESULTS_READER.name, RESULTS_READER.password);
-		grantRoles(`/sites/${FORMIDABLE_TEST_SITE.key}`, ['editor'], RESULTS_READER.name, 'USER');
-		cy.log(`Results reader: ${RESULTS_READER.name} / ${RESULTS_READER.password} (access to the two simple forms' results only)`);
+		PLAYGROUND_SITES.forEach(site => grantRoles(`/sites/${site.key}`, ['editor'], RESULTS_READER.name, 'USER'));
+		cy.log(`Results reader: ${RESULTS_READER.name} / ${RESULTS_READER.password} (access to the simple forms' results only)`);
 	});
 
 	/**
@@ -851,8 +826,8 @@ describe('Playground - provision manual-testing forms', () => {
 	interface Entry {
 		title: string;
 		frTitle: string;
-		/** Provisions the entry in the look, under its own titles; the roots are what the complete form's category and content fields point at. */
-		provision: (look: Look, titles: Pick<Entry, 'title' | 'frTitle'>, roots: ChoiceRoots) => void;
+		/** Provisions the entry on the site, under its own titles; the roots are what the complete form's category and content fields point at. */
+		provision: (site: PlaygroundSite, titles: Pick<Entry, 'title' | 'frTitle'>, roots: ChoiceRoots) => void;
 	}
 
 	// In TITLE order, asserted by the guard in the tests below — and the two-forms page after the simple and
@@ -861,18 +836,18 @@ describe('Playground - provision manual-testing forms', () => {
 		{
 			title: 'Complete form',
 			frTitle: 'Formulaire complet',
-			provision: (look, {title, frTitle}, roots) => {
-				provisionForm(look, 'complete', title, frTitle, completeFormNodes(roots))
-					.then(({livePath}) => cy.log(`${look.label} complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+			provision: (site, {title, frTitle}, roots) => {
+				provisionForm(site, 'complete', title, frTitle, completeFormNodes(roots))
+					.then(({livePath}) => cy.log(`${site.title} complete form: /en/sites/${site.key}/${livePath}`));
 			}
 		},
 		{
 			title: 'Half-translated options',
 			frTitle: 'Options traduites à moitié',
-			provision: (look, {title, frTitle}) => {
-				provisionForm(look, 'languages', title, frTitle, languagesFormNodes()).then(({livePath}) => {
-					cy.log(`${look.label} half-translated options, English: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
-					cy.log(`${look.label} half-translated options, French: /fr/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
+			provision: (site, {title, frTitle}) => {
+				provisionForm(site, 'languages', title, frTitle, languagesFormNodes()).then(({livePath}) => {
+					cy.log(`${site.title} half-translated options, English: /en/sites/${site.key}/${livePath}`);
+					cy.log(`${site.title} half-translated options, French: /fr/sites/${site.key}/${livePath}`);
 					cy.log('Toggle "Replace untranslated content with the default language content" in the site settings: '
 						+ 'ON renders Chocolate/Pistachio with their English labels, OFF drops them from the French form.');
 				});
@@ -881,35 +856,36 @@ describe('Playground - provision manual-testing forms', () => {
 		{
 			title: 'Multi-step form',
 			frTitle: 'Formulaire multi-étapes',
-			provision: (look, {title, frTitle}) => {
-				// A business stylesheet on a multi-step form (the CSS look): the authoring UI must stay readable on top of it.
-				provisionForm(look, 'steps', title, frTitle, multiStepNodes())
-					.then(({livePath}) => cy.log(`${look.label} multi-step form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+			provision: (site, {title, frTitle}) => {
+				// A business stylesheet on a multi-step form (the CSS site): the authoring UI must stay readable on top of it.
+				provisionForm(site, 'steps', title, frTitle, multiStepNodes())
+					.then(({livePath}) => cy.log(`${site.title} multi-step form: /en/sites/${site.key}/${livePath}`));
 			}
 		},
 		{
 			title: 'Newsletter',
 			frTitle: 'Lettre d\'information',
-			provision: (look, {title, frTitle}) => {
+			provision: (site, {title, frTitle}) => {
 				// A form without a page of its own: it shows on the two-forms page only.
 				createFormNode(
-					nameOf(look, 'newsletter'),
-					titleOf(look, title),
+					'newsletter',
+					title,
 					newsletterNodes(),
 					{
-						parentPath: PLAYGROUND_FORMS_PATH,
+						site,
+						parentPath: playgroundFormsPathOf(site.key),
 						actions: [saveToJcrAction()],
 						...LIST_TITLES,
-						properties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}, ...cssOf(look)]
+						properties: [{name: 'jcr:title', value: frTitle, language: 'fr'}]
 					}
 				);
-				publishAndWaitJobEnding(`${PLAYGROUND_FORMS_PATH}/${nameOf(look, 'newsletter')}`, ['en', 'fr']);
+				publishAndWaitJobEnding(`${playgroundFormsPathOf(site.key)}/newsletter`, ['en', 'fr']);
 			}
 		},
 		{
 			title: 'Simple contact form',
 			frTitle: 'Formulaire de contact simple',
-			provision: (look, {title, frTitle}) => {
+			provision: (site, {title, frTitle}) => {
 				// The form that shows the two optional buttons: Reset, which puts the form back to its
 				// defaults (and undoes a prefill with them), and New form, offered once a submission
 				// went through. The other forms keep Submit alone.
@@ -917,74 +893,54 @@ describe('Playground - provision manual-testing forms', () => {
 					{name: 'showResetBtn', value: 'true', type: 'BOOLEAN'},
 					{name: 'showNewFormBtn', value: 'true', type: 'BOOLEAN'}
 				];
-				provisionForm(look, 'simple', title, frTitle, simpleFormNodes(), buttons).then(({formPath, livePath}) => {
+				provisionForm(site, 'simple', title, frTitle, simpleFormNodes(), buttons).then(({formPath, livePath}) => {
 					// Results access: fmdb-results-reader on the form node, propagated to the
 					// results by the ACL sync once the form is (re)published.
 					grantRoles(formPath, ['fmdb-results-reader'], RESULTS_READER.name, 'USER');
 					publishAndWaitJobEnding(formPath, ['en', 'fr']);
-					cy.log(`${look.label} simple form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`);
+					cy.log(`${site.title} simple form: /en/sites/${site.key}/${livePath}`);
 				});
 			}
 		},
 		{
 			title: 'Two forms on one page',
 			frTitle: 'Deux formulaires sur une page',
-			provision: (look, {title, frTitle}) => {
+			provision: (site, {title, frTitle}) => {
 				// The case a page with one form never shows: two forms side by side, each with its own results and
 				// its own mapping. It is also what the jExperience integration has to get right — one configuration
 				// block per form, one tracking script for the page. Both forms are referenced rather than copied,
 				// so the page also shows a form living in two places, which is how an author uses a reference.
-				const simpleName = nameOf(look, 'simple');
-				const newsletterName = nameOf(look, 'newsletter');
-				const pageName = `${look.key}-two-forms-page`;
-				getNodeByPath(`${PLAYGROUND_FORMS_PATH}/${simpleName}`).then(simpleResponse => {
+				const formsPath = playgroundFormsPathOf(site.key);
+				const pageName = 'two-forms-page';
+				getNodeByPath(`${formsPath}/simple`).then(simpleResponse => {
 					const simpleId: string = simpleResponse.data.jcr.nodeByPath.uuid;
-					getNodeByPath(`${PLAYGROUND_FORMS_PATH}/${newsletterName}`).then(newsletterResponse => {
+					getNodeByPath(`${formsPath}/newsletter`).then(newsletterResponse => {
 						const newsletterId: string = newsletterResponse.data.jcr.nodeByPath.uuid;
 
 						addNode({
-							parentPathOrId: SITE_HOME_PATH,
-							name: pageName,
-							primaryNodeType: 'jnt:page',
-							properties: [
-								{name: 'jcr:title', value: titleOf(look, title), language: 'en'},
-								{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'},
-								{name: 'j:templateName', value: 'simple'}
-							],
-							children: [
-								{
-									name: 'pagecontent',
-									primaryNodeType: 'jnt:contentList',
-									properties: [],
-									children: [
-										{name: 'main-resource-display', primaryNodeType: 'jnt:mainResourceDisplay', properties: []},
-										{
-											name: `${simpleName}-reference`,
-											primaryNodeType: 'fmdb:formReference',
-											properties: [{name: 'j:node', value: simpleId, type: 'WEAKREFERENCE'}]
-										},
-										{
-											name: `${newsletterName}-reference`,
-											primaryNodeType: 'fmdb:formReference',
-											properties: [{name: 'j:node', value: newsletterId, type: 'WEAKREFERENCE'}]
-										}
-									]
-								}
-							]
+							parentPathOrId: siteHomePathOf(site.key),
+							...formPageNode(
+								site,
+								pageName,
+								[
+									{name: 'jcr:title', value: title, language: 'en'},
+									{name: 'jcr:title', value: frTitle, language: 'fr'}
+								],
+								[{name: 'simple', formId: simpleId}, {name: 'newsletter', formId: newsletterId}]
+							)
 						});
 
-						publishAndWaitJobEnding(`${SITE_HOME_PATH}/${pageName}`, ['en', 'fr']);
-						cy.log(`${look.label} two forms on one page: /en/sites/${FORMIDABLE_TEST_SITE.key}/home/${pageName}.html`);
+						publishAndWaitJobEnding(`${siteHomePathOf(site.key)}/${pageName}`, ['en', 'fr']);
+						cy.log(`${site.title} two forms on one page: /en/sites/${site.key}/home/${pageName}.html`);
 					});
 				});
 			}
 		}
 	];
 
-	// One test per look, the looks in label order and the entries in title order: what the trees will show.
-	LOOKS.forEach(look => {
-		it(`provisions the ${look.label.toLowerCase()} forms and their pages, in title order`, () => {
-			expect(LOOKS.map(candidate => candidate.label), 'looks in label order').to.satisfy(inTitleOrder);
+	// One test per site, the entries in title order: what the trees will show.
+	PLAYGROUND_SITES.forEach(site => {
+		it(`provisions the forms of ${site.title} and their pages, in title order`, () => {
 			expect(ENTRIES.map(entry => entry.title), 'entries in title order').to.satisfy(inTitleOrder);
 			// the ordering the set actually depends on: the two-forms page resolves the two forms by path
 			const at = (title: string) => ENTRIES.findIndex(entry => entry.title === title);
@@ -994,9 +950,9 @@ describe('Playground - provision manual-testing forms', () => {
 			const uuidOf = (path: string): Cypress.Chainable<string> => getNodeByPath(path).then(response => response.data.jcr.nodeByPath.uuid as string);
 			uuidOf(`${CATEGORY_ROOT}/product/tv`).then(tvCategoryUuid => {
 				uuidOf(`${CATEGORY_ROOT}/product/audio`).then(audioCategoryUuid => {
-					uuidOf(AGENCIES_ROOT_PATH).then(agenciesRootUuid => {
-						uuidOf(SERVICES_ROOT_PATH).then(servicesRootUuid => {
-							ENTRIES.forEach(entry => entry.provision(look, entry, {tvCategoryUuid, audioCategoryUuid, agenciesRootUuid, servicesRootUuid}));
+					uuidOf(agenciesRootOf(site)).then(agenciesRootUuid => {
+						uuidOf(servicesRootOf(site)).then(servicesRootUuid => {
+							ENTRIES.forEach(entry => entry.provision(site, entry, {tvCategoryUuid, audioCategoryUuid, agenciesRootUuid, servicesRootUuid}));
 						});
 					});
 				});
@@ -1005,9 +961,9 @@ describe('Playground - provision manual-testing forms', () => {
 	});
 
 	it('submits sample entries so the results screens have something to show', () => {
-		// The same entries in both looks: every results screen has something to show, and the visitor
+		// The same entries on both sites: every results screen has something to show, and the visitor
 		// profile ends the same (one Cypress visitor, the strategies decide what each submission keeps).
-		LOOKS.forEach(look => {
+		PLAYGROUND_SITES.forEach(site => {
 			// Simple contact form: three visitors, one of them in French. Typed values stay
 			// ASCII: realType (cypress-real-events) rejects accented characters.
 			[
@@ -1015,7 +971,7 @@ describe('Playground - provision manual-testing forms', () => {
 				{lang: 'en', firstName: 'Bob', lastName: 'Dupont', email: 'bob.dupont@example.com', message: 'The store in Lyon was closed on Monday, is that expected?', phone: '33612345678'},
 				{lang: 'fr', firstName: 'Chloe', lastName: 'Bernard', email: 'chloe.bernard@example.com', message: 'Bonjour, je souhaite recevoir le catalogue par courrier.'}
 			].forEach(({lang, firstName, lastName, email, message, phone}) => {
-				const form = visitLiveForm(livePageOf(look, 'simple'), lang);
+				const form = visitLiveForm(livePageOf('simple'), lang, undefined, site.key);
 				form.getTextInput('firstName').type(firstName);
 				form.getTextInput('lastName').type(lastName);
 				form.getEmailInput('email').type(email);
@@ -1035,7 +991,7 @@ describe('Playground - provision manual-testing forms', () => {
 				{fullName: 'Diane Roux', email: 'diane.roux@example.com', department: 'Engineering', delivery: 'Standard', comment: 'Looking forward to the next release.'},
 				{fullName: 'Ethan Moreau', email: 'ethan.moreau@example.com', department: 'Sales', delivery: 'Express', comment: 'Please call me back in the afternoon.'}
 			].forEach(({fullName, email, department, delivery, comment}) => {
-				const form = visitLiveForm(livePageOf(look, 'steps'));
+				const form = visitLiveForm(livePageOf('steps'), 'en', undefined, site.key);
 				form.getTextInput('fullName').type(fullName);
 				form.getEmailInput('email').type(email);
 				form.nextStep();
@@ -1092,7 +1048,7 @@ describe('Playground - provision manual-testing forms', () => {
 				{code: 'CD-5678', email: 'gabriel.lefevre@example.com', birth: '1975-11-30', color: '#3366cc', interests: ['Reading'], delivery: 'Standard', pickup: null, gender: 'Male', kids: '0', country: 'DE', newsletter: false, department: 'Sales', summary: 'Quarterly sales dashboard with an export of the leads collected on the site.', files: ['cypress/fixtures/files/sample.csv']},
 				{code: 'EF-9012', email: 'helene.petit@example.com', birth: '1992-07-08', color: '#2e8b57', interests: ['Sports'], delivery: 'Pickup', pickup: 'Paris - Rue de Rivoli', gender: 'Other', kids: '3', country: 'CH', newsletter: true, department: 'Support', summary: 'Support knowledge base migration, including the attached inventory and specification.', files: ['cypress/fixtures/files/document.pdf', 'cypress/fixtures/files/sample.csv']}
 			].forEach(({code, email, birth, color, interests, delivery, pickup, gender, kids, country, newsletter, department, summary, files}) => {
-				const form = visitLiveForm(livePageOf(look, 'complete'));
+				const form = visitLiveForm(livePageOf('complete'), 'en', undefined, site.key);
 				contextLoaded();
 				form.getTextInput(INPUT_TEXT_COMPLETE.name!).type(code);
 				// prefilled with the first visitor's address from the simple form (set if missing), typed over
@@ -1127,19 +1083,21 @@ describe('Playground - provision manual-testing forms', () => {
 		});
 	});
 
-	it('adds an unpublished draft agency, absent from the live options', () => {
+	it('adds an unpublished draft agency on each site, absent from the live options', () => {
 		// Created after the complete forms are published: publishing a form
 		// publishes its referenced options root with its subtree, so an earlier
 		// draft would have been published along.
-		addNode({parentPathOrId: AGENCIES_ROOT_PATH, ...getTitledTextNode('draft', 'Draft agency', 'Agence brouillon')});
+		PLAYGROUND_SITES.forEach(site => {
+			addNode({parentPathOrId: agenciesRootOf(site), ...getTitledTextNode('draft', 'Draft agency', 'Agence brouillon')});
+		});
 	});
 
 	it('leaves results behind a deleted form, an unpublished one and an emptied one, for the Results page to show', () => {
-		// Three throwaway forms in the plain look. One is deleted from both workspaces: its entry reads
+		// Three throwaway forms on the Plain site. One is deleted from both workspaces: its entry reads
 		// "Form deleted" and is named after its node. One is unpublished: its entry reads "Form unpublished",
 		// keeps its title, and comes back to life once the form is published again. One loses its only
 		// submission, as the Results page's date-range deletion does: its entry stays, with nothing in it.
-		const look = LOOKS.find(candidate => candidate.key === 'plain')!;
+		const site = PLAIN_SITE;
 		const leftovers: Array<{base: string; title: string; frTitle: string; visitors: string[]; then: (info: {formPath: string; pagePath: string}) => void}> = [
 			{
 				base: 'vanished', title: 'Vanished form', frTitle: 'Formulaire disparu', visitors: ['Diane Moreau', 'Emile Roux'],
@@ -1174,7 +1132,7 @@ describe('Playground - provision manual-testing forms', () => {
 								}
 							}
 						`,
-						variables: {query: `SELECT * FROM [fmdb:formSubmission] AS s WHERE ISDESCENDANTNODE(s, '/sites/${FORMIDABLE_TEST_SITE.key}/formidable-results/${nameOf(look, 'emptied')}/submissions')`}
+						variables: {query: `SELECT * FROM [fmdb:formSubmission] AS s WHERE ISDESCENDANTNODE(s, '/sites/${site.key}/formidable-results/emptied/submissions')`}
 					}).then((response: {errors?: unknown}) => {
 						expect(response.errors, 'GraphQL errors emptying the results').to.equal(undefined);
 					});
@@ -1182,9 +1140,9 @@ describe('Playground - provision manual-testing forms', () => {
 			}
 		];
 		leftovers.forEach(({base, title, frTitle, visitors, then}) => {
-			provisionForm(look, base, title, frTitle, [fullNameField()]).then(info => {
+			provisionForm(site, base, title, frTitle, [fullNameField()]).then(info => {
 				visitors.forEach(fullName => {
-					const form = visitLiveForm(livePageOf(look, base));
+					const form = visitLiveForm(livePageOf(base), 'en', undefined, site.key);
 					form.getTextInput('fullName').type(fullName);
 					form.submit();
 					form.waitForSubmit();
