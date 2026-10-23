@@ -1,5 +1,5 @@
 import {addNode, publishAndWaitJobEnding} from '@jahia/cypress';
-import type {FormSite} from '../support/fixtures';
+import {type FormSite, TEMPLATE_SETS} from '../support/fixtures';
 import {contentPathOf} from '../support/constants';
 
 /** One of the playground sites: a form site with the title the site switcher shows. */
@@ -24,16 +24,16 @@ export const PLAYGROUND_SITES: PlaygroundSite[] = [
 	{
 		key: 'FormidablePlaygroundPlain',
 		title: 'Formidable Playground Plain',
-		config: {...SITE_CONFIG, templateSet: 'formidable-test-module-templateset-jsp'},
-		templateName: 'simple',
-		areaName: 'pagecontent'
+		config: {...SITE_CONFIG, templateSet: TEMPLATE_SETS.jsp.templateSet},
+		templateName: TEMPLATE_SETS.jsp.templateName,
+		areaName: TEMPLATE_SETS.jsp.areaName
 	},
 	{
 		key: 'FormidablePlaygroundCss',
 		title: 'Formidable Playground CSS',
-		config: {...SITE_CONFIG, templateSet: 'formidable-test-module-templateset-tsx'},
-		templateName: 'basic',
-		areaName: 'main'
+		config: {...SITE_CONFIG, templateSet: TEMPLATE_SETS.tsx.templateSet},
+		templateName: TEMPLATE_SETS.tsx.templateName,
+		areaName: TEMPLATE_SETS.tsx.areaName
 	}
 ];
 
