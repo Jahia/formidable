@@ -233,6 +233,11 @@ export class Form extends BaseComponent {
 		);
 	}
 
+	/** One-at-a-time: the wrappers of the screen on display. */
+	getActiveScreen(): Cypress.Chainable {
+		return this.get().find('[data-fmdb-screen-active="true"]');
+	}
+
 	getNewFormButton(): ButtonInput {
 		return new ButtonInput(
 			this.getPageRoot().find('.fmdb-message .fmdb-new-form-btn').first()
@@ -304,6 +309,15 @@ export class Form extends BaseComponent {
 
 	previousStep(): void {
 		this.getPreviousButton().click();
+	}
+
+	/** One-at-a-time: the screen on display is the one of the named element, and only it. */
+	shouldShowScreenOf(nodeName: string): this {
+		this.getActiveScreen().filter(':not([data-fmdb-content="true"])')
+			.should('have.length', 1)
+			.and('have.attr', 'data-fmdb-node-name', nodeName)
+			.and('be.visible');
+		return this;
 	}
 
 	shouldExist(): this {

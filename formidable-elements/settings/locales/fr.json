@@ -29,6 +29,7 @@
 		"loading": "Chargement...",
 		"previousBtn": "Précédent",
 		"nextBtn": "Suivant",
+		"advanceHint": "Choisir une réponse passe à la question suivante.",
 		"stepsNav": "Étapes du formulaire",
 		"captchaRequired": "Veuillez compléter la vérification CAPTCHA.",
 		"editModeSubmitDisabled": "L'envoi du formulaire est désactivé en mode édition/prévisualisation.",
