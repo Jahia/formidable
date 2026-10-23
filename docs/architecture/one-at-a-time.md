@@ -55,16 +55,24 @@ folds into its first screen.
 - On the last screen, Next becomes Submit, and the captcha is shown. The submission validates the whole
   form, as in a Classic form.
 - A refusal at submission brings back the step, then the screen, that holds the refused control.
-- After an accepted submission, the form starts again at its first screen.
+- After an accepted submission, and after a reset, the form starts again at its first screen.
+- In a form without steps, the Reset button, when the author shows it, sits next to Submit on the last
+  screen. A form with steps shows no Reset button, in One-at-a-time as in Classic.
 
 The screens are read again on every `input` and `change` event and on `FORM_LOGIC_INVALIDATE_EVENT`,
 after the conditional logic has run. An answer can therefore open or close the screens that follow
-it. When the screen on display becomes hidden, the visitor moves to the next screen that is shown.
+it. A visibility change with no event is read too: a `MutationObserver` watches the
+`data-fmdb-logic-hidden` and `data-fmdb-prefilled` attributes, which a provider's watcher and a prefill
+write. The hook writes neither, so the observer does not loop. When the screen on display becomes
+hidden, the visitor moves to the next screen that is shown.
 
 ### Enter
 
-Enter does what Next does, with three exceptions:
+Enter does what Next does, with four exceptions:
 
+- A field that handles Enter itself, and calls `preventDefault()`, keeps it. Its listeners run before
+  the form's: a listener on the field, and a React handler in an island of its own, whose root is below
+  the form.
 - In a textarea, Enter writes a new line, and Ctrl+Enter or Cmd+Enter moves on.
 - On a button or a link, Enter keeps its native action.
 - On the last screen, Enter clicks Submit when Submit is enabled.
@@ -81,7 +89,9 @@ A field type whose answer is one pick (a radio group, a card, a rating, a scale)
 `data-fmdb-advance-on-change="true"` on the element that holds its controls. On a screen that shows
 that field alone:
 
-- a pick moves to the next screen after 300 ms, so the visitor sees the pick;
+- a pick moves to the next screen after 300 ms, so the visitor sees the pick. A move of the visitor's own
+  in that pause, Next, Enter or Previous, cancels it, and it does not run from a screen the visitor or the
+  logic left meanwhile;
 - Next stays, for a visitor who comes back to the screen and keeps the answer.
 
 A screen that shows a fieldset does not move on by itself, whatever its fields declare.

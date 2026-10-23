@@ -247,6 +247,12 @@ export default function Form({
 	const isNextBlocked = isLoading || refusedControls.some(control => stepIndexOf(control) === currentStep);
 	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
 	const showCaptcha = !!captcha && isOnLastScreen;
+	// Reset, when the author shows it, on a form without steps: next to Submit, on the last screen in One-at-a-time.
+	const resetButton = showResetBtn && !isMultiStep && (
+		<button type="reset" className="fmdb-btn fmdb-btn-secondary" disabled={isLoading}>
+			{resetBtnLabel || t('resetBtn')}
+		</button>
+	);
 
 	// Sending: the whole form's constraints, then every field action of the form with the submit
 	// trigger — asked only when every constraint holds, so a refused value is never sent to a provider
@@ -408,14 +414,17 @@ export default function Form({
 							</button>
 						)}
 						{pages.isLast && (
-							<button
-								type="submit"
-								className="fmdb-btn fmdb-btn-primary"
-								disabled={isSubmitBlocked}
-								title={submitBlockedTitle}
-							>
-								{submitBtnLabel || t('submitBtn')}
-							</button>
+							<>
+								<button
+									type="submit"
+									className="fmdb-btn fmdb-btn-primary"
+									disabled={isSubmitBlocked}
+									title={submitBlockedTitle}
+								>
+									{submitBtnLabel || t('submitBtn')}
+								</button>
+								{resetButton}
+							</>
 						)}
 						</>
 					) : (
@@ -423,11 +432,7 @@ export default function Form({
 							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isSubmitBlocked} title={submitBlockedTitle}>
 							{submitBtnLabel || t('submitBtn')}
 						</button>
-							{showResetBtn && (
-								<button type="reset" className="fmdb-btn fmdb-btn-secondary" disabled={isLoading}>
-									{resetBtnLabel || t('resetBtn')}
-								</button>
-							)}
+							{resetButton}
 						</>
 					)}
 				</div>

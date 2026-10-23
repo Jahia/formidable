@@ -206,6 +206,26 @@ describe('Validation - 48 One-at-a-time flows', () => {
 		});
 	});
 
+	it('without steps: Reset shows next to Submit on the last screen, and starts again at the first one', () => {
+		createPublishedLiveFormPage('oaat-reset', 'oaat reset', [
+			getInputTextNode({name: 'firstAnswer', title: 'First answer'}),
+			getInputTextNode({name: 'secondAnswer', title: 'Second answer'})
+		], undefined, undefined, {properties: [ONE_AT_A_TIME, {name: 'showResetBtn', value: 'true', type: 'BOOLEAN'}]}
+		).then(({livePath}) => {
+			const form = visitLiveForm(livePath);
+			form.get().find('.fmdb-form-actions button[type="reset"]').should('not.exist');
+
+			form.getTextInput('firstAnswer').type('One{enter}');
+			form.shouldShowScreenOf('secondAnswer');
+			form.getTextInput('secondAnswer').type('Two');
+			form.getResetButton().get().should('be.visible');
+
+			form.reset();
+			form.shouldShowScreenOf('firstAnswer');
+			form.getTextInput('firstAnswer').get().should('have.value', '');
+		});
+	});
+
 	it('with steps and no steps navigation: the step title shows above each screen of its step', () => {
 		createPublishedLiveFormPage('oaat-no-nav', 'oaat no nav', [
 			getStepNode({
