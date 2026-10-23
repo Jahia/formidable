@@ -19,19 +19,43 @@ export interface FormSite {
 	areaName: string
 }
 
+/** The two test template sets, and what each names its page template and its area. */
+export const TEMPLATE_SETS = {
+	/** The JSP one: no stylesheet, the modules' own look. */
+	jsp: {templateSet: 'formidable-test-module-templateset-jsp', templateName: 'simple', areaName: 'pagecontent'},
+	/** The TSX one, a JavaScript module whose Layout ships the complete stylesheet (dist/assets/style.css). */
+	tsx: {templateSet: 'formidable-test-module-templateset-tsx', templateName: 'basic', areaName: 'main'},
+} as const
+
 /**
  * Formidable site configuration for Formidable tests
  */
 export const FORMIDABLE_TEST_SITE: FormSite = {
 	key: 'FormidableSite4Tests',
 	config: {
-		templateSet: 'formidable-test-module-templateset-jsp',
+		templateSet: TEMPLATE_SETS.jsp.templateSet,
 		serverName: 'localhost',
 		locale: 'en',
 		languages: 'en,fr',
 	},
-	templateName: 'simple',
-	areaName: 'pagecontent',
+	templateName: TEMPLATE_SETS.jsp.templateName,
+	areaName: TEMPLATE_SETS.jsp.areaName,
+}
+
+/**
+ * A site on the TSX test template set, for what only a template set shipping a stylesheet shows: created
+ * and deleted by the specs that need it (validation/40), next to the test site, never in its place.
+ */
+export const FORMIDABLE_TSX_TEST_SITE: FormSite = {
+	key: 'FormidableTsxSite4Tests',
+	config: {
+		templateSet: TEMPLATE_SETS.tsx.templateSet,
+		serverName: 'localhost',
+		locale: 'en',
+		languages: 'en',
+	},
+	templateName: TEMPLATE_SETS.tsx.templateName,
+	areaName: TEMPLATE_SETS.tsx.areaName,
 }
 
 /**

@@ -1,15 +1,21 @@
 import gql from 'graphql-tag';
-import {getNodeByPath, setNodeProperty} from '@jahia/cypress';
+import {createSite, deleteSite, enableModule, getNodeByPath, setNodeProperty} from '@jahia/cypress';
 import {
 	createConditionalLogicForm,
 	createFormNode,
 	createPublishedLiveFormPage,
 	findConditionalLogicNode,
+	FORMIDABLE_TSX_TEST_SITE,
 	getInputTextNode,
-	getStepNode
+	getStepNode,
+	TEMPLATE_SETS
 } from '../../support/fixtures';
-import {CONTENT_PATH} from '../../support/constants';
+import {CONTENT_PATH, contentPathOf, FORMIDABLE_MODULE_IDS} from '../../support/constants';
 import {useFormidableSite} from './support';
+
+/** The stylesheet a JavaScript template set ships, and the module's: what the shell adds to a preview. */
+const TEMPLATE_SET_CSS = `/modules/${TEMPLATE_SETS.tsx.templateSet}/dist/assets/style.css`;
+const MODULE_CSS = '/modules/formidable-elements/dist/assets/style.css';
 
 const RENDER_VIEW = gql`
 	query renderView($path: String!, $view: String!) {
@@ -78,6 +84,11 @@ const renderView = (path: string, view: string): Cypress.Chainable<string> =>
 describe('Validation - 40 cm inspection view', () => {
 	useFormidableSite();
 
+	// The TSX site of the stylesheet case: made in its case, removed once the suite is done.
+	after(() => {
+		deleteSite(FORMIDABLE_TSX_TEST_SITE.key);
+	});
+
 	it('stacks every step under its title and renders no button', () => {
 		const formName = 'cm-steps-form';
 
@@ -138,6 +149,32 @@ describe('Validation - 40 cm inspection view', () => {
 				expect(output).to.contain('data-fmdb-cm-view');
 				expect(output).to.contain(cssMarker);
 				expect(output).to.contain('cmShellField');
+			});
+		});
+	});
+
+	it("adds the site's template set stylesheet before the module's, when the template set ships one", () => {
+		const formName = 'cm-themed-form';
+		const field = () => getInputTextNode({name: 'cmThemedField', title: 'Themed field'});
+
+		// The test site's template set, a JSP one, ships no stylesheet: the shell adds the module's alone.
+		createFormNode(formName, 'CM Themed Form', [field()]).then(() => {
+			renderView(`${CONTENT_PATH}/${formName}`, 'cm').then(output => {
+				expect(output, 'the module stylesheet on the test site').to.contain(MODULE_CSS);
+				expect(output, 'no template set stylesheet on the test site').to.not.contain(TEMPLATE_SET_CSS);
+			});
+		});
+
+		// A site on the TSX template set, whose Layout ships dist/assets/style.css: the shell adds it,
+		// and first, the order a live page serves the two.
+		deleteSite(FORMIDABLE_TSX_TEST_SITE.key);
+		createSite(FORMIDABLE_TSX_TEST_SITE.key, FORMIDABLE_TSX_TEST_SITE.config);
+		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TSX_TEST_SITE.key));
+		createFormNode(formName, 'CM Themed Form', [field()], {site: FORMIDABLE_TSX_TEST_SITE}).then(() => {
+			renderView(`${contentPathOf(FORMIDABLE_TSX_TEST_SITE.key)}/${formName}`, 'cm').then(output => {
+				expect(output, 'the template set stylesheet on the TSX site').to.contain(TEMPLATE_SET_CSS);
+				expect(output, 'the module stylesheet on the TSX site').to.contain(MODULE_CSS);
+				expect(output.indexOf(TEMPLATE_SET_CSS), 'the template set stylesheet first').to.be.lessThan(output.indexOf(MODULE_CSS));
 			});
 		});
 	});

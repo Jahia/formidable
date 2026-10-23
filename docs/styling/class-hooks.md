@@ -70,8 +70,8 @@ render the `cm` view: an inspection of the form's content — every step stacked
 title, logic-driven fields visible on their card, no buttons. There the `fmdb-form` hook is
 a `div` (nothing submits), and it carries `data-fmdb-cm-view="true"` instead of the edit-mode
 attribute: a stylesheet targets that surface with
-`.fmdb-form[data-fmdb-cm-view="true"] { … }`. The form's own CSS, the site's template set
-stylesheet and this module's stylesheet apply, in that order, as on a live page. The template
+`.fmdb-form[data-fmdb-cm-view="true"] { … }`. The site's template set stylesheet, this
+module's stylesheet and the form's own CSS apply, in that order, as on a live page. The template
 set's stylesheet is the one Vite bundles for a JavaScript module, `dist/assets/style.css`, the
 file its Layout serves through `AddResources`: the previews add it when the site's template set
 ships that file, and nothing otherwise (a JSP template set, or a module that imports no
