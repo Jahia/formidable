@@ -171,6 +171,13 @@ export function useScreens({
 		refresh();
 	}, [currentStep, visibleStepIndices, refresh]);
 
+	// The move a pick scheduled, until its pause is over: any move of the visitor's own cancels it.
+	const advanceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const cancelAdvance = useCallback(() => {
+		if (advanceTimeoutRef.current !== null) globalThis.clearTimeout(advanceTimeoutRef.current);
+		advanceTimeoutRef.current = null;
+	}, []);
+
 	const goToScreen = useCallback((index: number, focus: boolean) => {
 		anchorRef.current = screensRef.current[index]?.wrappers[0] ?? null;
 		focusPendingRef.current = focus;
@@ -192,6 +199,7 @@ export function useScreens({
 	const nextInFlightRef = useRef(false);
 	const handleNext = useCallback(async () => {
 		if (!enabled || nextInFlightRef.current) return;
+		cancelAdvance();
 		nextInFlightRef.current = true;
 		const fromStep = currentStepRef.current;
 		const fromAnchor = anchorRef.current;
@@ -211,27 +219,30 @@ export function useScreens({
 		} finally {
 			nextInFlightRef.current = false;
 		}
-	}, [enabled, refresh, goToScreen, neighbourStep, goToStep]);
+	}, [enabled, cancelAdvance, refresh, goToScreen, neighbourStep, goToStep]);
 
 	const handlePrevious = useCallback(() => {
 		if (!enabled) return;
+		cancelAdvance();
 		if (indexRef.current > 0) {
 			goToScreen(indexRef.current - 1, true);
 			return;
 		}
 		const step = neighbourStep(-1);
 		if (step !== undefined) goToStep(step, 'last');
-	}, [enabled, goToScreen, neighbourStep, goToStep]);
+	}, [enabled, cancelAdvance, goToScreen, neighbourStep, goToStep]);
 
 	const showScreenOf = useCallback((control: HTMLElement): boolean => {
 		if (!enabled) return false;
 		const index = screenIndexOf(screensRef.current, control);
 		if (index === -1 || index === indexRef.current) return false;
+		cancelAdvance();
 		goToScreen(index, false);
 		return true;
-	}, [enabled, goToScreen]);
+	}, [enabled, cancelAdvance, goToScreen]);
 
 	const goToStart = useCallback(() => {
+		cancelAdvance();
 		anchorRef.current = null;
 		if (isMultiStep) {
 			goToStep(visibleStepsRef.current[0] ?? 0, 'first');
@@ -239,12 +250,24 @@ export function useScreens({
 			landAtRef.current = 'first';
 			refresh();
 		}
-	}, [isMultiStep, goToStep, refresh]);
+	}, [isMultiStep, cancelAdvance, goToStep, refresh]);
 
 	const nextRef = useRef(handleNext);
 	useEffect(() => {
 		nextRef.current = handleNext;
 	}, [handleNext]);
+
+	// The move after a pick belongs to the screen of the pick: one the visitor or the logic left meanwhile is not
+	// moved from.
+	const scheduleAdvance = useCallback(() => {
+		const pickedStep = currentStepRef.current;
+		const pickedAnchor = anchorRef.current;
+		cancelAdvance();
+		advanceTimeoutRef.current = globalThis.setTimeout(() => {
+			advanceTimeoutRef.current = null;
+			if (currentStepRef.current === pickedStep && anchorRef.current === pickedAnchor) nextRef.current();
+		}, ADVANCE_DELAY_MS);
+	}, [cancelAdvance]);
 
 	useEffect(() => {
 		const form = formRef.current;
@@ -252,19 +275,24 @@ export function useScreens({
 
 		// Registered after useMultiStep's own listeners: the logic has run when the screens are read again.
 		const onChange = () => refresh();
+		// A reset empties the form: the visitor starts again at its first screen, once the browser has
+		// restored the defaults and the logic has run on them.
 		let resetTimeout: ReturnType<typeof setTimeout> | null = null;
 		const onReset = () => {
 			if (resetTimeout !== null) globalThis.clearTimeout(resetTimeout);
 			resetTimeout = globalThis.setTimeout(() => {
 				resetTimeout = null;
-				refresh();
+				goToStart();
 			}, 0);
 		};
+		// Visibility also changes with no event: a prefill hides a field it filled, a provider's watcher runs
+		// the logic. The markers they write are watched; refresh writes none of them, so it does not loop.
+		const observer = new MutationObserver(() => refresh());
+		observer.observe(form, {subtree: true, attributes: true, attributeFilter: ['data-fmdb-logic-hidden', 'data-fmdb-prefilled']});
 
 		// A pick moves on, an arrow key does not: arrows move the selection of a radio group, and each one
 		// fires click and change. A click counts as a pick right after a pointer press or the Space key.
 		let pickIntentAt = 0;
-		let advanceTimeout: ReturnType<typeof setTimeout> | null = null;
 		const inAdvanceZone = (target: EventTarget | null): boolean =>
 			target instanceof Element && target.closest(ADVANCE_ON_CHANGE_SELECTOR) !== null;
 		const onPointerDown = (event: PointerEvent) => {
@@ -277,11 +305,7 @@ export function useScreens({
 			pickIntentAt = 0;
 			const screen = screensRef.current[indexRef.current];
 			if (!advancesOnPick(screen) || !screen.elements[0].contains(event.target) || isLastRef.current) return;
-			if (advanceTimeout !== null) globalThis.clearTimeout(advanceTimeout);
-			advanceTimeout = globalThis.setTimeout(() => {
-				advanceTimeout = null;
-				nextRef.current();
-			}, ADVANCE_DELAY_MS);
+			scheduleAdvance();
 		};
 
 		const onKeyDown = (event: KeyboardEvent) => {
@@ -290,7 +314,9 @@ export function useScreens({
 				pickIntentAt = Date.now();
 				return;
 			}
-			if (event.key !== 'Enter' || event.isComposing) return;
+			// A field that handles Enter itself (a combobox, a tag input) keeps it: its listeners on the field run
+			// first, a nested island's included, its root being below the form.
+			if (event.key !== 'Enter' || event.isComposing || event.defaultPrevented) return;
 			if (target.closest('button, a, [contenteditable="true"]')) return;
 			// Enter writes a new line in a textarea; Ctrl or Cmd with it moves on.
 			if (target instanceof HTMLTextAreaElement && !(event.ctrlKey || event.metaKey)) return;
@@ -318,10 +344,11 @@ export function useScreens({
 			form.removeEventListener('pointerdown', onPointerDown);
 			form.removeEventListener('click', onClick);
 			form.removeEventListener('keydown', onKeyDown);
+			observer.disconnect();
 			if (resetTimeout !== null) globalThis.clearTimeout(resetTimeout);
-			if (advanceTimeout !== null) globalThis.clearTimeout(advanceTimeout);
+			cancelAdvance();
 		};
-	}, [formRef, enabled, refresh]);
+	}, [formRef, enabled, refresh, cancelAdvance, scheduleAdvance, goToStart]);
 
 	return {...view, handleNext, handlePrevious, showScreenOf, goToStart};
 }
