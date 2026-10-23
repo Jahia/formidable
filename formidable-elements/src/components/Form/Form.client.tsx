@@ -139,12 +139,19 @@ export default function Form({
 		labels: {checking: t('checking')},
 	});
 
-	// Leaving a screen of One-at-a-time: the same checks as leaving a step, on the screen's element.
-	const validateScreen = async (element: HTMLElement): Promise<boolean> => {
+	// Leaving a step, or a screen of One-at-a-time: its constraints, then its field actions — the blur-checked
+	// values again (free, the engine's cache) and the ones set to run at submission, asked now, when the visitor
+	// leaves. A refusal keeps the visitor there, the message under the field, the field focused.
+	const validateLeaving = async (element: HTMLElement): Promise<boolean> => {
 		if (!validateInputs(element)) return false;
 		const refused = await settleFieldActions(element);
 		if (refused) setReveal({control: refused});
 		return !refused;
+	};
+
+	const validateCurrentStep = async (): Promise<boolean> => {
+		const current = formRef.current?.querySelectorAll<HTMLElement>('[data-fmdb-step]')[currentStep];
+		return current ? validateLeaving(current) : true;
 	};
 
 	const {
@@ -161,9 +168,16 @@ export default function Form({
 		currentStep,
 		visibleStepIndices,
 		setCurrentStep,
-		validate: validateScreen,
+		validate: validateLeaving,
 		advanceHintId,
 	});
+
+	// What Previous and Next move between: the screens in One-at-a-time, the steps otherwise. The last page is
+	// where the form is sent from, and an accepted submission starts again at the first one.
+	const isPaged = isMultiStep || isOneAtATime;
+	const pages = isOneAtATime
+		? {isFirst: isFirstScreen, isLast: isLastScreen, next: handleNextScreen, previous: handlePreviousScreen, restart: goToStart}
+		: {isFirst: isFirstVisibleStep, isLast: isLastStep, next: () => handleNext(validateCurrentStep), previous: handlePrevious, restart: setCurrentStep};
 
 	const {
 		message,
@@ -181,10 +195,9 @@ export default function Form({
 		errorMessage,
 		locale,
 		captcha,
-		// One-at-a-time: the last screen is where the form is sent, and an accepted submission starts it over.
-		isMultiStep: isMultiStep || isOneAtATime,
-		isLastStep: isOneAtATime ? isLastScreen : isLastStep,
-		setCurrentStep: isOneAtATime ? goToStart : setCurrentStep,
+		isMultiStep: isPaged,
+		isLastStep: pages.isLast,
+		setCurrentStep: pages.restart,
 		labels: {
 			captchaRequired: t('captchaRequired'),
 			errorCode: t('errorCode'),
@@ -227,31 +240,13 @@ export default function Form({
 	// starts its blur check, and a button disabled by it would drop that very click; the settle awaits the
 	// check instead, and a second click meanwhile is ignored (docs/architecture/field-actions.md, "The browser").
 	const hasBlockingRefusal = refusedControls.length > 0;
-	// Where the form is sent from: its last screen in One-at-a-time, its last step, or the form itself.
-	const isOnLastScreen = isOneAtATime ? isLastScreen : (!isMultiStep || isLastStep);
-	// The page Previous and Next move between: a screen in One-at-a-time, a step otherwise.
-	const isFirstPage = isOneAtATime ? isFirstScreen : isFirstVisibleStep;
-	const isLastPage = isOneAtATime ? isLastScreen : isLastStep;
+	// Where the form is sent from: its last page, or the form itself.
+	const isOnLastScreen = !isPaged || pages.isLast;
 	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError || hasBlockingRefusal
 		|| (!!captcha && isOnLastScreen && !isCaptchaValid);
 	const isNextBlocked = isLoading || refusedControls.some(control => stepIndexOf(control) === currentStep);
 	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
 	const showCaptcha = !!captcha && isOnLastScreen;
-
-	// Leaving a step: its constraints, then its field actions — the blur-checked values again (free, the
-	// engine's cache) and the ones set to run at submission, asked now, when the visitor leaves their step.
-	// A refusal keeps the visitor on the step, the message under the field, the field focused.
-	const validateCurrentStep = async (): Promise<boolean> => {
-		const form = formRef.current;
-		if (!form) return true;
-		const stepEls = form.querySelectorAll<HTMLElement>('[data-fmdb-step]');
-		const current = stepEls[currentStep];
-		if (!current) return true;
-		if (!validateInputs(current)) return false;
-		const refused = await settleFieldActions(current);
-		if (refused) setReveal({control: refused});
-		return !refused;
-	};
 
 	// Sending: the whole form's constraints, then every field action of the form with the submit
 	// trigger — asked only when every constraint holds, so a refused value is never sent to a provider
@@ -390,29 +385,29 @@ export default function Form({
 			)}
 
 			<div className="fmdb-form-actions">
-					{isMultiStep || isOneAtATime ? (
+					{isPaged ? (
 						<>
-							{!isFirstPage && (
+							{!pages.isFirst && (
 								<button
 									type="button"
 									className="fmdb-btn fmdb-btn-secondary fmdb-prev-btn"
-									onClick={isOneAtATime ? handlePreviousScreen : handlePrevious}
+									onClick={pages.previous}
 									disabled={isLoading}
 								>
 									{previousBtnLabel || t('previousBtn')}
 								</button>
 							)}
-						{!isLastPage && (
+						{!pages.isLast && (
 							<button
 								type="button"
 								className="fmdb-btn fmdb-btn-primary fmdb-next-btn"
-								onClick={() => void (isOneAtATime ? handleNextScreen() : handleNext(validateCurrentStep))}
+								onClick={() => void pages.next()}
 								disabled={isNextBlocked}
 							>
 								{nextBtnLabel || t('nextBtn')}
 							</button>
 						)}
-						{isLastPage && (
+						{pages.isLast && (
 							<button
 								type="submit"
 								className="fmdb-btn fmdb-btn-primary"

@@ -252,10 +252,10 @@ export function useScreens({
 
 		// Registered after useMultiStep's own listeners: the logic has run when the screens are read again.
 		const onChange = () => refresh();
-		let resetTimeout: number | null = null;
+		let resetTimeout: ReturnType<typeof setTimeout> | null = null;
 		const onReset = () => {
-			if (resetTimeout !== null) window.clearTimeout(resetTimeout);
-			resetTimeout = window.setTimeout(() => {
+			if (resetTimeout !== null) globalThis.clearTimeout(resetTimeout);
+			resetTimeout = globalThis.setTimeout(() => {
 				resetTimeout = null;
 				refresh();
 			}, 0);
@@ -264,7 +264,7 @@ export function useScreens({
 		// A pick moves on, an arrow key does not: arrows move the selection of a radio group, and each one
 		// fires click and change. A click counts as a pick right after a pointer press or the Space key.
 		let pickIntentAt = 0;
-		let advanceTimeout: number | null = null;
+		let advanceTimeout: ReturnType<typeof setTimeout> | null = null;
 		const inAdvanceZone = (target: EventTarget | null): boolean =>
 			target instanceof Element && target.closest(ADVANCE_ON_CHANGE_SELECTOR) !== null;
 		const onPointerDown = (event: PointerEvent) => {
@@ -277,10 +277,10 @@ export function useScreens({
 			pickIntentAt = 0;
 			const screen = screensRef.current[indexRef.current];
 			if (!advancesOnPick(screen) || !screen.elements[0].contains(event.target) || isLastRef.current) return;
-			if (advanceTimeout !== null) window.clearTimeout(advanceTimeout);
-			advanceTimeout = window.setTimeout(() => {
+			if (advanceTimeout !== null) globalThis.clearTimeout(advanceTimeout);
+			advanceTimeout = globalThis.setTimeout(() => {
 				advanceTimeout = null;
-				void nextRef.current();
+				nextRef.current();
 			}, ADVANCE_DELAY_MS);
 		};
 
@@ -300,7 +300,7 @@ export function useScreens({
 				if (submit && !submit.disabled) submit.click();
 				return;
 			}
-			void nextRef.current();
+			nextRef.current();
 		};
 
 		form.addEventListener('input', onChange);
@@ -318,8 +318,8 @@ export function useScreens({
 			form.removeEventListener('pointerdown', onPointerDown);
 			form.removeEventListener('click', onClick);
 			form.removeEventListener('keydown', onKeyDown);
-			if (resetTimeout !== null) window.clearTimeout(resetTimeout);
-			if (advanceTimeout !== null) window.clearTimeout(advanceTimeout);
+			if (resetTimeout !== null) globalThis.clearTimeout(resetTimeout);
+			if (advanceTimeout !== null) globalThis.clearTimeout(advanceTimeout);
 		};
 	}, [formRef, enabled, refresh]);
 
