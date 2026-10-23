@@ -300,6 +300,16 @@ resolves to nothing and the action writes nothing, under either strategy. This i
 its result data leaves an empty answer out — and the tracker's own listener leaves an empty input out
 of a plain form. A rejected submission (400) sends nothing, since the island only dispatches on a 200.
 
+**A redirect waits for the event.** When an action answers with a redirect (a sign-up that lands on the home
+page), the next page is rendered from the profile the event updates: if the browser leaves first, the page
+shows what the profile was before, and the navigation can cancel the request outright, so the answers never
+reach the profile. `formidable:submitted` therefore hands its listeners `detail.waitUntil(promise)`, and the
+island follows a redirect once every promise handed to it has settled, or after `REDIRECT_HOLD_MS` (3 s),
+whichever comes first. formidable-jxp.js passes the promise of its `collectEvent`, settled by jCustomer's
+answer or failure. Without a redirect nothing waits: the success message shows as before. Seen on Jahia Cloud
+(2026-10-23): the registration redirected to a personalised home page that showed the declared interest only
+after a reload; locally the event won the race by 0.3 s.
+
 ---
 
 ## The identifier
