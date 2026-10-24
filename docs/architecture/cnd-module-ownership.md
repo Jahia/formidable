@@ -67,6 +67,7 @@ Examples (non-exhaustive — the CND files are the source of truth):
 - `fmdbmix:formElement`
 - `fmdbmix:formAction`
 - `fmdbmix:readOnlyCompatibleAction` (declares an action that keeps working while the platform is in read-only mode)
+- `fmdbmix:redirectToPage` and `fmdbmix:redirectToUrl`, the two targets of `fmdb:redirectAction`
 - `fmdbmix:nonSubmittable`
 - `fmdbmix:choiceField` and its options modes: `fmdbmix:optionsSource`, `fmdbmix:manualOptions`, `fmdbmix:sourcedOptions`, `fmdbmix:categoryOptions`, `fmdbmix:contentOptions`
 - `fmdbmix:cardinalityFromChoices` (a choice field whose cardinality is its number of choices rather
@@ -99,6 +100,7 @@ Examples:
 - `fmdb:emailContentAction`
 - `fmdb:forwardAction`
 - `fmdb:save2jcrAction`
+- `fmdb:redirectAction`
 - `fmdb:resultsFolder`
 - `fmdb:formResults`
 - `fmdb:formSubmission`

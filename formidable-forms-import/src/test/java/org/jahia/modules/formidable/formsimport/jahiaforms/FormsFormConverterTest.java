@@ -245,7 +245,8 @@ class FormsFormConverterTest {
 
         assertEquals(1, form.actions().size());
         assertEquals("fmdb:save2jcrAction", form.actions().get(0).nodeType());
-        assertTrue(has(form.report(), "form.redirect", "target", "/sites/motor-retail/home"), form.report().toString());
+        // the redirect to a page this instance does not hold is reported (FormsRedirectsTest)
+        assertTrue(has(form.report(), "form.redirectPageNotFound", "target", "/sites/motor-retail/home"), form.report().toString());
         assertFalse(has(form.report(), "form.saveForLater"), form.report().toString());
     }
 

@@ -42,7 +42,7 @@ describe('reportMarkdown', () => {
         incidentsOmitted: 4
     });
     const skipped = form('skipped', {outcome: 'skipped'});
-    const news = form('news', {notes: [{code: 'form.redirect', level: 'action', params: {target: '/home'}}]});
+    const news = form('news', {notes: [{code: 'form.redirectPageNotFound', level: 'action', params: {target: '/home'}}]});
     const report = {dryRun: false, importedFormsFolder: null, forms: [contact, news, skipped], totals: {forms: 3, submissionsFound: 9, submissionsToImport: 0, submissionsImported: 5, submissionsFailed: 1},
         nothingToImport: false, stopped: null,
         incidents: [{code: 'submission.noForm', level: 'action', params: {form: 'old-survey'}, submission: 's9', created: '2024-01-01T00:00:00Z'}]} as ImportReport;
@@ -111,7 +111,34 @@ describe('reportMarkdown', () => {
 
     it('leaves out the notes of a form that is not created', () => {
         expect(markdown).toContain('## NEWS');
-        expect(markdown).not.toContain('form.redirect');
+        expect(markdown).not.toContain('form.redirectPageNotFound');
+    });
+});
+
+describe('reportMarkdown, the notes of the run', () => {
+    const base = {dryRun: false, importedFormsFolder: null, forms: [form('news')], nothingToImport: false, stopped: null,
+        totals: {forms: 1, submissionsFound: 3, submissionsToImport: 0, submissionsImported: 3, submissionsFailed: 0}};
+    const context = {siteKey: 'acme', fileName: 'f.zip', language: 'en', date: new Date('2026-10-13T14:51:00Z'), t,
+        outcomeOf: () => 'outcome', notesApply: () => false};
+
+    it('says a note of the run once, under its own heading, before the forms', () => {
+        const markdown = reportMarkdown({...base, notes: [{code: 'report.displaysElsewhere', level: 'info', params: {}}]} as ImportReport, context);
+
+        const heading = markdown.indexOf('## formResults.import.report.runNotes');
+        expect(heading).toBeGreaterThan(-1);
+        expect(markdown.indexOf('- formResults.import.note.report.displaysElsewhere')).toBeGreaterThan(heading);
+        expect(markdown.indexOf('## NEWS')).toBeGreaterThan(heading);
+    });
+
+    it('has no such section when the run has no note', () => {
+        expect(reportMarkdown(base as ImportReport, context)).not.toContain('formResults.import.report.runNotes');
+    });
+
+    it('has no such section when the run wrote nothing, as the dialog shows none', () => {
+        const markdown = reportMarkdown({...base, nothingToImport: true, notes: [{code: 'report.displaysElsewhere', level: 'info', params: {}}]} as ImportReport, context);
+
+        expect(markdown).not.toContain('formResults.import.report.runNotes');
+        expect(markdown).not.toContain('report.displaysElsewhere');
     });
 });
 

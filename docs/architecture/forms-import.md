@@ -52,7 +52,7 @@ publish it.
 |---|---|
 | Forms 3.x: the forms and the field types of `forms-core` 3.x, and the field types of `forms-extended-inputs` that submit a value (image checkboxes, accept terms) | Forms 2.x and older |
 | Every submission that the Forms *save to JCR* action saved, files included | The drafts that a visitor saved with *save the form for later* (`fcnt:storedForm`), which are not submissions |
-| An import started from the Results page of the target site: a dry run and its report, then the import, which can run again | The pages that place a Forms form (`fcnt:formReference`): the contributor places the new form |
+| An import started from the Results page of the target site: a dry run and its report, then the import, which can run again | The pages that place a Forms form (`fcnt:formDisplay`): the contributor places the new form. Only the redirect URL a display carries is read, when the instance holds the pages ([The redirects](#the-redirects)) |
 | The forms, as far as Formidable has an equivalent: what has none is reported, never silently dropped | Any deletion in Forms: the import never modifies the source |
 | A prefill from the visitor profile (the jExperience bridge of Forms), carried over as the mapping of the field to that profile property when the jExperience integration of Formidable is installed | Conditional logic, the other prefills and the layout of the Forms form: reported, rebuilt by hand |
 
@@ -411,8 +411,42 @@ published, which is the reason to generate them: `text-input_0_1` would stand th
 | `saveToJcrAction` | `fmdb:save2jcrAction`, so that the form keeps saving once published. A form that Forms did not save gets no action: the imported results need the entry, which the import creates itself, not the action, and a form that starts keeping the personal data of its visitors must be a choice of the site, not of the import. The report says: "Forms did not save this form's submissions; add *Save to JCR* to keep saving them." |
 | `sendEmailAction` | `fmdb:emailNotificationAction`, with the `to` recipients, the sender and the subject of the Forms action. The CC and BCC addresses are reported, not carried: Formidable sends one message to one list, where they would be shown to the other recipients. The body is reported, because the two templates differ |
 | `sendEmailToSubmitterAction` | `fmdb:emailNotificationAction` with no recipient, reported: Formidable has no action that writes to the submitter |
-| `redirectToAPageAction`, `redirectToUrlAction` | Reported, with the target, until the [redirect action](redirect-action.md) ships |
+| `redirectToAPageAction`, `redirectToUrlAction` | One `fmdb:redirectAction`, for the redirect Forms followed, last in the list; the others are reported. See [The redirects](#the-redirects) |
 | Any other type | Reported |
+
+### The redirects
+
+Formidable follows the first redirect of a form, Forms its last, so the import carries one [redirect
+action](redirect-action.md): the one Forms followed, so that a migrated form keeps its target. Which one that is
+comes from how Forms answers a submission (`FormSubmission.executeActions`, `handleRedirectIfPresent` in
+`ffController.js`): one entry per action name, `redirectToAPage` or `redirectToUrl`, in a map that keeps the place
+of the first action of a name and the result of the last; the browser follows the last entry. In `url A`,
+`page P`, `url B`, Forms followed `P`. The others are reported, as followed by nothing.
+
+A display of the form on a page (`fcnt:formDisplay`) may carry a `redirectUrl` (`fcmix:formRedirectUrl`): Forms
+puts it in the `redirectToUrl` entry, in place of the action's, or adds it last. The display is on the page, not
+under `formFactory`, so the export does not hold it: the import reads the displays of the form in the live workspace
+of the instance it runs on (`ImportSitePages`, by `referenceForm` = the `jcr:uuid` of the form), when `forms-core`
+registers the type there, and names each display by the page that holds it, the display's own path when no page
+does. An import on another instance, or of a form displayed on another instance, sees no display: the run then says
+once, above the forms, in an information note, that the redirect addresses of the pages that displayed the Forms
+forms are to check by hand (`report.displaysElsewhere`, `ImportEnvironment.DisplaysUnread`), and in an action note
+`report.displaysUnread` when the query of the displays failed. A report with nothing to import shows no note of the
+run. A Formidable form redirects the same way on every page, so the first display, by path, decides; a
+display that sent the visitors elsewhere is reported with its page.
+
+| Forms | Formidable |
+|---|---|
+| `redirectToAPageAction`, its `redirectto` a path of the source site or the identifier of the page | `targetType` = `page`, `page` the identifier of the page in the target site: the path as stored, else the same path under the target site, so a form exported from a site keeps its page in the copy of that site; else reported, and no action. A form whose languages named different pages keeps the page of its building language for all, reported |
+| `redirectToUrlAction`, its `redirectto` per language | `targetType` = `url`, `url` per language. Forms added `http://` to a value that starts with neither `http://` nor `https://`, so the import does too, and reports it to check, a path of the site included, which becomes `http:///path` as in Forms. A language whose URL is not an absolute http(s) URL (`RedirectTargets.httpUrl`) is reported, such a path among them: the action type decides the target, so a redirect-to-URL never becomes a page target; with no language left, no action |
+| The `redirectUrl` of the display that decides | `targetType` = `url`, the URL in every language of the form, completed and checked the same way |
+
+The created action is last in the list: Formidable redirects once every action has run, wherever the action stands.
+
+A migrated form whose action fails does not redirect any more. Forms caught the failure of an action
+(`FormSubmission.callAction`), went on with the others and still sent the visitor to the redirect target; Formidable
+stops at the failed action and answers `FMDB-008`, so the visitor reads the form's error message on the form's
+page.
 
 ### The submissions
 
@@ -609,15 +643,20 @@ The report gives, per Forms form:
 
 What the report says of a form and of its fields is a list of notes. A note is a code, its parameters and a
 level (`ImportNote`): **action** for what was lost or approximated and is to be redone or checked by hand (a
-redirect, a rule the field type lacks, a field created as the closest type), **info** for what was carried
-over and is only worth knowing (a captcha turned on, a field linked to the visitor profile). The server
+redirect to a page the site lacks, a rule the field type lacks, a field created as the closest type), **info** for
+what was carried over and is only worth knowing (a captcha turned on, a field linked to the visitor profile, a
+redirect kept). The server
 writes no sentence: the dialog translates each code under `formResults.import.note`, with the field types
 and every rule, prefill, action, field kind and setting in words (`formResults.import.terms`, a name the locales do
 not know read as words drawn from it, without its namespace): its sentences never show a node type or a Forms type
-name. The one path they show is the target of a Forms redirect, a page of the source site, which the
-contributor needs to rebuild it. The notes only matter when the form is created, so the row of a form to create shows a count,
+name. The paths and addresses they show are the targets of the Forms redirects, a page of the source site or a URL,
+which the contributor needs to check or rebuild them. The notes only matter when the form is created, so the row of a form to create shows a count,
 **N to review**, in a **Notes** column, a button that unfolds the notes under the row: what to review by hand, then the fields mapped to the visitor profile, as a compact grid whose status column takes the rest of the width — field, property, a check when the prefill is on, and the status: a green check when jCustomer declares the property and the mapping is written, a red cross and why when it is not — then the rest of what was carried over; a note met on
 several fields is one line naming the fields by their labels.
+
+What the run says of no form in particular is a list of notes of the report itself (`ImportReport.note`, `notes` of
+the JSON), said once however many forms it concerns: the dialog shows it above the rows, under **For the whole
+import**, and the downloadable report in a section of that name before the forms.
 
 The final report says, on a line above the rows, that the created forms are in `imported-forms`,
 unpublished; until a form is published, its entry shows as **Unpublished** on the Results page, with the
@@ -850,13 +889,18 @@ engine never declared them.
   zip with its name, type and size, and handed to the writer under the name the created form gives the field.
   The prefill rule is tested on the sample, whose first and last name fields carry
   a profile prefill: mapped when the integration reaches the type, reported with the property otherwise.
+  The redirect rule is tested on the sample, whose `contact-us` redirects to a page, and on synthetic forms: the
+  redirect Forms followed among several, a page per language, a URL completed with `http://` or refused, the URL of
+  a display taking the place of an action, and a display that sent its visitors elsewhere. `ImportSitePagesTest` reads
+  the displays of a form, named by their nearest page and ordered by it, and the reason they could not be read, which
+  `FormsImportRunTest` turns into the one note of the run.
 - **A Cypress spec for iteration 1.** The **Import Jahia Forms results** button is absent, and the upload refused, while the
   module is not enabled on the site; the spec enables it there, as an administrator would. It drops the sample zip on the dialog, reads the dry-run
   report and checks that nothing is written yet, clicks **Import**, waits for the check and reads the final
   report, which must end with the invitation to publish. It then checks `imported-forms` and its three
   forms: the five fields of `contact-us`, their system names (`your-first-name`…) and types, "Your First
-  name" and "Votre prénom" from the placeholder, "Your Enquiry" from the title, the save and the reported
-  redirect. On the Results page, the entry of `contact-us` shows **Unpublished** with the labels of the form as
+  name" and "Votre prénom" from the placeholder, "Your Enquiry" from the title, the save and the redirect to
+  the home page. On the Results page, the entry of `contact-us` shows **Unpublished** with the labels of the form as
   columns; the spec publishes `contact-us`, then checks the labels, the count, the values, the dates, the
   imported origin and the exports, while the entry of an unpublished form still shows its system names.
   A second run must duplicate nothing and must leave a title and a field name edited between the runs,

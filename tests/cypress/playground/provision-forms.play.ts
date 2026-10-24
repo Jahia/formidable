@@ -30,6 +30,9 @@
  *                 to showcase that only published contents reach live)
  *   - languages   a choice field whose French labels are half translated, to try the site's
  *                 "replace untranslated content" setting both ways
+ *   - redirect    one field and two redirect actions after the save: the first sends the visitor to the
+ *                 site's home page instead of the submission message, the second, to an external address, is
+ *                 the one the actions zone warns about, since only the first usable redirect is followed
  * And one page per look holding two forms, <look>-two-forms-page: the simple form (referenced)
  * next to the newsletter one — the case a page with one form never shows (two results sets,
  * two mappings, one tracking script).
@@ -91,6 +94,7 @@ import {
 	getInputNumberNode,
 	getInputTextNode,
 	getRadioNode,
+	getRedirectActionNode,
 	getSelectNode,
 	getSourcedChoiceFieldNode,
 	getStepNode,
@@ -181,9 +185,10 @@ const LIST_TITLES = {
  * Creates and publishes one form in the playground folder, in the given look, with its page under
  * home — both titled in both site languages (the actions get localized default titles at creation,
  * so an en-only publication would leave their fr translation unpublished). formProperties adds what
- * a given form wants on top (the buttons it shows, for one).
+ * a given form wants on top (the buttons it shows, for one), and actions what it runs after the save.
  */
-const provisionForm = (look: Look, base: string, title: string, frTitle: string, fields: JahiaNode[], formProperties: NodeProperty[] = []) =>
+const provisionForm = (look: Look, base: string, title: string, frTitle: string, fields: JahiaNode[], formProperties: NodeProperty[] = [],
+	actions: JahiaNode[] = []) =>
 	createPublishedLiveFormPage(
 		nameOf(look, base),
 		titleOf(look, title),
@@ -192,7 +197,7 @@ const provisionForm = (look: Look, base: string, title: string, frTitle: string,
 		undefined,
 		{
 			parentPath: PLAYGROUND_FORMS_PATH,
-			actions: [saveToJcrAction()],
+			actions: [saveToJcrAction(), ...actions],
 			...LIST_TITLES,
 			properties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}, ...cssOf(look), ...formProperties],
 			pageProperties: [{name: 'jcr:title', value: frTitleOf(look, frTitle), language: 'fr'}],
@@ -904,6 +909,25 @@ describe('Playground - provision manual-testing forms', () => {
 					}
 				);
 				publishAndWaitJobEnding(`${PLAYGROUND_FORMS_PATH}/${nameOf(look, 'newsletter')}`, ['en', 'fr']);
+			}
+		},
+		{
+			title: 'Redirect form',
+			frTitle: 'Formulaire avec redirection',
+			provision: (look, {title, frTitle}) => {
+				// The site's home page as the first redirect (a weak reference to the page), an external address
+				// as the second: a live submission lands on the home page, and the actions zone warns on the
+				// second card. Both titled in both languages, the address given per language.
+				getNodeByPath(SITE_HOME_PATH).then(home => {
+					const redirects = [
+						withFrench(getRedirectActionNode({name: 'toHome', title: 'Go to the home page', pageUuid: home.data.jcr.nodeByPath.uuid}),
+							[{name: 'jcr:title', value: 'Aller à la page d\'accueil'}]),
+						withFrench(getRedirectActionNode({name: 'toJahia', title: 'Go to jahia.com', url: 'https://www.jahia.com/'}),
+							[{name: 'jcr:title', value: 'Aller sur jahia.com'}, {name: 'url', value: 'https://www.jahia.com/fr/'}])
+					];
+					provisionForm(look, 'redirect', title, frTitle, [fullNameField()], [], redirects)
+						.then(({livePath}) => cy.log(`${look.label} redirect form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
+				});
 			}
 		},
 		{

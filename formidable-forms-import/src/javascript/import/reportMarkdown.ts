@@ -148,9 +148,19 @@ export function reportMarkdown(report: ImportReport, context: ReportContext): st
         `- ${report.stopped ? escape(t('formResults.import.markdown.stopped', {reason: report.stopped})) : t('formResults.import.markdown.done')}`,
         `- ${t('formResults.import.markdown.totals', {imported: report.totals.submissionsImported, failed: report.totals.submissionsFailed ?? 0})}`,
         '',
+        ...runNotesSection(report, t),
         ...forms.flatMap(form => formSection(form, context)),
         ...incidentsSection(`## ${t('formResults.import.markdown.orphans')}`, t, report.incidents, report.incidentsOmitted)
     ].join('\n');
+}
+
+/** What the run says of no form in particular, before the forms: one item per note, none when the run wrote nothing. */
+function runNotesSection(report: ImportReport, t: Translate): string[] {
+    const notes = report.notes ?? [];
+    if (report.nothingToImport || notes.length === 0) {
+        return [];
+    }
+    return [`## ${t('formResults.import.report.runNotes')}`, '', ...notes.map(note => `- ${escape(noteText(note, t))}`), ''];
 }
 
 /** forms-import-report-<site>-<yyyy-MM-dd-HHmm>.md, in UTC. */

@@ -1,0 +1,36 @@
+{
+	"name": "fmdb:redirectAction",
+	"fields": [
+		{
+			"name": "targetType",
+			"valueConstraints": [
+				{
+					"value": {
+						"type": "String",
+						"value": "page"
+					},
+					"displayValueKey": "formidable-engine:fmdb_redirectAction.targetType.page",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:redirectToPage"
+						}
+					]
+				},
+				{
+					"value": {
+						"type": "String",
+						"value": "url"
+					},
+					"displayValueKey": "formidable-engine:fmdb_redirectAction.targetType.url",
+					"propertyList": [
+						{
+							"name": "addMixin",
+							"value": "fmdbmix:redirectToUrl"
+						}
+					]
+				}
+			]
+		}
+	]
+}

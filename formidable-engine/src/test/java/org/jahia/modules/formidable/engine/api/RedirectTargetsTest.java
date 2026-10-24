@@ -42,6 +42,16 @@ class RedirectTargetsTest {
     }
 
     @Test
+    void aNoBreakSpaceAroundAUrlIsNotTrimmedButRefused() {
+        // Verifies what the authoring card (redirectAction.server.ts) trims as this class does: String.trim() strips only
+        // what is up to U+0020, so a no-break space or a U+FEFF pasted around the address stays, and the card warns.
+        for (String candidate : List.of("https://example.com/ ", " https://example.com/", "https://example.com/﻿")) {
+            assertTrue(RedirectTargets.httpUrl(candidate).isEmpty(), candidate);
+        }
+        assertEquals(Optional.of("https://example.com/"), RedirectTargets.httpUrl(" https://example.com/\t"));
+    }
+
+    @Test
     void nullAndOversizedAreRefused() {
         assertTrue(RedirectTargets.sameOriginPath(null).isEmpty());
         assertTrue(RedirectTargets.sameOriginPath("/" + "a".repeat(RedirectTargets.MAX_LENGTH)).isEmpty());
@@ -71,5 +81,24 @@ class RedirectTargetsTest {
                 "https://www.example.com/\\evil", "https://user@b\u00FCcher.example/", "https://user@my_host.example.com/", "", "   ")) {
             assertTrue(RedirectTargets.httpUrl(candidate).isEmpty(), candidate);
         }
+    }
+
+    @Test
+    void anAbsoluteUrlOfThisServerIsReducedToItsPath() {
+        // Verifies pathOnServer: the path and query of a URL of the host the request reached, never another host's.
+        assertEquals(Optional.of("/fr/merci.html?x=1"), RedirectTargets.pathOnServer("https://www.mysite.com/fr/merci.html?x=1", "www.mysite.com"));
+        assertEquals(Optional.of("/"), RedirectTargets.pathOnServer("http://WWW.mysite.com", "www.mysite.com"));
+        assertTrue(RedirectTargets.pathOnServer("https://other.example/fr/merci.html", "www.mysite.com").isEmpty());
+        assertTrue(RedirectTargets.pathOnServer("javascript://www.mysite.com/%0aalert(1)", "www.mysite.com").isEmpty());
+        assertTrue(RedirectTargets.pathOnServer(null, "www.mysite.com").isEmpty());
+    }
+
+    @Test
+    void theServletContextPathIsSwappedForThePlatforms() {
+        // Verifies swapContextPath: a link rewritten under the OSGi servlet's /modules carries the platform's context.
+        assertEquals("/jahia/fr/merci.html", RedirectTargets.swapContextPath("/modules/fr/merci.html", "/modules", "/jahia"));
+        assertEquals("/fr/merci.html", RedirectTargets.swapContextPath("/modules/fr/merci.html", "/modules", ""));
+        assertEquals("/fr/merci.html", RedirectTargets.swapContextPath("/fr/merci.html", "/modules", "/jahia"));
+        assertEquals("/modulesx/a", RedirectTargets.swapContextPath("/modulesx/a", "/modules", ""));
     }
 }
