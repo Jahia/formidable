@@ -57,7 +57,7 @@
 	},
 	"fmdb_redirectAction": {
 		"overridden": "Une autre redirection la précède dans la liste : les visiteurs sont envoyés là-bas, et celle-ci n'est suivie que si aucune redirection précédente n'a de cible utilisable.",
-		"unusableUrl": "Les visiteurs ne sont pas envoyés à cette adresse : ce n'est ni un chemin de ce site, ni une adresse http ou https complète sans nom d'utilisateur."
+		"unusableUrl": "Les visiteurs ne sont pas envoyés à cette adresse : ce n'est pas une adresse http ou https complète, avec un hôte et sans nom d'utilisateur."
 	},
 	"fmdb_fieldActionList": {
 		"heading": "Actions du champ · {{count}}",

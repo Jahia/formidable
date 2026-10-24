@@ -21,6 +21,10 @@ public final class FmdbMixin {
     // Actions
     public static final String FORM_ACTION = "fmdbmix:formAction";
     public static final String READ_ONLY_COMPATIBLE_ACTION = "fmdbmix:readOnlyCompatibleAction";
+    /** The page target of a redirect action ({@code fmdb:redirectAction}), the mode fieldset its {@code targetType} {@code page} activates. */
+    public static final String REDIRECT_TO_PAGE = "fmdbmix:redirectToPage";
+    /** The URL target of a redirect action, the mode fieldset its {@code targetType} {@code url} activates. */
+    public static final String REDIRECT_TO_URL = "fmdbmix:redirectToUrl";
     // Field actions: the marker a field-action type takes, the settings it includes as a supertype, the switch on a field
     public static final String FIELD_ACTION = "fmdbmix:fieldAction";
     public static final String FIELD_ACTION_FEEDBACK = "fmdbmix:fieldActionFeedback";

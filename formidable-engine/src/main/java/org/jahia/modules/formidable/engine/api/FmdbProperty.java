@@ -58,7 +58,7 @@ public final class FmdbProperty {
     /** On a redirect action: the weakreference to the page to send the visitor to, when {@link #REDIRECT_TARGET_TYPE} is {@code page}. */
     public static final String REDIRECT_PAGE = "page";
 
-    /** On a redirect action: an absolute {@code http}/{@code https} URL or a same-origin path (i18n), when {@link #REDIRECT_TARGET_TYPE} is {@code url}. */
+    /** On a redirect action: an absolute {@code http}/{@code https} URL (i18n), when {@link #REDIRECT_TARGET_TYPE} is {@code url}. */
     public static final String REDIRECT_URL = "url";
 
     /** The provider a field action picked ({@code fmdbmix:providerFieldAction}); nothing reads it, removed in 0.6. */

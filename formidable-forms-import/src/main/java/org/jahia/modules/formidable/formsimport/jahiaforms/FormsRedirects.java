@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.formsimport.jahiaforms;
 
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.engine.api.RedirectTargets;
@@ -172,14 +173,14 @@ final class FormsRedirects {
         report.add(several
                 ? ImportNote.action("form.redirectPageLanguages", TARGET, reference)
                 : ImportNote.info("form.redirectPage", TARGET, reference));
-        return Optional.of(new ImportedAction(ACTION_NAME, FmdbNodeType.REDIRECT_ACTION,
+        return Optional.of(new ImportedAction(ACTION_NAME, FmdbNodeType.REDIRECT_ACTION, List.of(FmdbMixin.REDIRECT_TO_PAGE),
                 Map.of(FmdbProperty.REDIRECT_TARGET_TYPE, "page", FmdbProperty.REDIRECT_PAGE, page.get()), Map.of()));
     }
 
     /**
-     * Each language keeps the URL Forms sent it to, when Formidable can send a visitor there: a path of this server
-     * ({@link RedirectTargets#sameOriginPath}) or an absolute http(s) URL ({@link RedirectTargets#httpUrl}); the others
-     * are reported.
+     * Each language keeps the URL Forms sent it to, when Formidable can send a visitor there: an absolute http(s) URL
+     * ({@link RedirectTargets#httpUrl}); the others are reported. The value of a redirect-to-URL action is a URL, as
+     * Forms read it: a path of the site becomes {@code http:///path}, which has no host, and is reported.
      *
      * @param display the page of the display the URL comes from, null for the URL of an action
      */
@@ -189,7 +190,7 @@ final class FormsRedirects {
         Set<String> completed = new HashSet<>();
         for (Map.Entry<String, String> value : stored.entrySet()) {
             String followed = followedUrl(value.getValue());
-            Optional<String> url = RedirectTargets.sameOriginPath(followed).or(() -> RedirectTargets.httpUrl(followed));
+            Optional<String> url = RedirectTargets.httpUrl(followed);
             if (url.isEmpty()) {
                 if (refused.add(value.getValue().trim())) {
                     report.add(ImportNote.action("form.redirectUrlRefused", TARGET, value.getValue().trim()));
@@ -211,18 +212,17 @@ final class FormsRedirects {
         report.add(display == null
                 ? ImportNote.info("form.redirectUrl", TARGET, shown)
                 : ImportNote.info("form.redirectDisplay", TARGET, shown, PAGE, display));
-        return Optional.of(new ImportedAction(ACTION_NAME, FmdbNodeType.REDIRECT_ACTION,
+        return Optional.of(new ImportedAction(ACTION_NAME, FmdbNodeType.REDIRECT_ACTION, List.of(FmdbMixin.REDIRECT_TO_URL),
                 Map.of(FmdbProperty.REDIRECT_TARGET_TYPE, "url"), Map.of(FmdbProperty.REDIRECT_URL, urls)));
     }
 
     /**
      * The URL Forms sent the visitor to: Forms adds {@code http://} to a value that starts with neither
-     * {@code http://} nor {@code https://}. A path of the site is kept as it is, which Forms broke into
-     * {@code http:///path}.
+     * {@code http://} nor {@code https://}, a path of the site included ({@code http:///path}).
      */
     static String followedUrl(String stored) {
         String value = stored == null ? "" : stored.trim();
-        if (value.isEmpty() || value.startsWith(HTTP) || value.startsWith(HTTPS) || value.startsWith("/")) {
+        if (value.isEmpty() || value.startsWith(HTTP) || value.startsWith(HTTPS)) {
             return value;
         }
         return HTTP + value;

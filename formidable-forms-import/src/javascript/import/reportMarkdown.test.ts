@@ -122,7 +122,7 @@ describe('reportMarkdown, the notes of the run', () => {
         outcomeOf: () => 'outcome', notesApply: () => false};
 
     it('says a note of the run once, under its own heading, before the forms', () => {
-        const markdown = reportMarkdown({...base, notes: [{code: 'report.displaysElsewhere', level: 'action', params: {}}]} as ImportReport, context);
+        const markdown = reportMarkdown({...base, notes: [{code: 'report.displaysElsewhere', level: 'info', params: {}}]} as ImportReport, context);
 
         const heading = markdown.indexOf('## formResults.import.report.runNotes');
         expect(heading).toBeGreaterThan(-1);
@@ -132,6 +132,13 @@ describe('reportMarkdown, the notes of the run', () => {
 
     it('has no such section when the run has no note', () => {
         expect(reportMarkdown(base as ImportReport, context)).not.toContain('formResults.import.report.runNotes');
+    });
+
+    it('has no such section when the run wrote nothing, as the dialog shows none', () => {
+        const markdown = reportMarkdown({...base, nothingToImport: true, notes: [{code: 'report.displaysElsewhere', level: 'info', params: {}}]} as ImportReport, context);
+
+        expect(markdown).not.toContain('formResults.import.report.runNotes');
+        expect(markdown).not.toContain('report.displaysElsewhere');
     });
 });
 

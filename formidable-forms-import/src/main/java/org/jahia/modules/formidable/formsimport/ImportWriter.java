@@ -208,6 +208,10 @@ public class ImportWriter {
         JCRNodeWrapper actions = childOrCreate(node, FmdbNodeName.ACTIONS, ACTION_LIST_TYPE);
         for (ImportedAction action : form.actions()) {
             JCRNodeWrapper actionNode = actions.addNode(JCRContentUtils.findAvailableNodeName(actions, action.name()), action.nodeType());
+            // the mixins first: the properties they declare have no definition on the type alone
+            for (String mixin : action.mixins()) {
+                actionNode.addMixin(mixin);
+            }
             action.properties().forEach((key, value) -> setQuietly(actionNode, key, value));
             action.i18nProperties().forEach((key, byLanguage) -> i18nQuietly(actionNode, key, byLanguage));
         }

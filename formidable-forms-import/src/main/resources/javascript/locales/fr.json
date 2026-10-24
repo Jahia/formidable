@@ -163,7 +163,7 @@
 					"redirectUrlCompleted": "Jahia Forms ajoutait http:// à l’adresse de sa redirection : vérifiez {{target}}",
 					"redirectPageNotFound": "La redirection vers la page {{target}} n’est pas reprise : ce site n’a pas cette page. Ajoutez une action Redirection vers la page qui l’a remplacée",
 					"redirectPageLanguages": "Jahia Forms redirigeait chaque langue vers sa propre page : toutes les langues vont désormais vers {{target}}",
-					"redirectUrlRefused": "La redirection vers {{target}} n’est pas reprise : ni une adresse http ou https, ni un chemin du site",
+					"redirectUrlRefused": "La redirection vers {{target}} n’est pas reprise : ce n’est pas une adresse http ou https",
 					"redirectNoTarget": "La redirection n’est pas reprise : elle n’a pas de cible dans l’export",
 					"redirectIgnored": "La redirection vers {{target}} n’est pas reprise : Jahia Forms suivait une autre redirection du formulaire",
 					"redirectOtherPage": "Sur la page {{page}}, Jahia Forms envoyait les visiteurs de ce formulaire vers {{target}} : Formidable redirige un formulaire de la même façon sur toutes les pages, cette redirection n’est donc pas reprise",

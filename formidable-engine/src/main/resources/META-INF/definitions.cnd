@@ -345,15 +345,29 @@ orderable
  - jcr:title (string) = resourceBundle('fmdb_save2jcrAction') autocreated i18n
 
 // Sends the visitor to a page or to a web address once the submission is accepted, instead of the submission message
-// (docs/architecture/redirect-action.md). The target is a page (page, a weak reference: it follows a move or a rename,
-// resolved in live in the submission's language) or a URL typed per language (url): an absolute http or https URL, or a
-// same-origin path. The first redirect of the action list wins. The constraint on url refuses what has neither a scheme
-// nor a leading slash (www.example.com) as the contributor saves it; the action applies the full rule (RedirectTargets).
+// (docs/architecture/redirect-action.md). targetType is the switch, and each target lives in a jmix:dynamicFieldset
+// mixin the Content Editor activates for its choice through the addMixin wiring of the engine's fieldset overrides, so
+// the editor shows the one target the action reads. The default 'page' activates the page mixin on creation, in the
+// Content Editor only: a client that creates the node through GraphQL or REST adds fmdbmix:redirectToPage or
+// fmdbmix:redirectToUrl before it sets the target. The first redirect of the action list wins.
 [fmdb:redirectAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_redirectAction') autocreated i18n
- - targetType (string, choicelist[resourceBundle]) = 'page' autocreated indexed=no < 'page', 'url'
+ - targetType (string, choicelist) = 'page' autocreated indexed=no < 'page', 'url'
+
+// A page (a weak reference: it follows a move or a rename, resolved in live in the submission's language). Required by
+// the editor (fieldset override), not by the repository.
+[fmdbmix:redirectToPage] > jmix:dynamicFieldset mixin
+ extends = fmdb:redirectAction
  - page (weakreference, picker[type='page']) < 'jnt:page'
- - url (string) i18n indexed=no < '(/|[hH][tT][tT][pP][sS]?://).*'
+
+// A web address typed per language: an absolute http or https URL, another website or a page outside the picker's reach.
+// A page of the site is the page target's, which follows a move and the visitor's language. The constraint refuses
+// what does not start with http:// or https:// (www.example.com, /sites/mysite/home.html) as the contributor saves it;
+// the action applies the full rule (RedirectTargets.httpUrl). Not mandatory: a language without a value falls back to
+// the site's default language.
+[fmdbmix:redirectToUrl] > jmix:dynamicFieldset mixin
+ extends = fmdb:redirectAction
+ - url (string) i18n indexed=no < '[hH][tT][tT][pP][sS]?://.*'
 
 [fmdb:resultsFolder] > jnt:content, jmix:accessControlled
  + * (fmdb:formResults) = fmdb:formResults

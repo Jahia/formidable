@@ -84,17 +84,22 @@ class RedirectFormActionTest {
     }
 
     @Test
-    void aUrlTargetIsAUrlRedirectAndAPathTargetAPathRedirect() throws Exception {
-        // Verifies the url target, trimmed: another website over http(s) is a redirect to a URL read from the
-        // configuration, a path of this server a redirect of the path kind.
+    void aUrlTargetIsARedirectToAUrlReadFromTheConfiguration() throws Exception {
+        // Verifies the url target, trimmed: an http(s) URL is a redirect of the URL kind.
         for (String url : List.of("https://www.example.com/merci", "http://example.com")) {
             FormActionResult result = new RedirectFormAction().execute(context(action("url", " " + url + " ", null)));
             assertEquals(url, result.redirectUrl(), url);
             assertNull(result.redirectPath(), url);
         }
-        FormActionResult path = new RedirectFormAction().execute(context(action("url", "/fr/merci.html", null)));
-        assertEquals("/fr/merci.html", path.redirectPath());
-        assertNull(path.redirectUrl());
+    }
+
+    @Test
+    void aPathOfTheSiteIsNoUrlTarget() throws Exception {
+        // Verifies that a page of the site goes through the page target: a typed path, which would miss a move, the
+        // visitor's language and the context path, is no redirect.
+        for (String path : List.of("/fr/merci.html", "/sites/mysite/home.html", "/")) {
+            assertTrue(new RedirectFormAction().execute(context(action("url", path, null))).isEmpty(), path);
+        }
     }
 
     @Test
@@ -170,10 +175,10 @@ class RedirectFormActionTest {
     void withoutUrlInTheDefaultLanguageTheFirstLanguageThatHasOneIsUsed() throws Exception {
         // Verifies the last step of the fallback, as Jahia Forms read its first translation: blank values are skipped.
         JCRNodeWrapper action = action("url", null, null);
-        NodeIterator others = translations(null, "  ", "/de/danke.html");
+        NodeIterator others = translations(null, "  ", "https://www.example.de/danke");
         when(action.getI18Ns()).thenReturn(others);
 
-        assertEquals("/de/danke.html", new RedirectFormAction().execute(context(action)).redirectPath());
+        assertEquals("https://www.example.de/danke", new RedirectFormAction().execute(context(action)).redirectUrl());
     }
 
     @Test

@@ -163,7 +163,7 @@
 					"redirectUrlCompleted": "Jahia Forms added http:// to the address of its redirect: check {{target}}",
 					"redirectPageNotFound": "The redirect to the page {{target}} is not carried over: this site has no such page. Add a Redirect action to the page that replaced it",
 					"redirectPageLanguages": "Jahia Forms redirected each language to its own page: every language now goes to {{target}}",
-					"redirectUrlRefused": "The redirect to {{target}} is not carried over: neither an http or https address nor a path of the site",
+					"redirectUrlRefused": "The redirect to {{target}} is not carried over: it is not an http or https address",
 					"redirectNoTarget": "The redirect is not carried over: it has no target in the export",
 					"redirectIgnored": "The redirect to {{target}} is not carried over: Jahia Forms followed another redirect of the form",
 					"redirectOtherPage": "On the page {{page}}, Jahia Forms sent the visitors of this form to {{target}}: Formidable redirects a form the same way on every page, so this one is not carried over",
