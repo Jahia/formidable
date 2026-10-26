@@ -1,3 +1,5 @@
+import {getComponentBySelector, Menu} from '@jahia/cypress';
+import type {ContentTable} from '@jahia/jcontent-cypress/dist/page-object/contentTable';
 import {JContent} from '@jahia/jcontent-cypress/dist/page-object/jcontent';
 import {createFormNode, FORMIDABLE_TEST_SITE, getInputTextNode} from '../../support/fixtures';
 import {withSameOriginHeaders} from '../security/support';
@@ -26,6 +28,15 @@ const supertypesOf = (type: string): Cypress.Chainable<string[]> =>
 	});
 
 /**
+ * Opens the context menu of a row the way jContent's own page object does: a right click on the left of the
+ * name cell. A right click in the middle of the row can land under the side panel and open no menu.
+ */
+const contextMenuOf = (table: ContentTable, label: string): Menu => {
+	table.getRowByLabel(label).get().find('[data-cm-role^="table-content-list-cell-name"]').rightclick('left');
+	return getComponentBySelector(Menu, '#menuHolder .moonstone-menu:not(.moonstone-hidden)');
+};
+
+/**
  * The lists of a form — its fields, its actions, and the actions of a field — are its structure: the
  * repository does not enforce their `mandatory` declaration on a removal, so the types carry the platform's
  * jmix:hideDeleteAction, and jContent offers neither Delete nor Cut on them. The form itself, and the
@@ -48,13 +59,13 @@ describe('Validation - 50 The lists of a form cannot be deleted by hand', () => 
 
 	it('offers neither Delete nor Cut on the Fields and Actions lists, and still Delete on the form and on a field', () => {
 		const contents = JContent.visit(FORMIDABLE_TEST_SITE.key, 'en', 'content-folders/contents').switchToListMode();
-		const formMenu = contents.getTable().getRowByLabel(FORM_TITLE).contextMenu();
+		const formMenu = contextMenuOf(contents.getTable(), FORM_TITLE);
 		formMenu.shouldHaveItem('Delete');
 		formMenu.close();
 
 		const form = JContent.visit(FORMIDABLE_TEST_SITE.key, 'en', `content-folders/contents/${FORM_NAME}`).switchToListMode();
 		['Form fields', 'Form actions'].forEach(label => {
-			const menu = form.getTable().getRowByLabel(label).contextMenu();
+			const menu = contextMenuOf(form.getTable(), label);
 			menu.shouldHaveItem('Edit');
 			menu.shouldNotHaveItem('Delete');
 			menu.shouldNotHaveItem('Cut');
@@ -62,7 +73,7 @@ describe('Validation - 50 The lists of a form cannot be deleted by hand', () => 
 		});
 
 		const fields = JContent.visit(FORMIDABLE_TEST_SITE.key, 'en', `content-folders/contents/${FORM_NAME}/fields`).switchToListMode();
-		const fieldMenu = fields.getTable().getRowByLabel('Full name').contextMenu();
+		const fieldMenu = contextMenuOf(fields.getTable(), 'Full name');
 		fieldMenu.shouldHaveItem('Delete');
 		fieldMenu.close();
 	});
