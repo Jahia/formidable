@@ -85,7 +85,7 @@ export default function Form({
 			setHasBlockingSourceError(Boolean(formRef.current.querySelector(BLOCKING_SOURCE_ERROR_SELECTOR)));
 			// The island is in charge from here: a script that writes into the fields (the jExperience
 			// prefill) waits for this, so that no island resets what it wrote. The twin of
-			// formidable:submitted — bubbling, the form's UUID in the detail, nothing else.
+			// formidable:submitted — bubbling, the form's UUID in the detail.
 			formRef.current.dispatchEvent(new CustomEvent(READY_EVENT, {bubbles: true, detail: {formId}}));
 		}
 	}, [formId]);
