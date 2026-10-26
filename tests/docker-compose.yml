@@ -32,6 +32,8 @@ services:
       NEXUS_USERNAME: ${NEXUS_USERNAME}
       NEXUS_PASSWORD: ${NEXUS_PASSWORD}
       SUPER_USER_PASSWORD: ${SUPER_USER_PASSWORD}
+      # The Cypress config file env.run.sh runs, relative to tests/; empty runs cypress.config.ts.
+      TESTS_PROFILE: ${TESTS_PROFILE:-}
     networks:
       - stack
 networks:
