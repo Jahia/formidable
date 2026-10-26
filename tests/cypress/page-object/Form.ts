@@ -315,13 +315,19 @@ export class Form extends BaseComponent {
 	}
 
 	/**
-	 * One-at-a-time: the screen of the named element stays on display past the pause a pick waits before it
-	 * moves on (300 ms, useScreens) — what a pick that must not move the form is checked with.
+	 * One-at-a-time: the screen of the named element stays on display after `action`, past the pause a pick waits
+	 * before it moves on (300 ms, useScreens) — what a pick that must not move the form is checked with. The page's
+	 * clock is the test's during the action, so the pause passes without real time.
 	 */
-	shouldStayOnScreenOf(nodeName: string): this {
+	shouldStayOnScreenOfAfter(nodeName: string, action: () => void): this {
+		// Frozen at the real time: the page compares Date.now() with the time of the visitor's last press
+		cy.clock(Date.now());
+		action();
 		// An absence is asserted over time: the move a pick schedules must not have happened after twice its pause
-		cy.wait(2 * ADVANCE_DELAY_MS);
-		return this.shouldShowScreenOf(nodeName);
+		cy.tick(2 * ADVANCE_DELAY_MS);
+		this.shouldShowScreenOf(nodeName);
+		cy.clock().then(clock => clock.restore());
+		return this;
 	}
 
 	/** One-at-a-time: the screen on display is the one of the named element, and only it. */

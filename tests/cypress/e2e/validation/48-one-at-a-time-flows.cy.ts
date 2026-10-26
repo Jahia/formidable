@@ -107,6 +107,27 @@ describe('Validation - 48 One-at-a-time flows', () => {
 			});
 		});
 
+		it(`${label}: Submit brings back a required field that a later answer showed on a passed screen`, () => {
+			const message = 'The reference is required.';
+			const reference = withLogic(withValidationMessages(getInputTextNode({name: 'reference', title: 'Reference', required: true}), {msgValueMissing: message}),
+				textEquals('oaat-back-ref', 'hasReference', 'yes'));
+			create('oaat-shown-behind', [
+				[getInputTextNode({name: 'firstAnswer', title: 'First answer'}), reference],
+				[getInputTextNode({name: 'hasReference', title: 'Do you have a reference?'})]
+			]).then(({livePath}) => {
+				// The reference is hidden when the visitor passes its place, and shown by the last answer
+				const form = visitLiveForm(livePath);
+				form.getTextInput('firstAnswer').type('One{enter}');
+				form.shouldShowScreenOf('hasReference');
+				form.getTextInput('hasReference').type('yes');
+
+				form.submit();
+				form.shouldShowScreenOf('reference');
+				form.getTextInput('reference').shouldHaveValidationError(message).shouldBeFocused();
+				form.getSuccessMessage().should('not.exist');
+			});
+		});
+
 		it(`${label}: a required group hidden by logic is skipped and does not block the submission`, () => {
 			const interests = withLogic(getCheckboxNode({
 				name: 'interests',

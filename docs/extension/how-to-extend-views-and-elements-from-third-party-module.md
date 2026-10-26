@@ -462,7 +462,7 @@ what to change when copying it).
 
 A form whose experience is One-at-a-time shows one field per screen
 ([One-at-a-time](../architecture/one-at-a-time.md)). A custom field needs nothing for it: its wrapper
-is a screen, and Next and Enter validate it like any other.
+is a screen, whatever its controls are made of, and Next and Enter validate it like any other.
 
 A field whose answer is one pick (a group of radios, cards, a rating) can move on with that pick. Its
 view puts `data-fmdb-advance-on-change="true"` on the element that holds its controls:
@@ -475,9 +475,10 @@ view puts `data-fmdb-advance-on-change="true"` on the element that holds its con
 
 On a screen that shows the field alone, a pick moves to the next screen.
 A pick is a click on an `<input>` of the element, right after a pointer press or the Space key; the arrow
-keys only move the selection, and a widget made of buttons does not move on by itself.
-The island adds a hidden sentence saying so to the element's `aria-describedby`, so keep that attribute
-on the element that carries the marker. Do not set the marker on a field that takes several answers.
+keys only move the selection, and a widget made of buttons does not move on by itself. A click that
+unchecks a checkbox does not move on.
+When a pick moves on, the island adds a hidden sentence saying so to the element's `aria-describedby`,
+so keep that attribute on the element that carries the marker. Do not set the marker on a field that takes several answers.
 
 ## When to add more engine mixins
 

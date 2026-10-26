@@ -14,7 +14,7 @@ import Captcha from './Captcha.client';
 import {useTranslation} from "react-i18next";
 import {useMultiStep} from '~/hooks/useMultiStep';
 import {useScreens} from '~/hooks/useScreens';
-import {useCustomFormValidation, validateInputs} from '~/hooks/useCustomFormValidation';
+import {reportInvalidInputs, useCustomFormValidation, validateInputs} from '~/hooks/useCustomFormValidation';
 import {useFieldActions} from '~/hooks/useFieldActions';
 import {useFormSubmission} from '~/hooks/useFormSubmission';
 
@@ -236,7 +236,8 @@ export default function Form({
 	};
 
 	// A field action's refusal on screen: Submit waits, and Next when the current step holds the refusal — a
-	// click would only meet it again. Not while a check runs: the click that leaves the last field is what
+	// click would only meet it again. Not in One-at-a-time, where the step holds screens the visitor cannot see:
+	// Next settles the field actions of its screen anyway. Not while a check runs: the click that leaves the last field is what
 	// starts its blur check, and a button disabled by it would drop that very click; the settle awaits the
 	// check instead, and a second click meanwhile is ignored (docs/architecture/field-actions.md, "The browser").
 	const hasBlockingRefusal = refusedControls.length > 0;
@@ -244,7 +245,8 @@ export default function Form({
 	const isOnLastScreen = !isPaged || pages.isLast;
 	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError || hasBlockingRefusal
 		|| (!!captcha && isOnLastScreen && !isCaptchaValid);
-	const isNextBlocked = isLoading || refusedControls.some(control => stepIndexOf(control) === currentStep);
+	const isNextBlocked = isLoading
+		|| (!isOneAtATime && refusedControls.some(control => stepIndexOf(control) === currentStep));
 	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
 	const showCaptcha = !!captcha && isOnLastScreen;
 	// Reset, when the author shows it, on a form without steps: next to Submit, on the last screen in One-at-a-time.
@@ -256,9 +258,14 @@ export default function Form({
 
 	// Sending: the whole form's constraints, then every field action of the form with the submit
 	// trigger — asked only when every constraint holds, so a refused value is never sent to a provider
-	// for nothing. A refusal is brought on screen, whatever step holds it.
+	// for nothing. A refusal, or the first control that fails a constraint, is brought on screen, whatever
+	// step or screen holds it.
 	const validateForm = async (form: HTMLFormElement): Promise<boolean> => {
-		if (!validateInputs(form)) return false;
+		const invalid = reportInvalidInputs(form);
+		if (invalid) {
+			setReveal({control: invalid});
+			return false;
+		}
 		const refused = await settleFieldActions(form);
 		if (refused) setReveal({control: refused});
 		return !refused;

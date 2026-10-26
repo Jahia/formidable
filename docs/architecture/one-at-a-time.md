@@ -9,7 +9,10 @@ the next step starts after the last screen of the step. A `Classic` form does no
 `formExperience` on `fmdbmix:multiStep` is a choice list: `classic`, the default, and `oneAtATime`.
 A form created before the property has no value, and the island reads that as `classic`. The form
 moves between screens with the Previous and Next buttons of a multi-step form, and their labels
-(`previousBtnLabel`, `nextBtnLabel` on `fmdbmix:buttons`).
+(`previousBtnLabel`, `nextBtnLabel` on `fmdbmix:buttons`). They keep the size of the step buttons.
+
+In the editor, the setting sits in Buttons, in the Step navigation fieldset, next to the labels of the
+Previous and Next buttons it moves with. It applies to a form with steps and to a form without.
 
 The Page Builder shows the form flat, as it does for steps.
 
@@ -25,8 +28,12 @@ whose closest parent wrapper is the step's own wrapper, or none.
   `data-fmdb-content="true"`, because only the server can read the mixin.
 - A wrapper that shows nothing is not a screen: a wrapper hidden by the logic
   (`data-fmdb-logic-hidden="true"`), a wrapper hidden by a prefill (`data-fmdb-prefilled="hidden"`),
-  and a field that holds only hidden inputs (`fmdb:inputHidden`).
-- A step without a screen is skipped.
+  a hidden field, and a fieldset whose fields all show nothing. A hidden field is read from the node
+  type that its wrapper carries (`data-fmdb-node-type="fmdb:inputHidden"`). A field of any other type
+  is a screen, whatever its controls are made of: a custom widget that posts through a hidden input
+  is one.
+- A step without a screen is skipped, wherever the form arrives at it: Next, Previous, the start of the
+  form and a reset.
 
 `utils/screens.ts` reads the screens from the DOM. `hooks/useScreens.ts` moves through them, on top of
 `useMultiStep`, which keeps the steps.
@@ -42,7 +49,9 @@ A field that the logic shows again stays hidden until its screen is on display.
 
 Until the island has marked the screens, which it states with `data-fmdb-screens-ready` on the form,
 the stylesheet hides every element. Without that rule, the visitor sees the whole form before it
-folds into its first screen.
+folds into its first screen. The rule fails closed: when the island never runs, after a script error
+or a blocked bundle, the form shows its buttons and no field. This is a deliberate choice, made to
+keep the form from showing all its fields before it folds into its first screen.
 
 ## Moving
 
@@ -53,9 +62,15 @@ folds into its first screen.
   of the previous step.
 - After a move, the focus goes to the first control of the new screen.
 - On the last screen, Next becomes Submit, and the captcha is shown. The submission validates the whole
-  form, as in a Classic form.
-- A refusal at submission brings back the step, then the screen, that holds the refused control.
-- After an accepted submission, and after a reset, the form starts again at its first screen.
+  form, as in a Classic form. Off the last screen the captcha widget is removed, and an answer the
+  visitor gave it counts no more: Submit waits for the new widget.
+- At submission, a field action's refusal, or the first control that fails its constraints, brings
+  back the step, then the screen, that holds the control. Logic can show again a field on a screen
+  the visitor has passed, and the submission reaches it this way.
+- A field action's refusal does not disable Next: the step holds screens the visitor cannot see, and
+  Next settles the field actions of its own screen.
+- After an accepted submission, and after a reset, the form starts again at its first screen. After a
+  reset, the focus goes to its first control.
 - In a form without steps, the Reset button, when the author shows it, sits next to Submit on the last
   screen. A form with steps shows no Reset button, in One-at-a-time as in Classic.
 
@@ -64,7 +79,8 @@ after the conditional logic has run. An answer can therefore open or close the s
 it. A visibility change with no event is read too: a `MutationObserver` watches the
 `data-fmdb-logic-hidden` and `data-fmdb-prefilled` attributes, which a provider's watcher and a prefill
 write. The hook writes neither, so the observer does not loop. When the screen on display becomes
-hidden, the visitor moves to the next screen that is shown.
+hidden, the visitor moves to the next screen that is shown. A read that changes no screen, as most
+keystrokes do, writes nothing to the DOM.
 
 ### Enter
 
@@ -94,7 +110,10 @@ that field alone:
   logic left meanwhile;
 - Next stays, for a visitor who comes back to the screen and keeps the answer.
 
-A screen that shows a fieldset does not move on by itself, whatever its fields declare.
+A screen that shows a fieldset does not move on by itself, whatever its fields declare. On the last
+screen, a pick moves on only when its answer opened a screen after it. The hook decides at the end of
+the pause, because the logic runs on the `change` event, after the `click`. A click that unchecks a
+checkbox withdraws the answer, and the visitor stays.
 
 **The arrow keys do not move on.** In a radio group, the arrow keys move the selection, and each
 press fires `click` and `change`. A click counts as a pick only right after a pointer press or the
@@ -104,8 +123,9 @@ moves on, so a visitor who went back confirms the same answer with one click.
 
 **The visitor is told before.** WCAG 3.2.2 (On Input) asks that a change of context caused by a choice
 be announced before it happens. The island renders one hidden sentence, "Choosing an answer moves to
-the next question", and adds its id to the `aria-describedby` of each element that carries the
-attribute.
+the next question". Its id is in the `aria-describedby` of the element of the screen on display
+when a pick there moves on, and in no other: an element in a fieldset, or on the last screen, does not
+point at it.
 
 A pick moves on through the same path as Next: the logic has run, the field actions are settled, and a
 refusal keeps the visitor on the screen.

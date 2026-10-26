@@ -48,16 +48,29 @@ describe('collectScreens', () => {
 		expect(ids(form)).toEqual(['only']);
 	});
 
-	it('skips what the logic or a prefill hides, and a field of hidden inputs only', () => {
+	it('skips what the logic or a prefill hides, and a hidden field', () => {
 		const form = formOf(
 			field('a')
 			+ field('logic', 'data-fmdb-logic-hidden="true"')
 			+ field('prefilled', 'data-fmdb-prefilled="hidden"')
-			+ field('hidden', '', '<input type="hidden" name="h" value="1">')
+			+ field('hidden', 'data-fmdb-node-type="fmdb:inputHidden"', '<input type="hidden" name="h" value="1">')
 			+ content('hiddenContent', 'data-fmdb-logic-hidden="true"')
 			+ field('b')
 		);
 		expect(ids(form)).toEqual(['a', 'b']);
+	});
+
+	it('keeps a custom field that posts through a hidden input only', () => {
+		const form = formOf(field('a') + field('slider', 'data-fmdb-node-type="acme:slider"', '<div role="slider" tabindex="0"></div><input type="hidden" name="slider">'));
+		expect(ids(form)).toEqual(['a', 'slider']);
+	});
+
+	it('skips a fieldset whose fields are all hidden, and keeps one with a field shown', () => {
+		const form = formOf(
+			fieldset('empty', field('x', 'data-fmdb-logic-hidden="true"') + field('y', 'data-fmdb-node-type="fmdb:inputHidden"', '<input type="hidden" name="y">'))
+			+ fieldset('kept', field('z', 'data-fmdb-logic-hidden="true"') + field('w'))
+		);
+		expect(ids(form)).toEqual(['kept']);
 	});
 
 	it('keeps a field the logic shows again', () => {

@@ -89,9 +89,10 @@ describe('Validation - 46 One-at-a-time', () => {
 			form.previousStep();
 			form.shouldShowScreenOf('topic');
 			form.get().find('input[type="radio"][value="support"]').focus();
-			cy.realPress('ArrowDown');
-			form.getRadioGroup('topic').shouldHaveSelected('Press');
-			form.shouldStayOnScreenOf('topic');
+			form.shouldStayOnScreenOfAfter('topic', () => {
+				cy.realPress('ArrowDown');
+				form.getRadioGroup('topic').shouldHaveSelected('Press');
+			});
 			cy.realPress('Enter');
 			form.shouldShowScreenOf('company');
 

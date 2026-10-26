@@ -41,7 +41,8 @@ div.fmdb-message.fmdb-message-{success|error|maintenance}
 └─ div.fmdb-message-content
    ├─ small.fmdb-message-details.fmdb-message-error-details   error code and actions' progress, under an error
    └─ button.fmdb-btn.fmdb-btn-secondary.fmdb-new-form-btn
-form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fmdb-cm-view="true"] in inspection previews
+form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fmdb-cm-view="true"] in inspection previews;
+│                                                       [data-fmdb-experience="oneAtATime"] [data-fmdb-screens-ready] in One-at-a-time
 ├─ header.fmdb-form-intro                               introduction rich text
 ├─ nav.fmdb-steps-nav                                   multi-step forms, drawn by the client
 │  └─ span.fmdb-step-indicator [aria-current="step"]    one per visible step
@@ -53,7 +54,8 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │  ├─ div.fmdb-step-intro
 │  │  └─ div.fmdb-form-element [data-fmdb-node-name] [data-fmdb-node-id] [data-fmdb-node-type]
 │  │     │                                              one per element; .fmdb-logic-target when a rule drives it;
-│  │     │                                              [data-fmdb-field-action] and .fmdb-field-action-pending while a check runs, for a field with actions
+│  │     │                                              [data-fmdb-field-action] and .fmdb-field-action-pending while a check runs, for a field with actions;
+│  │     │                                              [data-fmdb-content] around rich text; [data-fmdb-screen] [data-fmdb-screen-active] in One-at-a-time
 │  │     ├─ div.fmdb-content.fmdb-content-text          a rich-text block among the fields
 │  │     ├─ fieldset.fmdb-fieldset (.fmdb-matrix [style=--fmdb-matrix-columns] with the Matrix view) [aria-describedby → its help]
 │  │     │  ├─ legend.fmdb-fieldset-legend
@@ -68,7 +70,8 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  │     └─ div.fmdb-form-group                         a field; a fieldset with .fmdb-radio-group | .fmdb-checkbox-group for a group
 │  │        ├─ label.fmdb-form-label                    legend.fmdb-group-legend for a group; + .fmdb-file-label for a file
 │  │        │  └─ span.fmdb-required-indicator
-│  │        ├─ input|select|textarea.fmdb-form-control  .fmdb-invalid while the value is invalid
+│  │        ├─ input|select|textarea.fmdb-form-control  .fmdb-invalid while the value is invalid;
+│  │        │                                           [data-fmdb-advance-on-change] on the element holding the controls of a field one pick answers
 │  │        │  ┆ div.fmdb-group-items › div.fmdb-group-item › input.fmdb-form-control + label.fmdb-radio-label|.fmdb-checkbox-label
 │  │        │  ┆ div.fmdb-file-input-container › … › div.fmdb-selected-files › ul.fmdb-file-list › li.fmdb-file-item  (file)
 │  │        │  ┆ div.fmdb-range-row › input.fmdb-form-control.fmdb-range + output.fmdb-range-output   (range)
@@ -80,8 +83,10 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
 │  └─ div [data-fmdb-node-*] …                          an element placed directly in the form: same wrapper, no fmdb-form-element
 ├─ div.fmdb-authoring-hidden-field.fmdb-authoring-sign-in   edit mode only: a form for signed-in visitors only
 ├─ div.fmdb-form-group.fmdb-captcha                     a protected form, on its last step; in edit mode, div.fmdb-authoring-hidden-field.fmdb-authoring-captcha in its place (.fmdb-authoring-captcha-alert while the instance has no captcha set up)
+├─ span [hidden]                                        One-at-a-time: the sentence a field that moves on with a pick points at
 └─ div.fmdb-form-actions
-   └─ button.fmdb-btn.fmdb-btn-{primary|secondary}      submit, reset; .fmdb-prev-btn and .fmdb-next-btn on a multi-step form
+   └─ button.fmdb-btn.fmdb-btn-{primary|secondary}      submit, reset; .fmdb-prev-btn and .fmdb-next-btn on a multi-step or One-at-a-time form;
+                                                        in One-at-a-time without steps, reset sits next to submit on the last screen
 aside.fmdb-authoring-actions                            edit mode only: the form actions zone, after the form
 ```
 
@@ -127,7 +132,9 @@ Page Builder's own wrappers stack around them.
   follows you.
   *Data attributes*: some are part of the contract (`data-fmdb-node-name` to target one field,
   `data-fmdb-edit-mode` and `data-fmdb-cm-view` to target a surface, `data-fmdb-source-error`,
-  `data-fmdb-logic-hidden`, `data-fmdb-prefilled`, `data-fmdb-action-type`, `data-fmdbext-icon`), the others are
+  `data-fmdb-logic-hidden`, `data-fmdb-prefilled`, `data-fmdb-action-type`, `data-fmdbext-icon`, the One-at-a-time
+  markers `data-fmdb-experience`, `data-fmdb-screen`, `data-fmdb-screen-active` and `data-fmdb-screens-ready`, and
+  `data-fmdb-advance-on-change` for a field type), the others are
   functional markers the client reads and may change with their feature — both lists are in
   [Class hooks](class-hooks.md).
 - **Edit mode adds, live does not.** The Page Builder gets wrappers, spacing and the actions zone;

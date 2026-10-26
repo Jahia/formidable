@@ -1,11 +1,13 @@
 import {type RefObject, useCallback, useEffect, useRef, useState} from 'react';
 import {
 	ADVANCE_ON_CHANGE_SELECTOR,
+	advanceZoneOf,
 	advancesOnPick,
 	collectScreens,
 	firstFocusable,
 	resolveScreenIndex,
 	type Screen,
+	sameScreens,
 	screenIndexOf,
 	screenWrappersOf,
 } from '~/utils/screens';
@@ -55,7 +57,7 @@ const INITIAL_VIEW: ScreensView = {count: 0, isFirstScreen: true, isLastScreen: 
 /**
  * One-at-a-time (docs/architecture/one-at-a-time.md): shows one screen of the current step at a time, and
  * moves through the steps of useMultiStep once a step has no screen left. The screens are hidden by a
- * marker (class) and a stylesheet rule (display: none), never by `style.display`, which belongs to the conditional logic.
+ * marker (data attribute) and a stylesheet rule (display: none), never by `style.display`, which belongs to the conditional logic.
  */
 export function useScreens({
 	formRef,
@@ -80,6 +82,8 @@ export function useScreens({
 	/** Where to land once the step a move asked for is on screen. */
 	const landAtRef = useRef<'first' | 'last' | null>(null);
 	const focusPendingRef = useRef(false);
+	/** The container the markers were last written for. */
+	const markedContainerRef = useRef<HTMLElement | null>(null);
 	const validateRef = useRef(validate);
 	useEffect(() => {
 		validateRef.current = validate;
@@ -115,6 +119,18 @@ export function useScreens({
 		if (!container) return;
 
 		const screens = collectScreens(container);
+		// A step with nothing to show — only hidden fields, or fields the logic hides — is passed: on to the next
+		// step with a screen, else back to the one before. The effect of the step change reads that step.
+		if (screens.length === 0 && isMultiStep) {
+			const forward = neighbourStep(1);
+			const step = forward ?? neighbourStep(-1);
+			if (step !== undefined) {
+				landAtRef.current = forward === undefined ? 'last' : 'first';
+				currentStepRef.current = step;
+				setCurrentStep(step);
+				return;
+			}
+		}
 		let index: number;
 		if (landAtRef.current) {
 			index = landAtRef.current === 'last' ? screens.length - 1 : 0;
@@ -122,34 +138,45 @@ export function useScreens({
 		} else {
 			index = resolveScreenIndex(screens, anchorRef.current);
 		}
+		// Most refreshes (a keystroke) change nothing: the markers are then left as they are.
+		const unchanged = container === markedContainerRef.current && index === indexRef.current
+			&& sameScreens(screens, screensRef.current);
 		screensRef.current = screens;
 		indexRef.current = index;
 		anchorRef.current = screens[index]?.wrappers[0] ?? null;
+		markedContainerRef.current = container;
 
-		form.querySelectorAll<HTMLElement>('[data-fmdb-screen]').forEach(wrapper => {
-			delete wrapper.dataset.fmdbScreen;
-			delete wrapper.dataset.fmdbScreenActive;
-		});
-		screenWrappersOf(container).forEach(wrapper => {
-			wrapper.dataset.fmdbScreen = 'true';
-		});
 		const screen = screens[index];
-		screen?.wrappers.forEach(wrapper => {
-			wrapper.dataset.fmdbScreenActive = 'true';
-		});
-
 		const isFirstScreen = index <= 0 && neighbourStep(-1) === undefined;
 		const isLastScreen = index >= screens.length - 1 && neighbourStep(1) === undefined;
+		const wasLast = isLastRef.current;
 		isLastRef.current = isLastScreen;
 
-		// The action key of a phone keyboard says what Enter does on this screen.
-		screen?.elements.forEach(element => element.querySelectorAll(TEXT_LIKE_INPUT)
-			.forEach(input => input.setAttribute('enterkeyhint', isLastScreen ? 'send' : 'next')));
-		// Told before it happens (WCAG 3.2.2): the fields that move on with a pick point at the sentence saying so.
-		form.querySelectorAll<HTMLElement>(ADVANCE_ON_CHANGE_SELECTOR).forEach(zone => {
-			const ids = (zone.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(Boolean);
-			if (!ids.includes(advanceHintId)) zone.setAttribute('aria-describedby', [...ids, advanceHintId].join(' '));
-		});
+		if (!unchanged || isLastScreen !== wasLast) {
+			form.querySelectorAll<HTMLElement>('[data-fmdb-screen]').forEach(wrapper => {
+				delete wrapper.dataset.fmdbScreen;
+				delete wrapper.dataset.fmdbScreenActive;
+			});
+			screenWrappersOf(container).forEach(wrapper => {
+				wrapper.dataset.fmdbScreen = 'true';
+			});
+			screen?.wrappers.forEach(wrapper => {
+				wrapper.dataset.fmdbScreenActive = 'true';
+			});
+
+			// The action key of a phone keyboard says what Enter does on this screen.
+			screen?.elements.forEach(element => element.querySelectorAll(TEXT_LIKE_INPUT)
+				.forEach(input => input.setAttribute('enterkeyhint', isLastScreen ? 'send' : 'next')));
+			// Told before it happens (WCAG 3.2.2): the zone of the screen that moves on with a pick points at the
+			// sentence saying so, and no other zone does — a pick in a fieldset, or on the last screen, stays.
+			const advancing = isLastScreen ? null : advanceZoneOf(screen);
+			form.querySelectorAll<HTMLElement>(ADVANCE_ON_CHANGE_SELECTOR).forEach(zone => {
+				const ids = (zone.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(id => id && id !== advanceHintId);
+				if (zone === advancing) ids.push(advanceHintId);
+				if (ids.length > 0) zone.setAttribute('aria-describedby', ids.join(' '));
+				else zone.removeAttribute('aria-describedby');
+			});
+		}
 
 		form.dataset.fmdbScreensReady = 'true';
 
@@ -162,7 +189,7 @@ export function useScreens({
 			focusPendingRef.current = false;
 			firstFocusable(screen)?.focus();
 		}
-	}, [formRef, enabled, containerOf, neighbourStep, advanceHintId]);
+	}, [formRef, enabled, isMultiStep, containerOf, neighbourStep, setCurrentStep, advanceHintId]);
 
 	// A step move lands here: the step is on screen (useMultiStep's effect ran first), its screens are read.
 	useEffect(() => {
@@ -208,8 +235,9 @@ export function useScreens({
 			if (element && !(await validateRef.current(element))) return;
 			// The visitor moved meanwhile (Previous), or logic did: the move is stale.
 			if (currentStepRef.current !== fromStep || anchorRef.current !== fromAnchor) return;
-			// The answer may have opened or closed screens after this one.
+			// The answer may have opened or closed screens after this one — or emptied the step, which refresh left.
 			refresh();
+			if (currentStepRef.current !== fromStep) return;
 			if (indexRef.current < screensRef.current.length - 1) {
 				goToScreen(indexRef.current + 1, true);
 				return;
@@ -265,7 +293,8 @@ export function useScreens({
 		cancelAdvance();
 		advanceTimeoutRef.current = globalThis.setTimeout(() => {
 			advanceTimeoutRef.current = null;
-			if (currentStepRef.current === pickedStep && anchorRef.current === pickedAnchor) nextRef.current();
+			// Read now, not at the pick: the logic runs after the click, and may open a screen after this one.
+			if (currentStepRef.current === pickedStep && anchorRef.current === pickedAnchor && !isLastRef.current) nextRef.current();
 		}, ADVANCE_DELAY_MS);
 	}, [cancelAdvance]);
 
@@ -282,6 +311,8 @@ export function useScreens({
 			if (resetTimeout !== null) globalThis.clearTimeout(resetTimeout);
 			resetTimeout = globalThis.setTimeout(() => {
 				resetTimeout = null;
+				// The Reset button that had the focus is gone with the last screen: the focus goes to the first one.
+				focusPendingRef.current = true;
 				goToStart();
 			}, 0);
 		};
@@ -292,19 +323,23 @@ export function useScreens({
 
 		// A pick moves on, an arrow key does not: arrows move the selection of a radio group, and each one
 		// fires click and change. A click counts as a pick right after a pointer press or the Space key.
-		let pickIntentAt = 0;
+		// No intent: far enough in the past whatever the clock reads, a test's frozen clock included.
+		const NO_INTENT = Number.NEGATIVE_INFINITY;
+		let pickIntentAt = NO_INTENT;
 		const inAdvanceZone = (target: EventTarget | null): boolean =>
 			target instanceof Element && target.closest(ADVANCE_ON_CHANGE_SELECTOR) !== null;
 		const onPointerDown = (event: PointerEvent) => {
-			pickIntentAt = inAdvanceZone(event.target) ? Date.now() : 0;
+			pickIntentAt = inAdvanceZone(event.target) ? Date.now() : NO_INTENT;
 		};
 		const onClick = (event: MouseEvent) => {
 			// a click on a label is followed by the click of its input: only the input's counts
 			if (!(event.target instanceof HTMLInputElement) || !inAdvanceZone(event.target)) return;
 			if (Date.now() - pickIntentAt > PICK_INTENT_MS) return;
-			pickIntentAt = 0;
+			pickIntentAt = NO_INTENT;
+			// A click that unchecks a box withdraws the answer: the visitor stays.
+			if (event.target.type === 'checkbox' && !event.target.checked) return;
 			const screen = screensRef.current[indexRef.current];
-			if (!advancesOnPick(screen) || !screen.elements[0].contains(event.target) || isLastRef.current) return;
+			if (!advancesOnPick(screen) || !screen.elements[0].contains(event.target)) return;
 			scheduleAdvance();
 		};
 

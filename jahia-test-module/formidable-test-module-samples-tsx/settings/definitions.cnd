@@ -31,6 +31,8 @@
 // A field type of a third-party module: one checkbox confirming a statement (its title). Checked, it is
 // the whole answer, so its view declares data-fmdb-advance-on-change and a One-at-a-time form moves on
 // once the visitor checks it (docs/architecture/one-at-a-time.md). A sample of the contract on a control
-// that is not a radio button: unchecking it asks for the next screen too, which a required one refuses.
-[fmdbsample:quickConfirm] > jnt:content, fmdbmix:element, fmdbmix:submittableField
+// that is not a radio button: unchecking it withdraws the answer, and the form stays. It posts "true" as
+// fmdbext:consent does, so it carries the same markers: a conditional-logic source (is true / is false), and
+// a value a jCustomer profile can hold.
+[fmdbsample:quickConfirm] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField, fmdbmix:booleanField
  - required (boolean) = false

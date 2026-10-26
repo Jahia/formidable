@@ -27,16 +27,24 @@ const isContent = (wrapper: HTMLElement): boolean => wrapper.dataset.fmdbContent
 const parentWrapper = (wrapper: HTMLElement): HTMLElement | null =>
 	wrapper.parentElement?.closest<HTMLElement>(WRAPPER_SELECTOR) ?? null;
 
+/** The node type of a hidden field: submitted, never seen. Its wrapper names it (`data-fmdb-node-type`). */
+const HIDDEN_FIELD_TYPE = 'fmdb:inputHidden';
+
+/** The wrappers directly inside a wrapper: the fields of a fieldset. */
+const childWrappersOf = (wrapper: HTMLElement): HTMLElement[] =>
+	Array.from(wrapper.querySelectorAll<HTMLElement>(WRAPPER_SELECTOR)).filter(child => parentWrapper(child) === wrapper);
+
 /**
- * Whether a wrapper has anything to show: not hidden by the logic, not hidden by a prefill, and, for an
- * element, not only hidden inputs — a hidden field is submitted, never seen.
+ * Whether a wrapper has anything to show: not hidden by the logic, not hidden by a prefill, not a hidden
+ * field, and, for a container (a fieldset), one of its own wrappers shown. A field of another type shows,
+ * whatever controls it is made of.
  */
 export const isShown = (wrapper: HTMLElement): boolean => {
 	if (wrapper.dataset.fmdbLogicHidden === 'true' || wrapper.dataset.fmdbPrefilled === 'hidden') return false;
 	if (isContent(wrapper)) return true;
-	const onlyHiddenInputs = wrapper.querySelector('input[type="hidden"]') !== null
-		&& wrapper.querySelector('input:not([type="hidden"]), select, textarea, button') === null;
-	return !onlyHiddenInputs;
+	if (wrapper.dataset.fmdbNodeType === HIDDEN_FIELD_TYPE) return false;
+	const children = childWrappersOf(wrapper);
+	return children.length === 0 || children.some(isShown);
 };
 
 /**
@@ -88,15 +96,24 @@ export const resolveScreenIndex = (screens: Screen[], anchor: HTMLElement | null
 };
 
 /**
- * Whether a pick on the screen moves on by itself: the screen shows a single field, and that field's view
- * declared it with {@link ADVANCE_ON_CHANGE_ATTRIBUTE}. A fieldset is not a single field, whatever it holds.
+ * The zone where a pick on the screen moves on by itself, or null: the screen shows a single field, and that
+ * field's view declared the zone with {@link ADVANCE_ON_CHANGE_ATTRIBUTE}. A fieldset is not a single field,
+ * whatever it holds.
  */
-export const advancesOnPick = (screen: Screen | undefined): boolean => {
-	if (screen?.elements.length !== 1) return false;
+export const advanceZoneOf = (screen: Screen | undefined): HTMLElement | null => {
+	if (screen?.elements.length !== 1) return null;
 	const element = screen.elements[0];
 	const zone = element.querySelector<HTMLElement>(ADVANCE_ON_CHANGE_SELECTOR);
-	return zone !== null && zone.closest(WRAPPER_SELECTOR) === element;
+	return zone !== null && zone.closest(WRAPPER_SELECTOR) === element ? zone : null;
 };
+
+/** Whether a pick on the screen moves on by itself: see {@link advanceZoneOf}. */
+export const advancesOnPick = (screen: Screen | undefined): boolean => advanceZoneOf(screen) !== null;
+
+/** Whether two lists of screens show the same wrappers, in the same order. */
+export const sameScreens = (a: Screen[], b: Screen[]): boolean =>
+	a.length === b.length && a.every((screen, i) => screen.wrappers.length === b[i].wrappers.length
+		&& screen.wrappers.every((wrapper, j) => wrapper === b[i].wrappers[j]));
 
 /** The first control of a screen the focus can land on. */
 export const firstFocusable = (screen: Screen | undefined): HTMLElement | null => {

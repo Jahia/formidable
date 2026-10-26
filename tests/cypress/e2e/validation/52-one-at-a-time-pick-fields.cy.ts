@@ -86,24 +86,21 @@ describe('Validation - 52 One-at-a-time fields that move on with a pick', () => 
 			form.get().find('[data-fmdb-node-name="terms"] label').realClick();
 			form.shouldShowScreenOf('interests');
 
-			// Back to it: unchecking asks for the next screen too, and the required box refuses it
+			// Back to it: unchecking withdraws the answer, and the form stays
 			form.previousStep();
 			form.shouldShowScreenOf('terms');
-			form.get().find('[data-fmdb-node-name="terms"] label').realClick();
-			form.shouldStayOnScreenOf('terms');
+			form.shouldStayOnScreenOfAfter('terms', () => form.get().find('[data-fmdb-node-name="terms"] label').realClick());
 			form.get().find('input[name="terms"]').should('not.be.checked');
 			form.get().find('[data-fmdb-node-name="terms"] label').realClick();
 			form.shouldShowScreenOf('interests');
 
 			// A group takes several answers: a pick does not move on, Next does
-			form.get().find('[data-fmdb-node-name="interests"] label').contains('Music').realClick();
-			form.shouldStayOnScreenOf('interests');
+			form.shouldStayOnScreenOfAfter('interests', () => form.get().find('[data-fmdb-node-name="interests"] label').contains('Music').realClick());
 			form.nextStep();
 
 			// Nor does a select, whose arrow keys change the value
 			form.shouldShowScreenOf('country');
-			form.get().find('select[name="country"]').select('Switzerland');
-			form.shouldStayOnScreenOf('country');
+			form.shouldStayOnScreenOfAfter('country', () => form.get().find('select[name="country"]').select('Switzerland'));
 			form.nextStep();
 			form.shouldShowScreenOf('closing');
 		});

@@ -24,7 +24,7 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 | `fmdb-fieldset`, `fmdb-fieldset-legend`, `fmdb-fieldset-elements` | A fieldset, its legend, and the wrapper of its fields |
 | `fmdb-matrix`, `fmdb-matrix-header`, `fmdb-matrix-corner`, `fmdb-matrix-column` | A fieldset rendered with the **Matrix** view (see [Styling a form](README.md#the-matrix-view-of-a-fieldset)): the fieldset carries the first, with `--fmdb-matrix-columns` set inline to the number of options, and holds a heading row (`aria-hidden`) of one empty corner cell and one cell per option. Its radio and checkbox groups keep their usual hooks; only the stylesheet lays them out as rows |
 | `fmdb-step`, `fmdb-step-title`, `fmdb-step-intro`, `fmdb-steps-nav`, `fmdb-step-indicator`, `fmdb-step-number`, `fmdb-step-label` | Multi-step structure and navigation; an indicator holds its number badge and its label |
-| `data-fmdb-screen`, `data-fmdb-screen-active`, `data-fmdb-experience` | One-at-a-time ([One-at-a-time](../architecture/one-at-a-time.md)): the screens of the current step, the one on display, and `oneAtATime` on the form. The form moves between screens with `fmdb-prev-btn` and `fmdb-next-btn` |
+| `data-fmdb-screen`, `data-fmdb-screen-active`, `data-fmdb-experience`, `data-fmdb-screens-ready` | One-at-a-time ([One-at-a-time](../architecture/one-at-a-time.md)): the screens of the current step, the one on display, `oneAtATime` on the form, and, on the form too, the sign that the island has marked the screens. The form moves between screens with `fmdb-prev-btn` and `fmdb-next-btn` |
 | `fmdb-form-actions`, `fmdb-btn`, `fmdb-btn-primary`, `fmdb-btn-secondary`, `fmdb-btn-danger`, `fmdb-new-form-btn`, `fmdb-next-btn`, `fmdb-prev-btn` | Buttons, including the multi-step navigation pair; a Button field carries the variant the contributor chose (`primary`, `secondary`, `danger`). The modules style these hooks themselves (variables: `--fmdb-btn-*`). The message's button — new form, try again — is **outside** `<form>`, so a stylesheet scoping its buttons under `.fmdb-form` leaves that one raw |
 | `fmdb-form-help` | Help text under a field (present on nearly every field), and under the legend of a fieldset that has one; the field's control, or the fieldset, points at it with `aria-describedby` |
 | `fmdb-range`, `fmdb-range-row`, `fmdb-range-output`, `fmdb-range-end-label` | Range slider structure (variables: `--fmdb-range-gap`, `--fmdb-range-output-min-width`, `--fmdb-range-end-label-size`) |
@@ -49,7 +49,7 @@ core tones the read-only one down and takes the pointer off its select, radio, c
 (variables in [CSS variables](css-variables.md#prefilled-fields)), and hides the other inline, its value
 still submitted.
 
-Six other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
+Other `data-fmdb-*` attributes are functional markers the client reads, not styling hooks,
 and they may change with the feature they serve: `data-fmdb-step` on each step wrapper (the
 class `fmdb-step` is the hook), `data-fmdb-msg-*` on the controls (the contributor's validation
 messages, see [Custom validation](../architecture/custom-validation.md)), `data-fmdb-logics` and
@@ -57,8 +57,14 @@ messages, see [Custom validation](../architecture/custom-validation.md)), `data-
 [How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md)),
 `data-fmdb-field-action` on the wrapper of a field with actions (`blur` or `submit`, when the
 page asks the engine about the value — see [Field actions](../architecture/field-actions.md)), and
-`data-fmdb-advance-on-change` on a field whose one answer is enough (the card), which a form showing one
-field at a time may read to move on once the answer is picked ([formidable#423](https://github.com/Jahia/formidable/issues/423)).
+`data-fmdb-content` on the wrapper of content such as rich text, which One-at-a-time shows with the
+field after it ([One-at-a-time](../architecture/one-at-a-time.md)).
+
+`data-fmdb-advance-on-change="true"` is a contract with the views of a field type, its own module's or
+another module's: a view puts it on the element that holds the controls when one pick is the whole
+answer (a radio group, a card, a rating, a scale). A One-at-a-time form moves to the next screen after
+a pick there, and the island adds the id of a hidden sentence saying so to the element's
+`aria-describedby` ([How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md#one-at-a-time)).
 
 ## Surfaces: live, edit mode, inspection previews
 
