@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.formsimport.jahiaforms;
 
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeType;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.formsimport.model.ImportNote;
@@ -76,6 +77,8 @@ class FormsRedirectsTest {
                 form.actions().stream().map(ImportedAction::nodeType).toList());
         ImportedAction redirect = form.actions().get(1);
         assertEquals(Map.of(FmdbProperty.REDIRECT_TARGET_TYPE, "page", FmdbProperty.REDIRECT_PAGE, HOME_ID), redirect.properties());
+        // the target's mixin, without which the repository has no definition for the page property
+        assertEquals(List.of(FmdbMixin.REDIRECT_TO_PAGE), redirect.mixins());
         assertTrue(has(form.report(), "form.redirectPage", TARGET, HOME), form.report().toString());
     }
 
@@ -102,6 +105,7 @@ class FormsRedirectsTest {
 
         ImportedAction redirect = redirects(form).get(0);
         assertEquals(Map.of(FmdbProperty.REDIRECT_TARGET_TYPE, "url"), redirect.properties());
+        assertEquals(List.of(FmdbMixin.REDIRECT_TO_URL), redirect.mixins());
         assertEquals(Map.of("en", "https://www.example.com/thanks", "fr", "https://www.example.com/merci"),
                 redirect.i18nProperties().get(FmdbProperty.REDIRECT_URL));
         assertTrue(form.report().stream().anyMatch(note -> note.code().equals("form.redirectUrl")), form.report().toString());
@@ -113,9 +117,19 @@ class FormsRedirectsTest {
 
         assertEquals(Map.of("en", "http://www.example.com/thanks"), redirects(form).get(0).i18nProperties().get(FmdbProperty.REDIRECT_URL));
         assertTrue(has(form.report(), "form.redirectUrlCompleted", TARGET, "http://www.example.com/thanks"), form.report().toString());
-        // a path of the site is kept as typed, where Forms broke it into http:///path
-        assertEquals("/sites/motor-retail/thanks.html", FormsRedirects.followedUrl("/sites/motor-retail/thanks.html"));
+        // a path of the site too, as Forms did: http:///path
+        assertEquals("http:///sites/motor-retail/thanks.html", FormsRedirects.followedUrl("/sites/motor-retail/thanks.html"));
         assertEquals("https://a.example", FormsRedirects.followedUrl(" https://a.example "));
+    }
+
+    @Test
+    void aPathInARedirectToUrlIsAUrlAsFormsReadItAndIsReported() {
+        // Verifies that the action type decides the target: a redirect-to-URL action holds a URL, so a path of the site
+        // takes Forms' http:// (http:///path, no host) and is reported, never turned into a page target.
+        ImportedForm form = convert(site(), toUrl("redirecttourl", Map.of("en", THANKS + ".html")));
+
+        assertTrue(redirects(form).isEmpty());
+        assertTrue(has(form.report(), "form.redirectUrlRefused", TARGET, THANKS + ".html"), form.report().toString());
     }
 
     @Test

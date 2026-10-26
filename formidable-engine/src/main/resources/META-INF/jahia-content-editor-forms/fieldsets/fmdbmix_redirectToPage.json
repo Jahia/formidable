@@ -1,0 +1,9 @@
+{
+	"name": "fmdbmix:redirectToPage",
+	"fields": [
+		{
+			"name": "page",
+			"mandatory": true
+		}
+	]
+}

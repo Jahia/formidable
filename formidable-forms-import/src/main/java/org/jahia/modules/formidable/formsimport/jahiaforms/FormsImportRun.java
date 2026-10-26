@@ -105,8 +105,8 @@ public final class FormsImportRun {
         report.importedFormsFolder(writer.importedFormsPath());
         FormsExport export = reader.readStructure();
         Map<String, Source> sources = sourcesOf(export);
-        sitePages.displaysUnread().ifPresent(reason -> report.note(ImportNote.action(
-                reason == ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE ? "report.displaysElsewhere" : "report.displaysUnread")));
+        sitePages.displaysUnread().ifPresent(reason -> report.note(reason == ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE
+                ? ImportNote.info("report.displaysElsewhere") : ImportNote.action("report.displaysUnread")));
         if (dryRun) {
             runOn(sources, report);
             return report;

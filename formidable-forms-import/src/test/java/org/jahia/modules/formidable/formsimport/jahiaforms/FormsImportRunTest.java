@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
@@ -89,34 +90,44 @@ class FormsImportRunTest {
     @Test
     void displaysThatCouldNotBeReadAreNamedOnceForTheRun() throws Exception {
         // Verifies point 6 of the review: a redirect set on a display is lost when the displays cannot be read, so
-        // the run says it once, at its level, and not once per form; a run that read them says nothing.
-        ImportEnvironment.SitePages elsewhere = new ImportEnvironment.SitePages() {
+        // the run says it once, at its level, and not once per form; a run that read them says nothing. Displays on
+        // another instance are information, a failed read is a to-do. The pages know why only once the forms asked
+        // for their displays, so a run that reads the reason before the conversion has no note.
+        assertRunNote(ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE, "report.displaysElsewhere", "info");
+        assertRunNote(ImportEnvironment.DisplaysUnread.QUERY_FAILED, "report.displaysUnread", "action");
+        JSONObject read = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer(), true, Map.of(), type -> true, source -> true, false)
+                .run().toJson();
+        assertEquals(0, read.getJSONArray("notes").length());
+    }
+
+    private void assertRunNote(ImportEnvironment.DisplaysUnread reason, String code, String level) throws Exception {
+        ImportEnvironment.SitePages unread = new ImportEnvironment.SitePages() {
+            private ImportEnvironment.DisplaysUnread asked;
+
             @Override
-            public java.util.Optional<String> pageOf(String reference) {
-                return java.util.Optional.empty();
+            public Optional<String> pageOf(String reference) {
+                return Optional.empty();
             }
 
             @Override
             public List<FormsDisplay> displaysOf(String formUuid) {
+                asked = reason;
                 return List.of();
             }
 
             @Override
-            public java.util.Optional<ImportEnvironment.DisplaysUnread> displaysUnread() {
-                return java.util.Optional.of(ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE);
+            public Optional<ImportEnvironment.DisplaysUnread> displaysUnread() {
+                return Optional.ofNullable(asked);
             }
         };
         ImportEnvironment environment = new ImportEnvironment(type -> true, source -> true, type -> false,
-                ImportEnvironment.ANY_PROPERTY, false, elsewhere);
+                ImportEnvironment.ANY_PROPERTY, false, unread);
 
         JSONObject report = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer(), true, Map.of(), environment).run().toJson();
 
-        assertEquals(1, report.getJSONArray("notes").length());
-        assertEquals("report.displaysElsewhere", report.getJSONArray("notes").getJSONObject(0).getString("code"));
-        assertEquals("action", report.getJSONArray("notes").getJSONObject(0).getString("level"));
-        JSONObject read = new FormsImportRun(FormsExportReaderTest.sampleReader(), writer(), true, Map.of(), type -> true, source -> true, false)
-                .run().toJson();
-        assertEquals(0, read.getJSONArray("notes").length());
+        assertEquals(1, report.getJSONArray("notes").length(), code);
+        assertEquals(code, report.getJSONArray("notes").getJSONObject(0).getString("code"));
+        assertEquals(level, report.getJSONArray("notes").getJSONObject(0).getString("level"), code);
     }
 
     @Test

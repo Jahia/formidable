@@ -42,6 +42,16 @@ class RedirectTargetsTest {
     }
 
     @Test
+    void aNoBreakSpaceAroundAUrlIsNotTrimmedButRefused() {
+        // Verifies what the authoring card (redirectAction.server.ts) trims as this class does: String.trim() strips only
+        // what is up to U+0020, so a no-break space or a U+FEFF pasted around the address stays, and the card warns.
+        for (String candidate : List.of("https://example.com/ ", " https://example.com/", "https://example.com/﻿")) {
+            assertTrue(RedirectTargets.httpUrl(candidate).isEmpty(), candidate);
+        }
+        assertEquals(Optional.of("https://example.com/"), RedirectTargets.httpUrl(" https://example.com/\t"));
+    }
+
+    @Test
     void nullAndOversizedAreRefused() {
         assertTrue(RedirectTargets.sameOriginPath(null).isEmpty());
         assertTrue(RedirectTargets.sameOriginPath("/" + "a".repeat(RedirectTargets.MAX_LENGTH)).isEmpty());

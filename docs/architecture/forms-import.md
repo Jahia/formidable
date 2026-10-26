@@ -429,15 +429,16 @@ under `formFactory`, so the export does not hold it: the import reads the displa
 of the instance it runs on (`ImportSitePages`, by `referenceForm` = the `jcr:uuid` of the form), when `forms-core`
 registers the type there, and names each display by the page that holds it, the display's own path when no page
 does. An import on another instance, or of a form displayed on another instance, sees no display: the run then says
-once, above the forms, that the redirect addresses of the pages that displayed the Forms forms are to check by hand
-(`report.displaysElsewhere`, `ImportEnvironment.DisplaysUnread`), and `report.displaysUnread` when the query of the
-displays failed. A Formidable form redirects the same way on every page, so the first display, by path, decides; a
+once, above the forms, in an information note, that the redirect addresses of the pages that displayed the Forms
+forms are to check by hand (`report.displaysElsewhere`, `ImportEnvironment.DisplaysUnread`), and in an action note
+`report.displaysUnread` when the query of the displays failed. A report with nothing to import shows no note of the
+run. A Formidable form redirects the same way on every page, so the first display, by path, decides; a
 display that sent the visitors elsewhere is reported with its page.
 
 | Forms | Formidable |
 |---|---|
 | `redirectToAPageAction`, its `redirectto` a path of the source site or the identifier of the page | `targetType` = `page`, `page` the identifier of the page in the target site: the path as stored, else the same path under the target site, so a form exported from a site keeps its page in the copy of that site; else reported, and no action. A form whose languages named different pages keeps the page of its building language for all, reported |
-| `redirectToUrlAction`, its `redirectto` per language | `targetType` = `url`, `url` per language. Forms added `http://` to a value that starts with neither `http://` nor `https://`, so the import does too, and reports it to check; a path of the site is kept as typed, where Forms broke it into `http:///path`. A language whose URL is neither a path of this server (`RedirectTargets.sameOriginPath`) nor an absolute http(s) URL (`RedirectTargets.httpUrl`) is reported; with none left, no action |
+| `redirectToUrlAction`, its `redirectto` per language | `targetType` = `url`, `url` per language. Forms added `http://` to a value that starts with neither `http://` nor `https://`, so the import does too, and reports it to check, a path of the site included, which becomes `http:///path` as in Forms. A language whose URL is not an absolute http(s) URL (`RedirectTargets.httpUrl`) is reported, such a path among them: the action type decides the target, so a redirect-to-URL never becomes a page target; with no language left, no action |
 | The `redirectUrl` of the display that decides | `targetType` = `url`, the URL in every language of the form, completed and checked the same way |
 
 The created action is last in the list: Formidable redirects once every action has run, wherever the action stands.

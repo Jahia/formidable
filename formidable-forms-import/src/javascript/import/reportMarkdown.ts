@@ -154,10 +154,10 @@ export function reportMarkdown(report: ImportReport, context: ReportContext): st
     ].join('\n');
 }
 
-/** What the run says of no form in particular, before the forms: one item per note. */
+/** What the run says of no form in particular, before the forms: one item per note, none when the run wrote nothing. */
 function runNotesSection(report: ImportReport, t: Translate): string[] {
     const notes = report.notes ?? [];
-    if (notes.length === 0) {
+    if (report.nothingToImport || notes.length === 0) {
         return [];
     }
     return [`## ${t('formResults.import.report.runNotes')}`, '', ...notes.map(note => `- ${escape(noteText(note, t))}`), ''];

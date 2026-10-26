@@ -31,9 +31,9 @@ import java.util.Optional;
  * <p>The target is either a page picked in the Content Editor ({@code page}, a weak reference: it follows a move or a
  * rename; its URL is built from the node in the visitor's language, through the platform's URL rewriting) or a URL
  * typed by the contributor ({@code url}, per language, falling back to the site's default language, then to the first
- * language that has one): a path of this server, returned with
- * {@link FormActionResult#redirect}, or an absolute {@code http}/{@code https} URL, returned with
- * {@link FormActionResult#redirectToUrl}, which a value read from the configuration may use. The action fails
+ * language that has one): an absolute {@code http}/{@code https} URL, returned with
+ * {@link FormActionResult#redirectToUrl}, which a value read from the configuration may use. A page of the site is the
+ * page target's: a typed path would miss a move, the visitor's language and the context path. The action fails
  * nothing: a missing, unpublished or unusable target is logged and the submission is accepted without a
  * redirect.</p>
  *
@@ -75,8 +75,10 @@ public class RedirectFormAction implements ContextualFormAction {
         try {
             String type = action.hasProperty(FmdbProperty.REDIRECT_TARGET_TYPE)
                     ? action.getProperty(FmdbProperty.REDIRECT_TARGET_TYPE).getString() : TARGET_PAGE;
-            Optional<String> target = TARGET_URL.equals(type) ? url(action) : page(context, action);
-            return target.map(RedirectFormAction::toResult).orElseGet(FormActionResult::none);
+            if (TARGET_URL.equals(type)) {
+                return url(action).map(FormActionResult::redirectToUrl).orElseGet(FormActionResult::none);
+            }
+            return page(context, action).map(RedirectFormAction::toResult).orElseGet(FormActionResult::none);
         } catch (RepositoryException | RuntimeException e) {
             // never fail a submission over where to send the visitor next
             log.warn("[RedirectFormAction] The redirect target could not be resolved: the submission is accepted without a redirect.", e);
@@ -94,10 +96,9 @@ public class RedirectFormAction implements ContextualFormAction {
             log.warn("[RedirectFormAction] The action {} has no URL in any language: no redirect.", action.getPath());
             return Optional.empty();
         }
-        String configured = value;
-        Optional<String> url = RedirectTargets.sameOriginPath(configured).or(() -> RedirectTargets.httpUrl(configured));
+        Optional<String> url = RedirectTargets.httpUrl(value);
         if (url.isEmpty()) {
-            log.warn("[RedirectFormAction] The URL of the action {} is neither a path of this server nor an http(s) URL: no redirect.", action.getPath());
+            log.warn("[RedirectFormAction] The URL of the action {} is not an absolute http(s) URL: no redirect.", action.getPath());
         }
         return url;
     }
@@ -136,7 +137,7 @@ public class RedirectFormAction implements ContextualFormAction {
         return value == null || value.isBlank() ? null : value;
     }
 
-    /** A path is a redirect of the first kind; anything else here is an http(s) URL read from the configuration. */
+    /** The URL of a page: a path of this server, or the absolute URL of a page on another server name. */
     private static FormActionResult toResult(String target) {
         return target.startsWith("/") ? FormActionResult.redirect(target) : FormActionResult.redirectToUrl(target);
     }

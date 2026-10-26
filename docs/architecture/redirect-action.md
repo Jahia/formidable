@@ -9,7 +9,7 @@ can ask the browser to navigate. It matches the two redirect actions of Jahia Fo
 
 A **Redirect** action (`fmdb:redirectAction`) in the form's actions zone, next to *Save to JCR* and the email
 actions. It sends the visitor, once the form is submitted, either to **a page** picked in the page picker, or to
-**a web address** typed in: another website over `http` or `https`, or a path of the site. The visitor does not see
+**a web address** typed in, over `http` or `https`: another website, or a page the picker cannot reach. The visitor does not see
 the submission message: the spinner stays on screen until the next page shows.
 
 In the actions zone, the card of a redirect shows its target (the page's title, or the address), and a redirect
@@ -24,7 +24,8 @@ that comes after another one carries a warning.
 | **The redirect replaces the success message** | As in Jahia Forms: the next page is the feedback. The island's side, the back-forward cache included, is the [contextual actions](form-submission-flow.md#contextual-actions-the-response-a-redirect-a-message-for-the-visitor)' behaviour. |
 | **A mechanism, not only an action** | The redirect travels as the reserved key `redirect` of the body, written by the servlet from what the contextual actions returned (`FormActionResult.redirect`). A sign-up or sign-in action of another module uses it; so can a third-party action. A response enricher cannot write the key. |
 | **A page is a weak reference, not a path** | The page picker stores the node: the page can move or be renamed and the redirect follows; the URL is built on the server from the node, in the visitor's language, through the platform's URL rewriting (vanity URLs), as `PageLinks.urlOf`. Forms stored a path string per language, which broke on a move. The property is named `page`, not `j:linknode`: that name is the platform's, injected by its link mixins. |
-| **A typed address is an `http`/`https` URL or a path of the site** | Jahia Forms accepts an external URL, and so does Formidable, without the flaws of Forms: it follows a URL its own validator refused, checks nothing in the browser, and prefixes `http://` to whatever has no scheme. A typed path is a redirect of the path kind (`FormActionResult.redirect`, held to `RedirectTargets.sameOriginPath`), and a typed URL a redirect to a URL read from the configuration (`FormActionResult.redirectToUrl`, held to `RedirectTargets.httpUrl`: a host, no user information); the browser checks both again. A value without a scheme (`www.example.com`) is refused, not completed. |
+| **A typed address is an `http`/`https` URL** | Jahia Forms accepts an external URL, and so does Formidable, without the flaws of Forms: it follows a URL its own validator refused, checks nothing in the browser, and prefixes `http://` to whatever has no scheme. A typed URL is a redirect to a URL read from the configuration (`FormActionResult.redirectToUrl`, held to `RedirectTargets.httpUrl`: a host, no user information), which the browser checks again. A value without a scheme (`www.example.com`) is refused, not completed. |
+| **A page of the site is picked, never typed** | A typed path (`/sites/mysite/thank-you.html`) misses what the page target gives: it breaks when the page moves, ignores the visitor's language and the vanity URLs, and lacks the context path of a Jahia deployed under one. The web address takes no path, and the page picker holds a page of the site. |
 | **A URL is read from the action node, never from the request** | A target a request can influence (`/login?redirect=...` read from the page's URL by a sign-in action) must not be able to name another host: that is an open redirect. The redirect action reads its URL from its own node, which is what `redirectToUrl` is for; the [contextual actions](form-submission-flow.md#contextual-actions-the-response-a-redirect-a-message-for-the-visitor) state the two rules. |
 | **No `authorizedRedirectHosts` check** | That platform setting guards the redirects core reads from request parameters (login, logout, `jcrRedirectTo`). A contributor-typed target is not one, and Jahia Forms never applied the setting: checking it would break imported redirects to unlisted hosts. An allowlist, if a security review requires one, reuses `SettingsBean.getAuthorizedRedirectHosts()`, not a new Formidable key. |
 | **A language without a URL falls back** | The URL of the site's default language, else the first language that has one, so that a multilingual form redirects in every language. Jahia Forms took the first translation it found. |
@@ -41,16 +42,29 @@ In `formidable-engine`, beside the other action types (`definitions.cnd`):
 ```cnd
 [fmdb:redirectAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_redirectAction') autocreated i18n
- - targetType (string, choicelist[resourceBundle]) = 'page' autocreated indexed=no < 'page', 'url'
+ - targetType (string, choicelist) = 'page' autocreated indexed=no < 'page', 'url'
+
+[fmdbmix:redirectToPage] > jmix:dynamicFieldset mixin
+ extends = fmdb:redirectAction
  - page (weakreference, picker[type='page']) < 'jnt:page'
- - url (string) i18n indexed=no < '(/|[hH][tT][tT][pP][sS]?://).*'
+
+[fmdbmix:redirectToUrl] > jmix:dynamicFieldset mixin
+ extends = fmdb:redirectAction
+ - url (string) i18n indexed=no < '[hH][tT][tT][pP][sS]?://.*'
 ```
 
+`targetType` is the switch, and each target lives in a mode fieldset ([mixin catalogue](mixin-catalogue.md)): the
+engine's override `fieldsets/fmdb_redirectAction.json` adds `fmdbmix:redirectToPage` for `page` and
+`fmdbmix:redirectToUrl` for `url`, so the Content Editor shows the one target the action reads, and switching removes
+the other one with its value. The default `page` activates the page mixin on creation, and
+`fieldsets/fmdbmix_redirectToPage.json` makes the page required. Both happen in the Content Editor only: a client that
+creates the node through GraphQL or REST, the import included, adds `fmdbmix:redirectToPage` or
+`fmdbmix:redirectToUrl` before it sets the target, since the type alone has no definition for `page` or `url`.
+
 `url` is i18n so a multilingual site can send each language to its own page; `page` is shared, the page being the
-same node in every language. The constraint on `url` refuses, as the contributor saves it, a value with neither a
-scheme nor a leading slash (`www.example.com`), with the message `fmdb_redirectAction.url.constraint.error.message`;
-the full rule is the action's. The Content Editor shows both `page` and `url` whatever `targetType` says, and the
-action reads the one `targetType` names.
+same node in every language. The constraint on `url` refuses, as the contributor saves it, a value that does not
+start with `http://` or `https://` (`www.example.com`, `/sites/mysite/home.html`), with the message
+`fmdbmix_redirectToUrl.url.constraint.error.message`; the full rule is the action's.
 
 ## Server
 
@@ -65,8 +79,8 @@ action reads the one `targetType` names.
      a page of a site with another server name keeps its absolute URL, returned with `redirectToUrl(url)`. An
      unpublished or deleted page does not resolve: no redirect, a warning on one line, naming the action.
    - `url`: the value in the submission's locale, else in the site's default language, else in the first language
-     that has one. A path of this server is returned with `redirect(path)`, an absolute `http`/`https` URL with
-     `redirectToUrl(url)`; anything else is no redirect, a warning.
+     that has one, returned with `redirectToUrl(url)` when `RedirectTargets.httpUrl` accepts it; anything else is no
+     redirect, a warning.
 3. The pipeline and the servlet do the rest, as for any
    [contextual action](form-submission-flow.md#contextual-actions-the-response-a-redirect-a-message-for-the-visitor):
    each kind of target is checked by its own rule, the first redirect of the list wins, and the servlet writes it as
@@ -88,7 +102,7 @@ the URL in the current language), and, when an earlier sibling of the list is a 
 (`followsAnotherRedirect`), a warning under the description: the card carries
 `data-fmdb-authoring-state="overridden-redirect"`. The warning says the earlier redirect comes first, not that this
 one is ignored: it applies when no earlier redirect has a usable target. A URL the redirect drops
-(`hasUnusableUrl`, the browser's `isSameOriginPath` and `isHttpUrl`) carries its own warning instead, marked
+(`hasUnusableUrl`, the rule of the browser's `isHttpUrl`) carries its own warning instead, marked
 `data-fmdb-authoring-state="unusable-redirect-url"`. An unpublished or deleted page carries none.
 
 ## Import from Jahia Forms

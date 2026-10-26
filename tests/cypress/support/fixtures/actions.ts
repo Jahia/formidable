@@ -64,18 +64,22 @@ export function getForwardActionNode(data: {name?: string; title?: string; targe
 }
 
 /**
- * The redirect action (fmdb:redirectAction): a page (weak reference to a page UUID) or a URL, an http(s) URL or a
- * same-origin path. The URL is stored as the contributor typed it, an unusable one included: the server decides.
+ * The redirect action (fmdb:redirectAction): a page (weak reference to a page UUID) or an http(s) URL, each on the
+ * mixin its targetType activates. The URL is stored as the contributor typed it: the
+ * repository refuses only one that does not start with http:// or https://, and the server decides on the rest.
+ * `url` is the English value; `urls` gives one value per language instead.
  */
-export function getRedirectActionNode(data: {name?: string; title?: string; url?: string; pageUuid?: string}): JahiaNode {
+export function getRedirectActionNode(data: {name?: string; title?: string; url?: string; urls?: Record<string, string>; pageUuid?: string}): JahiaNode {
 	const properties: NodeProperty[] = [{name: 'targetType', value: data.pageUuid ? 'page' : 'url'}];
 	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
 	if (data.url) properties.push({name: 'url', value: data.url, language: 'en'});
+	Object.entries(data.urls ?? {}).forEach(([language, value]) => properties.push({name: 'url', value, language}));
 	if (data.pageUuid) properties.push({name: 'page', value: data.pageUuid, type: 'WEAKREFERENCE'});
 
 	return {
 		name: data.name || 'redirect',
 		primaryNodeType: 'fmdb:redirectAction',
+		mixins: [data.pageUuid ? 'fmdbmix:redirectToPage' : 'fmdbmix:redirectToUrl'],
 		properties
 	};
 }

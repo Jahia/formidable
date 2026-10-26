@@ -92,7 +92,7 @@ export const ReportTable = ({report, language, t, choices = {}, onChoice, onChoi
             {report.nothingToImport && (
                 <Typography data-sel-role="import-nothing">{t('formResults.import.report.nothing')}</Typography>
             )}
-            {(report.notes?.length ?? 0) > 0 && (
+            {!report.nothingToImport && (report.notes?.length ?? 0) > 0 && (
                 <div data-sel-role="import-report-run-notes">
                     <Typography variant="caption" weight="bold">{t('formResults.import.report.runNotes')}</Typography>
                     <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>

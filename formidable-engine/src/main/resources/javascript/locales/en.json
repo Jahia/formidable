@@ -42,6 +42,12 @@
 			"relative": "Relative date (shifted from the current date, until the end of that day)"
 		}
 	},
+	"fmdb_redirectAction": {
+		"targetType": {
+			"page": "A page",
+			"url": "A web address"
+		}
+	},
 	"conditionalLogic": {
 		"sourceField": "Source field",
 		"selectSource": "Select a source field",

@@ -70,7 +70,7 @@ describe('hasUnusableUrl', () => {
 	const urlAction = (url?: string) => listOf({id: 'r', properties: url === undefined ? {targetType: 'url'} : {targetType: 'url', url}})[0];
 
 	it('is false for an address the redirect follows, and for no address at all', () => {
-		for (const url of ['https://www.example.com/thanks', 'http://example.com', '/sites/mysite/thanks.html', '  /a  ']) {
+		for (const url of ['https://www.example.com/thanks', 'http://example.com', '  https://example.com/a  ']) {
 			expect(hasUnusableUrl(urlAction(url)), url).toBe(false);
 		}
 		expect(hasUnusableUrl(urlAction())).toBe(false);
@@ -78,8 +78,14 @@ describe('hasUnusableUrl', () => {
 	});
 
 	it('is true for an address the redirect drops', () => {
-		for (const url of ['www.example.com', '//evil.example', String.raw`/\evil.example`, 'https://user@evil.example/', 'https://', 'javascript:alert(1)']) {
+		for (const url of ['www.example.com', '/sites/mysite/thanks.html', '//evil.example', String.raw`/\evil.example`, 'https://user@evil.example/', 'https://', 'javascript:alert(1)']) {
 			expect(hasUnusableUrl(urlAction(url)), url).toBe(true);
+		}
+	});
+
+	it('is true for an address pasted with a no-break space or a U+FEFF around it, which the server keeps and refuses', () => {
+		for (const url of ['https://example.com/ ', ' https://example.com/', 'https://example.com/﻿']) {
+			expect(hasUnusableUrl(urlAction(url)), JSON.stringify(url)).toBe(true);
 		}
 	});
 
