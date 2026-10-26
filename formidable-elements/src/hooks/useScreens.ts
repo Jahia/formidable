@@ -54,6 +54,43 @@ interface UseScreensReturn extends ScreensView {
 
 const INITIAL_VIEW: ScreensView = {count: 0, isFirstScreen: true, isLastScreen: false};
 
+const sameView = (a: ScreensView, b: ScreensView): boolean =>
+	a.count === b.count && a.isFirstScreen === b.isFirstScreen && a.isLastScreen === b.isLastScreen;
+
+/** The screen to show: the end a move asked for, else the one the anchor resolves to. */
+const landingIndex = (screens: Screen[], anchor: HTMLElement | null, landAt: 'first' | 'last' | null): number => {
+	if (landAt === 'last') return screens.length - 1;
+	if (landAt === 'first') return 0;
+	return resolveScreenIndex(screens, anchor);
+};
+
+/** Marks the screens of `container` and the one on display, and what the controls of that screen announce. */
+function markScreens(form: HTMLFormElement, container: HTMLElement, screen: Screen | undefined, isLastScreen: boolean, advanceHintId: string) {
+	form.querySelectorAll<HTMLElement>('[data-fmdb-screen]').forEach(wrapper => {
+		delete wrapper.dataset.fmdbScreen;
+		delete wrapper.dataset.fmdbScreenActive;
+	});
+	screenWrappersOf(container).forEach(wrapper => {
+		wrapper.dataset.fmdbScreen = 'true';
+	});
+	screen?.wrappers.forEach(wrapper => {
+		wrapper.dataset.fmdbScreenActive = 'true';
+	});
+
+	// The action key of a phone keyboard says what Enter does on this screen.
+	screen?.elements.forEach(element => element.querySelectorAll(TEXT_LIKE_INPUT)
+		.forEach(input => input.setAttribute('enterkeyhint', isLastScreen ? 'send' : 'next')));
+	// Told before it happens (WCAG 3.2.2): the zone of the screen that moves on with a pick points at the
+	// sentence saying so, and no other zone does — a pick in a fieldset, or on the last screen, stays.
+	const advancing = isLastScreen ? null : advanceZoneOf(screen);
+	form.querySelectorAll<HTMLElement>(ADVANCE_ON_CHANGE_SELECTOR).forEach(zone => {
+		const ids = (zone.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(id => id && id !== advanceHintId);
+		if (zone === advancing) ids.push(advanceHintId);
+		if (ids.length > 0) zone.setAttribute('aria-describedby', ids.join(' '));
+		else zone.removeAttribute('aria-describedby');
+	});
+}
+
 /**
  * One-at-a-time (docs/architecture/one-at-a-time.md): shows one screen of the current step at a time, and
  * moves through the steps of useMultiStep once a step has no screen left. The screens are hidden by a
@@ -112,6 +149,22 @@ export function useScreens({
 		return candidates.find(stepHasScreens);
 	}, [isMultiStep, stepHasScreens]);
 
+	/**
+	 * A step with nothing to show — only hidden fields, or fields the logic hides — is passed: on to the next step
+	 * with a screen, else back to the one before. The effect of the step change reads that step. False when the
+	 * form stays.
+	 */
+	const passEmptyStep = useCallback((): boolean => {
+		if (!isMultiStep) return false;
+		const forward = neighbourStep(1);
+		const step = forward ?? neighbourStep(-1);
+		if (step === undefined) return false;
+		landAtRef.current = forward === undefined ? 'last' : 'first';
+		currentStepRef.current = step;
+		setCurrentStep(step);
+		return true;
+	}, [isMultiStep, neighbourStep, setCurrentStep]);
+
 	const refresh = useCallback(() => {
 		const form = formRef.current;
 		if (!enabled || !form) return;
@@ -119,25 +172,9 @@ export function useScreens({
 		if (!container) return;
 
 		const screens = collectScreens(container);
-		// A step with nothing to show — only hidden fields, or fields the logic hides — is passed: on to the next
-		// step with a screen, else back to the one before. The effect of the step change reads that step.
-		if (screens.length === 0 && isMultiStep) {
-			const forward = neighbourStep(1);
-			const step = forward ?? neighbourStep(-1);
-			if (step !== undefined) {
-				landAtRef.current = forward === undefined ? 'last' : 'first';
-				currentStepRef.current = step;
-				setCurrentStep(step);
-				return;
-			}
-		}
-		let index: number;
-		if (landAtRef.current) {
-			index = landAtRef.current === 'last' ? screens.length - 1 : 0;
-			landAtRef.current = null;
-		} else {
-			index = resolveScreenIndex(screens, anchorRef.current);
-		}
+		if (screens.length === 0 && passEmptyStep()) return;
+		const index = landingIndex(screens, anchorRef.current, landAtRef.current);
+		landAtRef.current = null;
 		// Most refreshes (a keystroke) change nothing: the markers are then left as they are.
 		const unchanged = container === markedContainerRef.current && index === indexRef.current
 			&& sameScreens(screens, screensRef.current);
@@ -152,44 +189,19 @@ export function useScreens({
 		const wasLast = isLastRef.current;
 		isLastRef.current = isLastScreen;
 
-		if (!unchanged || isLastScreen !== wasLast) {
-			form.querySelectorAll<HTMLElement>('[data-fmdb-screen]').forEach(wrapper => {
-				delete wrapper.dataset.fmdbScreen;
-				delete wrapper.dataset.fmdbScreenActive;
-			});
-			screenWrappersOf(container).forEach(wrapper => {
-				wrapper.dataset.fmdbScreen = 'true';
-			});
-			screen?.wrappers.forEach(wrapper => {
-				wrapper.dataset.fmdbScreenActive = 'true';
-			});
-
-			// The action key of a phone keyboard says what Enter does on this screen.
-			screen?.elements.forEach(element => element.querySelectorAll(TEXT_LIKE_INPUT)
-				.forEach(input => input.setAttribute('enterkeyhint', isLastScreen ? 'send' : 'next')));
-			// Told before it happens (WCAG 3.2.2): the zone of the screen that moves on with a pick points at the
-			// sentence saying so, and no other zone does — a pick in a fieldset, or on the last screen, stays.
-			const advancing = isLastScreen ? null : advanceZoneOf(screen);
-			form.querySelectorAll<HTMLElement>(ADVANCE_ON_CHANGE_SELECTOR).forEach(zone => {
-				const ids = (zone.getAttribute('aria-describedby') ?? '').split(/\s+/).filter(id => id && id !== advanceHintId);
-				if (zone === advancing) ids.push(advanceHintId);
-				if (ids.length > 0) zone.setAttribute('aria-describedby', ids.join(' '));
-				else zone.removeAttribute('aria-describedby');
-			});
-		}
+		if (!unchanged || isLastScreen !== wasLast) markScreens(form, container, screen, isLastScreen, advanceHintId);
 
 		form.dataset.fmdbScreensReady = 'true';
 
 		const next: ScreensView = {count: screens.length, isFirstScreen, isLastScreen};
 		// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- deliberate DOM sync: the screens are read off the markers of the logic, which the render cannot see
-		setView(previous => (previous.count === next.count && previous.isFirstScreen === next.isFirstScreen
-			&& previous.isLastScreen === next.isLastScreen) ? previous : next);
+		setView(previous => sameView(previous, next) ? previous : next);
 
 		if (focusPendingRef.current) {
 			focusPendingRef.current = false;
 			firstFocusable(screen)?.focus();
 		}
-	}, [formRef, enabled, isMultiStep, containerOf, neighbourStep, setCurrentStep, advanceHintId]);
+	}, [formRef, enabled, containerOf, neighbourStep, passEmptyStep, advanceHintId]);
 
 	// A step move lands here: the step is on screen (useMultiStep's effect ran first), its screens are read.
 	useEffect(() => {
