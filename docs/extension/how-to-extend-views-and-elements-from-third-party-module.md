@@ -464,6 +464,16 @@ A form whose experience is One-at-a-time shows one field per screen
 ([One-at-a-time](../architecture/one-at-a-time.md)). A custom field needs nothing for it: its wrapper
 is a screen, whatever its controls are made of, and Next and Enter validate it like any other.
 
+A field that shows nothing, such as a capture of the UTM parameters or the referrer that only posts
+hidden inputs, would be an empty screen. Its view puts `data-fmdb-no-screen="true"` on one of its
+elements, and the form then gives it no screen:
+
+```tsx
+<span data-fmdb-no-screen="true">
+  <input type="hidden" name={name} value={value} />
+</span>
+```
+
 A field whose answer is one pick (a group of radios, cards, a rating) can move on with that pick. Its
 view puts `data-fmdb-advance-on-change="true"` on the element that holds its controls:
 

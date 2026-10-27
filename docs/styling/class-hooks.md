@@ -66,6 +66,10 @@ answer (a radio group, a card, a rating, a scale). A One-at-a-time form moves to
 a pick there, and the island adds the id of a hidden sentence saying so to the element's
 `aria-describedby` ([How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md#one-at-a-time)).
 
+`data-fmdb-no-screen="true"` is a contract with the views of a field type in the same way: a view
+puts it on one of its elements when the field shows nothing, and a One-at-a-time form gives the field
+no screen.
+
 ## Surfaces: live, edit mode, inspection previews
 
 The same hooks render on three surfaces, told apart by an attribute on the `fmdb-form` element:

@@ -15,6 +15,13 @@ const WRAPPER_SELECTOR = '[data-fmdb-node-id]';
 export const ADVANCE_ON_CHANGE_ATTRIBUTE = 'data-fmdb-advance-on-change';
 export const ADVANCE_ON_CHANGE_SELECTOR = `[${ADVANCE_ON_CHANGE_ATTRIBUTE}="true"]`;
 
+/**
+ * Set by a field view on any of its elements when the field shows nothing, such as a capture that only
+ * posts hidden inputs: its wrapper is not a screen. Part of the contract of a field type.
+ */
+export const NO_SCREEN_ATTRIBUTE = 'data-fmdb-no-screen';
+const NO_SCREEN_SELECTOR = `[${NO_SCREEN_ATTRIBUTE}="true"]`;
+
 /** One screen: the wrappers it shows, in document order, and the element ones among them. */
 export interface Screen {
 	wrappers: HTMLElement[];
@@ -36,15 +43,16 @@ const childWrappersOf = (wrapper: HTMLElement): HTMLElement[] =>
 
 /**
  * Whether a wrapper has anything to show: not hidden by the logic, not hidden by a prefill, not a hidden
- * field, and, for a container (a fieldset), one of its own wrappers shown. A field of another type shows,
- * whatever controls it is made of.
+ * field, not a field whose view declared it shows nothing, and, for a container (a fieldset), one of its
+ * own wrappers shown. A field of another type shows, whatever controls it is made of.
  */
 export const isShown = (wrapper: HTMLElement): boolean => {
 	if (wrapper.dataset.fmdbLogicHidden === 'true' || wrapper.dataset.fmdbPrefilled === 'hidden') return false;
 	if (isContent(wrapper)) return true;
 	if (wrapper.dataset.fmdbNodeType === HIDDEN_FIELD_TYPE) return false;
 	const children = childWrappersOf(wrapper);
-	return children.length === 0 || children.some(isShown);
+	if (children.length === 0) return wrapper.querySelector(NO_SCREEN_SELECTOR) === null;
+	return children.some(isShown);
 };
 
 /**

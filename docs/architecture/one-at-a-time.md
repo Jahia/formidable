@@ -28,10 +28,12 @@ whose closest parent wrapper is the step's own wrapper, or none.
   `data-fmdb-content="true"`, because only the server can read the mixin.
 - A wrapper that shows nothing is not a screen: a wrapper hidden by the logic
   (`data-fmdb-logic-hidden="true"`), a wrapper hidden by a prefill (`data-fmdb-prefilled="hidden"`),
-  a hidden field, and a fieldset whose fields all show nothing. A hidden field is read from the node
-  type that its wrapper carries (`data-fmdb-node-type="fmdb:inputHidden"`). A field of any other type
-  is a screen, whatever its controls are made of: a custom widget that posts through a hidden input
-  is one.
+  a hidden field, a field whose view declares that it shows nothing, and a fieldset whose fields all
+  show nothing. A hidden field is read from the node type that its wrapper carries
+  (`data-fmdb-node-type="fmdb:inputHidden"`). A view declares that its field shows nothing with
+  `data-fmdb-no-screen="true"` on one of its elements, as a capture that only posts hidden inputs
+  does. A field of any other type is a screen, whatever its controls are made of: a custom widget
+  that posts through a hidden input is one.
 - A step without a screen is skipped, wherever the form arrives at it: Next, Previous, the start of the
   form and a reset.
 

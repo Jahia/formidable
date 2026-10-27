@@ -65,6 +65,12 @@ describe('collectScreens', () => {
 		expect(ids(form)).toEqual(['a', 'slider']);
 	});
 
+	it('skips a field whose view declared it shows nothing, and a fieldset holding only such fields', () => {
+		const capture = '<span data-fmdb-no-screen="true"><input type="hidden" name="utm"></span>';
+		const form = formOf(field('a') + field('utm', 'data-fmdb-node-type="acme:utm"', capture) + fieldset('set', field('ref', '', capture)) + field('b'));
+		expect(ids(form)).toEqual(['a', 'b']);
+	});
+
 	it('skips a fieldset whose fields are all hidden, and keeps one with a field shown', () => {
 		const form = formOf(
 			fieldset('empty', field('x', 'data-fmdb-logic-hidden="true"') + field('y', 'data-fmdb-node-type="fmdb:inputHidden"', '<input type="hidden" name="y">'))
