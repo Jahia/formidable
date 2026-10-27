@@ -1,66 +1,14 @@
 // @vitest-environment jsdom
 import {describe, expect, it, vi} from 'vitest';
+import {renderHook} from '~/utils/testSupport/reactRenderer';
 import {useMultiStep} from './useMultiStep';
 
 /**
  * The step navigation once Next waits for an asynchronous validation — the field actions of the step.
- * React is mocked as a small renderer, not as inert holders: `render()` walks the hook's calls in order
- * (state and refs kept per slot, an effect run once its dependencies changed, after the cleanup of its
- * previous run), and a setter marks the tree dirty, which `flush()` settles by rendering again. A Next
- * pending on a slow provider needs that much: logic moving the steps meanwhile goes through the setters
- * and a re-render, which is where the hook synchronises the refs the move reads.
+ * React is mocked as a small renderer (utils/testSupport/reactRenderer.ts), not as inert holders: a Next
+ * pending on a slow provider needs that much.
  */
-const react = vi.hoisted(() => ({
-	states: [] as unknown[],
-	refs: [] as Array<{current: unknown}>,
-	effects: [] as Array<{deps: unknown[] | undefined; cleanup: void | (() => void)}>,
-	memos: [] as Array<{deps: unknown[] | undefined; value: unknown}>,
-	cursor: {state: 0, ref: 0, effect: 0, memo: 0},
-	queued: [] as Array<() => void>,
-	dirty: false,
-	/** Every value the current step — the hook's first state — was set to, in order. */
-	moves: [] as number[],
-	changed: (deps: unknown[] | undefined, previous: unknown[] | undefined): boolean => {
-		if (deps === undefined || previous === undefined) return true;
-		return deps.length !== previous.length || deps.some((dep, i) => !Object.is(dep, previous[i]));
-	},
-}));
-vi.mock('react', () => ({
-	useState: <T,>(initial: T | (() => T)) => {
-		const slot = react.cursor.state++;
-		if (!(slot in react.states)) react.states[slot] = typeof initial === 'function' ? (initial as () => T)() : initial;
-		const set = (next: T | ((previous: T) => T)) => {
-			const previous = react.states[slot] as T;
-			const value = typeof next === 'function' ? (next as (previous: T) => T)(previous) : next;
-			if (Object.is(value, previous)) return;
-			react.states[slot] = value;
-			react.dirty = true;
-			if (slot === 0) react.moves.push(value as number);
-		};
-		return [react.states[slot] as T, set];
-	},
-	useRef: <T,>(initial: T) => {
-		const slot = react.cursor.ref++;
-		react.refs[slot] ??= {current: initial};
-		return react.refs[slot];
-	},
-	useEffect: (effect: () => void | (() => void), deps?: unknown[]) => {
-		const slot = react.cursor.effect++;
-		const previous = react.effects[slot];
-		if (previous && !react.changed(deps, previous.deps)) return;
-		react.queued.push(() => {
-			previous?.cleanup?.();
-			react.effects[slot] = {deps, cleanup: effect()};
-		});
-	},
-	useCallback: <T,>(callback: T, deps?: unknown[]) => {
-		const slot = react.cursor.memo++;
-		const previous = react.memos[slot];
-		if (previous && !react.changed(deps, previous.deps)) return previous.value as T;
-		react.memos[slot] = {deps, value: callback};
-		return callback;
-	},
-}));
+vi.mock('react', async () => (await import('~/utils/testSupport/reactRenderer')).reactModule);
 
 const ids = (count: number) => Array.from({length: count}, (unusedStep, index) => `s${index}`);
 
@@ -71,33 +19,17 @@ const stepsMarkup = (count: number, hidden: number[] = []) => ids(count).map((id
 
 /** The hook mounted on a form of `count` steps, some hidden by logic from the start; `latest()` is its last render. */
 function mount(count: number, hidden: number[] = []) {
-	Object.assign(react, {states: [], refs: [], effects: [], memos: [], queued: [], dirty: false, moves: []});
 	document.body.innerHTML = `<form>${stepsMarkup(count, hidden)}</form>`;
 	const form = document.querySelector('form')!;
 	const formRef = {current: form};
-	let hook!: ReturnType<typeof useMultiStep>;
-	const render = () => {
-		react.cursor = {state: 0, ref: 0, effect: 0, memo: 0};
-		react.dirty = false;
-		hook = useMultiStep({formRef, stepIds: ids(count)});
-		react.queued.splice(0).forEach(run => run());
-	};
-	/** Renders until no setter fired, as React settles after a state change. */
-	const flush = () => {
-		for (let round = 0; round < 10; round++) {
-			render();
-			if (!react.dirty) return;
-		}
-		throw new Error('the hook keeps setting state');
-	};
+	const {latest, flush, moves} = renderHook(() => useMultiStep({formRef, stepIds: ids(count)}));
 	/** Logic's verdict on a step, as the visibility pass writes it, then the form event that makes the hook re-read it. */
 	const logicHides = (index: number, hides: boolean) => {
 		form.querySelector<HTMLElement>(`[data-fmdb-node-id="s${index}"]`)!.dataset.fmdbLogicHidden = hides ? 'true' : 'false';
 		form.dispatchEvent(new Event('input'));
 		flush();
 	};
-	flush();
-	return {latest: () => hook, flush, logicHides, moves: react.moves};
+	return {latest, flush, logicHides, moves};
 }
 
 /** A validation the test answers when it decides the provider has taken long enough. */

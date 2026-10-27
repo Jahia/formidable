@@ -44,6 +44,14 @@ export function useCustomFormValidation({formRef}: UseCustomValidationOptions) {
 }
 
 export function validateInputs(container: HTMLElement): boolean {
+	return reportInvalidInputs(container) === null;
+}
+
+/**
+ * {@link validateInputs}, returning the first invalid control instead, or null when every control holds: a caller
+ * whose control may sit off screen (another step, another screen of One-at-a-time) brings it back.
+ */
+export function reportInvalidInputs(container: HTMLElement): HTMLElement | null {
 	const allInputs = Array.from(container.querySelectorAll<FormInputElement>('input, select, textarea'));
 	const seenGroups = new Set<string>();
 	const inputs = allInputs.filter(input => {
@@ -83,5 +91,5 @@ export function validateInputs(container: HTMLElement): boolean {
 	});
 
 	if (firstInvalid) (firstInvalid as HTMLElement).focus();
-	return allValid;
+	return allValid ? null : firstInvalid as HTMLElement | null;
 }

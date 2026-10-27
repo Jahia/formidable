@@ -74,7 +74,11 @@ const NEVER_ASKED_TYPES = new Set(['file', 'button', 'submit', 'reset', 'image']
 
 const wrapperOf = (control: Element): HTMLElement | null => control.closest<HTMLElement>(`[${FIELD_ACTION_MARKER}]`);
 
-const wrappersOf = (root: HTMLElement): HTMLElement[] => Array.from(root.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`));
+// The root itself counts: a screen of One-at-a-time is the field's own wrapper, not a step around it.
+const wrappersOf = (root: HTMLElement): HTMLElement[] => [
+	...(root.hasAttribute(FIELD_ACTION_MARKER) ? [root] : []),
+	...Array.from(root.querySelectorAll<HTMLElement>(`[${FIELD_ACTION_MARKER}]`))
+];
 
 /** A field conditional logic holds hidden is not asked about: the pipeline skips it too. */
 const isAskable = (wrapper: HTMLElement): boolean => wrapper.dataset.fmdbLogicHidden !== 'true';
