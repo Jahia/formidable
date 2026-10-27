@@ -138,6 +138,7 @@
     { "target": "https://[::1]:99999/", "sameOriginPath": null, "httpUrl": null },
     { "target": "https://a{b.example/", "sameOriginPath": null, "httpUrl": null },
     { "target": "https://a`b.example/", "sameOriginPath": null, "httpUrl": null },
-    { "target": "https://a|b.example/", "sameOriginPath": null, "httpUrl": null }
+    { "target": "https://a|b.example/", "sameOriginPath": null, "httpUrl": null },
+    { "target": "https://a%41b.example/", "sameOriginPath": null, "httpUrl": null }
   ]
 }

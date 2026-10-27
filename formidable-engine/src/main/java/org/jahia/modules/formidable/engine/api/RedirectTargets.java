@@ -113,8 +113,8 @@ public final class RedirectTargets {
      * {@link URI} answers no host for a name it does not read as a server name, such as a non-ASCII name
      * ({@code bücher.example}) or one with an underscore, which the browser accepts; its authority is then an opaque
      * registry name, where user info is not split out either. Such a name is read from the authority: no {@code @},
-     * a port of digits, and a non-empty result once the port is stripped and the name converted with
-     * {@link IDN#toASCII}. {@link URI} does not range-check a port, and the browser refuses one above
+     * no {@code %} (the browser decodes an escape in a host and refuses what it decodes to), a port of digits, and a
+     * non-empty result once the port is stripped and the name converted with {@link IDN#toASCII}. {@link URI} does not range-check a port, and the browser refuses one above
      * {@value #MAX_PORT}.
      */
     private static boolean hasHost(URI uri) {
@@ -122,7 +122,7 @@ public final class RedirectTargets {
             return !uri.getHost().isEmpty() && uri.getPort() <= MAX_PORT;
         }
         String authority = uri.getRawAuthority();
-        if (authority == null || authority.isEmpty() || authority.indexOf('@') >= 0) {
+        if (authority == null || authority.isEmpty() || authority.indexOf('@') >= 0 || authority.indexOf('%') >= 0) {
             return false;
         }
         String host = authority;
