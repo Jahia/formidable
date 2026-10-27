@@ -129,15 +129,21 @@
     if (!config || !api.shouldCollect(detail.formId)) {
       return;
     }
-    // No success callback: nothing of the page depends on the event having landed.
-    window.wem.collectEvent(api.buildEvent(config, block.fields), undefined, (xhr) => {
-      console.warn(
-        "[Formidable] jExperience did not collect the form event: " +
-          (xhr && xhr.status) +
-          " " +
-          (xhr && xhr.statusText),
-      );
+    // Settles once the tracker's request ended, landed or not: a redirect of the form waits for it, capped
+    const sent = new Promise((resolve) => {
+      window.wem.collectEvent(api.buildEvent(config, block.fields), resolve, (xhr) => {
+        console.warn(
+          "[Formidable] jExperience did not collect the form event: " +
+            (xhr && xhr.status) +
+            " " +
+            (xhr && xhr.statusText),
+        );
+        resolve();
+      });
     });
+    if (typeof detail.waitUntil === "function") {
+      detail.waitUntil(sent);
+    }
   });
 
   // ---------------------------------------------------------------------------------------------

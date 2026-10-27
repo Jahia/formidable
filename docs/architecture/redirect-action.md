@@ -50,7 +50,7 @@ key parameter (the page's title, or the URL).
 2. Resolution:
    - `page`: the `j:linknode` node read in **live**, in the submission's locale (the `lang` parameter);
      its URL built as the platform builds a page link, on the platform's context path, then passed through the
-     outbound URL rewriting (vanity URLs), and returned with `FormActionResult.redirect(path)`. Unpublished or
+     outbound URL rewriting (vanity URLs), and returned with `FormActionResult.redirectTo(path)`. Unpublished or
      deleted page: no redirect, a warning.
    - `url`: the value in the submission's locale, falling back to the form's building language, returned with
      `FormActionResult.redirectToUrl(url)`.
@@ -62,7 +62,9 @@ key parameter (the page's title, or the URL).
 
 The island already navigates to `redirect` once it checked the target again, and the redirect replaces the
 submission message ([contextual actions](form-submission-flow.md#contextual-actions-the-response-a-redirect-a-message-for-the-visitor)). It dispatches the success event first — the jExperience
-integration sends its submission event from it — so the action needs no change in the browser.
+integration sends its submission event from it, and hands the promise of the tracker's request to the event's
+`waitUntil`. The island holds the navigation until that promise settles, for 1 second at most, so the form event
+reaches jCustomer before the page unloads. The action needs no change in the browser.
 
 No redirect in edit mode or preview, where submission is already disabled.
 
@@ -84,5 +86,4 @@ the Forms path resolved in the target site, reported when the page is not found 
 
 | # | Point |
 |---|---|
-| 1 | Does the jExperience submission event reach jCustomer when the page navigates right after it (the tracker's send is asynchronous)? To measure; a short wait or `sendBeacon` if not. |
-| 2 | A redirect to a page of another site of the platform: allowed by the picker? The path rule checks the origin, not the site, so it passes when both sites are served by this server. |
+| 1 | A redirect to a page of another site of the platform: allowed by the picker? The path rule checks the origin, not the site, so it passes when both sites are served by this server. |

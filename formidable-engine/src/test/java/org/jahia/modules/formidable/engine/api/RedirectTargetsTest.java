@@ -1,44 +1,60 @@
 package org.jahia.modules.formidable.engine.api;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RedirectTargetsTest {
 
+    /** The cases the island's check reads too (useFormSubmission.test.ts): one list, so the two rules cannot drift apart. */
+    private static JSONArray sharedCases() throws IOException {
+        try (InputStream in = RedirectTargetsTest.class.getResourceAsStream("/redirect-targets.json")) {
+            assertNotNull(in, "redirect-targets.json");
+            return new JSONObject(new String(in.readAllBytes(), StandardCharsets.UTF_8)).getJSONArray("cases");
+        }
+    }
+
+    private static Optional<String> expected(JSONObject testCase, String rule) {
+        return testCase.isNull(rule) ? Optional.empty() : Optional.of(testCase.getString(rule));
+    }
+
     @Test
-    void aPathOfThisServerIsAccepted() {
-        // Verifies the accepted shape: one leading slash, a path, optionally a query and a fragment.
-        for (String path : List.of("/", "/home.html", "/sites/mysite/home.html", "/fr/compte?tab=2#top", "/a%20b/c")) {
-            assertEquals(Optional.of(path), RedirectTargets.sameOriginPath(path), path);
+    void eachSharedTargetGetsTheAnswerBothChecksAgreeOn() throws IOException {
+        // Verifies both rules on the shared list: a path of this server, an absolute http(s) URL, what a browser
+        // accepts and java.net.URI does not (sent encoded), and what could leave the server or break the response.
+        JSONArray cases = sharedCases();
+        for (int i = 0; i < cases.length(); i++) {
+            JSONObject testCase = cases.getJSONObject(i);
+            String target = testCase.getString("target");
+            assertEquals(expected(testCase, "sameOriginPath"), RedirectTargets.sameOriginPath(target), "sameOriginPath " + target);
+            assertEquals(expected(testCase, "httpUrl"), RedirectTargets.httpUrl(target), "httpUrl " + target);
         }
     }
 
     @Test
-    void anythingThatCouldLeaveTheServerIsRefused() {
-        // Verifies the open-redirect rules: a scheme, a protocol-relative URL, a backslash form some browsers read as a
-        // host, control characters (header injection), whitespace and a bare relative path all give no target.
-        for (String candidate : List.of(
-                "https://evil.example/", "//evil.example/x", "/\\evil.example", "\\\\evil.example", "javascript:alert(1)",
-                "data:text/html,x", "home.html", "", "   ", "/ok\nSet-Cookie: a=b", "/a b", "/\tevil", "//", "/\\", "mailto:a@b.c")) {
-            assertTrue(RedirectTargets.sameOriginPath(candidate).isEmpty(), candidate);
+    void anAcceptedTargetIsAcceptedAgainUnchanged() throws IOException {
+        // Verifies the encoding is done once: what a rule sends passes the same rule as it is, so nothing is encoded twice.
+        JSONArray cases = sharedCases();
+        for (int i = 0; i < cases.length(); i++) {
+            JSONObject testCase = cases.getJSONObject(i);
+            expected(testCase, "sameOriginPath").ifPresent(sent -> assertEquals(Optional.of(sent), RedirectTargets.sameOriginPath(sent), sent));
+            expected(testCase, "httpUrl").ifPresent(sent -> assertEquals(Optional.of(sent), RedirectTargets.httpUrl(sent), sent));
         }
     }
 
     @Test
-    void theCharactersTheBrowserRefusesAreRefusedHereToo() {
-        // Verifies the server and the island agree: a byte-order mark, a zero-width space, the non-breaking spaces, a
-        // C1 control and a tag character outside the BMP (U+E0001, two surrogates in a Java string) would pass a check
-        // of ASCII whitespace alone, and the island refuses them, so a path the server sent would be silently ignored.
-        for (String candidate : List.of("/a\uFEFFb", "/a\u200Bb", "/a\u00A0b", "/a\u2007b", "/a\u202Fb", "/a\u2028b", "/a\u0085b",
-                "/a\uDB40\uDC01b")) {
-            assertTrue(RedirectTargets.sameOriginPath(candidate).isEmpty(), candidate);
-            assertTrue(RedirectTargets.httpUrl("https://www.example.com" + candidate).isEmpty(), candidate);
-        }
+    void aTargetIsTrimmed() {
+        assertEquals(Optional.of("/home.html"), RedirectTargets.sameOriginPath("  /home.html "));
+        assertEquals(Optional.of("https://www.example.com/"), RedirectTargets.httpUrl(" https://www.example.com/\t"));
     }
 
     @Test
@@ -47,29 +63,7 @@ class RedirectTargetsTest {
         assertTrue(RedirectTargets.sameOriginPath("/" + "a".repeat(RedirectTargets.MAX_LENGTH)).isEmpty());
         assertTrue(RedirectTargets.httpUrl(null).isEmpty());
         assertTrue(RedirectTargets.httpUrl("https://www.example.com/" + "a".repeat(RedirectTargets.MAX_LENGTH)).isEmpty());
-    }
-
-    @Test
-    void anAbsoluteHttpOrHttpsUrlIsAccepted() {
-        // Verifies the second rule, for a URL read from the configuration: http or https, a host, any path and query.
-        // A non-ASCII host and a host with an underscore are hosts to the browser, though java.net.URI reads neither as one.
-        for (String url : List.of("https://www.example.com", "http://www.example.com/merci.html", "HTTPS://WWW.EXAMPLE.COM/a?b=c#d",
-                "https://www.example.com:8443/fr/merci", "https://b\u00FCcher.example/", "https://b\u00FCcher.example:8443/a",
-                "https://my_host.example.com/")) {
-            assertEquals(Optional.of(url), RedirectTargets.httpUrl(url), url);
-        }
-    }
-
-    @Test
-    void aUrlThatIsNotAnAbsoluteHttpUrlIsRefused() {
-        // Verifies the second rule refuses another scheme, a URL with no host, a protocol-relative URL, a relative path,
-        // and user info, which a visitor reads as the host (https://www.example.com@evil.example goes to evil.example).
-        for (String candidate : List.of(
-                "javascript:alert(1)", "data:text/html,x", "ftp://www.example.com/", "mailto:a@b.c", "https://", "https:///path",
-                "//evil.example/x", "/sites/mysite/home.html", "home.html", "https://user@evil.example/",
-                "https://www.example.com@evil.example/", "https://user:pass@www.example.com/", "https://www.example.com/a b",
-                "https://www.example.com/\\evil", "https://user@b\u00FCcher.example/", "https://user@my_host.example.com/", "", "   ")) {
-            assertTrue(RedirectTargets.httpUrl(candidate).isEmpty(), candidate);
-        }
+        // the cap applies to what is sent: a target that the encoding takes past it is refused
+        assertTrue(RedirectTargets.sameOriginPath("/" + "|".repeat(RedirectTargets.MAX_LENGTH / 2)).isEmpty());
     }
 }

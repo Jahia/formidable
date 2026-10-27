@@ -13,7 +13,7 @@ import java.util.Optional;
  * <p>A redirect has two kinds, each held to its own rule by the pipeline; a target its rule refuses is dropped with a
  * warning, never sent to the browser:</p>
  * <ul>
- *   <li>{@link #redirect(String)}: a path of this server ({@link RedirectTargets#sameOriginPath}), whatever its source,
+ *   <li>{@link #redirectTo(String)}: a path of this server ({@link RedirectTargets#sameOriginPath}), whatever its source,
  *       a value computed from the request included;</li>
  *   <li>{@link #redirectToUrl(String)}: an absolute {@code http} or {@code https} URL ({@link RedirectTargets#httpUrl}),
  *       for a URL read from the configuration only (an action node, an OSGi configuration), never from the request:
@@ -43,7 +43,7 @@ public record FormActionResult(String redirectPath, String redirectUrl, String m
     }
 
     /** Send the visitor to a path of this server. */
-    public static FormActionResult redirect(String path) {
+    public static FormActionResult redirectTo(String path) {
         return new FormActionResult(path, null, null);
     }
 
@@ -53,7 +53,7 @@ public record FormActionResult(String redirectPath, String redirectUrl, String m
     }
 
     /** Show this text instead of the form's submission message. */
-    public static FormActionResult message(String text) {
+    public static FormActionResult showMessage(String text) {
         return new FormActionResult(null, null, text);
     }
 
