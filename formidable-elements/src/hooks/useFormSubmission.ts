@@ -79,11 +79,12 @@ export function isSameOriginPath(target: unknown): target is string {
  * configuration.
  *
  * Where `new URL` is more lenient than the server's `java.net.URI`, it is held to the server's answer: an empty
- * authority (`https:///path`, which `new URL` reads as the host `path`) and a host holding `{ } " \`` are refused.
+ * authority (`https:///path`, which `new URL` reads as the host `path`), a host holding `{ } " \``, and a percent
+ * escape in the host (`https://a%41b.example/`, which `new URL` decodes) are refused.
  * The cases both checks agree on are listed once, in `redirect-targets.json` of the engine's tests.
  */
 export function isHttpUrl(target: unknown): target is string {
-	if (typeof target !== 'string' || target.length > 2048 || !/^https?:\/\/[^/?#]/i.test(target) || FORBIDDEN_IN_TARGET.test(target)) return false;
+	if (typeof target !== 'string' || target.length > 2048 || !/^https?:\/\/[^/?#%]+(?:[/?#]|$)/i.test(target) || FORBIDDEN_IN_TARGET.test(target)) return false;
 	try {
 		const url = new URL(target);
 		return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname !== '' && !/[{}"`]/.test(url.hostname)
