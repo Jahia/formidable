@@ -139,7 +139,7 @@ public class RedirectFormAction implements ContextualFormAction {
 
     /** The URL of a page: a path of this server, or the absolute URL of a page on another server name. */
     private static FormActionResult toResult(String target) {
-        return target.startsWith("/") ? FormActionResult.redirect(target) : FormActionResult.redirectToUrl(target);
+        return target.startsWith("/") ? FormActionResult.redirectTo(target) : FormActionResult.redirectToUrl(target);
     }
 
     private Optional<String> page(FormActionContext context, JCRNodeWrapper action) throws RepositoryException {

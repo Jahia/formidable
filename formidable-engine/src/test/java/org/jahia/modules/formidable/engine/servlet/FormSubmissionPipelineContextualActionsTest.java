@@ -175,12 +175,37 @@ class FormSubmissionPipelineContextualActionsTest {
     }
 
     @Test
+    void anUnresolvableSiteGivesAnEmptySiteKey() throws Exception {
+        // Verifies the context never carries a null site key: a form whose site cannot be resolved hands the action "".
+        when(userFormNode.getResolveSite()).thenThrow(new IllegalStateException("no site"));
+        Contextual action = new Contextual("t:ctx", FormActionResult.none(), null);
+        FormSubmissionPipeline pipeline = pipeline(List.of(action), resolved("t:ctx"), values());
+
+        dispatch(pipeline);
+
+        assertEquals("", action.received.get().siteKey());
+    }
+
+    @Test
+    void aBlankMessageDoesNotHideTheMessageOfALaterAction() throws Exception {
+        // Verifies a blank message is no message: it does not become the first one, so the real message of a later
+        // action reaches the browser instead of the form's generic message.
+        Contextual blank = new Contextual("t:blank", FormActionResult.showMessage("  "), null);
+        Contextual real = new Contextual("t:real", FormActionResult.showMessage("Check your mailbox"), null);
+        FormSubmissionPipeline pipeline = pipeline(List.of(blank, real), resolved("t:blank", "t:real"), values());
+
+        dispatch(pipeline);
+
+        assertEquals("Check your mailbox", pipeline.browserInstruction().message());
+    }
+
+    @Test
     void theFirstRedirectAndTheFirstMessageWinInListOrderAndAnUnsafeRedirectIsDropped() throws Exception {
         // Verifies what the pipeline keeps of the actions' answers: an unsafe redirect (another host) is dropped and
         // never reaches the browser; the first safe redirect and the first message stay, later ones are ignored.
         Contextual first = new Contextual("t:first", new FormActionResult("https://evil.example/", null, "Bienvenue"), null);
         Contextual second = new Contextual("t:second", new FormActionResult("/sites/mysite/home.html", null, "Ignored"), null);
-        Contextual third = new Contextual("t:third", FormActionResult.redirect("/other.html"), null);
+        Contextual third = new Contextual("t:third", FormActionResult.redirectTo("/other.html"), null);
         FormSubmissionPipeline pipeline = pipeline(List.of(first, second, third), resolved("t:first", "t:second", "t:third"),
                 values());
 
@@ -194,7 +219,7 @@ class FormSubmissionPipelineContextualActionsTest {
     void aUrlFromTheConfigurationIsKeptAndTheFirstRedirectOfEitherKindWins() throws Exception {
         // Verifies the second kind: an absolute http(s) URL passes its own rule, and a path returned after it loses.
         Contextual url = new Contextual("t:url", FormActionResult.redirectToUrl("https://www.example.com/merci"), null);
-        Contextual path = new Contextual("t:path", FormActionResult.redirect("/sites/mysite/home.html"), null);
+        Contextual path = new Contextual("t:path", FormActionResult.redirectTo("/sites/mysite/home.html"), null);
         FormSubmissionPipeline pipeline = pipeline(List.of(url, path), resolved("t:url", "t:path"), values());
 
         dispatch(pipeline);
@@ -205,12 +230,12 @@ class FormSubmissionPipelineContextualActionsTest {
 
     @Test
     void eachKindIsHeldToItsOwnRule() throws Exception {
-        // Verifies an absolute URL handed to redirect(path) is still dropped (a target computed from the request must
+        // Verifies an absolute URL handed to redirectTo(path) is still dropped (a target computed from the request must
         // stay on this server), and a URL that is not http(s) is dropped too, so the next redirect wins.
-        Contextual hostPath = new Contextual("t:hostPath", FormActionResult.redirect("https://www.example.com/"), null);
+        Contextual hostPath = new Contextual("t:hostPath", FormActionResult.redirectTo("https://www.example.com/"), null);
         Contextual script = new Contextual("t:script", FormActionResult.redirectToUrl("javascript:alert(1)"), null);
         Contextual userInfo = new Contextual("t:userInfo", FormActionResult.redirectToUrl("https://www.example.com@evil.example/"), null);
-        Contextual path = new Contextual("t:path", FormActionResult.redirect("/sites/mysite/home.html"), null);
+        Contextual path = new Contextual("t:path", FormActionResult.redirectTo("/sites/mysite/home.html"), null);
         FormSubmissionPipeline pipeline = pipeline(List.of(hostPath, script, userInfo, path),
                 resolved("t:hostPath", "t:script", "t:userInfo", "t:path"), values());
 

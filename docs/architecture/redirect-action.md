@@ -75,7 +75,7 @@ start with `http://` or `https://` (`www.example.com`, `/sites/mysite/home.html`
      `<context>/modules` context path swapped for the platform's (`PageLinks`). The rewriting calls
      `response.encodeURL`, which adds `;jsessionid=...` for a visitor with no session cookie yet, since the platform's
      `web.xml` leaves URL session tracking on: `PageLinks` hands it a response whose `encodeURL` leaves the URL as it
-     is. An absolute URL of the server the request reached is reduced to its path and returned with `redirect(path)`;
+     is. An absolute URL of the server the request reached is reduced to its path and returned with `redirectTo(path)`;
      a page of a site with another server name keeps its absolute URL, returned with `redirectToUrl(url)`. An
      unpublished or deleted page does not resolve: no redirect, a warning on one line, naming the action.
    - `url`: the value in the submission's locale, else in the site's default language, else in the first language
@@ -91,8 +91,9 @@ start with `http://` or `https://` (`www.example.com`, `/sites/mysite/home.html`
 The island needs nothing of its own for the action: it navigates to `redirect` once it checked the target again,
 without the success message, and dispatches `formidable:submitted` first, which the jExperience integration sends
 its submission event from ([contextual actions](form-submission-flow.md#contextual-actions-the-response-a-redirect-a-message-for-the-visitor)).
-The tracker sends that event asynchronously, and nothing waits for it before the navigation. No redirect in edit mode
-or preview, where submission is already disabled.
+The jExperience script hands the promise of the tracker's request to the event's `waitUntil`, and the island holds the
+navigation until that promise settles, for 1 second at most, so the form event reaches jCustomer before the page
+unloads. No redirect in edit mode or preview, where submission is already disabled.
 
 ## Authoring
 

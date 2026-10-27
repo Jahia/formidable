@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest';
+import sharedCases from '../../../formidable-engine/src/test/resources/redirect-targets.json';
 import {isHttpUrl, isSameOriginPath, remainingFeedbackPause} from './useFormSubmission';
 
 // The spinner is shown for half a second at least, measured from its appearance (#327): a fast
@@ -22,41 +23,35 @@ describe('remainingFeedbackPause', () => {
 });
 
 // The server sends a path of this server, or an absolute http(s) URL read from the configuration, in `redirect`; the
-// island checks it again before navigating, with the same forbidden characters as the server (RedirectTargetsTest).
+// island checks it again before navigating. One list of cases, read by RedirectTargetsTest too, keeps the two checks
+// together: the island accepts a target, and what the server sends for it, exactly when the server sends something.
+interface SharedCase {
+	target: string;
+	sameOriginPath: string | null;
+	httpUrl: string | null;
+}
+const {cases} = sharedCases as {cases: SharedCase[]};
+
 describe('isSameOriginPath', () => {
-	it('accepts a path of this server', () => {
-		for (const path of ['/', '/home.html', '/sites/mysite/home.html', '/fr/compte?tab=2#top']) {
-			expect(isSameOriginPath(path)).toBe(true);
-		}
+	it.each(cases)('agrees with the server on $target', ({target, sameOriginPath}) => {
+		expect(isSameOriginPath(target)).toBe(sameOriginPath !== null);
+		if (sameOriginPath !== null) expect(isSameOriginPath(sameOriginPath)).toBe(true);
 	});
 
-	it('refuses everything that could leave the site or break the header it travels in', () => {
-		for (const target of ['https://evil.example/', '//evil.example', String.raw`/\evil.example`, 'javascript:alert(1)', 'home.html', '', '/a b', '/a\nb', String.raw`/a\b`, '/\u0000']) {
-			expect(isSameOriginPath(target), target).toBe(false);
-		}
+	it('refuses what is not a string, and a target over 2048 characters', () => {
 		expect(isSameOriginPath(undefined)).toBe(false);
 		expect(isSameOriginPath(42)).toBe(false);
 		expect(isSameOriginPath('/' + 'a'.repeat(2048))).toBe(false);
 	});
-
-	it('refuses the invisible and non-breaking characters the server refuses too', () => {
-		for (const target of ['/a\u{E0001}b', '/a\uFEFFb', '/a\u200Bb', '/a\u00A0b', '/a\u2007b', '/a\u202Fb', '/a\u2028b', '/a\u0085b']) {
-			expect(isSameOriginPath(target), JSON.stringify(target)).toBe(false);
-		}
-	});
 });
 
 describe('isHttpUrl', () => {
-	it('accepts an absolute http or https URL', () => {
-		for (const url of ['https://www.example.com', 'http://www.example.com/merci.html', 'HTTPS://WWW.EXAMPLE.COM/a?b=c#d', 'https://www.example.com:8443/fr/merci', 'https://b\u00FCcher.example/', 'https://my_host.example.com/']) {
-			expect(isHttpUrl(url), url).toBe(true);
-		}
+	it.each(cases)('agrees with the server on $target', ({target, httpUrl}) => {
+		expect(isHttpUrl(target)).toBe(httpUrl !== null);
+		if (httpUrl !== null) expect(isHttpUrl(httpUrl)).toBe(true);
 	});
 
-	it('refuses another scheme, a missing host, a relative target and user info', () => {
-		for (const target of ['javascript:alert(1)', 'data:text/html,x', 'ftp://www.example.com/', '//evil.example/x', '/sites/mysite/home.html', 'home.html', 'https://user@evil.example/', 'https://www.example.com@evil.example/', 'https://user:pass@www.example.com/', 'https://www.example.com/a b', String.raw`https://www.example.com/\evil`, 'https://www.example.com/a\uFEFFb', '']) {
-			expect(isHttpUrl(target), JSON.stringify(target)).toBe(false);
-		}
+	it('refuses what is not a string, and a target over 2048 characters', () => {
 		expect(isHttpUrl(undefined)).toBe(false);
 		expect(isHttpUrl('https://www.example.com/' + 'a'.repeat(2048))).toBe(false);
 	});

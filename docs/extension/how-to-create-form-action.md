@@ -222,23 +222,24 @@ public class ThankYouFormAction implements ContextualFormAction {
     @Override
     public FormActionResult execute(FormActionContext context) throws FormActionException {
         if (context.parameter("newsletter") == null) {                  // the first non-blank value, or null
-            return FormActionResult.message("Thank you.");               // shown instead of the form's message
+            return FormActionResult.showMessage("Thank you.");           // shown instead of the form's message
         }
         // org.jahia.bin.Jahia: the platform's context path, never the request's, which is <context>/modules here
-        return FormActionResult.redirect(Jahia.getContextPath() + "/sites/mysite/newsletter.html");
+        return FormActionResult.redirectTo(Jahia.getContextPath() + "/sites/mysite/newsletter.html");
     }
 }
 ```
 
 - The **context** carries the request, the response (a cookie or a header, never the body), the visitor's session
   at submission time, `locale`, `siteKey`, the action node and the form. The request reaches the engine through the
-  `/modules` bridge, so build a page path or a cookie path from `Jahia.getContextPath()` (`/` when empty), never from
-  `context.request().getContextPath()`; a cookie set without a path never reaches the site's pages. The action is a
+  `/modules` bridge, so build from `Jahia.getContextPath()`, never from `context.request().getContextPath()`: a page
+  path is `Jahia.getContextPath() + path`, and a cookie path is `Jahia.getContextPath()`, or `/` when it is empty. A
+  cookie set without a path never reaches the site's pages. The action is a
   singleton shared by every submission: keep no per-request state in fields. Logging `context` is safe: its
   `toString()` names the fields, never their values.
 - A **result** is advisory: the first redirect, of either kind, and the first message of the list win. A redirect
   has two kinds, each with its own rule, and a target its rule refuses is dropped:
-  - `redirect(path)`: a path of this server (`RedirectTargets.sameOriginPath`), for any target, one computed from
+  - `redirectTo(path)`: a path of this server (`RedirectTargets.sameOriginPath`), for any target, one computed from
     the request included;
   - `redirectToUrl(url)`: an absolute `http` or `https` URL (`RedirectTargets.httpUrl`), for a URL read from the
     configuration only, such as a property of the action node. Never pass it a value taken from the request: that

@@ -27,8 +27,9 @@ import java.util.stream.Collectors;
  * @param formNode            the submitted form, in the same session as {@code actionNode}
  * @param request             the submission request. {@code getRemoteAddr()} and the headers are the caller's. It reaches
  *                            the engine through the platform's {@code /modules} bridge, so {@code getContextPath()} is
- *                            {@code <context>/modules}: build a page path or a cookie path from
- *                            {@code Jahia.getContextPath()} ({@code /} when empty), never from the request
+ *                            {@code <context>/modules}: build from {@code Jahia.getContextPath()}, never from the
+ *                            request. A page path is {@code Jahia.getContextPath() + path}; a cookie path is
+ *                            {@code Jahia.getContextPath()}, or {@code /} when it is empty
  * @param response            the submission response, for what an action may legitimately add to it: a cookie, a header.
  *                            An action never writes its body nor commits it: the servlet answers JSON once every action ran.
  *                            A cookie set without a path is scoped to the engine's servlet and never reaches the site's
@@ -64,6 +65,9 @@ public record FormActionContext(
 
     /** The first non-blank value of a field, or {@code null} when it was left unanswered. */
     public String parameter(String fieldName) {
+        if (fieldName == null) {
+            return null;
+        }
         return first(parameters.get(fieldName));
     }
 

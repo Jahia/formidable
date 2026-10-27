@@ -23,15 +23,15 @@ class FormActionApiTest {
     void aResultIsBuiltFromItsParts() {
         // Verifies the fluent shape and the emptiness test the pipeline relies on.
         assertTrue(FormActionResult.none().isEmpty());
-        assertEquals("/a", FormActionResult.redirect("/a").redirect().orElseThrow());
-        assertEquals("hi", FormActionResult.message("hi").message());
-        FormActionResult both = FormActionResult.redirect("/a").withMessage("hi");
+        assertEquals("/a", FormActionResult.redirectTo("/a").redirect().orElseThrow());
+        assertEquals("hi", FormActionResult.showMessage("hi").message());
+        FormActionResult both = FormActionResult.redirectTo("/a").withMessage("hi");
         assertEquals("/a", both.redirectPath());
         assertEquals("hi", both.message());
         assertEquals("/b", both.withRedirect("/b").redirectPath());
         assertFalse(both.isEmpty());
         assertTrue(FormActionResult.none().redirect().isEmpty());
-        FormActionResult toUrl = FormActionResult.message("hi").withRedirectToUrl("https://www.example.com/");
+        FormActionResult toUrl = FormActionResult.showMessage("hi").withRedirectToUrl("https://www.example.com/");
         assertEquals("https://www.example.com/", toUrl.redirectUrl());
         assertEquals("https://www.example.com/", toUrl.redirect().orElseThrow());
         assertEquals("hi", toUrl.message());
@@ -57,6 +57,19 @@ class FormActionApiTest {
         List<String> emails = parameters.get("email");
         assertThrows(UnsupportedOperationException.class, () -> emails.add("y"));
         assertTrue(context.files().isEmpty());
+    }
+
+    @Test
+    void aMissingFieldNameReadsAsAnUnansweredField() {
+        // Verifies parameter(null) answers null, as the parser's map does, where the immutable maps throw: an action
+        // reads the name of its field from an action property that may be unset.
+        FormActionContext answered = new FormActionContext(mock(JCRNodeWrapper.class), null, mock(HttpServletRequest.class), null, null,
+                Locale.ENGLISH, "mysite", Map.of("email", List.of("ada@example.com")), null, null);
+        FormActionContext empty = new FormActionContext(mock(JCRNodeWrapper.class), null, mock(HttpServletRequest.class), null, null,
+                Locale.ENGLISH, "mysite", null, null, null);
+
+        assertNull(answered.parameter(null));
+        assertNull(empty.parameter(null));
     }
 
     @Test
