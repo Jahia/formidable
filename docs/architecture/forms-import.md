@@ -436,7 +436,9 @@ the run has a display here: when some forms are displayed on this instance and o
 form with no display may simply never have been placed on a page. The run says it in an action note
 `report.displaysUnread` when the query of the displays failed. A report with nothing to import shows no note of the
 run. A Formidable form redirects the same way on every page, so the first display, by path, decides; a
-display that sent the visitors elsewhere is reported with its page.
+display that sent the visitors elsewhere is reported with its page (`form.redirectOtherPage`), and so is a display
+where Forms followed no redirect, since its page showed the success message and now redirects
+(`form.redirectNewOnPage`).
 
 | Forms | Formidable |
 |---|---|

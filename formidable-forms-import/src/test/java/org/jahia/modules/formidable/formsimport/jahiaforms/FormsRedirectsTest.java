@@ -205,6 +205,21 @@ class FormsRedirectsTest {
     }
 
     @Test
+    void aDisplayWhereFormsFollowedNoRedirectIsReportedAsNowRedirecting() {
+        // Verifies the page that showed the success message in Forms: the first display decides a redirect, so after the
+        // import that page redirects too, and the report names it.
+        ImportedForm form = convert(site(new FormsDisplay("/sites/a/contact", "https://x.example"),
+                new FormsDisplay("/sites/a/support", null)));
+
+        assertEquals(Map.of("en", "https://x.example", "fr", "https://x.example"),
+                redirects(form).get(0).i18nProperties().get(FmdbProperty.REDIRECT_URL));
+        assertTrue(has(form.report(), "form.redirectNewOnPage", "page", "/sites/a/support", TARGET, "https://x.example"),
+                form.report().toString());
+        assertFalse(has(form.report(), "form.redirectNewOnPage", "page", "/sites/a/contact", TARGET, "https://x.example"),
+                form.report().toString());
+    }
+
+    @Test
     void aFormWithoutRedirectGetsNone() {
         ImportedForm form = convert(site(new FormsDisplay("/sites/motor-retail/a", null)));
 

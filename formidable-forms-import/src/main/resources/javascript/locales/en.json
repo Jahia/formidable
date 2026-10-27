@@ -167,6 +167,7 @@
 					"redirectNoTarget": "The redirect is not carried over: it has no target in the export",
 					"redirectIgnored": "The redirect to {{target}} is not carried over: Jahia Forms followed another redirect of the form",
 					"redirectOtherPage": "On the page {{page}}, Jahia Forms sent the visitors of this form to {{target}}: Formidable redirects a form the same way on every page, so this one is not carried over",
+					"redirectNewOnPage": "On the page {{page}}, Jahia Forms showed the success message of this form: Formidable redirects a form the same way on every page, so the visitors of this page are now sent to {{target}}",
 					"action": "The action {{action}} is not carried over: Formidable has no equivalent",
 					"notSaved": "Jahia Forms did not save its submissions: add Save to JCR to keep them",
 					"mailCopies": "The CC and BCC recipients of the notification ({{copies}}) are not carried over",

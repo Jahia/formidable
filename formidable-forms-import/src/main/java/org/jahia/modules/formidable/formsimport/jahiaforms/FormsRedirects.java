@@ -85,7 +85,8 @@ final class FormsRedirects {
     /**
      * The redirect the form keeps: the one Forms followed from its first display, or with no display. A Formidable form
      * redirects the same way on every page, so a display that led elsewhere is reported, its redirect added to
-     * {@code followed}.
+     * {@code followed}, and so is a display where Forms followed no redirect: its page showed the success message, and
+     * now redirects.
      */
     private static Candidate chosen(List<FormsAction> redirects, List<FormsDisplay> displays, String buildingLang,
                                     Set<Candidate> followed, List<ImportNote> report) {
@@ -98,6 +99,8 @@ final class FormsRedirects {
             if (other != null && !other.equals(chosen)) {
                 report.add(ImportNote.action("form.redirectOtherPage", PAGE, display.page(), TARGET, targetOf(other, buildingLang)));
                 followed.add(other);
+            } else if (other == null && chosen != null) {
+                report.add(ImportNote.action("form.redirectNewOnPage", PAGE, display.page(), TARGET, targetOf(chosen, buildingLang)));
             }
         }
         return chosen;

@@ -167,6 +167,7 @@
 					"redirectNoTarget": "La redirection n’est pas reprise : elle n’a pas de cible dans l’export",
 					"redirectIgnored": "La redirection vers {{target}} n’est pas reprise : Jahia Forms suivait une autre redirection du formulaire",
 					"redirectOtherPage": "Sur la page {{page}}, Jahia Forms envoyait les visiteurs de ce formulaire vers {{target}} : Formidable redirige un formulaire de la même façon sur toutes les pages, cette redirection n’est donc pas reprise",
+					"redirectNewOnPage": "Sur la page {{page}}, Jahia Forms affichait le message de succès de ce formulaire : Formidable redirige un formulaire de la même façon sur toutes les pages, les visiteurs de cette page sont donc désormais envoyés vers {{target}}",
 					"action": "L’action {{action}} n’est pas reprise : Formidable n’a pas d’équivalent",
 					"notSaved": "Jahia Forms n’enregistrait pas ses soumissions : ajoutez Save to JCR pour les conserver",
 					"mailCopies": "Les destinataires en copie de la notification ({{copies}}) ne sont pas repris",
