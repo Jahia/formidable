@@ -1,6 +1,6 @@
 # Conditional Logic Editor
 
-This folder contains the custom Content Editor selector used to configure conditional field visibility for Formidable fields carrying the `fmdbmix:formLogicElement` mixin.
+This folder contains the custom Content Editor selector used to configure conditional field visibility for Formidable nodes carrying the `fmdbmix:formLogicElement` mixin: fields, containers and form content such as a rich text.
 
 Related docs:
 

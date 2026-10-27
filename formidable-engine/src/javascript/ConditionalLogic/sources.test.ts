@@ -44,6 +44,26 @@ describe('fetchSources', () => {
 		expect(load.logicIdToSource.get('rule-1')).toEqual({name: 'country', uuid: 'u-country'});
 	});
 
+	it('offers the fields before a content item, and never a content item as a source', async () => {
+		const post = vi.fn().mockResolvedValue(answer({
+			...field('help', 'fmdb:richText'),
+			ancestors: [{
+				uuid: 'u-form', workspace: 'EDIT', name: 'f', path: '/sites/s/contents/forms/f', primaryNodeType: {name: 'fmdb:form'},
+				descendants: {nodes: [
+					field('fields', 'fmdb:fieldList'),
+					field('intro', 'fmdb:richText'),
+					field('country', 'fmdb:select', {isChoiceField: true}),
+					field('help', 'fmdb:richText'),
+					field('zip', 'fmdb:inputText', {isTextField: true})
+				]}
+			}]
+		}));
+
+		const load = await fetchSources({...input, path: '/sites/s/contents/forms/f/fields/help'}, post);
+
+		expect(load.sources.map(source => source.id)).toEqual(['u-country']);
+	});
+
 	it('fails when no form stands above the field', async () => {
 		const post = vi.fn().mockResolvedValue(answer({...field('orphan', 'fmdb:inputText'), ancestors: []}));
 
