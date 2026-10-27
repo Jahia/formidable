@@ -2,7 +2,7 @@ import {BaseFormElementData, ChoiceData, JahiaNode, NodeProperty} from './types'
 
 /**
  * Node factories for the formidable-extended-inputs add-on fields
- * (fmdbext:card, fmdbext:rating, fmdbext:scale, fmdbext:switch, fmdbext:consent).
+ * (fmdbext:card, fmdbext:phone, fmdbext:rating, fmdbext:scale, fmdbext:switch, fmdbext:consent).
  */
 
 export interface RatingData extends BaseFormElementData {
@@ -116,4 +116,29 @@ export function getCardNode(data: CardData): JahiaNode {
 		language: 'en'
 	});
 	return {name: data.name || 'card', primaryNodeType: 'fmdbext:card', mixins: ['fmdbmix:manualOptions'], properties};
+}
+
+export interface PhoneData extends BaseFormElementData {
+	placeholder?: string;
+	defaultValue?: string;
+	/** Left out, the field keeps the pattern its CND autocreates; an empty string clears it. */
+	pattern?: string;
+	minLength?: number;
+	maxLength?: number;
+	autocomplete?: string;
+	required?: boolean;
+}
+
+export function getPhoneNode(data: PhoneData): JahiaNode {
+	const properties: NodeProperty[] = [];
+	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
+	if (data.placeholder) properties.push({name: 'placeholder', value: data.placeholder, language: 'en'});
+	if (data.defaultValue) properties.push({name: 'defaultValue', value: data.defaultValue, language: 'en'});
+	if (data.pattern !== undefined) properties.push({name: 'pattern', value: data.pattern});
+	if (data.minLength !== undefined) properties.push({name: 'minLength', value: String(data.minLength), type: 'LONG'});
+	if (data.maxLength !== undefined) properties.push({name: 'maxLength', value: String(data.maxLength), type: 'LONG'});
+	if (data.autocomplete) properties.push({name: 'autocomplete', value: data.autocomplete});
+	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
+	return {name: data.name || 'phone', primaryNodeType: 'fmdbext:phone', properties};
 }

@@ -28,8 +28,8 @@ Formidable is based on Jahia standard technologies:
 
 The current release includes the ability to:
 
-- Create forms, with multi-step support, fieldsets, and 14 core field types (plus 5
-  optional ones in formidable-extended-inputs — Card, Consent, Rating, Scale, Switch):
+- Create forms, with multi-step support, fieldsets, and 14 core field types (plus 6
+  optional ones in formidable-extended-inputs — Card, Consent, Phone, Rating, Scale, Switch):
   - Text input (with optional pattern, mask, datalist)
   - Textarea (with resize, spellcheck, autocomplete options)
   - Email (with pattern, datalist, multiple recipients)

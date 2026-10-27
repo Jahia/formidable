@@ -17,8 +17,9 @@ and serves as a real-world validation of it.
 | `fmdbext:scale` (view `nps`) | Standard Net Promoter Score presentation — forces 0–10, translated default end labels                    | number `0..10`         |
 | `fmdbext:switch`             | Boolean yes/no; `toggle` or `buttons` display mode, presentation-only state labels                       | boolean `true`/`false` |
 | `fmdbext:consent`            | Explicit terms/GDPR consent checkbox with rich-text statement and optional link to a terms page/document | `true`                 |
+| `fmdbext:phone`              | Phone number as an `<input type="tel">`: the phone keypad on mobile, `tel` autofill, a default format pattern | the number as typed    |
 
-All types extend `fmdbmix:element` + `fmdbmix:validationMessages`, use the standard `fmdb-` markup
+All types extend `fmdbmix:element` + `fmdbmix:validationMessages` (the phone through `fmdbmix:textValidationMessages`), use the standard `fmdb-` markup
 conventions (`name` = node name, `id` = `<type>-<uuid>`, `fmdb-form-group` wrapper), and are pure
 SSR — no client Islands, all interactivity is native HTML + CSS.
 
@@ -41,6 +42,26 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
   from its `/server` entry point, `OptionsSourceError` with this module's message when a source cannot deliver.
 - **`data-fmdb-advance-on-change`** on the group says one answer is enough: a form showing one field at a time
   ([#423](https://github.com/Jahia/formidable/issues/423)) may move on once a card is picked. Nothing reads it yet.
+
+## Phone field (issue [#459](https://github.com/Jahia/formidable/issues/459))
+
+- **The mixins of a text field**: `fmdbmix:textField` and `fmdbmix:textValidationMessages`. Conditional logic
+  (is filled, is empty, equals, contains), field actions and the profile mapping work with no code of their own,
+  and the server checks the length bounds and the pattern.
+- **The format check is a pattern, not a phone library.** The `pattern` property is autocreated with a default
+  that accepts an optional leading `+`, then digits, spaces, dots, hyphens and parentheses, with 6 to 15 digits
+  (the E.164 maximum). The browser and the server check the same stored value. An author can replace it with a
+  stricter pattern, or clear it to accept any value.
+- **The pattern is written for the `v` flag**, which the browser compiles a `pattern` attribute with: `(`, `)`
+  and `-` are escaped in its character class, and Java reads the same expression with the same meaning. The CND
+  writes each `\` as `\\`, because the CND lexer reads an escape in a quoted value.
+- **`autocomplete` is autocreated as `tel`**, so the browser offers the visitor's full number. An author can set
+  another token, such as `tel-national`, or `off`.
+- **The number is stored as the visitor typed it**: no normalisation to E.164, no country selector, no mask. A
+  country-aware check needs a phone number library in the browser and on the server; a fixed national format is
+  already the mask of the text field.
+- **The import of Jahia Forms still creates a text field** for a Forms phone field. Its mapping to `fmdbext:phone`
+  when this module is deployed, as for the switch, the rating and the consent, is a follow-up.
 
 ## Known limitations
 

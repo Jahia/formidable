@@ -180,10 +180,11 @@ submission is refused. Nothing of these lines exists in live or preview.
 
 ## Extended inputs
 
-The optional `formidable-extended-inputs` module adds five fields — card, consent, rating, scale and
+The optional `formidable-extended-inputs` module adds six fields — card, consent, phone, rating, scale and
 switch — rendered server-side with no client island: every state is native HTML and CSS. Each keeps
-the shared hooks of the form (`fmdb-form-group` on its wrapper, `fmdb-group-legend`,
-`fmdb-required-indicator`, `fmdb-form-help`, `fmdb-form-control` on the consent checkbox) and adds
+the shared hooks of the form (`fmdb-form-group` on its wrapper, `fmdb-group-legend`, `fmdb-form-label`
+on the phone's label, `fmdb-required-indicator`, `fmdb-form-help`, `fmdb-form-control` on the consent
+checkbox and the phone input) and adds
 hooks of its own under the `fmdbext-` prefix. Its stylesheet hard-codes nothing without a
 `--fmdbext-*` variable, set on `.fmdb-form` like the others
 ([CSS variables](css-variables.md#extended-inputs)).
@@ -192,6 +193,7 @@ hooks of its own under the `fmdbext-` prefix. Its stylesheet hard-codes nothing 
 |---|---|
 | `fmdbext-card`, `fmdbext-card-items`, `fmdbext-card-item`, `fmdbext-card-input`, `fmdbext-card-label` | The card field: a `fieldset`, the grid of cards, and each card's radio input and label — the label is the card |
 | `fmdbext-consent`, `fmdbext-consent-input`, `fmdbext-consent-label`, `fmdbext-consent-statement`, `fmdbext-consent-terms-link` | The consent field: its group, the checkbox, the label, the statement in it, and the link to the terms |
+| `fmdbext-phone`, `fmdbext-phone-input` | The phone field: its group, and the `type="tel"` input, which keeps the look of a text input |
 | `fmdbext-rating`, `fmdbext-rating-body`, `fmdbext-rating-items`, `fmdbext-rating-item`, `fmdbext-rating-input`, `fmdbext-rating-label` | The rating field: a `fieldset`, its body, the row of items (carries `data-fmdbext-icon`: `star`, `heart`, `thumb` or `number`), and each item's radio input and label |
 | `fmdbext-scale`, `fmdbext-scale-body`, `fmdbext-scale-items`, `fmdbext-scale-item`, `fmdbext-scale-input`, `fmdbext-scale-label` | The scale field: a `fieldset`, its body, the row of chips, and each chip's radio input and label |
 | `fmdbext-switch`, `fmdbext-switch-toggle-wrapper`, `fmdbext-switch-input`, `fmdbext-switch-toggle-label`, `fmdbext-switch-track`, `fmdbext-switch-text`, `fmdbext-switch-state`, `fmdbext-switch-state-on`, `fmdbext-switch-state-off` | The switch field in its `toggle` display mode: the group, the checkbox and its label, the track drawn beside the text, and the on/off state texts |

@@ -2,7 +2,7 @@
 
 This document explains how Formidable splits JCR node types and mixins between
 `formidable-elements`, `formidable-engine` and `formidable-extended-inputs` (the optional
-extra field types — Card, Consent, Rating, Scale, Switch — which own their `fmdbext:*` node
+extra field types — Card, Consent, Phone, Rating, Scale, Switch — which own their `fmdbext:*` node
 types and follow the same rules as any third-party field module: concrete types in the
 field module, runtime contracts in the engine).
 
