@@ -12,6 +12,12 @@ export class ConditionalLogicEditor {
 		return new ConditionalLogicEditor(contentEditor);
 	}
 
+	/** Folds a section above the rules, so that the menus of a rule open inside the viewport. */
+	closeSection(sectionName: string): this {
+		this.contentEditor.closeSection(sectionName);
+		return this;
+	}
+
 	get logicField(): ConditionalLogicField {
 		const field = new ConditionalLogicField(
 			cy.get(ConditionalLogicField.defaultSelector, {timeout: 15000}).should('be.visible')

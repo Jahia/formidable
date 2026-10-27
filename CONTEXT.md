@@ -105,7 +105,8 @@ semantics it interprets, the elements module owns the authoring entry points
 fmdbmix:formElement (engine)   > mix:title, fmdbmix:formLogicElement, orderable
   └─ fmdbmix:element (elements) ← what concrete field types extend; adds nothing
                                    today (reserved elements-side extension point)
-fmdbmix:formContent (elements) ← non-field content embeddable in a form
+fmdbmix:formContent (elements) > fmdbmix:formLogicElement ← non-field content embeddable in a form;
+                                   carries conditional display rules, never a rule source
 fmdbmix:formStep (engine)      > fmdbmix:formContainer — step marker
 fmdbmix:submittableField (engine) ← marker: the field submits a value (not a file, a button, a fieldset);
                                    fmdbmix:fieldActions (engine, the field-actions switch) extends it

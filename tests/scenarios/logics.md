@@ -11,6 +11,7 @@ This document describes the conditional logic scenarios covered by the automated
 | `52-conditional-logic-backend.cy.ts` | Backend synchronization | logicsSrc creation/update/removal, rename resilience, logicId/sourceNodeId persistence |
 | `53-conditional-logic-import.cy.ts` | Import (GraphQL `importContent`) | Weakref rebinding to imported nodes, duplicate source names |
 | `510-conditional-logic-today.cy.ts` | Submission-day date rules | Today toggle storage round-trip, live visibility following the visitor's day, declared day at submit |
+| `513-conditional-logic-form-content.cy.ts` | Form content as a target | A rich text (`fmdbmix:formContent`) offers the fields before it as sources and is never one itself, its rule round-trips, and the live form shows it only while the rule matches |
 | `security/42-logic-coherence.cy.ts` | Server-side coherence | FMDB-013 for provably hidden fields, declared-day plausibility clamp, one-day ambiguity fail-safe |
 
 ## Covered by Java unit tests

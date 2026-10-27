@@ -15,7 +15,9 @@
 
 // Mixin to mark any content type as embeddable in a fmdb:form or fmdb:fieldset.
 // Apply this mixin in any module to extend the list of allowed content in a form.
-[fmdbmix:formContent] mixin
+// It extends the engine's fmdbmix:formLogicElement, so the content carries conditional display
+// rules like a field; it submits nothing, so it is never a source of a rule.
+[fmdbmix:formContent] > fmdbmix:formLogicElement mixin
 
 // Custom validation messages per field. Each property maps to a ValidityState flag.
 // Native browser validation tooltips are replaced by inline error messages.

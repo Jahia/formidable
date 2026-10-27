@@ -5,6 +5,7 @@ import {getCheckboxNode} from './inputCheckbox';
 import {getInputDateNode} from './inputDate';
 import {getInputEmailNode} from './inputEmail';
 import {getInputTextNode} from './inputText';
+import {getRichTextNode} from './richText';
 import {getSelectNode} from './select';
 import {getTextareaNode} from './textarea';
 import type {JahiaNode} from './types';
@@ -323,6 +324,47 @@ export const createTextSourcesConditionalLogicForm = (
 		notesPath: `${CONTENT_PATH}/${formName}/fields/notes`,
 		emailPath: `${CONTENT_PATH}/${formName}/fields/email`,
 		targetPath: `${CONTENT_PATH}/${formName}/fields/accept-terms`
+	}));
+};
+
+export interface FormContentConditionalLogicFormInfo {
+	formName: string;
+	formPath: string;
+	rolePath: string;
+	targetPath: string;
+}
+
+// A rich text carries fmdbmix:formContent, which extends fmdbmix:formLogicElement: it can be
+// the target of a rule, and it is never a source, having no value. One rich text stands before
+// the target to prove it stays out of the source list.
+export const FORM_CONTENT_CONDITIONAL_LOGIC_FORM_ELEMENTS: JahiaNode[] = [
+	getSelectNode({
+		name: 'role',
+		title: 'role',
+		options: [
+			{value: 'admin', label: 'admin', selected: false},
+			{value: 'editor', label: 'editor', selected: false}
+		]
+	}),
+	getRichTextNode({name: 'intro', text: '<p>intro</p>'}),
+	getRichTextNode({name: 'admin-help', text: '<p>admin-help</p>'}),
+	getInputTextNode({
+		name: 'nickname',
+		title: 'nickname',
+		placeholder: 'nickname'
+	})
+];
+
+export const createFormContentConditionalLogicForm = (
+	suffix: string
+): Cypress.Chainable<FormContentConditionalLogicFormInfo> => {
+	const formName = `conditional-logic-content-${suffix}`;
+
+	return createFormNode(formName, formName, FORM_CONTENT_CONDITIONAL_LOGIC_FORM_ELEMENTS).then(() => ({
+		formName,
+		formPath: `${CONTENT_PATH}/${formName}`,
+		rolePath: `${CONTENT_PATH}/${formName}/fields/role`,
+		targetPath: `${CONTENT_PATH}/${formName}/fields/admin-help`
 	}));
 };
 

@@ -11,7 +11,7 @@ The current model keeps two representations in sync:
 
 ## Field identity: `fieldKey`
 
-Every form element carrying `fmdbmix:formLogicElement` (fields, fieldsets, steps) owns a
+Every form element carrying `fmdbmix:formLogicElement` (fields, fieldsets, steps, form content) owns a
 `fieldKey` property: a random UUID string that is its **stable business identity**.
 
 - unlike the JCR UUID, it survives import and copy

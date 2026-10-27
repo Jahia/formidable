@@ -158,7 +158,7 @@ cannot depend on which file is read first):
 | ---- | ------------------- | --------------------------------------------------------------------------- | --------------------- |
 | 1.05 | Field settings      | the field types and their mixins (elements), the validation-message mixins (elements), `fmdbsamplemix:helpTextPosition` (sample), the fieldset (elements) | fields, and the fieldset for its help text |
 | 1.06 | Configuration       | `fmdbmix:fieldActionFeedback` (engine)                                      | a field action, not a field |
-| 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
+| 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine)                                         | fields, containers and form content |
 | 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
 | 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` (jexperience-engine) | fields |
 | 1.20 | Buttons             | `fmdbmix:buttons` and `fmdbmix:multiStep` (elements) — the step navigation switch sits with the Previous/Next labels | form                  |

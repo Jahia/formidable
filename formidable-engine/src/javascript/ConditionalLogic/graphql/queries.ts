@@ -7,7 +7,9 @@ import {JCR_NODE_IDENTITY_SOURCE} from '../../graphql';
  * first answered), each paying the editor client's batching window; the site default language, which
  * holds the option identity of choice fields, now comes from the editor context. The flags on each
  * descendant come from the engine's value-kind markers, so a third-party field opts in from its own
- * CND (docs/extension/how-to-extend-views-and-elements-from-third-party-module.md). A plain document
+ * CND (docs/extension/how-to-extend-views-and-elements-from-third-party-module.md). The tree holds
+ * every node that can carry rules, sources or not: the edited node must be in it for the editor to
+ * know which fields stand before it, and a content item of the form is one such node. A plain document
  * source: ConditionalLogic/sources.ts posts it outside the editor's Apollo client.
  */
 export const CONDITIONAL_LOGIC_SOURCES = `
@@ -31,7 +33,7 @@ export const CONDITIONAL_LOGIC_SOURCES = `
                     ...JcrNodeIdentity
                     primaryNodeType { name }
                     descendants(
-                        typesFilter: {types: ["fmdbmix:formElement", "fmdbmix:formStep"], multi: ANY}
+                        typesFilter: {types: ["fmdbmix:formLogicElement"]}
                     ) {
                         nodes {
                             ...JcrNodeIdentity

@@ -61,6 +61,8 @@ Leaf elements do not render child nodes, so they do not need the `hidden.logic` 
 
 They can render their own HTML directly.
 
+Content that is not a field, such as `fmdb:richText`, carries `fmdbmix:formContent` instead and follows the same contract. Its view renders its own HTML. The mixin extends `fmdbmix:formLogicElement`, so the author can give the content conditional display rules, and the parent container applies them through `LogicAwareRender` as it does for a field.
+
 ## Why containers must use `hidden.logic`
 
 Formidable executes conditional visibility logic at render boundaries, not inside every individual container implementation.
