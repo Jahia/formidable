@@ -165,6 +165,19 @@ describe('useFieldActions', () => {
 		expect(await outcome).toBeNull();
 	});
 
+	it('settles the field whose wrapper is the root — a screen of One-at-a-time', async () => {
+		const {form, settleFieldActions} = formWith(`${textField('shown')}${textField('next')}`);
+		form.querySelectorAll('input').forEach(input => {
+			input.value = 'spam';
+		});
+
+		const outcome = settleFieldActions(form.querySelector<HTMLElement>('[data-fmdb-field-action]')!);
+		expect(requests.map(request => (request.sent as {field: string}).field)).toEqual(['shown']);
+		requests[0].answer(200, reject('shown', 'The word <b>spam</b> is refused'));
+
+		expect(await outcome).toBe(form.querySelector('input[name="shown"]'));
+	});
+
 	it('leaves a submit-only field alone until the submission, and never asks a field without the marker', () => {
 		const {form} = formWith(`${textField('later', 'submit')}<div data-fmdb-node-name="plain"><input name="plain"/></div>`);
 		form.querySelectorAll('input').forEach(input => {

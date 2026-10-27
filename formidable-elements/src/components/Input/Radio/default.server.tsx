@@ -36,7 +36,8 @@ jahiaComponent(
 			const choice = parsedChoices[0];
 			const inputId = `radio-${nodeId}`;
 			return (
-				<div className="fmdb-form-group">
+				// data-fmdb-advance-on-change: one pick is the whole answer, so a One-at-a-time form moves on with it
+				<div className="fmdb-form-group" data-fmdb-advance-on-change="true">
 					<input
 						type="radio"
 						id={inputId}
@@ -58,9 +59,10 @@ jahiaComponent(
 		}
 
 		// radiogroup: what a fieldset of radios is, and the one role of the group that carries aria-readonly
-		// (the jExperience prefill sets it when the author locks the field)
+		// (the jExperience prefill sets it when the author locks the field). data-fmdb-advance-on-change: one
+		// pick is the whole answer, so a One-at-a-time form moves on with it
 		return (
-			<fieldset className="fmdb-form-group fmdb-radio-group" role="radiogroup" aria-describedby={helpId}>
+			<fieldset className="fmdb-form-group fmdb-radio-group" role="radiogroup" aria-describedby={helpId} data-fmdb-advance-on-change="true">
 				{label && (
 					<legend className="fmdb-group-legend">
 						{label}

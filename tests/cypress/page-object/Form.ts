@@ -25,6 +25,9 @@ import {RangeInput} from './elements/RangeInput';
  */
 export const FORM_HYDRATION_TIMEOUT_MS = 30000;
 
+/** The pause between a pick and the move to the next screen in One-at-a-time (ADVANCE_DELAY_MS of useScreens). */
+const ADVANCE_DELAY_MS = 300;
+
 /**
  * Hydration marker: the island sets noValidate on mount (custom inline validation
  * replaces the native browser one), so the flag is only true once React runs.
@@ -233,6 +236,11 @@ export class Form extends BaseComponent {
 		);
 	}
 
+	/** One-at-a-time: the wrappers of the screen on display. */
+	getActiveScreen(): Cypress.Chainable {
+		return this.get().find('[data-fmdb-screen-active="true"]');
+	}
+
 	getNewFormButton(): ButtonInput {
 		return new ButtonInput(
 			this.getPageRoot().find('.fmdb-message .fmdb-new-form-btn').first()
@@ -304,6 +312,31 @@ export class Form extends BaseComponent {
 
 	previousStep(): void {
 		this.getPreviousButton().click();
+	}
+
+	/**
+	 * One-at-a-time: the screen of the named element stays on display after `action`, past the pause a pick waits
+	 * before it moves on (300 ms, useScreens) — what a pick that must not move the form is checked with. The page's
+	 * clock is the test's during the action, so the pause passes without real time.
+	 */
+	shouldStayOnScreenOfAfter(nodeName: string, action: () => void): this {
+		// Frozen at the real time: the page compares Date.now() with the time of the visitor's last press
+		cy.clock(Date.now());
+		action();
+		// An absence is asserted over time: the move a pick schedules must not have happened after twice its pause
+		cy.tick(2 * ADVANCE_DELAY_MS);
+		this.shouldShowScreenOf(nodeName);
+		cy.clock().then(clock => clock.restore());
+		return this;
+	}
+
+	/** One-at-a-time: the screen on display is the one of the named element, and only it. */
+	shouldShowScreenOf(nodeName: string): this {
+		this.getActiveScreen().filter(':not([data-fmdb-content="true"])')
+			.should('have.length', 1)
+			.and('have.attr', 'data-fmdb-node-name', nodeName)
+			.and('be.visible');
+		return this;
 	}
 
 	shouldExist(): this {

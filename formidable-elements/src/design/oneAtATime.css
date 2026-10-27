@@ -1,0 +1,10 @@
+/* Class hooks and variables are a documented contract: docs/styling/ (class-hooks.md, css-variables.md). */
+/* One-at-a-time (docs/architecture/one-at-a-time.md). The island marks the screens of the current step
+   and the one on display; the others are hidden here, never through style.display, which the conditional
+   logic owns. Until the island has marked them, no element is shown: the visitor would see the whole form
+   before it folds into its first screen. */
+
+.fmdb-form[data-fmdb-experience="oneAtATime"]:not([data-fmdb-screens-ready]) [data-fmdb-node-id],
+.fmdb-form[data-fmdb-experience="oneAtATime"] [data-fmdb-screen]:not([data-fmdb-screen-active]) {
+	display: none;
+}
