@@ -126,7 +126,7 @@
 			},
 			"note": {
 				"report": {
-					"displaysElsewhere": "Les pages qui affichaient les formulaires Jahia Forms ne sont pas sur cette instance : une adresse de redirection définie sur l'une de ces pages n'est pas reprise. Vérifiez-les sur l'instance Jahia Forms, et ajoutez une action Redirection à chaque formulaire dont la page en définissait une",
+					"displaysElsewhere": "Aucune page de cette instance n'affiche les formulaires Jahia Forms importés. S'ils étaient affichés sur une autre instance, une adresse de redirection définie sur l'une de ces pages n'est pas reprise : vérifiez-les là-bas, et ajoutez une action Redirection à chaque formulaire dont la page en définissait une",
 					"displaysUnread": "Les pages qui affichaient les formulaires Jahia Forms n'ont pas pu être lues : une adresse de redirection définie sur l'une de ces pages peut manquer. Vérifiez-les, et ajoutez une action Redirection à chaque formulaire dont la page en définissait une"
 				},
 				"field": {

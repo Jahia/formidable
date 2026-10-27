@@ -65,7 +65,7 @@ public record ImportEnvironment(Predicate<String> registeredTypes, Predicate<Str
 
     /** Why the displays of the Forms forms could not be read. */
     public enum DisplaysUnread {
-        /** The instance does not register {@code fcnt:formDisplay}: Forms is not installed here, its pages are elsewhere. */
+        /** Forms is not installed here, or no page of this instance displays any of the imported forms. */
         NOT_ON_THIS_INSTANCE,
         /** The query of the displays failed. */
         QUERY_FAILED

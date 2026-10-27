@@ -151,6 +151,32 @@ class ImportSitePagesTest {
     }
 
     @Test
+    void formsInstalledButNoPageShowingTheFormsIsNamedAsPagesElsewhere() throws Exception {
+        // Verifies the instance that registers the display type yet holds none of the source's pages: every query finds
+        // nothing, and the run is told the displays are not on this instance, as when Forms is not installed.
+        ImportSitePages pages = new ImportSitePages(mock(JCRSessionWrapper.class), liveRegistering(true), SITE, formUuid -> List.of());
+
+        assertEquals(Optional.empty(), pages.displaysUnread());
+        pages.displaysOf("uf");
+        pages.displaysOf("other");
+
+        assertEquals(Optional.of(ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE), pages.displaysUnread());
+    }
+
+    @Test
+    void oneDisplayFoundIsNoReason() throws Exception {
+        // Verifies the limit of the note: one form shown on a page of this instance, another shown nowhere, no reason.
+        List<JCRNodeWrapper> found = List.of(display("/sites/source/home/display", List.of(ancestor("/sites/source/home", true)), null));
+        ImportSitePages pages = new ImportSitePages(mock(JCRSessionWrapper.class), liveRegistering(true), SITE,
+                formUuid -> "uf".equals(formUuid) ? found : List.of());
+
+        pages.displaysOf("uf");
+        pages.displaysOf("other");
+
+        assertEquals(Optional.empty(), pages.displaysUnread());
+    }
+
+    @Test
     void theQueryNamesTheFormAsAStringLiteral() {
         // Verifies the statement of the displays: the form's identifier is quoted, a quote in it doubled.
         assertEquals("SELECT * FROM [fcnt:formDisplay] AS d WHERE d.[referenceForm] = 'u''f'", ImportSitePages.displaysStatement("u'f"));

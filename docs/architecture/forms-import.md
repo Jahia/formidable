@@ -428,9 +428,12 @@ puts it in the `redirectToUrl` entry, in place of the action's, or adds it last.
 under `formFactory`, so the export does not hold it: the import reads the displays of the form in the live workspace
 of the instance it runs on (`ImportSitePages`, by `referenceForm` = the `jcr:uuid` of the form), when `forms-core`
 registers the type there, and names each display by the page that holds it, the display's own path when no page
-does. An import on another instance, or of a form displayed on another instance, sees no display: the run then says
-once, above the forms, in an information note, that the redirect addresses of the pages that displayed the Forms
-forms are to check by hand (`report.displaysElsewhere`, `ImportEnvironment.DisplaysUnread`), and in an action note
+does. An import on an instance without Forms, or on one with Forms that holds none of the source's pages, sees no
+display: the run then says once, above the forms, in an information note, that no page of this instance displays the
+imported forms, and that the redirect addresses of the pages that displayed them elsewhere are to check by hand
+(`report.displaysElsewhere`, `ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE`). The note needs that no form of
+the run has a display here: when some forms are displayed on this instance and others are not, it does not show, as a
+form with no display may simply never have been placed on a page. The run says it in an action note
 `report.displaysUnread` when the query of the displays failed. A report with nothing to import shows no note of the
 run. A Formidable form redirects the same way on every page, so the first display, by path, decides; a
 display that sent the visitors elsewhere is reported with its page.

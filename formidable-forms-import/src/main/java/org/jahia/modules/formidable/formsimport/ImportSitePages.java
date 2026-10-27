@@ -22,7 +22,8 @@ import java.util.Optional;
  * (docs/architecture/forms-import.md, "The redirects"): the page a {@code fcnt:redirectToAPageAction} names, looked up
  * in the site the import writes into, and the {@code fcnt:formDisplay} nodes that show a form, which carry the
  * redirect URL of {@code fcmix:formRedirectUrl}. A lookup that fails finds nothing: the redirect is reported, and
- * displays that could not be read are named once for the run ({@link #displaysUnread}). One instance per run.
+ * displays that could not be read, or that no page of this instance holds, are named once for the run
+ * ({@link #displaysUnread}). One instance per run.
  */
 class ImportSitePages implements ImportEnvironment.SitePages {
 
@@ -39,6 +40,9 @@ class ImportSitePages implements ImportEnvironment.SitePages {
     private final String siteKey;
     private final DisplayQuery displayQuery;
     private ImportEnvironment.DisplaysUnread unread;
+    /** The forms whose displays were queried, and the displays found for them: none found, the pages are elsewhere. */
+    private int queried;
+    private int found;
 
     /** The display nodes of a form, a seam: the production one queries the live workspace. */
     @FunctionalInterface
@@ -105,6 +109,8 @@ class ImportSitePages implements ImportEnvironment.SitePages {
                         display.hasProperty(REDIRECT_URL) ? display.getProperty(REDIRECT_URL).getString() : null));
             }
             displays.sort(Comparator.comparing(FormsDisplay::page));
+            queried++;
+            found += displays.size();
             return displays;
         } catch (RepositoryException | RuntimeException e) {
             log.warn("[FormsImport] The displays of the Forms form {} could not be read", formUuid, e);
@@ -138,8 +144,16 @@ class ImportSitePages implements ImportEnvironment.SitePages {
         return "SELECT * FROM [" + DISPLAY_TYPE + "] AS d WHERE d.[" + REFERENCE_FORM + "] = '" + formUuid.replace("'", "''") + "'";
     }
 
+    /**
+     * Why the displays were not read: a failed query, or no display at all, either because the instance does not
+     * register the type or because no page of it shows any of the forms queried. Some forms shown here and others not
+     * is no reason: the displays of the others may simply not exist.
+     */
     @Override
     public Optional<ImportEnvironment.DisplaysUnread> displaysUnread() {
+        if (unread == null && queried > 0 && found == 0) {
+            return Optional.of(ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE);
+        }
         return Optional.ofNullable(unread);
     }
 
