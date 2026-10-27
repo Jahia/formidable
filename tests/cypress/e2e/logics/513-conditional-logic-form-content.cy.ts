@@ -63,12 +63,14 @@ describe('Form logic - 513 Conditional display of form content', () => {
 		});
 
 		createPublishedLiveFormPage(`content-live-${Date.now()}`, 'Form content live form', [
+			// The select has no empty option, so the browser selects the first one on load:
+			// 'editor' comes first, and the rich text starts hidden.
 			getSelectNode({
 				name: 'role',
 				title: 'role',
 				options: [
-					{value: 'admin', label: 'admin', selected: false},
-					{value: 'editor', label: 'editor', selected: false}
+					{value: 'editor', label: 'editor', selected: false},
+					{value: 'admin', label: 'admin', selected: false}
 				]
 			}),
 			getRichTextNode({name: 'intro', text: '<p>intro</p>'}),
