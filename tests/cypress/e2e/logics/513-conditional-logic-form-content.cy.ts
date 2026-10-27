@@ -19,7 +19,9 @@ describe('Form logic - 513 Conditional display of form content', () => {
 
 	it('offers the fields before a rich text as sources, and stores its rule', () => {
 		createFormContentConditionalLogicForm(`${Date.now()}-editor`).then(({rolePath, targetPath}) => {
-			const editor = ConditionalLogicEditor.visit(targetPath);
+			// The rich text editor fills the Content section and pushes the rules below the
+			// viewport, where the menu of a rule opens out of sight: fold it first.
+			const editor = ConditionalLogicEditor.visit(targetPath).closeSection('content');
 			const logicField = editor.logicField;
 
 			logicField.addRule();
@@ -57,7 +59,7 @@ describe('Form logic - 513 Conditional display of form content', () => {
 			sourceFieldType: 'fmdb:select',
 			valueKind: 'choice',
 			operator: 'in',
-			value: 'admin'
+			values: ['admin']
 		});
 
 		createPublishedLiveFormPage(`content-live-${Date.now()}`, 'Form content live form', [
