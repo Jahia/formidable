@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest';
+import sharedCases from '../../../formidable-engine/src/test/resources/redirect-targets.json';
 import {followsAnotherRedirect, hasUnusableUrl, type RedirectActionNodeLike, redirectTargetDetail} from './redirectAction.server';
 
 interface Options {
@@ -76,6 +77,13 @@ describe('hasUnusableUrl', () => {
 		expect(hasUnusableUrl(urlAction())).toBe(false);
 		expect(hasUnusableUrl(urlAction('   '))).toBe(false);
 	});
+
+	// The list of cases the server's rule and the browser's check read too: the card warns on exactly the URLs the
+	// server drops. An empty address is left out: it is no warning, the language may fall back to another one.
+	it.each((sharedCases as {cases: Array<{target: string; httpUrl: string | null}>}).cases.filter(({target}) => target.trim() !== ''))(
+		'warns on $target exactly when the server drops it', ({target, httpUrl}) => {
+			expect(hasUnusableUrl(urlAction(target))).toBe(httpUrl === null);
+		});
 
 	it('is true for an address the redirect drops', () => {
 		for (const url of ['www.example.com', '/sites/mysite/thanks.html', '//evil.example', String.raw`/\evil.example`, 'https://user@evil.example/', 'https://', 'javascript:alert(1)']) {

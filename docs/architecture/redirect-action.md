@@ -103,7 +103,7 @@ the URL in the current language), and, when an earlier sibling of the list is a 
 (`followsAnotherRedirect`), a warning under the description: the card carries
 `data-fmdb-authoring-state="overridden-redirect"`. The warning says the earlier redirect comes first, not that this
 one is ignored: it applies when no earlier redirect has a usable target. A URL the redirect drops
-(`hasUnusableUrl`, the rule of the browser's `isHttpUrl`) carries its own warning instead, marked
+(`hasUnusableUrl`, the rule of the server's `RedirectTargets.httpUrl`) carries its own warning instead, marked
 `data-fmdb-authoring-state="unusable-redirect-url"`. An unpublished or deleted page carries none.
 
 ## Import from Jahia Forms
@@ -116,7 +116,8 @@ The [import](forms-import.md) converts `fcnt:redirectToAPageAction` and `fcnt:re
 - Unit (engine): `RedirectFormActionTest` (each target and the kind of redirect it becomes, the language fallback,
   a page that no longer resolves), `PageLinksTest` (no session id in the URL), `RedirectTargetsTest` (the path of a
   URL of this server, the context path swap, beside the two rules).
-- Unit (elements): `redirectAction.server.test.ts` (the card's detail and its two warnings).
+- Unit (elements): `redirectAction.server.test.ts` (the card's detail and its two warnings; the URL warning on the
+  list of cases the server's rule and the island's check read too, `redirect-targets.json`).
 - Cypress: `tests/cypress/e2e/actions/89-redirect-action.cy.ts` (a form redirecting to a path, to another website,
   to a page, live, with no submission message before the next page and no submitted value in its URL; the constraint
   refusing an address without a scheme; unusable targets answering without a redirect; the first usable redirect

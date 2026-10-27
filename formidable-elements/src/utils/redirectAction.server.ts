@@ -63,13 +63,29 @@ function trimAsServer(value: string): string {
 const FORBIDDEN_IN_TARGET = /[\\\p{Cc}\p{Z}\p{Cf}]/u;
 
 /**
- * An absolute http(s) URL with a host and no user info, the rule of the browser's `isHttpUrl`, read without the `URL`
- * parser that check relies on: the card renders on the server, outside a browser.
+ * A host as the server's `java.net.URI` and the browser both read one: an IPv6 address in brackets, or a name whose
+ * ASCII characters are letters, digits or `- . _ ~ ! $ & ' ( ) * + , ; =`. A `%` is refused: the browser decodes it
+ * in a host, and refuses what it decodes to.
+ */
+const HOST = /^(?:\[[\da-f:.]+\]|(?:[\w\-.~!$&'()*+,;=]|\P{ASCII})+)$/iu;
+
+/** No port, an empty one, or digits worth at most 65535. */
+function isPort(port: string | undefined): boolean {
+	return port === undefined || port === "" || (/^\d+$/.test(port) && Number(port) <= 65535);
+}
+
+/**
+ * An absolute http(s) URL with a host, a port of at most 65535 and no user info: the rule of the server's
+ * `RedirectTargets.httpUrl`, which the browser's `isHttpUrl` agrees with, read without the `URL` parser that check
+ * relies on: the card renders on the server, outside a browser. The three agree on the shared list of cases,
+ * `redirect-targets.json` of the engine's tests.
  */
 function isHttpUrlOnServer(url: string): boolean {
 	if (url.length > 2048 || FORBIDDEN_IN_TARGET.test(url)) return false;
 	const authority = /^https?:\/\/([^/?#]*)/i.exec(url)?.[1];
-	return authority !== undefined && !authority.includes("@") && authority.replace(/:\d*$/, "") !== "";
+	if (!authority || authority.includes("@")) return false;
+	const [, host, port] = /^(\[[^\]]*\]|[^:]*)(?::(.*))?$/.exec(authority) ?? [];
+	return host !== undefined && HOST.test(host) && isPort(port);
 }
 
 /**
