@@ -1,6 +1,8 @@
 import {getNodeByPath} from '@jahia/cypress';
+import {JContent} from '@jahia/jcontent-cypress/dist/page-object/jcontent';
 import {
 	FORMIDABLE_TEST_SITE,
+	createFormNode,
 	createPublishedLiveFormPage,
 	getInputTextNode,
 	getRedirectActionNode,
@@ -8,6 +10,7 @@ import {
 	visitEditForm,
 	visitLiveForm
 } from '../../support/fixtures';
+import {CONTENT_PATH} from '../../support/constants';
 import {postDirectMultipartSubmission, withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
 
@@ -217,6 +220,48 @@ describe('Actions - 89 Redirect', () => {
 			cy.get('.fmdb-authoring-action[data-fmdb-action-type="fmdb:redirectAction"]').eq(2)
 				.should('have.attr', 'data-fmdb-authoring-state', 'unusable-redirect-url')
 				.find('.fmdb-authoring-action-warning').should('be.visible');
+		});
+	});
+
+	it('keeps only the mixin of the target chosen last in Content Editor', () => {
+		// The editor's fieldset override (fmdb_redirectAction.json) adds the mixin of the chosen target type, and drops the
+		// other one; the fixtures add the mixin through GraphQL, so only this test runs the override.
+		const formName = 'redirect-editor-form';
+		const target = 'https://www.example.com/thanks';
+		createPublishedLiveFormPage('redirect-editor-target-form', 'Redirect, editor target page', nameField(), 'redirect-editor-target', 'Editor target');
+		createFormNode(formName, 'Redirect, editor', nameField());
+
+		const editor = JContent.visit(FORMIDABLE_TEST_SITE.key, 'en', `content-folders/contents/${formName}/actions`).createContent('fmdb:redirectAction');
+		// the default target is a page: its picker is there, and takes a page
+		const page = editor.getPickerField('fmdbmix:redirectToPage_page');
+		const picker = page.open();
+		picker.getTable().getRowByLabel('Editor target').click();
+		picker.select();
+		page.assertValue('Editor target');
+		// then the contributor changes their mind
+		editor.getChoiceListField('fmdb:redirectAction_targetType').selectValue('url');
+		cy.get('[data-sel-content-editor-field="fmdbmix:redirectToPage_page"]').should('not.exist');
+		editor.getSmallTextField('fmdbmix:redirectToUrl_url').addNewValue(target);
+		editor.create();
+
+		cy.request({
+			method: 'POST',
+			url: '/modules/graphql',
+			headers: withSameOriginHeaders(),
+			body: {
+				query: `query Redirect($path: String!) { jcr { nodeByPath(path: $path) { children(typesFilter: {types: ["fmdb:redirectAction"]}) { nodes {
+					mixinTypes { name } targetType: property(name: "targetType") { value } url: property(name: "url", language: "en") { value }
+					page: property(name: "page") { value } } } } } }`,
+				variables: {path: `${CONTENT_PATH}/${formName}/actions`}
+			}
+		}).its('body.data.jcr.nodeByPath.children.nodes').should(nodes => {
+			expect(nodes).to.have.length(1);
+			const [action] = nodes as Array<{mixinTypes: Array<{name: string}>; targetType: {value: string}; url: {value: string} | null; page: {value: string} | null}>;
+			const redirectMixins = action.mixinTypes.map(mixin => mixin.name).filter(name => name.startsWith('fmdbmix:redirectTo'));
+			expect(redirectMixins).to.deep.equal(['fmdbmix:redirectToUrl']);
+			expect(action.targetType.value).to.eq('url');
+			expect(action.url?.value).to.eq(target);
+			expect(action.page).to.be.null;
 		});
 	});
 });
