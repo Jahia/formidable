@@ -167,6 +167,45 @@ describe('Form fields - 228 Phone (extended-inputs)', () => {
 		});
 	});
 
+	it('enforces the author\'s own pattern instead of the default one, in the browser and on the server', () => {
+		const swissPattern = '[+]41[0-9 ]{9,13}';
+		cy.login();
+		createPublishedLiveFormPage(
+			'phone-swiss-form',
+			'Phone Swiss Form',
+			[getPhoneNode({name: 'phone', title: 'Swiss phone', pattern: swissPattern})],
+			'phone-swiss-form-page',
+			'Phone swiss form page'
+		).then(result => {
+			cy.logout();
+			const form = visitLiveForm(result.livePath);
+
+			form.get().find('input[name="phone"]').should('have.attr', 'pattern', swissPattern).then($input => {
+				const input = $input[0] as HTMLInputElement;
+				['+41 79 123 45 67', '+41791234567'].forEach(value => {
+					input.value = value;
+					expect(input.validity.patternMismatch, value).to.equal(false);
+				});
+				// Numbers the default pattern accepts: the author's pattern replaced it.
+				['+33 6 12 34 56 78', '079 123 45 67'].forEach(value => {
+					input.value = value;
+					expect(input.validity.patternMismatch, value).to.equal(true);
+				});
+			});
+
+			postDirectMultipartSubmission({
+				formId: result.formId,
+				fields: {phone: '+33 6 12 34 56 78'},
+				headers: withSameOriginHeaders()
+			}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
+			postDirectMultipartSubmission({
+				formId: result.formId,
+				fields: {phone: '+41 79 123 45 67'},
+				headers: withSameOriginHeaders()
+			}).then(expectSuccessResponse);
+		});
+	});
+
 	it('accepts any value once the author clears the pattern', () => {
 		cy.login();
 		createPublishedLiveFormPage(
