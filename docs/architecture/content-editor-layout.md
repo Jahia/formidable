@@ -161,7 +161,7 @@ cannot depend on which file is read first):
 | 1.10 | Conditional display | `fmdbmix:formLogicElement` (engine)                                         | fields and containers |
 | 1.12 | Responses           | `fmdbmix:responses` (elements)                                              | form                  |
 | 1.15 | jExperience         | `fmdbmix:jExperienceProfileMapping` (jexperience-engine) | fields |
-| 1.20 | Buttons             | `fmdbmix:buttons` and `fmdbmix:multiStep` (elements) — the step navigation switch sits with the Previous/Next labels | form                  |
+| 1.20 | Buttons             | `fmdbmix:buttons` and `fmdbmix:multiStep` (elements) — the Form experience setting and the step navigation switch sit with the Previous/Next labels | form                  |
 | 1.40 | Style               | `fmdbmix:style` (elements, joined by the sample's `fmdbsamplemix:customStyle`) | form              |
 
 1.50, the former Validation messages section, is free: its three overrides now feed the Validation
@@ -258,7 +258,7 @@ What follows from the three rules, and shaped the overrides:
 | `fmdbmix_validationMessages.json`, `…textValidationMessages.json`, `…rangeValidationMessages.json` | elements | the messages in the Validation messages fieldset, ranks 1, 2–5, 6–9, and the fieldset's one note (`descriptionKey`: a message left empty keeps the browser's), said once instead of under each message |
 | `fmdb_fieldset.json` | elements | the help text of a fieldset, in Help & presentation like a field's: the one setting of the fieldset beyond its title, which stays in Content |
 | `fmdb_form.json` | elements | the editor's children block hidden on the form, whose children are the field and action lists: nothing a contributor orders there (#150 thread, HDU) |
-| `fmdbmix_multistep.json` | elements | the one setting of the multi-step mixin, the step navigation switch, placed first in the Step navigation fieldset of Buttons; the Multi-step section it had to itself is gone (#150) |
+| `fmdbmix_multistep.json` | elements | the two settings of the multi-step mixin, the Form experience setting then the step navigation switch, placed first in the Step navigation fieldset of Buttons; the Multi-step section it had to itself is gone (#150) |
 | `fmdbmix_fieldActions.json` | elements | the Field actions switch, last in Field settings (fieldset rank 6, `"alwaysPresent": true`, the section declared with its label and rank), on every field that can carry field actions, the hidden input included |
 | `fmdbmix_fieldActions.json` | engine | only the editor's Content list & ordering block hidden on the elements that can carry field actions, and on them only (`listOrdering`, `"hide": true`): the behaviour of the engine's own list, not layout |
 | `fmdbext_<type>.json` | extended-inputs | the optional types, from their own module, the shared keys resolved through its dependency on elements |

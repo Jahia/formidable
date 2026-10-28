@@ -12,6 +12,7 @@
 					"labelKey": "fmdb.fieldset.stepNavigation",
 					"rank": 1.0,
 					"fields": [
+						{ "name": "formExperience", "rank": -1.0 },
 						{ "name": "showStepsNav", "rank": 0.0 }
 					]
 				}
