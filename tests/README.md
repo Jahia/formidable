@@ -11,6 +11,10 @@ yarn e2e:debug   # interactive Cypress runner
 yarn typecheck   # type-checks the whole suite (specs, support, page objects) in a second
 ```
 
+On a pull request, CI splits the suite over three runners, one config file each
+(`cypress.shard-*.config.ts`, defined in `cypress.shards.ts`). To run one shard
+locally: `yarn e2e:ci --config-file cypress.shard-fields.config.ts`.
+
 ## Manual-testing playground
 
 ```bash
