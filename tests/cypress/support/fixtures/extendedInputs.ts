@@ -121,7 +121,9 @@ export function getCardNode(data: CardData): JahiaNode {
 export interface PhoneData extends BaseFormElementData {
 	placeholder?: string;
 	defaultValue?: string;
-	/** Left out, the field keeps the pattern its CND autocreates; an empty string clears it. */
+	/** False turns the format check off; left out, the CND autocreates true. */
+	checkFormat?: boolean;
+	/** Left out, the field keeps the pattern its CND autocreates. */
 	pattern?: string;
 	minLength?: number;
 	maxLength?: number;
@@ -135,6 +137,7 @@ export function getPhoneNode(data: PhoneData): JahiaNode {
 	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
 	if (data.placeholder) properties.push({name: 'placeholder', value: data.placeholder, language: 'en'});
 	if (data.defaultValue) properties.push({name: 'defaultValue', value: data.defaultValue, language: 'en'});
+	if (data.checkFormat !== undefined) properties.push({name: 'checkFormat', value: String(data.checkFormat), type: 'BOOLEAN'});
 	if (data.pattern !== undefined) properties.push({name: 'pattern', value: data.pattern});
 	if (data.minLength !== undefined) properties.push({name: 'minLength', value: String(data.minLength), type: 'LONG'});
 	if (data.maxLength !== undefined) properties.push({name: 'maxLength', value: String(data.maxLength), type: 'LONG'});

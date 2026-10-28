@@ -67,7 +67,7 @@ jExperience mapping offers. A third-party field type opts in from its own CND
 
 | Mixin | What the server checks | Logic source | Carried by |
 |---|---|---|---|
-| `fmdbmix:textField` | nothing of its own: the length bounds and the pattern a field declares are checked whatever its kind | yes: is filled, is empty, equals, contains | `fmdb:inputText`, `fmdb:textarea`, `fmdb:inputEmail`, `fmdbext:phone` |
+| `fmdbmix:textField` | nothing of its own: the length bounds and the pattern a field declares are checked whatever its kind, the pattern unless the field's `checkFormat` is false | yes: is filled, is empty, equals, contains | `fmdb:inputText`, `fmdb:textarea`, `fmdb:inputEmail`, `fmdbext:phone` |
 | `fmdbmix:emailField` | the address format | no — an email input is also a `textField`, which makes it one | `fmdb:inputEmail` |
 | `fmdbmix:numberField` | a finite number within `minValue`/`maxValue` — those two names, read by the server, not `min`/`max` | yes: equals, differs, lower, greater, between, numerically | `fmdb:inputNumber`, `fmdb:inputRange`, `fmdbext:rating`, `fmdbext:scale` |
 | `fmdbmix:booleanField` | the state, `true`/`false` (`on` accepted) | yes: is true, is false | `fmdbext:switch`, `fmdbext:consent` |

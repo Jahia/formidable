@@ -1,6 +1,7 @@
-import {getNodeByPath} from '@jahia/cypress';
+import {copyNode, getNodeByPath} from '@jahia/cypress';
+import {CONTENT_PATH} from '../../support/constants';
 import {getLatestLiveFormSubmission, getPhoneNode} from '../../support/fixtures';
-import {createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures/forms';
+import {createFormNode, createPublishedLiveFormPage, visitLiveForm} from '../../support/fixtures/forms';
 import {
 	expectErrorResponse,
 	expectSuccessResponse,
@@ -206,12 +207,28 @@ describe('Form fields - 228 Phone (extended-inputs)', () => {
 		});
 	});
 
-	it('accepts any value once the author clears the pattern', () => {
+	it('keeps the format check off on a copy of the form', () => {
+		cy.login();
+		createFormNode('phone-unchecked-form', 'Phone Unchecked Form', [
+			getPhoneNode({name: 'phone', title: 'Phone or extension', checkFormat: false})
+		]).then(() => {
+			copyNode(`${CONTENT_PATH}/phone-unchecked-form`, CONTENT_PATH, 'phone-unchecked-form-copy');
+			getNodeByPath(`${CONTENT_PATH}/phone-unchecked-form-copy/fields/phone`, ['checkFormat', 'pattern'])
+				.then((response: StoredValueResponse) => {
+					const properties = response.data?.jcr?.nodeByPath?.properties ?? [];
+					expect(properties.find(p => p.name === 'checkFormat')?.value, 'checkFormat of the copy').to.eq('false');
+					expect(properties.find(p => p.name === 'pattern')?.value, 'pattern of the copy').to.eq(DEFAULT_PATTERN);
+				});
+		});
+		cy.logout();
+	});
+
+	it('accepts any value once the author turns the format check off', () => {
 		cy.login();
 		createPublishedLiveFormPage(
 			'phone-free-form',
 			'Phone Free Form',
-			[getPhoneNode({name: 'phone', title: 'Phone or extension', pattern: ''})],
+			[getPhoneNode({name: 'phone', title: 'Phone or extension', checkFormat: false})],
 			'phone-free-form-page',
 			'Phone free form page'
 		).then(result => {

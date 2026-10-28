@@ -246,6 +246,43 @@ class FormFieldMetadataCollectorTest {
     }
 
     @Test
+    void checkFormatOffDropsThePatternAndKeepsTheOtherConstraints() throws Exception {
+        // A field whose checkFormat is false keeps its stored pattern, which a copy of the node
+        // cannot lose, but the server must not enforce it; the length bounds still apply.
+        JCRNodeWrapper unchecked = node(
+                "phone",
+                "fmdbext:phone",
+                Set.of("fmdbmix:formElement", "fmdbmix:textField"),
+                Map.of(
+                        "pattern", stringProperty("[0-9]+"),
+                        "checkFormat", booleanProperty(false),
+                        "maxLength", longProperty(20)
+                ),
+                List.of()
+        );
+        JCRNodeWrapper checked = node(
+                "fax",
+                "fmdbext:phone",
+                Set.of("fmdbmix:formElement", "fmdbmix:textField"),
+                Map.of(
+                        "pattern", stringProperty("[0-9]+"),
+                        "checkFormat", booleanProperty(true)
+                ),
+                List.of()
+        );
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(
+                formNodeWithFields(unchecked, checked)
+        );
+
+        FormDataParser.FieldConstraints off = result.fieldInfos().get("phone").constraints();
+        assertNotNull(off);
+        assertNull(off.pattern());
+        assertEquals(20, off.maxLength());
+        assertEquals("[0-9]+", result.fieldInfos().get("fax").constraints().pattern());
+    }
+
+    @Test
     void skipsNonSubmittableNodes() throws Exception {
         // Verifies that helper nodes marked non-submittable are excluded from parser metadata.
         JCRNodeWrapper nonSubmittable = node(
@@ -611,6 +648,12 @@ class FormFieldMetadataCollectorTest {
     private static JCRPropertyWrapper stringProperty(String value) throws Exception {
         JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
         when(property.getString()).thenReturn(value);
+        return property;
+    }
+
+    private static JCRPropertyWrapper booleanProperty(boolean value) throws Exception {
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(property.getBoolean()).thenReturn(value);
         return property;
     }
 

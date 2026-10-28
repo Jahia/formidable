@@ -33,6 +33,7 @@
 					"fields": [
 						{ "name": "placeholder", "rank": 1.0 },
 						{ "name": "defaultValue", "rank": 2.0 },
+						{ "name": "checkFormat", "rank": 3.0 },
 						{ "name": "pattern", "rank": 4.0 },
 						{ "name": "autocomplete", "rank": 5.0 }
 					]

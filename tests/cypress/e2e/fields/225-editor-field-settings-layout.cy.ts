@@ -226,7 +226,7 @@ const LAYOUTS: Record<string, Layout> = {
 	'fmdbext:phone': {
 		settings: [
 			['helpAndPresentation', ['helpText']],
-			['valueAndInput', ['placeholder', 'defaultValue', 'pattern', 'autocomplete']],
+			['valueAndInput', ['placeholder', 'defaultValue', 'checkFormat', 'pattern', 'autocomplete']],
 			['constraints', ['minLength', 'maxLength']],
 			['validationMessages', TEXT_MESSAGES]
 		]

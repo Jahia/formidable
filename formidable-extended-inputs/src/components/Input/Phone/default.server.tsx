@@ -7,6 +7,7 @@ interface PhoneProps extends TextValidationMessageProps {
   "helpText"?: string;
   "placeholder"?: string;
   "defaultValue"?: string;
+  "checkFormat"?: boolean;
   "pattern"?: string;
   "minLength"?: number;
   "maxLength"?: number;
@@ -26,6 +27,7 @@ jahiaComponent(
       helpText,
       placeholder,
       defaultValue,
+      checkFormat,
       pattern,
       minLength,
       maxLength,
@@ -63,8 +65,8 @@ jahiaComponent(
           aria-label={label ? undefined : inputName}
           placeholder={placeholder}
           defaultValue={defaultValue}
-          // An empty pattern is a cleared one: the attribute would otherwise only accept an empty value
-          pattern={pattern || undefined}
+          // Without a pattern the attribute is left out: an empty one would only accept an empty value
+          pattern={checkFormat === false ? undefined : pattern || undefined}
           minLength={minLength}
           maxLength={maxLength}
           required={required}

@@ -51,7 +51,11 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
 - **The format check is a pattern, not a phone library.** The `pattern` property is autocreated with a default
   that accepts an optional leading `+`, then digits, spaces, dots, hyphens and parentheses, with 6 to 15 digits
   (the E.164 maximum). The browser and the server check the same stored value. An author can replace it with a
-  stricter pattern, or clear it to accept any value.
+  stricter pattern, or turn **Check the phone format** (`checkFormat`) off to accept any value.
+- **The pattern is mandatory, and a switch turns the check off.** The Content Editor removes a property an author
+  clears, and a copy of the node, such as a duplicated form, autocreates the default pattern again: a cleared
+  pattern would come back on the copy. A `false` boolean survives the copy. The engine reads `checkFormat` on any
+  field, so a field type with a default pattern reuses it.
 - **The pattern is written for the `v` flag**, which the browser compiles a `pattern` attribute with: `(`, `)`
   and `-` are escaped in its character class, and Java reads the same expression with the same meaning. The CND
   writes each `\` as `\\`, because the CND lexer reads an escape in a quoted value.
