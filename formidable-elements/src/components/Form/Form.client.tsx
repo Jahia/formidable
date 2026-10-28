@@ -7,12 +7,14 @@ import '~/design/logic.css';
 import '~/design/prefill.css';
 import '~/design/authoring.css';
 import '~/design/matrix.css';
+import '~/design/oneAtATime.css';
 import {type FormProps} from './types';
 import Spinner from '~/design/Spinner';
 import Captcha from './Captcha.client';
 import {useTranslation} from "react-i18next";
 import {useMultiStep} from '~/hooks/useMultiStep';
-import {useCustomFormValidation, validateInputs} from '~/hooks/useCustomFormValidation';
+import {useScreens} from '~/hooks/useScreens';
+import {reportInvalidInputs, useCustomFormValidation, validateInputs} from '~/hooks/useCustomFormValidation';
 import {useFieldActions} from '~/hooks/useFieldActions';
 import {useFormSubmission} from '~/hooks/useFormSubmission';
 
@@ -59,6 +61,7 @@ export default function Form({
 	previousBtnLabel,
 	nextBtnLabel,
 	showStepsNav = true,
+	formExperience,
 	formId,
 	formTitle,
 	locale,
@@ -69,6 +72,9 @@ export default function Form({
 }: Readonly<FormProps>) {
 	const formRef = useRef<HTMLFormElement>(null);
 	const {t} = useTranslation('formidable-elements', {keyPrefix: 'fmdb_form'});
+	// One field or fieldset per screen (docs/architecture/one-at-a-time.md); authoring keeps the flat form.
+	const isOneAtATime = formExperience === 'oneAtATime' && !isEditMode;
+	const advanceHintId = `fmdb-advance-hint-${formId}`;
 	const [hasBlockingSourceError, setHasBlockingSourceError] = useState(false);
 
 	// Contributor-configurable maintenance message (fmdbmix:responses), shown when a
@@ -133,6 +139,46 @@ export default function Form({
 		labels: {checking: t('checking')},
 	});
 
+	// Leaving a step, or a screen of One-at-a-time: its constraints, then its field actions — the blur-checked
+	// values again (free, the engine's cache) and the ones set to run at submission, asked now, when the visitor
+	// leaves. A refusal keeps the visitor there, the message under the field, the field focused.
+	const validateLeaving = async (element: HTMLElement): Promise<boolean> => {
+		if (!validateInputs(element)) return false;
+		const refused = await settleFieldActions(element);
+		if (refused) setReveal({control: refused});
+		return !refused;
+	};
+
+	const validateCurrentStep = async (): Promise<boolean> => {
+		const current = formRef.current?.querySelectorAll<HTMLElement>('[data-fmdb-step]')[currentStep];
+		return current ? validateLeaving(current) : true;
+	};
+
+	const {
+		isFirstScreen,
+		isLastScreen,
+		handleNext: handleNextScreen,
+		handlePrevious: handlePreviousScreen,
+		showScreenOf,
+		goToStart,
+	} = useScreens({
+		formRef,
+		enabled: isOneAtATime,
+		isMultiStep,
+		currentStep,
+		visibleStepIndices,
+		setCurrentStep,
+		validate: validateLeaving,
+		advanceHintId,
+	});
+
+	// What Previous and Next move between: the screens in One-at-a-time, the steps otherwise. The last page is
+	// where the form is sent from, and an accepted submission starts again at the first one.
+	const isPaged = isMultiStep || isOneAtATime;
+	const pages = isOneAtATime
+		? {isFirst: isFirstScreen, isLast: isLastScreen, next: handleNextScreen, previous: handlePreviousScreen, restart: goToStart}
+		: {isFirst: isFirstVisibleStep, isLast: isLastStep, next: () => handleNext(validateCurrentStep), previous: handlePrevious, restart: setCurrentStep};
+
 	const {
 		message,
 		messageType,
@@ -149,9 +195,9 @@ export default function Form({
 		errorMessage,
 		locale,
 		captcha,
-		isMultiStep,
-		isLastStep,
-		setCurrentStep,
+		isMultiStep: isPaged,
+		isLastStep: pages.isLast,
+		setCurrentStep: pages.restart,
 		labels: {
 			captchaRequired: t('captchaRequired'),
 			errorCode: t('errorCode'),
@@ -173,10 +219,12 @@ export default function Form({
 			setCurrentStep(step);
 			return;
 		}
+		// then the screen holding it, in One-at-a-time — shown at once, the focus follows
+		showScreenOf(reveal.control);
 		reveal.control.focus();
 		// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect -- the reveal is consumed once the focus has landed
 		setReveal(null);
-	}, [reveal, isLoading, currentStep, stepIndexOf, setCurrentStep]);
+	}, [reveal, isLoading, currentStep, stepIndexOf, setCurrentStep, showScreenOf]);
 
 	// Another form, after an accepted submission: the island emptied it on the 2xx, so a script that
 	// filled it at page load — the jExperience prefill — is told to do its work again. Only this path
@@ -188,36 +236,36 @@ export default function Form({
 	};
 
 	// A field action's refusal on screen: Submit waits, and Next when the current step holds the refusal — a
-	// click would only meet it again. Not while a check runs: the click that leaves the last field is what
+	// click would only meet it again. Not in One-at-a-time, where the step holds screens the visitor cannot see:
+	// Next settles the field actions of its screen anyway. Not while a check runs: the click that leaves the last field is what
 	// starts its blur check, and a button disabled by it would drop that very click; the settle awaits the
 	// check instead, and a second click meanwhile is ignored (docs/architecture/field-actions.md, "The browser").
 	const hasBlockingRefusal = refusedControls.length > 0;
+	// Where the form is sent from: its last page, or the form itself.
+	const isOnLastScreen = !isPaged || pages.isLast;
 	const isSubmitBlocked = isLoading || isSubmitDisabled || hasBlockingSourceError || hasBlockingRefusal
-		|| (!!captcha && (!isMultiStep || isLastStep) && !isCaptchaValid);
-	const isNextBlocked = isLoading || refusedControls.some(control => stepIndexOf(control) === currentStep);
+		|| (!!captcha && isOnLastScreen && !isCaptchaValid);
+	const isNextBlocked = isLoading
+		|| (!isOneAtATime && refusedControls.some(control => stepIndexOf(control) === currentStep));
 	const submitBlockedTitle = isSubmitDisabled ? t('editModeSubmitDisabled') : undefined;
-	const showCaptcha = !!captcha && (!isMultiStep || isLastStep);
-
-	// Leaving a step: its constraints, then its field actions — the blur-checked values again (free, the
-	// engine's cache) and the ones set to run at submission, asked now, when the visitor leaves their step.
-	// A refusal keeps the visitor on the step, the message under the field, the field focused.
-	const validateCurrentStep = async (): Promise<boolean> => {
-		const form = formRef.current;
-		if (!form) return true;
-		const stepEls = form.querySelectorAll<HTMLElement>('[data-fmdb-step]');
-		const current = stepEls[currentStep];
-		if (!current) return true;
-		if (!validateInputs(current)) return false;
-		const refused = await settleFieldActions(current);
-		if (refused) setReveal({control: refused});
-		return !refused;
-	};
+	const showCaptcha = !!captcha && isOnLastScreen;
+	// Reset, when the author shows it, on a form without steps: next to Submit, on the last screen in One-at-a-time.
+	const resetButton = showResetBtn && !isMultiStep && (
+		<button type="reset" className="fmdb-btn fmdb-btn-secondary" disabled={isLoading}>
+			{resetBtnLabel || t('resetBtn')}
+		</button>
+	);
 
 	// Sending: the whole form's constraints, then every field action of the form with the submit
 	// trigger — asked only when every constraint holds, so a refused value is never sent to a provider
-	// for nothing. A refusal is brought on screen, whatever step holds it.
+	// for nothing. A refusal, or the first control that fails a constraint, is brought on screen, whatever
+	// step or screen holds it.
 	const validateForm = async (form: HTMLFormElement): Promise<boolean> => {
-		if (!validateInputs(form)) return false;
+		const invalid = reportInvalidInputs(form);
+		if (invalid) {
+			setReveal({control: invalid});
+			return false;
+		}
 		const refused = await settleFieldActions(form);
 		if (refused) setReveal({control: refused});
 		return !refused;
@@ -298,6 +346,8 @@ export default function Form({
 				// Read back from the DOM by the visibility pass: the rules describe the
 				// visitor experience, so they must not run while the form is authored.
 				data-fmdb-edit-mode={isEditMode ? "true" : undefined}
+				// Read by oneAtATime.css: the screens not on display are hidden, and every one until the island is ready.
+				data-fmdb-experience={isOneAtATime ? "oneAtATime" : undefined}
 				// The form is read before anything awaits: React nulls the synthetic event's currentTarget
 				// once the handler returns.
 				onSubmit={e => {
@@ -342,38 +392,46 @@ export default function Form({
 				/>
 			)}
 
+			{isOneAtATime && (
+				// Said before it happens (WCAG 3.2.2); the fields that move on with a pick point at it.
+				<span id={advanceHintId} hidden>{t('advanceHint')}</span>
+			)}
+
 			<div className="fmdb-form-actions">
-					{isMultiStep ? (
+					{isPaged ? (
 						<>
-							{!isFirstVisibleStep && (
+							{!pages.isFirst && (
 								<button
 									type="button"
 									className="fmdb-btn fmdb-btn-secondary fmdb-prev-btn"
-									onClick={handlePrevious}
+									onClick={pages.previous}
 									disabled={isLoading}
 								>
 									{previousBtnLabel || t('previousBtn')}
 								</button>
 							)}
-						{!isLastStep && (
+						{!pages.isLast && (
 							<button
 								type="button"
 								className="fmdb-btn fmdb-btn-primary fmdb-next-btn"
-								onClick={() => void handleNext(validateCurrentStep)}
+								onClick={() => void pages.next()}
 								disabled={isNextBlocked}
 							>
 								{nextBtnLabel || t('nextBtn')}
 							</button>
 						)}
-						{isLastStep && (
-							<button
-								type="submit"
-								className="fmdb-btn fmdb-btn-primary"
-								disabled={isSubmitBlocked}
-								title={submitBlockedTitle}
-							>
-								{submitBtnLabel || t('submitBtn')}
-							</button>
+						{pages.isLast && (
+							<>
+								<button
+									type="submit"
+									className="fmdb-btn fmdb-btn-primary"
+									disabled={isSubmitBlocked}
+									title={submitBlockedTitle}
+								>
+									{submitBtnLabel || t('submitBtn')}
+								</button>
+								{resetButton}
+							</>
 						)}
 						</>
 					) : (
@@ -381,11 +439,7 @@ export default function Form({
 							<button type="submit" className="fmdb-btn fmdb-btn-primary" disabled={isSubmitBlocked} title={submitBlockedTitle}>
 							{submitBtnLabel || t('submitBtn')}
 						</button>
-							{showResetBtn && (
-								<button type="reset" className="fmdb-btn fmdb-btn-secondary" disabled={isLoading}>
-									{resetBtnLabel || t('resetBtn')}
-								</button>
-							)}
+							{resetButton}
 						</>
 					)}
 				</div>

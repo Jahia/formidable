@@ -39,8 +39,9 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
   lock (which takes the pointer off radios and labels) work as on the radio group.
 - **The options come from `@jahia/formidable-library`**, as for the built-in choice fields: `resolveFieldOptions`
   from its `/server` entry point, `OptionsSourceError` with this module's message when a source cannot deliver.
-- **`data-fmdb-advance-on-change`** on the group says one answer is enough: a form showing one field at a time
-  ([#423](https://github.com/Jahia/formidable/issues/423)) may move on once a card is picked. Nothing reads it yet.
+- **`data-fmdb-advance-on-change`** on the group says one answer is enough: a One-at-a-time form
+  ([One-at-a-time](../docs/architecture/one-at-a-time.md)) moves on once a card is picked. The Rating and Scale
+  views carry it too.
 
 ## Known limitations
 

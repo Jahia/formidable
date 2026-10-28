@@ -79,6 +79,10 @@ export default function Captcha({siteKey, widgetVar, widgetTimeoutSeconds, onVer
 				api?.remove?.(widgetIdRef.current);
 				widgetIdRef.current = undefined;
 			}
+			// A removed widget holds no answer: the form must not count the solved one (One-at-a-time unmounts
+			// the widget off the last screen, and a fresh one shows when the visitor comes back).
+			tokenRef.current = '';
+			onExpire?.();
 		};
 	}, [siteKey, widgetVar, widgetTimeoutSeconds]);
 

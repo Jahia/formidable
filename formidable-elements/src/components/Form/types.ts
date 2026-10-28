@@ -18,6 +18,8 @@ export interface FormServerProps {
 	previousBtnLabel?: string;
 	nextBtnLabel?: string;
 	showStepsNav?: boolean;
+	/** `classic` (absent on the forms created before the property) or `oneAtATime`: one field or fieldset per screen. */
+	formExperience?: string;
 	css?: string;
 	destination?: JCRNodeWrapper;
 }

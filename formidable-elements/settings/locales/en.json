@@ -29,6 +29,7 @@
 		"loading": "Loading...",
 		"previousBtn": "Previous",
 		"nextBtn": "Next",
+		"advanceHint": "Choosing an answer moves to the next question.",
 		"stepsNav": "Form steps",
 		"captchaRequired": "Please complete the CAPTCHA verification.",
 		"editModeSubmitDisabled": "Form submission is disabled in edit/preview mode.",

@@ -102,6 +102,8 @@ const LogicAwareRender = ({node, view, parameters, className, showLogicHidden}: 
 			data-fmdb-node-id={node.getIdentifier()}
 			data-fmdb-node-name={node.getName()}
 			data-fmdb-node-type={node.getPrimaryNodeTypeName()}
+			// Content (rich text) is shown with the field after it in One-at-a-time: the mixin is only readable here.
+			data-fmdb-content={node.isNodeType("fmdbmix:formContent") ? "true" : undefined}
 			data-fmdb-logics={hasLogic ? JSON.stringify(logics) : undefined}
 			// Rendered on every surface (harmless: the client hook is off in edit mode), absent when
 			// nothing checks the field, so the client never asks about a field with no action.
