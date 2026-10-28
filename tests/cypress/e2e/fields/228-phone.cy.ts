@@ -120,6 +120,53 @@ describe('Form fields - 228 Phone (extended-inputs)', () => {
 		}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
 	});
 
+	it('renders the help text, the length bounds and a custom autofill token, and the server checks the bounds', () => {
+		cy.login();
+		createPublishedLiveFormPage(
+			'phone-bounds-form',
+			'Phone Bounds Form',
+			[getPhoneNode({
+				name: 'workPhone',
+				helpText: 'Your office line',
+				minLength: 14,
+				maxLength: 20,
+				autocomplete: 'work tel'
+			})],
+			'phone-bounds-form-page',
+			'Phone bounds form page'
+		).then(result => {
+			cy.logout();
+			const form = visitLiveForm(result.livePath);
+
+			// No title: the input has no visible label, so the field name labels it.
+			form.get().find('.fmdbext-phone label').should('not.exist');
+			form.get().find('input[name="workPhone"]').as('input')
+				.should('have.attr', 'aria-label', 'workPhone')
+				.and('have.attr', 'minlength', '14')
+				.and('have.attr', 'maxlength', '20')
+				.and('have.attr', 'autocomplete', 'work tel');
+			form.get().find('.fmdbext-phone .fmdb-form-help').should('have.text', 'Your office line')
+				.invoke('attr', 'id').then(helpId => {
+					expect(helpId, 'id of the described block').to.match(/^help-/);
+					cy.get('@input').should('have.attr', 'aria-describedby', helpId);
+				});
+
+			// Each value matches the default pattern, so only the length bound rejects it.
+			['06 12 34 56', '+33 6 12 34 56 78 90 1'].forEach(value => {
+				postDirectMultipartSubmission({
+					formId: result.formId,
+					fields: {workPhone: value},
+					headers: withSameOriginHeaders()
+				}).then(response => expectErrorResponse(response, 400, 'FMDB-010'));
+			});
+			postDirectMultipartSubmission({
+				formId: result.formId,
+				fields: {workPhone: '+33 6 12 34 56 78'},
+				headers: withSameOriginHeaders()
+			}).then(expectSuccessResponse);
+		});
+	});
+
 	it('accepts any value once the author clears the pattern', () => {
 		cy.login();
 		createPublishedLiveFormPage(
