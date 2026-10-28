@@ -41,8 +41,8 @@ class ImportSitePages implements ImportEnvironment.SitePages {
     private final DisplayQuery displayQuery;
     private ImportEnvironment.DisplaysUnread unread;
     /** The forms whose displays were queried, and the displays found for them: none found, the pages are elsewhere. */
-    private int queried;
-    private int found;
+    private int formsQueried;
+    private int displaysFound;
 
     /** The display nodes of a form, a seam: the production one queries the live workspace. */
     @FunctionalInterface
@@ -109,8 +109,8 @@ class ImportSitePages implements ImportEnvironment.SitePages {
                         display.hasProperty(REDIRECT_URL) ? display.getProperty(REDIRECT_URL).getString() : null));
             }
             displays.sort(Comparator.comparing(FormsDisplay::page));
-            queried++;
-            found += displays.size();
+            formsQueried++;
+            displaysFound += displays.size();
             return displays;
         } catch (RepositoryException | RuntimeException e) {
             log.warn("[FormsImport] The displays of the Forms form {} could not be read", formUuid, e);
@@ -151,7 +151,7 @@ class ImportSitePages implements ImportEnvironment.SitePages {
      */
     @Override
     public Optional<ImportEnvironment.DisplaysUnread> displaysUnread() {
-        if (unread == null && queried > 0 && found == 0) {
+        if (unread == null && formsQueried > 0 && displaysFound == 0) {
             return Optional.of(ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE);
         }
         return Optional.ofNullable(unread);
