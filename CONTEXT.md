@@ -8,7 +8,7 @@ Yarn monorepo + Maven multi-module. Root: `/formidable-modules/`.
 |---|---|
 | `formidable-elements/` | Jahia front-end module – form rendering (React SSR + client hydration) |
 | `formidable-engine/` | Jahia editor extension + Java/OSGi action pipeline |
-| `formidable-extended-inputs/` | Optional field types (card, consent, switch, rating, scale) |
+| `formidable-extended-inputs/` | Optional field types (card, consent, phone, switch, rating, scale) |
 | `formidable-jexperience-engine/` | jExperience integration (Java): profile mapping of fields, the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; prefill to come — `docs/architecture/jexperience-integration.md` |
 | `formidable-forms-import/` | The import of the forms and results of Jahia Forms (Java + jContent app): Results page Import action, dry run and import jobs, converters; engine api only |
 | `packages/formidable/` | npm package `@jahia/formidable-library` — the rendering contract the views import (choice options under its `/server` entry point); `workspace:*` inside the monorepo (a version range would still resolve to the workspace, only `npm:` forces the registry), published at release |

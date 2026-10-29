@@ -469,7 +469,9 @@ class FormFieldMetadataCollector {
         long minLength    = JcrProps.longValue(node, "minLength", -1L);
         long maxLength    = JcrProps.longValue(node, "maxLength", -1L);
         String pattern    = JcrProps.string(node, "pattern", null);
-        if (pattern != null && pattern.isBlank()) {
+        // Convention of a field type with a default pattern (e.g. fmdbext:phone): a checkFormat
+        // BOOLEAN set to false turns the format check off whatever the pattern holds.
+        if (pattern != null && (pattern.isBlank() || !JcrProps.bool(node, "checkFormat", true))) {
             pattern = null;
         }
         String minDate    = null;

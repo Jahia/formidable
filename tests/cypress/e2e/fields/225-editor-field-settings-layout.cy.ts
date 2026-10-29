@@ -14,6 +14,7 @@ import {
 	getInputNumberNode,
 	getInputRangeNode,
 	getInputTextNode,
+	getPhoneNode,
 	getRadioNode,
 	getRatingNode,
 	getScaleNode,
@@ -224,6 +225,15 @@ const LAYOUTS: Record<string, Layout> = {
 			['validationMessages', ['msgValueMissing']]
 		]
 	},
+	// A text field from the optional module: laid out as the email, without multiple and the suggestion list.
+	'fmdbext:phone': {
+		settings: [
+			['helpAndPresentation', ['helpText']],
+			['valueAndInput', ['placeholder', 'defaultValue', 'checkFormat', 'pattern', 'autocomplete']],
+			['constraints', ['minLength', 'maxLength']],
+			['validationMessages', TEXT_MESSAGES]
+		]
+	},
 	// A choice field from the optional module: laid out as the radio.
 	'fmdbext:card': {
 		content: ['required', 'optionsMode'],
@@ -293,7 +303,8 @@ describe('Form fields - 225 The field editor layout', () => {
 			getRatingNode({name: 'stars', title: 'Stars'}),
 			getScaleNode({name: 'nps', title: 'Recommendation'}),
 			getSwitchNode({name: 'newsletter', title: 'Newsletter'}),
-			getCardNode({name: 'reason', title: 'Reason', choices: [{value: 'sales', label: 'Sales'}]})
+			getCardNode({name: 'reason', title: 'Reason', choices: [{value: 'sales', label: 'Sales'}]}),
+			getPhoneNode({name: 'mobile', title: 'Mobile'})
 		]);
 	});
 
@@ -429,5 +440,6 @@ describe('Form fields - 225 The field editor layout', () => {
 		assertLayout('nps', 'fmdbext:scale');
 		assertLayout('newsletter', 'fmdbext:switch');
 		assertLayout('reason', 'fmdbext:card');
+		assertLayout('mobile', 'fmdbext:phone');
 	});
 });

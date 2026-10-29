@@ -574,7 +574,7 @@ key the rule builder picks, so the dropdown and the rule never disagree.
 
 | Field kind (mixin) | Built-in fields | Profile property types offered | Cardinality |
 |---|---|---|---|
-| `textField` | text, textarea | `string` | single |
+| `textField` | text, textarea; extended phone | `string` | single |
 | `emailField` | email | `email`, `string` | single, or multivalued when the field is `multiple` |
 | `numberField` | number, range; extended rating, scale | `integer`, `long`, `float`, `double` | single |
 | `booleanField` | extended consent, switch | `boolean` | single |

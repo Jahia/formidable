@@ -96,7 +96,7 @@ input, the mask first.
 | Text | `fmdb:inputText`, `fmdb:inputEmail`, `fmdb:textarea` | **done** (2026-10-01): Content = title, system name, required; the "advanced settings" mixins dissolved into the fieldsets as supertypes of their types (no switch, no mixin to add on save; `RedundantMixinMigration` drops the redundant one from older fields)|
 | Numbers and dates | `fmdb:inputNumber`, `fmdb:inputRange`, `fmdb:inputDate`, `fmdb:inputDatetimeLocal` | **done** (2026-10-01): the number and slider "advanced settings" mixins are supertypes of their types like the text ones (2026-10-02); the slider keeps `minValue` and `maxValue` in Content; the number's bounds go to Constraints; the date bound modes go to Constraints with their dynamic fieldsets right after (3.1–3.4); `step` in Value & input; the number and slider "advanced settings" mixins dissolved (hidden storage keeps `form`) |
 | Choices and files | `fmdb:select`, `fmdb:radio`, `fmdb:checkbox`, `fmdb:inputFile`, `fmdb:inputColor`, `fmdb:inputHidden` | **done** (2026-10-01): the options origin and its dynamic fieldsets stay in Content, after Required; the select keeps `multiple` there, the file field keeps `accept` and `multiple`; the empty-option label goes to Help & presentation, the select's `size` to Value & input, `disabled` / `autofocus` to Behaviour; the hidden input has nothing to move and no section |
-| Extended inputs | `fmdbext:consent`, `fmdbext:rating`, `fmdbext:scale`, `fmdbext:switch`, `fmdbext:card` | **done** (2026-10-01): the consent keeps its statement and its terms target in Content, the rating its maximum, the scale its minimum and maximum; icon, end labels, display mode, state labels and the terms link label go to Help & presentation; the scale's step and the switch's default state to Value & input. The card (2026-10-20) is laid out as the radio: the options origin and Required in Content, the help text in Help & presentation |
+| Extended inputs | `fmdbext:consent`, `fmdbext:rating`, `fmdbext:scale`, `fmdbext:switch`, `fmdbext:card`, `fmdbext:phone` | **done** (2026-10-01): the consent keeps its statement and its terms target in Content, the rating its maximum, the scale its minimum and maximum; icon, end labels, display mode, state labels and the terms link label go to Help & presentation; the scale's step and the switch's default state to Value & input. The card (2026-10-20) is laid out as the radio: the options origin and Required in Content, the help text in Help & presentation. The phone (2026-10-27) is laid out as the email: Required in Content, the placeholder, default value, pattern and autocomplete in Value & input, the lengths in Constraints |
 
 Every built-in family has moved; a third-party field type keeps its properties in Content and shows the Field
 settings section with what applies to every field already — the validation messages — until its module ships
@@ -143,7 +143,9 @@ fixed at 1 and hidden in the CND), the scale's minimum and maximum — and what 
 presentation: the rating's icon and end labels, the scale's end labels, the switch's display mode and state
 labels, the consent's terms link label. The scale's step and the switch's default state are Value & input. The
 card is a choice field and follows the radio: its options origin stays in Content, its help text goes to Help &
-presentation. The
+presentation. The phone is a text field and follows the email, without its multiple mode and its suggestion
+list: the placeholder, the default value, the pattern and the autocomplete token are Value & input, the minimum
+and maximum lengths Constraints. The
 shared label keys resolve through the module's dependency on `formidable-elements`, which is what a
 third-party module relies on too.
 

@@ -9,7 +9,7 @@
     <artifactId>formidable-extended-inputs</artifactId>
     <name>Formidable Extended Inputs</name>
     <packaging>pom</packaging>
-    <description>Optional add-on field types for Formidable (rating, scale/NPS, switch, consent)</description>
+    <description>Optional add-on field types for Formidable (card, consent, phone, rating, scale/NPS, switch)</description>
     <scm>
         <connection>scm:git:git@github.com:Jahia/formidable.git</connection>
         <developerConnection>scm:git:git@github.com:Jahia/formidable.git</developerConnection>
