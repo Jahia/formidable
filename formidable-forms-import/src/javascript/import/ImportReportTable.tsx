@@ -92,6 +92,18 @@ export const ReportTable = ({report, language, t, choices = {}, onChoice, onChoi
             {report.nothingToImport && (
                 <Typography data-sel-role="import-nothing">{t('formResults.import.report.nothing')}</Typography>
             )}
+            {!report.nothingToImport && (report.notes?.length ?? 0) > 0 && (
+                <div data-sel-role="import-report-run-notes">
+                    <Typography variant="caption" weight="bold">{t('formResults.import.report.runNotes')}</Typography>
+                    <ul style={{margin: '4px 0 0', paddingLeft: '20px'}}>
+                        {report.notes?.map(note => (
+                            <li key={note.code} data-sel-code={note.code}>
+                                <Typography variant="body">{noteText(note, t)}</Typography>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
             {!steerable && created && (
                 <Typography data-sel-role="import-next-step">{t('formResults.import.done.created')}</Typography>
             )}

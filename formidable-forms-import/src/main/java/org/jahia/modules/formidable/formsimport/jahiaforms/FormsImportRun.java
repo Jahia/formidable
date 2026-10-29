@@ -70,6 +70,7 @@ public final class FormsImportRun {
     private final boolean dryRun;
     private final Map<String, FormChoice> choices;
     private final FormsFormConverter converter;
+    private final ImportEnvironment.SitePages sitePages;
     /** By source form: the names the values land under when they go to a form, found or attached to. */
     private final Map<String, Map<String, String>> foundNames = new HashMap<>();
     private final List<Pending> pending = new ArrayList<>();
@@ -96,6 +97,7 @@ public final class FormsImportRun {
         this.dryRun = dryRun;
         this.choices = choices;
         this.converter = new FormsFormConverter(environment);
+        this.sitePages = environment.sitePages();
     }
 
     public ImportReport run() throws IOException, FormsExportException, RepositoryException {
@@ -103,6 +105,8 @@ public final class FormsImportRun {
         report.importedFormsFolder(writer.importedFormsPath());
         FormsExport export = reader.readStructure();
         Map<String, Source> sources = sourcesOf(export);
+        sitePages.displaysUnread().ifPresent(reason -> report.note(reason == ImportEnvironment.DisplaysUnread.NOT_ON_THIS_INSTANCE
+                ? ImportNote.info("report.displaysElsewhere") : ImportNote.action("report.displaysUnread")));
         if (dryRun) {
             runOn(sources, report);
             return report;

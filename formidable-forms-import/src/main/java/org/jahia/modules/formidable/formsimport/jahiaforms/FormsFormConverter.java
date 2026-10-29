@@ -65,6 +65,7 @@ public final class FormsFormConverter {
     private final Predicate<String> profileMappable;
     private final ImportEnvironment.ProfileFit profileFit;
     private final boolean captchaConfigured;
+    private final ImportEnvironment.SitePages sitePages;
 
     /**
      * @param registeredTypes whether the repository registers a node type: decides the extended inputs
@@ -83,6 +84,7 @@ public final class FormsFormConverter {
         this.profileMappable = environment.profileMappable();
         this.profileFit = environment.profileFit();
         this.captchaConfigured = environment.captchaConfigured();
+        this.sitePages = environment.sitePages();
     }
 
     /** A converter on an instance without a captcha: the forms that displayed one are reported. */
@@ -102,8 +104,11 @@ public final class FormsFormConverter {
                 ? elementsOf(form.steps().get(0), results, buildingLang, names, report)
                 : stepsOf(form, results, buildingLang, names, report);
         reportFormSettings(form, report);
-        return new ImportedForm(form.name(), titlesOf(form, buildingLang), form.buildingLang(), nonBlank(form.afterSubmissionText()),
-                buttonLabels(form), form.settings().displaysCaptcha() && captchaConfigured, elements, actionsOf(form, report),
+        Map<String, String> titles = titlesOf(form, buildingLang);
+        List<ImportedAction> actions = actionsOf(form, report);
+        FormsRedirects.convert(form, buildingLang, titles.keySet(), sitePages, report).ifPresent(actions::add);
+        return new ImportedForm(form.name(), titles, form.buildingLang(), nonBlank(form.afterSubmissionText()),
+                buttonLabels(form), form.settings().displaysCaptcha() && captchaConfigured, elements, actions,
                 SOURCE_SYSTEM, form.uuid(), results == null ? null : results.uuid(), relativePath(form.path()), report);
     }
 
@@ -779,12 +784,8 @@ public final class FormsFormConverter {
                 actions.add(new ImportedAction(EMAIL_ACTION_NAME + "-submitter", FmdbNodeType.EMAIL_NOTIFICATION_ACTION,
                         Map.of(), nonBlankI18n(Map.of("subject", valuesOf(action.option(FormsOptionNames.SUBJECT))))));
                 report.add(ImportNote.action("form.submitterMail"));
-            } else if (action.is(FormsAction.REDIRECT_TO_PAGE) || action.is(FormsAction.REDIRECT_TO_URL)) {
-                String target = plain(action, FormsOptionNames.REDIRECT_TO);
-                report.add(target == null || target.isBlank()
-                        ? ImportNote.action("form.redirectNoTarget")
-                        : ImportNote.action("form.redirect", "target", target));
-            } else {
+            } else if (!action.is(FormsAction.REDIRECT_TO_PAGE) && !action.is(FormsAction.REDIRECT_TO_URL)) {
+                // a redirect is not one of these: the one Forms followed is added last (FormsRedirects)
                 report.add(ImportNote.action("form.action", ACTION, action.type()));
             }
         }

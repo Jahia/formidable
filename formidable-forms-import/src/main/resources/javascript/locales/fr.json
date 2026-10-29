@@ -16,6 +16,7 @@
 				"title": "Ce que l'import va faire"
 			},
 			"report": {
+				"runNotes": "Pour tout l'import",
 				"totals": "{{submissions}} soumission(s) à importer dans {{forms}} formulaire(s)",
 				"nothing": "Rien à importer : chaque formulaire et chaque soumission sont déjà dans ce site.",
 				"submissions": "{{count}} soumission(s)",
@@ -124,6 +125,10 @@
 				"switch": "interrupteur"
 			},
 			"note": {
+				"report": {
+					"displaysElsewhere": "Aucune page de cette instance n'affiche les formulaires Jahia Forms importés. S'ils étaient affichés sur une autre instance, une adresse de redirection définie sur l'une de ces pages n'est pas reprise : vérifiez-les là-bas, et ajoutez une action Redirection à chaque formulaire dont la page en définissait une",
+					"displaysUnread": "Les pages qui affichaient les formulaires Jahia Forms n'ont pas pu être lues : une adresse de redirection définie sur l'une de ces pages peut manquer. Vérifiez-les, et ajoutez une action Redirection à chaque formulaire dont la page en définissait une"
+				},
 				"field": {
 					"setting": "Son réglage {{setting}} n’est pas repris : un champ {{type}} n’en a pas",
 					"createdAsFallback": "Créé comme champ {{type}} : le champ {{preferred}} n’est pas installé ici",
@@ -152,7 +157,17 @@
 					"fieldsetAroundMatrix": "Le groupe de champs {{fieldset}} ne contenait que la matrice {{matrix}} : la matrice est devenue le groupe, intitulé {{matrix}}, et le titre {{fieldset}} n’est pas repris",
 					"fromLabels": "Reconstruit à partir des libellés de ses résultats : Jahia Forms ne contient plus le formulaire",
 					"submitterMail": "Le mail à l’auteur de la soumission est devenu une notification sans destinataire : complétez-la ou supprimez-la",
-					"redirect": "La redirection de page (vers {{target}} sur le site source) n’est pas reprise : Formidable n’a pas encore de redirection",
+					"redirectPage": "Redirige le visiteur vers la page {{target}}, comme le faisait Jahia Forms",
+					"redirectUrl": "Redirige le visiteur vers {{target}}, comme le faisait Jahia Forms",
+					"redirectDisplay": "Redirige le visiteur vers {{target}}, l’adresse que la page {{page}} donnait au formulaire dans Jahia Forms",
+					"redirectUrlCompleted": "Jahia Forms ajoutait http:// à l’adresse de sa redirection : vérifiez {{target}}",
+					"redirectPageNotFound": "La redirection vers la page {{target}} n’est pas reprise : ce site n’a pas cette page. Ajoutez une action Redirection vers la page qui l’a remplacée",
+					"redirectPageLanguages": "Jahia Forms redirigeait chaque langue vers sa propre page : toutes les langues vont désormais vers {{target}}",
+					"redirectUrlRefused": "La redirection vers {{target}} n’est pas reprise : ce n’est pas une adresse http ou https",
+					"redirectNoTarget": "La redirection n’est pas reprise : elle n’a pas de cible dans l’export",
+					"redirectIgnored": "La redirection vers {{target}} n’est pas reprise : Jahia Forms suivait une autre redirection du formulaire",
+					"redirectOtherPage": "Sur la page {{page}}, Jahia Forms envoyait les visiteurs de ce formulaire vers {{target}} : Formidable redirige un formulaire de la même façon sur toutes les pages, cette redirection n’est donc pas reprise",
+					"redirectNewOnPage": "Sur la page {{page}}, Jahia Forms affichait le message de succès de ce formulaire : Formidable redirige un formulaire de la même façon sur toutes les pages, les visiteurs de cette page sont donc désormais envoyés vers {{target}}",
 					"action": "L’action {{action}} n’est pas reprise : Formidable n’a pas d’équivalent",
 					"notSaved": "Jahia Forms n’enregistrait pas ses soumissions : ajoutez Save to JCR pour les conserver",
 					"mailCopies": "Les destinataires en copie de la notification ({{copies}}) ne sont pas repris",
@@ -163,8 +178,7 @@
 					"captchaOff": "Captcha non activé : cette instance n’en a pas, configurez-en un puis ajoutez-le au formulaire",
 					"passwordDropped": "Le champ mot de passe {{field}} n’est pas recréé : il serait stocké et envoyé en clair",
 					"contentDisplayDropped": "L’affichage de contenu {{field}} n’est pas recréé : il ne soumet rien",
-					"fieldDropped": "Le champ {{field}} ({{source}}) n’est pas recréé",
-					"redirectNoTarget": "La redirection n’est pas reprise : Formidable n’a pas encore de redirection"
+					"fieldDropped": "Le champ {{field}} ({{source}}) n’est pas recréé"
 				},
 				"submission": {
 					"keptUnderSourceName": "{{field}} : gardé sous son nom Forms {{name}}, le formulaire n’a pas de champ pour lui",
@@ -194,9 +208,7 @@
 					"geolocationPrefill": "géolocalisation"
 				},
 				"actions": {
-					"sendEmailToSubmitterAction": "mail à l’auteur",
-					"redirectToUrlAction": "redirection vers une URL",
-					"redirectToAPageAction": "redirection vers une page"
+					"sendEmailToSubmitterAction": "mail à l’auteur"
 				},
 				"kinds": {
 					"phone": "téléphone",

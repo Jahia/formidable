@@ -42,6 +42,12 @@
 			"relative": "Date relative (décalée depuis la date courante, jusqu'à la fin de ce jour)"
 		}
 	},
+	"fmdb_redirectAction": {
+		"targetType": {
+			"page": "Une page",
+			"url": "Une adresse web"
+		}
+	},
 	"conditionalLogic": {
 		"sourceField": "Champ source",
 		"selectSource": "Sélectionner un champ source",

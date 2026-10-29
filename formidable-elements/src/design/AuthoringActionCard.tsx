@@ -1,3 +1,5 @@
+import AlertIcon from "./AlertIcon";
+
 export interface AuthoringActionCardProps {
 	/** The action's node type, as `data-fmdb-action-type`. */
 	typeName: string;
@@ -9,18 +11,24 @@ export interface AuthoringActionCardProps {
 	detail?: string;
 	/** The type's own description: the tooltip its module declares for the Content Editor. */
 	description?: string;
+	/**
+	 * A call-out under the description, in the colours of the zone's warning: what the contributor should know
+	 * about this action in this list (a redirect that an earlier one overrides). `state` is the card's
+	 * `data-fmdb-authoring-state`, the marker the end-to-end tests read.
+	 */
+	warning?: {state: string; text: string};
 }
 
 /**
  * One action as a card of an authoring zone (see AuthoringActionsZone): its rank — a CSS counter on
  * the list —, the type icon, the title with the key parameter, and under it, smaller, the type
- * description. One card for the two kinds of action: a field action's settings are read in its
- * editor, as a form action's are. Rendered by the `hidden.authoring` views on the two action
+ * description, then the warning a type's own card view may add. One card for the two kinds of
+ * action: a field action's settings are read in its editor, as a form action's are. Rendered by the `hidden.authoring` views on the two action
  * mixins, so every action type, third-party included, gets the card.
  */
-export default function AuthoringActionCard({typeName, iconUrl, title, detail, description}: Readonly<AuthoringActionCardProps>) {
+export default function AuthoringActionCard({typeName, iconUrl, title, detail, description, warning}: Readonly<AuthoringActionCardProps>) {
 	return (
-		<div className="fmdb-authoring-action" data-fmdb-action-type={typeName}>
+		<div className="fmdb-authoring-action" data-fmdb-action-type={typeName} data-fmdb-authoring-state={warning?.state}>
 			{/* Decorative: the title carries the meaning, so the alt is empty. */}
 			{iconUrl && (
 				<img className="fmdb-authoring-action-icon" src={iconUrl} alt="" width={16} height={16}/>
@@ -34,6 +42,12 @@ export default function AuthoringActionCard({typeName, iconUrl, title, detail, d
 					<div className="fmdb-authoring-action-description" title={description}>
 						{description}
 					</div>
+				)}
+				{warning && (
+					<p className="fmdb-authoring-action-warning">
+						<AlertIcon/>
+						{warning.text}
+					</p>
 				)}
 			</div>
 		</div>

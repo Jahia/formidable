@@ -137,6 +137,7 @@ Its structure, for the rare rule that must reach inside it — the
 | `fmdb-authoring-action-icon`, `fmdb-authoring-action-body` | The type icon and the text column beside it |
 | `fmdb-authoring-action-line`, `fmdb-authoring-action-title`, `fmdb-authoring-action-detail` | The first line: the action's title (or its type label) and its key parameter |
 | `fmdb-authoring-action-description` | The second line: the type's description |
+| `fmdb-authoring-action-warning` | A warning inside a card, under its description: a redirect that an earlier redirect of the list comes before, or whose URL the redirect drops |
 
 ### The field actions zone
 

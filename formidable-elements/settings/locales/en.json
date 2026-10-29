@@ -56,6 +56,10 @@
 		"notLive": "Not shown to visitors.",
 		"empty": "No action yet: submissions will be neither stored nor sent."
 	},
+	"fmdb_redirectAction": {
+		"overridden": "Multiple redirect actions detected. Only the first valid redirect in the list is applied.",
+		"unusableUrl": "Visitors are not sent to this address: it is not a full http or https address with a host and no user name in it."
+	},
 	"fmdb_fieldActionList": {
 		"heading": "Field actions · {{count}}",
 		"inOrder": "Run in this order. Not shown to visitors.",

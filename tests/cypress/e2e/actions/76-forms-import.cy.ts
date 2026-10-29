@@ -358,11 +358,11 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		cy.get('[data-sel-role="import-report-form"][data-sel-outcome="created"]').should('have.length', SAMPLE.forms.length);
 		cy.get('[data-sel-role="import-choice"][data-sel-value="create"]').should('have.length', SAMPLE.forms.length);
 		reportForm('contact-us').find('[data-sel-role="import-report-outcome"]').should('contain', 'Imported from Jahia Forms');
-		// what a created form cannot carry over is folded under its count, what to do apart from what was carried over
+		// the notes of a created form are folded under its toggle: the redirect to the site's home page is carried over
 		reportForm('contact-us').find('[data-sel-role="import-report-notes"]').should('not.exist');
-		reportForm('contact-us').find('[data-sel-role="import-report-toggle"]').should('contain', 'to review').click();
-		reportForm('contact-us').find('[data-sel-role="import-report-notes-action"] [data-sel-code="form.redirect"]')
-			.should('contain', 'page redirect').and('not.contain', 'fcnt:');
+		reportForm('contact-us').find('[data-sel-role="import-report-toggle"]').click();
+		reportForm('contact-us').find('[data-sel-role="import-report-notes-info"] [data-sel-code="form.redirectPage"]')
+			.should('contain', 'Redirects the visitor to the page').and('not.contain', 'fcnt:');
 		// the review writes nothing yet: there is no report to download before the import
 		cy.get('[data-sel-role="import-download-report"]').should('not.exist');
 		cy.get('[data-sel-role="import-confirm"]').click();
@@ -378,7 +378,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 				expect(content).to.contain('- Import done');
 				expect(content).to.contain('106 submission(s) imported, 0 not written');
 				expect(content).to.contain('## Contact Us');
-				expect(content).to.contain('page redirect').and.not.contain('fcnt:');
+				expect(content).to.contain('Redirects the visitor to the page').and.not.contain('fcnt:');
 			});
 		});
 		cy.get('[data-sel-role="import-totals"]').should('contain', '106');
@@ -396,7 +396,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 			expect(fields.map(f => f.primaryNodeType.name)).to.deep.equal(SAMPLE.contactFieldTypes);
 		});
 		children(`${IMPORTED_FORMS_PATH}/contact-us/actions`, 'EDIT').then(actions => {
-			expect(actions.map(a => a.primaryNodeType.name)).to.deep.equal(['fmdb:save2jcrAction']);
+			expect(actions.map(a => a.primaryNodeType.name)).to.deep.equal(['fmdb:save2jcrAction', 'fmdb:redirectAction']);
 		});
 		graphql<{jcr: {nodeByPath: {
 			title: {value: string}; titleFr: {value: string}; mixins: Array<{name: string}>; sourceId: {value: string};

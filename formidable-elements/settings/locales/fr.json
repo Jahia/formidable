@@ -56,6 +56,10 @@
 		"notLive": "Invisible pour les visiteurs.",
 		"empty": "Aucune action : les soumissions ne seront ni enregistrées ni transmises."
 	},
+	"fmdb_redirectAction": {
+		"overridden": "Plusieurs actions de redirection détectées. Seule la première redirection valide de la liste est appliquée.",
+		"unusableUrl": "Les visiteurs ne sont pas envoyés à cette adresse : ce n'est pas une adresse http ou https complète, avec un hôte et sans nom d'utilisateur."
+	},
 	"fmdb_fieldActionList": {
 		"heading": "Actions du champ · {{count}}",
 		"inOrder": "Exécutées dans cet ordre. Invisibles pour les visiteurs.",

@@ -41,7 +41,7 @@ class ImportReportTest {
         ImportReport.FormEntry contact = report.form("contact-us", Map.of("en", "Contact Us"))
                 .target("contact-us", "/sites/x/contents/imported-forms/contact-us", ImportReport.FormOutcome.CREATED)
                 .field("your-name", "fmdb:inputText", List.of())
-                .notes(List.of(ImportNote.action("form.redirect", "target", "/home")));
+                .notes(List.of(ImportNote.action("form.redirectPageNotFound", "target", "/home")));
         contact.submissionFound().values(3, 1, 0).file(1024).file(2048).fileMissing();
         contact.submissionFound().submissionAlreadyImported();
 
@@ -57,7 +57,7 @@ class ImportReportTest {
         assertEquals(3072, form.getJSONObject("files").getLong("bytes"));
         assertEquals(1, form.getJSONObject("files").getInt("missing"));
         JSONObject note = form.getJSONArray("notes").getJSONObject(0);
-        assertEquals("form.redirect", note.getString("code"));
+        assertEquals("form.redirectPageNotFound", note.getString("code"));
         assertEquals("action", note.getString("level"));
         assertEquals("/home", note.getJSONObject("params").getString("target"));
         assertEquals(1, json.getJSONObject("totals").getInt("forms"));
@@ -85,5 +85,19 @@ class ImportReportTest {
         assertFalse(report.hasSomethingToImport());
         assertTrue(report.toJson().getBoolean("nothingToImport"));
         assertEquals("found", report.toJson().getJSONArray("forms").getJSONObject(0).getString("outcome"));
+    }
+
+    @Test
+    void aNoteOfTheRunIsSaidOnceAboveTheForms() {
+        // Verifies the run-level notes: the same note added for several forms is kept once, at the top of the report.
+        ImportReport report = new ImportReport(true);
+        report.note(ImportNote.action("report.displaysUnread"));
+        report.note(ImportNote.action("report.displaysUnread"));
+
+        JSONArray notes = report.toJson().getJSONArray("notes");
+
+        assertEquals(1, notes.length());
+        assertEquals("report.displaysUnread", notes.getJSONObject(0).getString("code"));
+        assertEquals(0, new ImportReport(true).toJson().getJSONArray("notes").length());
     }
 }

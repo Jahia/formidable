@@ -46,11 +46,12 @@ The current release includes the ability to:
   - Rich text (embeddable HTML content block)
 - Create form references (reuse an existing form via weak reference)
 - Conditional logic (show/hide fields based on other field values, using weakref-based dependency resolution)
-- 4 built-in form actions:
+- 5 built-in form actions:
   - Save to JCR (persists submissions and uploaded files under `formidable-results/`)
   - Send email notification (with `${fieldName}` interpolation in subject and body)
   - Send email content (sends the full submission by email, with optional file attachments)
   - Forward to external endpoint (multipart/form-data POST to operator-configured targets)
+  - Redirect (sends the visitor to a page or to an http/https URL instead of the submission message)
 - CAPTCHA support (tested with Google reCAPTCHA, Cloudflare Turnstile and hCaptcha)
 - Require authenticated user (reject anonymous submissions server-side)
 - Server-side submission validation (field constraints, allowed MIME types, choice value allowlists, cross-origin request checks)

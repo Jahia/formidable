@@ -16,6 +16,7 @@
 				"title": "What the import will do"
 			},
 			"report": {
+				"runNotes": "For the whole import",
 				"totals": "{{submissions}} submission(s) to import in {{forms}} form(s)",
 				"nothing": "Nothing to import: every form and every submission is already in this site.",
 				"submissions": "{{count}} submission(s)",
@@ -124,6 +125,10 @@
 				"switch": "switch"
 			},
 			"note": {
+				"report": {
+					"displaysElsewhere": "No page of this instance displays the imported Jahia Forms forms. If they were displayed on another instance, a redirect address set on one of those pages is not carried over: check them there, and add a Redirect action to each form whose page set one",
+					"displaysUnread": "The pages that displayed the Jahia Forms forms could not be read, so a redirect address set on one of those pages may be missing. Check them, and add a Redirect action to each form whose page set one"
+				},
 				"field": {
 					"setting": "Its {{setting}} setting is not carried over: a {{type}} field has none",
 					"createdAsFallback": "Created as a {{type}} field: the {{preferred}} field is not installed here",
@@ -152,7 +157,17 @@
 					"fromLabels": "Rebuilt from the labels of its results: Jahia Forms no longer holds the form",
 					"fieldsetAroundMatrix": "The fieldset {{fieldset}} held the matrix {{matrix}} alone: the matrix became the fieldset, titled {{matrix}}, and the title {{fieldset}} is not carried over",
 					"submitterMail": "The mail to the submitter became a notification without recipient: complete or remove it",
-					"redirect": "The page redirect (to {{target}} on the source site) is not carried over: Formidable has no redirect yet",
+					"redirectPage": "Redirects the visitor to the page {{target}}, as Jahia Forms did",
+					"redirectUrl": "Redirects the visitor to {{target}}, as Jahia Forms did",
+					"redirectDisplay": "Redirects the visitor to {{target}}, the address the page {{page}} gave the form in Jahia Forms",
+					"redirectUrlCompleted": "Jahia Forms added http:// to the address of its redirect: check {{target}}",
+					"redirectPageNotFound": "The redirect to the page {{target}} is not carried over: this site has no such page. Add a Redirect action to the page that replaced it",
+					"redirectPageLanguages": "Jahia Forms redirected each language to its own page: every language now goes to {{target}}",
+					"redirectUrlRefused": "The redirect to {{target}} is not carried over: it is not an http or https address",
+					"redirectNoTarget": "The redirect is not carried over: it has no target in the export",
+					"redirectIgnored": "The redirect to {{target}} is not carried over: Jahia Forms followed another redirect of the form",
+					"redirectOtherPage": "On the page {{page}}, Jahia Forms sent the visitors of this form to {{target}}: Formidable redirects a form the same way on every page, so this one is not carried over",
+					"redirectNewOnPage": "On the page {{page}}, Jahia Forms showed the success message of this form: Formidable redirects a form the same way on every page, so the visitors of this page are now sent to {{target}}",
 					"action": "The action {{action}} is not carried over: Formidable has no equivalent",
 					"notSaved": "Jahia Forms did not save its submissions: add Save to JCR to keep them",
 					"mailCopies": "The CC and BCC recipients of the notification ({{copies}}) are not carried over",
@@ -163,8 +178,7 @@
 					"captchaOff": "Captcha not turned on: this instance has none, set one up then add it to the form",
 					"passwordDropped": "The password field {{field}} is not recreated: it would be stored and mailed in clear",
 					"contentDisplayDropped": "The content display {{field}} is not recreated: it submits nothing",
-					"fieldDropped": "The field {{field}} ({{source}}) is not recreated",
-					"redirectNoTarget": "The redirect is not carried over: Formidable has no redirect yet"
+					"fieldDropped": "The field {{field}} ({{source}}) is not recreated"
 				},
 				"submission": {
 					"keptUnderSourceName": "{{field}}: kept under its Forms name {{name}}, the form holds no field for it",
@@ -194,9 +208,7 @@
 					"geolocationPrefill": "geolocation"
 				},
 				"actions": {
-					"sendEmailToSubmitterAction": "mail to the submitter",
-					"redirectToUrlAction": "redirect to a URL",
-					"redirectToAPageAction": "redirect to a page"
+					"sendEmailToSubmitterAction": "mail to the submitter"
 				},
 				"kinds": {
 					"phone": "phone",

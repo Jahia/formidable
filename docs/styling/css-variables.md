@@ -258,9 +258,9 @@ and dashed; these variables are the intended surface for a site that wants it to
 | `--fmdb-zone-actions-card-border` | `#e5e7eb` | Border of an action card |
 | `--fmdb-zone-actions-rank-bg` | `#e5e7eb` | Background of the rank badge |
 | `--fmdb-zone-actions-rank-color` | `#374151` | Text colour of the rank badge |
-| `--fmdb-zone-actions-warning-bg` | `#fff7ed` | Background of the "no action" warning |
-| `--fmdb-zone-actions-warning-border` | `#f59e0b` | Left border of the warning |
-| `--fmdb-zone-actions-warning-color` | `#9a3412` | Text colour of the warning |
+| `--fmdb-zone-actions-warning-bg` | `#fff7ed` | Background of the "no action" warning, and of the warning of a redirect card |
+| `--fmdb-zone-actions-warning-border` | `#f59e0b` | Left border of both warnings |
+| `--fmdb-zone-actions-warning-color` | `#9a3412` | Text colour of both warnings |
 | `--fmdb-zone-actions-error-bg` | `#fef2f2` | Background of the captcha line while the instance has no captcha set up (the form cannot be sent), and of a field zone's call-out while the site has no field-action type enabled (nothing can be added) |
 | `--fmdb-zone-actions-error-border` | `#dc2626` | Border colour of that line, left border of that call-out |
 | `--fmdb-zone-actions-error-color` | `#991b1b` | Text colour of both |

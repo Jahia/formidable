@@ -62,7 +62,7 @@ describe('groupedNotes', () => {
     const logic: ImportNote = {code: 'field.logic', level: 'action', params: {}};
     const rule: ImportNote = {code: 'field.rule', level: 'action', params: {rule: 'fcnt:regexValidation', type: 'fmdb:textarea'}};
     const mapped = (property: string): ImportNote => ({code: 'field.profileMapped', level: 'info', params: {property}});
-    const redirect: ImportNote = {code: 'form.redirect', level: 'action', params: {target: '/home'}};
+    const redirect: ImportNote = {code: 'form.redirectPageNotFound', level: 'action', params: {target: '/home'}};
 
     it('gives one line per distinct note with the labels of the fields it concerns, what to do apart from what was carried over', () => {
         const form = {
@@ -268,7 +268,7 @@ describe('profileMappings', () => {
 
     it('gathers the mappings of a form, written, unchecked or failed, one per field', () => {
         const captcha = {note: {code: 'form.captchaOn', level: 'info' as const, params: {}}, fields: []};
-        const redirect = {note: {code: 'form.redirect', level: 'action' as const, params: {target: '/home'}}, fields: []};
+        const redirect = {note: {code: 'form.redirectPageNotFound', level: 'action' as const, params: {target: '/home'}}, fields: []};
         const info = [
             {note: prefilled('firstName', 'editable'), fields: ['First name']},
             {note: {code: 'field.profileMapped', level: 'info' as const, params: {property: 'company'}}, fields: ['Company']},
@@ -290,7 +290,7 @@ describe('profileMappings', () => {
             {field: 'Enquiry', property: 'sfdc__lead', status: 'failed', prefilled: false, after: undefined, reason: 'field.prefillUnknownProperty'}
         ]);
         // the failed and unchecked mappings leave the notes to review for the mapping section, which flags them
-        expect(profile.toReview.map(line => line.note.code)).toEqual(['form.redirect']);
+        expect(profile.toReview.map(line => line.note.code)).toEqual(['form.redirectPageNotFound']);
         // two prefills of one field, refused, are two lines of distinct keys
         const twice = profileMappings([], [
             {note: {code: 'field.prefillNoIntegration', level: 'action', params: {property: 'firstName'}}, fields: ['Name']},

@@ -187,6 +187,47 @@ public final class RedirectTargets {
     }
 
     /**
+     * The path and query of an absolute URL on the server the request reached, so that a link the platform printed
+     * absolute (the vanity URL of a site with its own server name) is sent as a path. Only the path and the query are
+     * kept: never the scheme nor the host.
+     *
+     * @param url        an absolute URL, may be {@code null}
+     * @param serverName the host name the request reached ({@code HttpServletRequest#getServerName()})
+     * @return the path and query, when the URL is an {@code http}/{@code https} URL of this server and a safe path
+     */
+    public static Optional<String> pathOnServer(String url, String serverName) {
+        if (url == null || serverName == null || url.isBlank() || url.length() > MAX_LENGTH) {
+            return Optional.empty();
+        }
+        try {
+            URI uri = new URI(url.trim());
+            String scheme = uri.getScheme();
+            if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))
+                    || uri.getHost() == null || !uri.getHost().equalsIgnoreCase(serverName)) {
+                return Optional.empty();
+            }
+            String path = uri.getRawPath() == null || uri.getRawPath().isEmpty() ? "/" : uri.getRawPath();
+            return sameOriginPath(uri.getRawQuery() == null ? path : path + "?" + uri.getRawQuery());
+        } catch (URISyntaxException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Swaps the context path the engine's servlet reports ({@code <context>/modules}) for the platform's, which is what
+     * a page link must carry once the URL rewriting has run. A URL that does not start with the servlet's context path
+     * is returned as is.
+     */
+    public static String swapContextPath(String rewrittenUrl, String servletContextPath, String platformContextPath) {
+        if (rewrittenUrl == null || servletContextPath == null || servletContextPath.isEmpty()
+                || !rewrittenUrl.startsWith(servletContextPath + "/")) {
+            return rewrittenUrl;
+        }
+        String platform = platformContextPath == null ? "" : platformContextPath;
+        return platform + rewrittenUrl.substring(servletContextPath.length());
+    }
+
+    /**
      * A backslash (some browsers read {@code /\evil.com} as {@code //evil.com}), a control character, a space or line
      * separator of any kind, or an invisible format character such as U+FEFF: the browser refuses the same set
      * ({@code useFormSubmission.ts}), so the two checks agree on what is sent.
