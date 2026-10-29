@@ -10,8 +10,10 @@ engine's submit servlet answers `{"success": true}` on an accepted submission; a
 After the pipeline accepted the submission and **every action succeeded**. A rejected submission
 (`4xx`, `5xx`) is never enriched: its body carries `success: false` and the error code only. The
 form island then dispatches a bubbling `formidable:submitted` DOM event on the `<form>` element,
-with `{formId, response}` as detail — `response` being the parsed body, your entries included —
-so a script that knows nothing of the island can act on your block.
+with `{formId, response, waitUntil}` as detail — `response` being the parsed body, your entries included —
+so a script that knows nothing of the island can act on your block. A listener that sends a request hands its
+promise to `waitUntil(promise)` during the dispatch: when the submission redirects, the island waits for it, for
+1 second at most, before it leaves the page.
 
 ## Step 1: Implement the service
 
@@ -83,8 +85,9 @@ Files never reach an enricher: they belong to the actions.
 ## Step 4: Respect the rules of the body
 
 - **Keys are top-level.** Name yours after your module. `success`, `errorCode`, `actionsCompleted`,
-  `actionsTotal` and `messages` belong to the servlet: an enricher writing one of them is logged and that key
-  ignored, the rest of its entries kept. A key **another enricher already wrote** is refused the same
+  `actionsTotal`, `messages`, `redirect` and `userMessage` belong to the servlet: an enricher writing one of them
+  is logged and that key ignored, the rest of its entries kept. `redirect` and `userMessage` joined the list with
+  the contextual actions: an enricher that already wrote either key loses it, with a WARN in the server log. A key **another enricher already wrote** is refused the same
   way, the first writer keeping it — which is what makes naming the key after your module a
   requirement rather than a convention: a collision costs the second module its block, silently
   except for a line in the server log, and the binding order of two OSGi services is not yours to

@@ -293,3 +293,183 @@ describe('useFormSubmission: a rejection that names a field', () => {
 		await done;
 	});
 });
+
+describe('useFormSubmission: what an action answers', () => {
+	const assign = vi.fn();
+	/** The listener of the submitted event a test installs, removed after it. */
+	let listener: ((event: Event) => void) | undefined;
+	/** Installs a listener that hands the event's `waitUntil` the promise `promise()` gives. */
+	const listenWith = (promise: () => Promise<unknown>) => {
+		listener = event => (event as CustomEvent<{waitUntil: (p: Promise<unknown>) => void}>).detail.waitUntil(promise());
+		document.body.addEventListener(SUBMITTED_EVENT, listener);
+	};
+	/** The success message is held back by the feedback floor, and a redirect leaves in a task of its own: fake timers move both. */
+	beforeEach(() => {
+		vi.useFakeTimers();
+		vi.stubGlobal('XMLHttpRequest', FakeXhr);
+		vi.stubGlobal('location', {assign, href: 'https://www.example.com/fr/connexion'});
+		vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		requests.length = 0;
+		assign.mockClear();
+	});
+
+	afterEach(() => {
+		if (listener) document.body.removeEventListener(SUBMITTED_EVENT, listener);
+		listener = undefined;
+		vi.useRealTimers();
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+		document.body.replaceChildren();
+	});
+
+	const accepted = async (body: string) => {
+		const result = submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, body);
+		await vi.advanceTimersByTimeAsync(600);
+		return result;
+	};
+
+	it('navigates to the redirect instead of showing the success message, the spinner left on', async () => {
+		const {successShown, setMessage, setIsLoading} = await accepted('{"success":true,"redirect":"/sites/mysite/account.html","userMessage":"Welcome."}');
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/sites/mysite/account.html');
+		expect(successShown()).toBe(false);
+		// the action's own sentence beside a redirect is not shown either
+		expect(setMessage).not.toHaveBeenCalledWith('Welcome.');
+		expect(setIsLoading).toHaveBeenLastCalledWith(true);
+	});
+
+	it('navigates in a task of its own, without waiting for the feedback pause, when no listener asked to wait', async () => {
+		const result = submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/home.html"}');
+		await vi.advanceTimersByTimeAsync(1);
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
+		expect(result.successShown()).toBe(false);
+	});
+
+	it('holds the redirect until the promise a listener handed to waitUntil settles, the spinner left on', async () => {
+		let release: () => void = () => undefined;
+		listenWith(() => new Promise<void>(resolve => {
+			release = resolve;
+		}));
+		const {setIsLoading} = submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/home.html"}');
+		await vi.advanceTimersByTimeAsync(500);
+		expect(assign).not.toHaveBeenCalled();
+		expect(setIsLoading).toHaveBeenLastCalledWith(true);
+
+		release();
+		await vi.advanceTimersByTimeAsync(1);
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
+	});
+
+	it('navigates after one second when the promise of a listener never settles', async () => {
+		listenWith(() => new Promise(() => undefined));
+		submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/home.html"}');
+		await vi.advanceTimersByTimeAsync(999);
+		expect(assign).not.toHaveBeenCalled();
+
+		await vi.advanceTimersByTimeAsync(2);
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
+	});
+
+	it('navigates when the promise of a listener rejects', async () => {
+		listenWith(() => Promise.reject(new Error('jCustomer is down')));
+		submitForm('');
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/home.html"}');
+		await vi.advanceTimersByTimeAsync(1);
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/home.html');
+	});
+
+	it('waits for nothing without a redirect, whatever a listener handed to waitUntil', async () => {
+		listenWith(() => new Promise(() => undefined));
+		const {successShown} = await accepted('{"success":true}');
+
+		expect(successShown()).toBe(true);
+	});
+
+	it('ends at once as a submission without redirect when the target only changes the fragment', async () => {
+		const {form, successShown, setIsLoading} = submitForm('<input name="city" value="Paris"/>');
+		const reset = vi.fn();
+		form.addEventListener('reset', reset);
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/fr/connexion#merci"}');
+		await vi.advanceTimersByTimeAsync(1);
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/fr/connexion#merci');
+		expect(successShown()).toBe(true);
+		expect(setIsLoading).toHaveBeenLastCalledWith(false);
+		expect(reset).toHaveBeenCalledOnce();
+		// no fallback timer left to run
+		expect(vi.getTimerCount()).toBe(0);
+	});
+
+	it('stops the spinner and shows the success message when the redirect leaves the page in place, the form kept as it is', async () => {
+		const {form, successShown, setIsLoading} = submitForm('<input name="city" value="Paris"/>');
+		const reset = vi.fn();
+		form.addEventListener('reset', reset);
+		form.querySelector('input')!.value = 'Lyon';
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/files/brochure.zip"}');
+		await vi.advanceTimersByTimeAsync(600);
+		expect(assign).toHaveBeenCalledExactlyOnceWith('/files/brochure.zip');
+		expect(successShown()).toBe(false);
+
+		await vi.advanceTimersByTimeAsync(3000);
+
+		expect(successShown()).toBe(true);
+		expect(setIsLoading).toHaveBeenLastCalledWith(false);
+		// a next page slow to answer may still replace this one: nothing it would show is undone
+		expect(reset).not.toHaveBeenCalled();
+		expect(form.querySelector('input')!.value).toBe('Lyon');
+	});
+
+	it('shows the success outcome when the browser brings the page back from its back-forward cache', async () => {
+		const {successShown, setIsLoading} = await accepted('{"success":true,"redirect":"/home.html"}');
+		const restored = new Event('pageshow');
+		Object.defineProperty(restored, 'persisted', {value: true});
+
+		globalThis.dispatchEvent(restored);
+
+		expect(successShown()).toBe(true);
+		expect(setIsLoading).toHaveBeenLastCalledWith(false);
+	});
+
+	it('navigates to an absolute https URL, the second kind of redirect', async () => {
+		await accepted('{"success":true,"redirect":"https://www.example.com/merci"}');
+
+		expect(assign).toHaveBeenCalledExactlyOnceWith('https://www.example.com/merci');
+	});
+
+	it('refuses a redirect that is neither a path of this server nor an absolute http(s) URL, whatever the body says', async () => {
+		for (const hostile of ['//evil.example', String.raw`/\\evil.example`, 'javascript:alert(1)', 'https://user@evil.example/', 'home.html', '/a b', '/a\uFEFFb', '']) {
+			await accepted(JSON.stringify({success: true, redirect: hostile}));
+		}
+		await accepted('{"success":true,"redirect":42}');
+
+		expect(assign).not.toHaveBeenCalled();
+	});
+
+	it('shows the action\'s own sentence instead of the form\'s submission message', async () => {
+		const {setMessage} = await accepted('{"success":true,"userMessage":"Check your mailbox to activate your account."}');
+
+		expect(setMessage).toHaveBeenLastCalledWith('Check your mailbox to activate your account.');
+	});
+
+	it('keeps the form\'s message when the action said nothing', async () => {
+		const {setMessage} = await accepted('{"success":true}');
+
+		expect(setMessage).toHaveBeenLastCalledWith('Form submitted successfully!');
+		expect(assign).not.toHaveBeenCalled();
+	});
+});

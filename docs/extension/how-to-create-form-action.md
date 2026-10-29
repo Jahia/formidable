@@ -207,6 +207,47 @@ throw new FormActionException("Forward target returned an error.", 502);
 > service. To guard against a missing SMTP configuration, check `mailService.isEnabled()`
 > before calling `sendMessage()`.
 
+## Step 6b: Answer the browser (`ContextualFormAction`)
+
+The plain `FormAction` returns nothing. When the action must set a cookie, send the visitor to another page or show
+its own success text, implement `ContextualFormAction` instead; it is registered the same way
+(`@Component(service = FormAction.class)`) and the pipeline recognises it:
+
+```java
+@Component(service = FormAction.class)
+public class ThankYouFormAction implements ContextualFormAction {
+
+    @Override public String getNodeType() { return "mymod:thankYouAction"; }
+
+    @Override
+    public FormActionResult execute(FormActionContext context) throws FormActionException {
+        if (context.parameter("newsletter") == null) {                  // the first non-blank value, or null
+            return FormActionResult.showMessage("Thank you.");           // shown instead of the form's message
+        }
+        // org.jahia.bin.Jahia: the platform's context path, never the request's, which is <context>/modules here
+        return FormActionResult.redirectTo(Jahia.getContextPath() + "/sites/mysite/newsletter.html");
+    }
+}
+```
+
+- The **context** carries the request, the response (a cookie or a header, never the body), the visitor's session
+  at submission time, `locale`, `siteKey`, the action node and the form. The request reaches the engine through the
+  `/modules` bridge, so build from `Jahia.getContextPath()`, never from `context.request().getContextPath()`: a page
+  path is `Jahia.getContextPath() + path`, and a cookie path is `Jahia.getContextPath()`, or `/` when it is empty. A
+  cookie set without a path never reaches the site's pages. The action is a
+  singleton shared by every submission: keep no per-request state in fields. Logging `context` is safe: its
+  `toString()` names the fields, never their values.
+- A **result** is advisory: the first redirect, of either kind, and the first message of the list win. A redirect
+  has two kinds, each with its own rule, and a target its rule refuses is dropped:
+  - `redirectTo(path)`: a path of this server (`RedirectTargets.sameOriginPath`), for any target, one computed from
+    the request included;
+  - `redirectToUrl(url)`: an absolute `http` or `https` URL (`RedirectTargets.httpUrl`), for a URL read from the
+    configuration only, such as a property of the action node. Never pass it a value taken from the request: that
+    is an open redirect.
+- A **message** is plain text, already translated in `context.locale()`; the servlet escapes it. A message beside a
+  redirect is never shown, because a redirect replaces the success message: return one or the other.
+- A **failure** is a `FormActionException`, as in step 6: the browser reads `FMDB-008`.
+
 ## Step 7: Add authoring support
 
 The runtime code is not enough by itself. Contributors still need to be able to create and configure the action node.

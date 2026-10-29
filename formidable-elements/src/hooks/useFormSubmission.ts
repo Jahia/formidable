@@ -21,7 +21,16 @@ const MAINTENANCE_ERROR_CODE = 'FMDB-014';
 // under the field like one — the contributor's message anchored there, the focus moved, no global
 // error box, no code on screen. The pre-check is a courtesy; this is the authority saying the same.
 const FIELD_ACTION_REFUSED_CODE = 'FMDB-015';
-/** Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response}. */
+/** How long a redirect may leave the page in place before the spinner stops and the success message shows. */
+const REDIRECT_FALLBACK_MS = 3000;
+/** The longest a redirect waits for the promises the listeners of the submitted event handed to `waitUntil`. */
+const LISTENERS_WAIT_MS = 1000;
+/**
+ * Dispatched on the form element after a 2xx, before the form is reset. Detail: {formId, response, waitUntil}.
+ * `waitUntil(promise)`, called by a listener during the dispatch, holds a redirect until the promise settles, for
+ * LISTENERS_WAIT_MS at most, so that a request the listener sent completes before the page unloads. Without a
+ * redirect, nothing waits.
+ */
 export const SUBMITTED_EVENT = 'formidable:submitted';
 
 /**
@@ -45,6 +54,80 @@ async function completeFeedbackPause(spinnerShownAt: number): Promise<void> {
 	const pause = remainingFeedbackPause(Date.now() - spinnerShownAt);
 	if (pause > 0) {
 		await new Promise(resolve => setTimeout(resolve, pause));
+	}
+}
+
+/**
+ * What no redirect target may hold: a backslash, a control character, any space or line separator, an invisible format
+ * character such as U+FEFF. The server refuses the same set (`RedirectTargets`), so the two checks agree.
+ */
+const FORBIDDEN_IN_TARGET = /[\\\p{Cc}\p{Z}\p{Cf}]/u;
+
+/**
+ * A path of this server: one leading slash, no scheme, no host, no forbidden character. The check is the origin, not
+ * the site: a path of another site served by this server passes.
+ */
+export function isSameOriginPath(target: unknown): target is string {
+	if (typeof target !== 'string' || target.length === 0 || target.length > 2048 || !target.startsWith('/')) return false;
+	if (target.startsWith('//') || target.startsWith('/\\')) return false;
+	return !FORBIDDEN_IN_TARGET.test(target);
+}
+
+/**
+ * An absolute `http` or `https` URL with a host and no user info (`https://user@host` reads as another host to a
+ * visitor), no forbidden character, at most 2048 characters. The server sends one only for a URL read from the
+ * configuration.
+ *
+ * Where `new URL` is more lenient than the server's `java.net.URI`, it is held to the server's answer: an empty
+ * authority (`https:///path`, which `new URL` reads as the host `path`), a host holding `{ } " \``, and a percent
+ * escape in the host (`https://a%41b.example/`, which `new URL` decodes) are refused.
+ * The cases both checks agree on are listed once, in `redirect-targets.json` of the engine's tests.
+ */
+export function isHttpUrl(target: unknown): target is string {
+	if (typeof target !== 'string' || target.length > 2048 || !/^https?:\/\/[^/?#%]+(?:[/?#]|$)/i.test(target) || FORBIDDEN_IN_TARGET.test(target)) return false;
+	try {
+		const url = new URL(target);
+		return (url.protocol === 'http:' || url.protocol === 'https:') && url.hostname !== '' && !/[{}"`]/.test(url.hostname)
+			&& url.username === '' && url.password === '';
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Where the browser may be sent: a path of this server or an absolute http(s) URL. The server validated the target;
+ * this second check keeps a body tampered with on the way, or written by a module of the page, from sending the
+ * visitor to a `javascript:` or any other target.
+ */
+function isRedirectTarget(target: unknown): target is string {
+	return isSameOriginPath(target) || isHttpUrl(target);
+}
+
+/** Waits for the promises of the listeners to settle, fulfilled or rejected, for LISTENERS_WAIT_MS at most. */
+async function settleListeners(pending: Promise<unknown>[]): Promise<void> {
+	if (pending.length === 0) return;
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const cap = new Promise(resolve => {
+		timer = setTimeout(resolve, LISTENERS_WAIT_MS);
+	});
+	await Promise.race([Promise.allSettled(pending), cap]);
+	clearTimeout(timer);
+}
+
+/**
+ * True when `assign` would keep the browser on this page: the target names a fragment, and differs from the current
+ * URL by its fragment only.
+ */
+function changesFragmentOnly(target: string): boolean {
+	try {
+		const next = new URL(target, globalThis.location.href);
+		const here = new URL(globalThis.location.href);
+		if (!next.href.includes('#')) return false;
+		next.hash = '';
+		here.hash = '';
+		return next.href === here.href;
+	} catch {
+		return false;
 	}
 }
 
@@ -220,6 +303,8 @@ export function useFormSubmission({
 
 	const send = async (form: HTMLFormElement, spinnerShownAt: number) => {
 		let rejection: Rejection = {messages: []};
+		// The browser is leaving for a redirect: leaveFor turns the spinner off, if the page is still there
+		let leaving = false;
 		// A message of an earlier attempt goes as the next one leaves: a refusal anchored under a field
 		// must not read next to a stale "An error occurred" above the form.
 		setMessage(null);
@@ -250,25 +335,85 @@ export function useFormSubmission({
 			// that know nothing of this island (the jExperience module listens for it). The
 			// event says "accepted, here is what the server answered" and nothing else; a listener
 			// that throws does not reach this code (dispatchEvent reports it to the window).
+			const pending: Promise<unknown>[] = [];
+			let dispatching = true;
 			form.dispatchEvent(new CustomEvent(SUBMITTED_EVENT, {
 				bubbles: true,
-				detail: {formId, response: parseJsonBody(response.responseText)},
+				detail: {
+					formId,
+					response: parseJsonBody(response.responseText),
+					waitUntil: (promise: PromiseLike<unknown>) => {
+						if (dispatching) pending.push(Promise.resolve(promise));
+					},
+				},
 			}));
+			dispatching = false;
+
+			// An action's own sentence (already escaped by the server) replaces the form's message: "check your mailbox"
+			const accepted = parseJsonBody(response.responseText) as {redirect?: unknown; userMessage?: unknown} | null;
+			const actionMessage = typeof accepted?.userMessage === 'string' && accepted.userMessage.trim() ? accepted.userMessage : undefined;
+			const showSuccess = (resetForm: boolean) => {
+				setMessage(actionMessage || interpolatedSubmissionMessage || 'Form submitted successfully!');
+				setMessageType('success');
+				if (!resetForm) return;
+				// called off the prototype: a control named "reset" shadows the method, and this runs after the
+				// 200 and after every action, so throwing here would tell the visitor the submission failed
+				HTMLFormElement.prototype.reset.call(form);
+				if (isMultiStep) setCurrentStep(0);
+			};
+
+			// A redirect replaces the success message: the spinner stays while the listeners finish and the next page loads
+			if (isRedirectTarget(accepted?.redirect)) {
+				leaving = true;
+				await settleListeners(pending);
+				leaveFor(accepted.redirect, showSuccess);
+				return;
+			}
 
 			// The spinner has been visible since before the request: only the rest of the floor is waited for
 			await completeFeedbackPause(spinnerShownAt);
-
-			setMessage(interpolatedSubmissionMessage || 'Form submitted successfully!');
-			setMessageType('success');
-			// called off the prototype: a control named "reset" shadows the method, and this runs after the
-			// 200 and after every action, so throwing here would tell the visitor the submission failed
-			HTMLFormElement.prototype.reset.call(form);
-			if (isMultiStep) setCurrentStep(0);
+			showSuccess(true);
 		} catch (error) {
 			showRejection(form, rejection, error);
 		} finally {
-			setIsLoading(false);
+			if (!leaving) setIsLoading(false);
 		}
+	};
+
+	/**
+	 * Sends the visitor where an action asked, the spinner left on. Done in a task of its own so that what the
+	 * listeners of the submitted event queued runs first; `assign`, not `replace`, so the form page stays reachable
+	 * with the Back button. The page ends as a submission without redirect does, success message shown, form reset
+	 * and spinner off, when the target only changes the fragment, at once, and when the browser restores the page
+	 * from its back-forward cache.
+	 *
+	 * Otherwise, a navigation that leaves the page in place for REDIRECT_FALLBACK_MS (a target that answers with a
+	 * download) stops the spinner and shows the success message. The timer cannot tell that case from a next page
+	 * slow to answer, so the fallback leaves the form as it is: no reset, no `formidable:reset`, no return to the
+	 * first step, nothing that a page about to change would undo. A page that unloads never runs it.
+	 */
+	const leaveFor = (target: string, showSuccess: (resetForm: boolean) => void) => {
+		let ended = false;
+		const end = (resetForm: boolean) => {
+			if (ended) return;
+			ended = true;
+			showSuccess(resetForm);
+			setIsLoading(false);
+		};
+		if (changesFragmentOnly(target)) {
+			setTimeout(() => {
+				globalThis.location.assign(target);
+				end(true);
+			}, 0);
+			return;
+		}
+		globalThis.addEventListener('pageshow', (event: PageTransitionEvent) => {
+			if (event.persisted) end(true);
+		}, {once: true});
+		setTimeout(() => {
+			globalThis.location.assign(target);
+			setTimeout(() => end(false), REDIRECT_FALLBACK_MS);
+		}, 0);
 	};
 
 	/** What the visitor sees of a rejection — or of a request that never got an answer. */

@@ -81,7 +81,8 @@ Browser
                         - reconstructs multipart/form-data body with pre-parsed files
                         - POSTs to resolved URI
 
-       └─ { "success": true, ...entries of the response enrichers } or { "success": false, "errorCode": "FMDB-XXX" }
+       └─ { "success": true, ...entries of the response enrichers, "redirect", "userMessage" }
+          or { "success": false, "errorCode": "FMDB-XXX" }
   └─ show success or error message
 ```
 
@@ -92,9 +93,65 @@ Once every action succeeded, the servlet asks the `SubmissionResponseEnricher` O
 `AcceptedSubmission` — the live form node, its site key, the locale and a snapshot of the validated
 parameters (declared, non-file fields) — and answers a map of top-level keys. An enricher never
 fails a submission: an exception is logged and its entries left out; the keys the servlet writes
-(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`, `messages`) cannot be overwritten; a rejected
-submission is never enriched. The jExperience module contributes its `jexperience` block this way.
-See [How to enrich the submission response](../extension/how-to-enrich-the-submission-response.md).
+(`success`, `errorCode`, `actionsCompleted`, `actionsTotal`, `messages`, `redirect`, `userMessage`) cannot be
+overwritten; a rejected submission is never enriched. The jExperience module contributes its `jexperience` block
+this way. See [How to enrich the submission response](../extension/how-to-enrich-the-submission-response.md).
+
+### Contextual actions: the response, a redirect, a message for the visitor
+
+A plain `FormAction` receives five arguments and returns nothing: it cannot touch the response nor tell the
+browser what to do next. A `ContextualFormAction` (engine `api` package, same OSGi registration:
+`@Component(service = FormAction.class)`) is handed one `FormActionContext` and returns a `FormActionResult`:
+
+| Part | What it carries |
+|---|---|
+| `FormActionContext` | the action node and the form (one system session), the request, the **response** (to set a cookie; never to write the body), the visitor's session at submission time, the submission's `locale` and the form's `siteKey`, the `parameters`, the validated `files`. `sensitiveParameters` is always empty: no field type is sensitive |
+| `FormActionResult` | a redirect of one of two kinds, `redirectPath` (`redirectTo(path)`) or `redirectUrl` (`redirectToUrl(url)`), and/or a `message` (plain text, already translated) for the browser; `FormActionResult.none()` for nothing |
+
+The request reaches the engine through the platform's `/modules` bridge, so `request.getContextPath()` is
+`<context>/modules`. An action builds from `Jahia.getContextPath()`, never from the request: a page path is
+`Jahia.getContextPath() + path`, and a cookie path is `Jahia.getContextPath()`, or `/` when it is empty. A cookie set
+without a path is scoped to the engine's servlet and never reaches the site's pages.
+
+The pipeline keeps the **first redirect, of either kind, and the first message** in action-list order. Each kind of
+redirect has its own rule (`RedirectTargets`), and a target its rule refuses is dropped with a warning and never
+reaches the browser:
+
+| Kind | Rule | For |
+|---|---|---|
+| `redirectTo(path)` | `sameOriginPath`: one leading slash, no scheme, no authority | any target, one computed from the request included |
+| `redirectToUrl(url)` | `httpUrl`: an absolute `http` or `https` URL with a host and no user info | a URL read from the configuration only: from the request, it would be an open redirect |
+
+Both rules refuse a target longer than 2048 characters and one holding a backslash, a control character, any space
+or line separator, or an invisible format character such as U+FEFF. The path rule checks the origin, not the site: a
+path of another site served by this server passes. After the authority, both rules percent-encode what
+`java.net.URI` refuses and a browser accepts, as the browser would: `" < > [ ] ^ ` { | }`, a `%` not followed by two
+hexadecimal digits, and a `#` inside the fragment. `?q=a|b` is sent as `?q=a%7Cb`. The URL rule also refuses a port
+above 65535 or one that is not a number. The island's check agrees with both rules on one list of cases,
+`formidable-engine/src/test/resources/redirect-targets.json`, which the tests of both sides read.
+
+The servlet writes the redirect, of either kind, as `redirect` and the message as `userMessage` (HTML-escaped) in the
+`200` body, after the enrichers, which cannot take these keys. A rejected submission carries neither.
+
+The island fires `formidable:submitted`, with `{formId, response, waitUntil}` as detail. A listener that sends a
+request the page must not cancel, such as the jExperience form event, hands a promise to `waitUntil(promise)`
+during the dispatch; a call after the dispatch is ignored. Then:
+
+- with a `redirect` it checked again with the same rules and forbidden characters (`isSameOriginPath`,
+  `isHttpUrl`), it waits for the promises handed to `waitUntil` to settle, fulfilled or rejected, for 1 second at
+  most, then navigates there with `location.assign` in a task of its own, without the minimum feedback pause. The
+  redirect replaces the success message, `userMessage` included, and the spinner stays during the wait.
+  - A target that only changes the fragment ends at once as a submission without redirect: the success message,
+    the form reset.
+  - A page the browser restores from its back-forward cache ends the same way.
+  - Otherwise the spinner stays for up to 3 seconds. A page the navigation leaves in place that long (a target that
+    answers with a download) shows the success message and stops the spinner, but keeps the form as it is: no
+    reset, no `formidable:reset`, no return to the first step. The timer cannot tell a download from a next page
+    slow to answer, so it undoes nothing that page would show;
+- without one, it waits for the rest of the minimum feedback pause, shows `userMessage` instead of the form's
+  submission message when there is one, and resets the form.
+
+A failure of a contextual action is the opaque `FMDB-008`, as for a plain action.
 
 > **DoS mitigation (defence in depth):**
 - Gate 0: cross-origin requests are rejected before the multipart pipeline starts
