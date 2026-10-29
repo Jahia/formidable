@@ -1,0 +1,669 @@
+/* "Registration Yellow": the stylesheet of this test template set, and the worked example of a template
+   set styling Formidable forms (docs/styling/). Adapted from the "Responsive Registration Form" model
+   (https://codepen.io/anandaprojapati/pen/GmrwYE): white card with a yellow top border, flat square
+   fields with a yellow focus glow, black checks, full-width flat yellow submit button (the model's
+   entrance animations were deliberately left out).
+
+   Imported by src/templates/Layout.tsx, so Vite bundles it into dist/assets/style.css, the file the
+   Layout adds to every page's head. The manual-testing playground renders it on its CSS site, next to
+   a site on the JSP test template set that ships no stylesheet (tests/README.md).
+
+   What the file covers, and in what order: the palette; every family of docs/styling/css-variables.md,
+   set on the form (the buttons and the message are the exception the doc names: rendered beside the
+   form, they read their variables from .fmdb-message as well); then one section per family of class
+   hooks of docs/styling/class-hooks.md, the visitor's form first, the authoring surfaces last. The
+   authoring chrome (actions zones, hidden-field lines) is left to its variables, as the doc asks. */
+
+/* --- Palette. Declared on the message as well as on the form: the message after a submission is
+   rendered beside the form, not inside it, so a variable declared on .fmdb-form alone is undefined
+   there, and a declaration that reads one, `border: 1px solid var(--reg-grey)`, is then dropped
+   whole, which left the "new form" button with no border at all. */
+.fmdb-form,
+.fmdb-message {
+	--reg-yellow: #f5ba1a;
+	--reg-yellow-dark: #dda40a;
+	--reg-yellow-pale: #fff8e1;
+	--reg-black: #000000;
+	--reg-grey: #cccccc;
+	--reg-grey-light: #fafafa;
+	--reg-ink: #333333;
+	--reg-muted: #7b7b7b;
+	--reg-error: #c0392b;
+	--reg-font: Verdana, Geneva, sans-serif;
+
+	/* Buttons (css-variables.md, Buttons): the one family read on both surfaces. Flat and square, 35px
+	   high whatever the border (line height 33px plus the 1px border on each side), the primary in the
+	   model's yellow, the secondary white on grey, a disabled button grey rather than faded. */
+	--fmdb-btn-padding: 0 18px;
+	--fmdb-btn-gap: 8px;
+	--fmdb-btn-radius: 0;
+	--fmdb-btn-border-width: 1px;
+	--fmdb-btn-font-size: 1.1em;
+	--fmdb-btn-font-weight: 400;
+	--fmdb-btn-line-height: 33px;
+	--fmdb-btn-transition: background-color 0.3s ease-in-out, border-color 0.3s ease-in-out, color 0.3s ease-in-out;
+	--fmdb-btn-focus-outline-color: var(--reg-yellow-dark);
+	--fmdb-btn-focus-outline-width: 2px;
+	--fmdb-btn-focus-outline-offset: 2px;
+	--fmdb-btn-disabled-opacity: 1;
+	--fmdb-btn-primary-bg: var(--reg-yellow);
+	--fmdb-btn-primary-color: var(--reg-black);
+	--fmdb-btn-primary-hover-bg: var(--reg-yellow-dark);
+	--fmdb-btn-secondary-bg: #ffffff;
+	--fmdb-btn-secondary-color: var(--reg-ink);
+	--fmdb-btn-secondary-border: var(--reg-grey);
+	--fmdb-btn-secondary-hover-bg: var(--reg-grey-light);
+	--fmdb-btn-danger-bg: var(--reg-error);
+	--fmdb-btn-danger-color: #ffffff;
+	--fmdb-btn-danger-hover-bg: #a93226;
+	--fmdb-form-actions-gap: 10px;
+	--fmdb-form-actions-mt: 10px;
+	--fmdb-new-form-btn-mt: 12px;
+	--fmdb-new-form-btn-width: 100%;
+}
+
+.fmdb-form {
+	/* Validation (css-variables.md, Validation): the message under a field in the card's small scale, the
+	   invalid control in the model's red, a warning in a darker yellow, the "Checking…" line muted. */
+	--fmdb-validation-error-color: var(--reg-error);
+	--fmdb-validation-error-font-size: 12px;
+	--fmdb-validation-error-mt: 4px;
+	--fmdb-validation-error-padding: 0;
+	--fmdb-validation-error-line-height: 1.4;
+	--fmdb-invalid-border-color: var(--reg-error);
+	--fmdb-invalid-outline-color: rgba(192, 57, 43, 0.25);
+	--fmdb-validation-warning-color: #8a6d00;
+	--fmdb-validation-warning-font-size: 12px;
+	--fmdb-validation-warning-mt: 4px;
+	--fmdb-validation-warning-padding: 0;
+	--fmdb-validation-warning-line-height: 1.4;
+	--fmdb-field-action-pending-opacity: 0.6;
+	--fmdb-field-action-pending-transition: 150ms ease-in-out;
+	--fmdb-field-action-checking-font-size: 11px;
+	--fmdb-field-action-checking-color: var(--reg-muted);
+	--fmdb-field-action-checking-font-style: italic;
+	--fmdb-field-action-checking-line-height: 1.4;
+	--fmdb-field-action-checking-mt: 4px;
+	--fmdb-field-action-checking-padding: 0;
+	--fmdb-field-action-checking-gap: 0.375em;
+	--fmdb-field-action-checking-glyph-size: 1em;
+	--fmdb-field-action-checking-turn: 1s;
+
+	/* Range slider (css-variables.md, Range slider). */
+	--fmdb-range-gap: 10px;
+	--fmdb-range-end-label-size: 12px;
+	--fmdb-range-output-min-width: 3ch;
+
+	/* Matrix fieldset (css-variables.md, Matrix fieldset): the heading row in the labels' scale and weight,
+	   a grey rule under it, every second row tinted with the model's yellow. */
+	--fmdb-matrix-row-label-width: minmax(8rem, 2fr);
+	--fmdb-matrix-column-gap: 8px;
+	--fmdb-matrix-row-padding: 6px 0;
+	--fmdb-matrix-header-weight: 700;
+	--fmdb-matrix-header-border: 1px solid var(--reg-grey);
+	--fmdb-matrix-row-stripe: rgba(245, 186, 26, 0.08);
+
+	/* Multi-step navigation (css-variables.md, Multi-step navigation): the current step in the model's
+	   yellow, the steps already passed in its black, the others muted; square badges like the flat fields. */
+	--fmdb-steps-nav-gap: 4px;
+	--fmdb-steps-nav-mb: 20px;
+	--fmdb-step-gap: 8px;
+	--fmdb-step-padding: 6px 8px;
+	--fmdb-step-font-size: 12px;
+	--fmdb-step-color: var(--reg-muted);
+	--fmdb-step-border: var(--reg-grey);
+	--fmdb-step-border-width: 2px;
+	--fmdb-step-transition: color 0.3s ease-in-out, border-color 0.3s ease-in-out;
+	--fmdb-step-active-color: var(--reg-ink);
+	--fmdb-step-active-border: var(--reg-yellow);
+	--fmdb-step-active-font-weight: 700;
+	--fmdb-step-done-color: var(--reg-ink);
+	--fmdb-step-done-border: var(--reg-black);
+	--fmdb-step-done-font-weight: 400;
+	--fmdb-step-number-size: 22px;
+	--fmdb-step-number-radius: 0;
+	--fmdb-step-number-font-size: 11px;
+	--fmdb-step-number-font-weight: 700;
+	--fmdb-step-number-bg: var(--reg-grey);
+	--fmdb-step-number-color: var(--reg-ink);
+	--fmdb-step-active-number-bg: var(--reg-yellow);
+	--fmdb-step-active-number-color: var(--reg-black);
+	--fmdb-step-done-number-bg: var(--reg-black);
+	--fmdb-step-done-number-color: #ffffff;
+
+	/* Conditional logic (css-variables.md, Conditional logic): the edit-mode card that marks a field a
+	   rule drives, kept, in the card's pale yellow and square like the rest. Nothing is drawn in live. */
+	--fmdb-logic-target-card-display: inline-block;
+	--fmdb-logic-target-card-bg: var(--reg-yellow-pale);
+	--fmdb-logic-target-card-shadow: 0 0 0 4px var(--reg-yellow-pale), 0 2px 4px rgba(0, 0, 0, 0.35);
+	--fmdb-logic-target-card-radius: 0;
+
+	/* Authoring spacing (css-variables.md, Authoring spacing): the room the Page Builder gets between the
+	   levels of a form, in the card's rhythm. */
+	--fmdb-zone-list-padding: 12px;
+	--fmdb-zone-step-padding: 12px 15px;
+	--fmdb-zone-step-margin: 12px 0;
+	--fmdb-zone-field-margin: 12px;
+
+	/* Form actions zone (css-variables.md, Form actions zone): authoring chrome, kept grey so it reads as
+	   such; only its shape and font follow the card. The colours stay the modules' own. */
+	--fmdb-zone-actions-margin: 15px;
+	--fmdb-zone-actions-padding: 12px;
+	--fmdb-zone-actions-border: 1px dashed var(--reg-grey);
+	--fmdb-zone-actions-radius: 0;
+	--fmdb-zone-actions-font: 400 13px/1.35 var(--reg-font);
+	--fmdb-zone-field-actions-margin: 8px 0 0 20px;
+	--fmdb-zone-field-actions-padding: 8px 10px;
+	--fmdb-zone-hidden-field-padding: 6px 10px;
+
+	/* Spinner (css-variables.md, Spinner): the arc in the model's yellow on a light track, square overlay. */
+	--fmdb-spinner-overlay-min-height: 120px;
+	--fmdb-spinner-overlay-bg: rgba(255, 255, 255, 0.95);
+	--fmdb-spinner-overlay-backdrop: blur(2px);
+	--fmdb-spinner-overlay-radius: 0;
+	--fmdb-spinner-overlay-margin: 15px 0;
+	--fmdb-spinner-gap: 12px;
+	--fmdb-spinner-color: var(--reg-yellow);
+	--fmdb-spinner-track-color: #eeeeee;
+	--fmdb-spinner-duration: 1s;
+	--fmdb-spinner-text-color: var(--reg-muted);
+	--fmdb-spinner-text-weight: 400;
+
+	/* Prefilled fields (css-variables.md, Prefilled fields): a read-only prefilled field toned down a little more. */
+	--fmdb-prefilled-readonly-opacity: 0.7;
+	--fmdb-prefilled-readonly-pointer-events: none;
+
+	/* Extended inputs (css-variables.md, Extended inputs): square chips on grey, the selected one and the
+	   rating in the model's yellow with black text, the switch track yellow when on, the card field
+	   (formidable-extended-inputs, Card) in the same tones. */
+	--fmdbext-chip-bg: transparent;
+	--fmdbext-chip-border: var(--reg-grey);
+	--fmdbext-chip-radius: 0;
+	--fmdbext-chip-on-bg: var(--reg-yellow);
+	--fmdbext-chip-on-fg: var(--reg-black);
+	--fmdbext-chip-min-width: 2.25rem;
+	--fmdbext-focus: var(--reg-yellow-dark);
+	--fmdbext-rating-on: var(--reg-yellow);
+	--fmdbext-rating-off: var(--reg-grey);
+	--fmdbext-rating-size: 1.75rem;
+	--fmdbext-rating-gap: 4px;
+	--fmdbext-scale-gap: 4px;
+	--fmdbext-scale-max-width: 100%;
+	--fmdbext-switch-on-bg: var(--reg-yellow);
+	--fmdbext-switch-off-bg: var(--reg-grey);
+	--fmdbext-switch-knob: #ffffff;
+	--fmdbext-end-labels-color: var(--reg-muted);
+	--fmdbext-warning-fg: #7a4d05;
+	--fmdbext-warning-bg: var(--reg-yellow-pale);
+	--fmdbext-warning-border: var(--reg-yellow);
+	--fmdbext-card-min-width: 10rem;
+	--fmdbext-card-gap: 10px;
+	--fmdbext-card-padding: 12px 15px;
+	--fmdbext-card-border: var(--reg-grey);
+	--fmdbext-card-radius: 0;
+	--fmdbext-card-bg: #ffffff;
+	--fmdbext-card-color: var(--reg-ink);
+	--fmdbext-card-selected-color: var(--reg-yellow);
+	--fmdbext-card-selected-bg: var(--reg-yellow-pale);
+	--fmdbext-card-focus-color: var(--reg-yellow-dark);
+
+	/* The card itself. Wide enough for the Matrix view of a fieldset, which goes back to the stacked
+	   layout of a group under 36rem of width (docs/styling/README.md, The matrix view of a fieldset),
+	   with the room the authoring spacing takes in the Page Builder left over. */
+	font-family: var(--reg-font);
+	font-size: 14px;
+	color: var(--reg-ink);
+	background: #ffffff;
+	width: min(100%, 46rem);
+	box-sizing: border-box;
+	padding: 25px;
+	margin: 40px auto;
+	border-top: 5px solid var(--reg-yellow);
+	border-radius: 0;
+	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+	accent-color: var(--reg-black);
+}
+
+/* --- The form and its texts (class-hooks.md, The form and its fields). */
+.fmdb-form .fmdb-form-intro {
+	text-align: center;
+	padding-bottom: 15px;
+	margin-bottom: 10px;
+	color: var(--reg-ink);
+	line-height: 1.5em;
+}
+
+/* A rich-text block placed among the fields: the intro's rhythm, left-aligned like the fields around it. */
+.fmdb-form .fmdb-content-text {
+	margin: 0 0 20px;
+	color: var(--reg-ink);
+	line-height: 1.5em;
+}
+
+.fmdb-form .fmdb-content-text > :first-child {
+	margin-top: 0;
+}
+
+.fmdb-form .fmdb-content-text > :last-child {
+	margin-bottom: 0;
+}
+
+.fmdb-form .fmdb-form-group {
+	margin-bottom: 20px;
+}
+
+/* --- Steps (class-hooks.md, fmdb-step, fmdb-step-title, fmdb-step-intro; the navigation is drawn by the
+   variables above). The title and the intro show when the steps are rendered in full: navigation off, or
+   the flat authoring view. A heading in the card's scale, not the page's h2. */
+.fmdb-form .fmdb-step-title {
+	margin: 0 0 12px;
+	font-size: 16px;
+	font-weight: 700;
+	color: var(--reg-ink);
+}
+
+.fmdb-form .fmdb-step-intro {
+	margin-bottom: 15px;
+	color: var(--reg-muted);
+	line-height: 1.5em;
+}
+
+/* --- Labels and legends. The file field's label carries .fmdb-form-label too, so it follows. */
+.fmdb-form .fmdb-form-label,
+.fmdb-form .fmdb-group-legend {
+	display: inline-block;
+	margin-bottom: 6px;
+	font-size: 12px;
+	color: var(--reg-ink);
+}
+
+.fmdb-form fieldset.fmdb-form-group {
+	border: none;
+	padding: 0;
+	margin-inline: 0;
+	min-inline-size: 0;
+}
+
+.fmdb-form .fmdb-required-indicator {
+	color: var(--fmdb-validation-error-color);
+	margin-left: 0.15rem;
+}
+
+/* Help text: small, muted, tucked right under its label (or under the legend of a fieldset). The label
+   keeps its 6px gap before a control but only 2px before a help text; the help text is rich text from the
+   editor (paragraphs), whose margins are flattened so it stays one tight block. */
+.fmdb-form .fmdb-form-label:has(+ .fmdb-form-help),
+.fmdb-form .fmdb-group-legend:has(+ .fmdb-form-help) {
+	margin-bottom: 2px;
+}
+
+.fmdb-form .fmdb-form-help {
+	margin: 0 0 6px;
+	color: var(--reg-muted);
+	font-size: 11px;
+	line-height: 1.4;
+}
+
+.fmdb-form .fmdb-form-help p {
+	margin: 0;
+}
+
+/* --- Fieldset (class-hooks.md, fmdb-fieldset, fmdb-fieldset-legend, fmdb-fieldset-elements): a thin square
+   frame in the model's flat style, a yellow accent echoing the card's top border, the legend in the label's
+   scale. No bottom padding: the last field's own margin ends the frame. */
+.fmdb-form .fmdb-fieldset {
+	margin: 0 0 20px;
+	padding: 12px 15px 0;
+	border: 1px solid var(--reg-grey);
+	border-top: 3px solid var(--reg-yellow);
+	border-radius: 0;
+	min-inline-size: 0;
+}
+
+.fmdb-form .fmdb-fieldset-legend {
+	padding: 0 6px;
+	margin-left: -6px;
+	font-size: 12px;
+	font-weight: 700;
+	color: var(--reg-ink);
+}
+
+/* The fieldset's own help text sits under its legend, above its elements. */
+.fmdb-form .fmdb-fieldset > .fmdb-form-help {
+	margin-bottom: 12px;
+}
+
+/* --- Matrix view of a fieldset (class-hooks.md, fmdb-matrix and its heading row): the layout is the
+   module's, driven by the variables above; the heading row only takes the labels' scale. */
+.fmdb-form .fmdb-matrix-header {
+	font-size: 12px;
+	color: var(--reg-ink);
+}
+
+/* --- Controls (class-hooks.md, fmdb-form-control): inputs, selects, textareas flat, square, thin grey
+   border; the focus glow replaces the outline. */
+.fmdb-form .fmdb-form-control {
+	width: 100%;
+	min-height: 35px;
+	padding: 8px 10px;
+	border: 1px solid var(--reg-grey);
+	border-radius: 0;
+	background: #ffffff;
+	box-sizing: border-box;
+	color: var(--reg-ink);
+	font-family: inherit;
+	font-size: 14px;
+	outline: none;
+	transition: all 0.3s ease-in-out;
+}
+
+.fmdb-form .fmdb-form-control:hover {
+	background: var(--reg-grey-light);
+}
+
+.fmdb-form .fmdb-form-control:focus,
+.fmdb-form .fmdb-form-control:focus-visible {
+	border-color: var(--reg-yellow);
+	background: var(--reg-grey-light);
+	box-shadow: 0 0 2px 1px rgba(255, 169, 0, 0.5);
+}
+
+/* An invalid control (fmdb-invalid) keeps the glow, in the error's red. */
+.fmdb-form .fmdb-form-control.fmdb-invalid:focus,
+.fmdb-form .fmdb-form-control.fmdb-invalid:focus-visible {
+	box-shadow: 0 0 2px 1px var(--fmdb-invalid-outline-color);
+}
+
+.fmdb-form select.fmdb-form-control {
+	cursor: pointer;
+	color: var(--reg-muted);
+}
+
+.fmdb-form select.fmdb-form-control:hover,
+.fmdb-form select.fmdb-form-control:focus {
+	color: var(--reg-black);
+	border-color: var(--reg-black);
+}
+
+.fmdb-form textarea.fmdb-form-control {
+	min-height: 7rem;
+	resize: vertical;
+}
+
+.fmdb-form input[type="color"].fmdb-form-control {
+	display: block;
+	width: 100%;
+	height: 35px;
+	padding: 3px;
+	cursor: pointer;
+}
+
+/* A range slider (class-hooks.md, fmdb-range*): the native slider in the card's accent, its output muted. */
+.fmdb-form input[type="range"].fmdb-form-control {
+	min-height: 0;
+	padding: 0;
+	border: none;
+	background: transparent;
+	box-shadow: none;
+}
+
+.fmdb-form .fmdb-range-output,
+.fmdb-form .fmdb-range-end-label {
+	color: var(--reg-muted);
+}
+
+/* One field targeted by name (class-hooks.md, data-fmdb-node-name): the free-text message of the contact
+   forms gets more room than a textarea's default. */
+.fmdb-form [data-fmdb-node-name="message"] textarea.fmdb-form-control {
+	min-height: 9rem;
+}
+
+/* --- File field (class-hooks.md, fmdb-file-*): the native button in the model's yellow, the selected files
+   listed as flat rows. */
+.fmdb-form input[type="file"].fmdb-form-control {
+	cursor: pointer;
+}
+
+.fmdb-form input[type="file"].fmdb-form-control::file-selector-button {
+	margin-right: 10px;
+	border: none;
+	border-radius: 0;
+	padding: 6px 14px;
+	background: var(--reg-yellow);
+	color: var(--reg-black);
+	font-family: inherit;
+	cursor: pointer;
+	transition: all 0.3s ease-in-out;
+}
+
+.fmdb-form input[type="file"].fmdb-form-control::file-selector-button:hover {
+	background: var(--reg-yellow-dark);
+}
+
+.fmdb-form input[type="file"].fmdb-form-control:disabled::file-selector-button {
+	background: var(--reg-grey);
+	cursor: not-allowed;
+}
+
+.fmdb-form .fmdb-selected-files {
+	margin-top: 8px;
+}
+
+.fmdb-form .fmdb-selected-files-title,
+.fmdb-form .fmdb-file-selection-note {
+	font-size: 12px;
+	color: var(--reg-muted);
+}
+
+.fmdb-form .fmdb-file-list {
+	margin: 4px 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.fmdb-form .fmdb-file-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 5px 8px;
+	border: 1px solid var(--reg-grey);
+	margin-bottom: 4px;
+	font-size: 12px;
+}
+
+.fmdb-form .fmdb-file-info {
+	display: flex;
+	align-items: baseline;
+	gap: 8px;
+	min-width: 0;
+}
+
+.fmdb-form .fmdb-file-name {
+	color: var(--reg-ink);
+	overflow-wrap: anywhere;
+}
+
+.fmdb-form .fmdb-file-size {
+	color: var(--reg-muted);
+	white-space: nowrap;
+}
+
+.fmdb-form .fmdb-file-remove {
+	margin-left: auto;
+	border: none;
+	background: transparent;
+	color: var(--reg-muted);
+	cursor: pointer;
+}
+
+.fmdb-form .fmdb-file-remove:hover {
+	color: var(--fmdb-validation-error-color);
+}
+
+/* --- Radio and checkbox groups (class-hooks.md, fmdb-group-items, fmdb-group-item, the option labels):
+   minimal rows, black checks like the model. Checkables carry .fmdb-form-control too: undo the text-field sizing. */
+.fmdb-form input[type="checkbox"].fmdb-form-control,
+.fmdb-form input[type="radio"].fmdb-form-control {
+	width: 16px;
+	height: 16px;
+	min-height: 0;
+	padding: 0;
+	flex: none;
+	box-shadow: none;
+	cursor: pointer;
+}
+
+.fmdb-form .fmdb-group-items {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.fmdb-form .fmdb-group-item {
+	display: flex;
+	align-items: center;
+	gap: 0.5em;
+	padding: 2px 0;
+	border: none;
+	background: transparent;
+}
+
+.fmdb-form .fmdb-checkbox-label,
+.fmdb-form .fmdb-radio-label {
+	font-size: 13px;
+	color: var(--reg-ink);
+	cursor: pointer;
+}
+
+/* A choice field whose options source is unavailable (class-hooks.md, fmdb-options-source-error,
+   fmdb-field-error): the message in the error's red; a blocking one frames the group too. */
+.fmdb-form .fmdb-field-error {
+	margin: 4px 0 0;
+	color: var(--fmdb-validation-error-color);
+	font-size: 12px;
+}
+
+.fmdb-form [data-fmdb-source-error="blocking"] {
+	padding: 8px 10px;
+	border-left: 3px solid var(--fmdb-validation-error-color);
+}
+
+/* --- Captcha (class-hooks.md, fmdb-captcha): the widget on the last step, spaced like a field. */
+.fmdb-form .fmdb-captcha {
+	margin-bottom: 20px;
+}
+
+/* --- Buttons (class-hooks.md, fmdb-form-actions, fmdb-btn and its variants): drawn by the variables above.
+   The primary (Submit, Next) takes the room left, so it is full width when alone and shares the row with
+   Previous or Reset otherwise. A disabled button is grey rather than faded, and its hover is guarded by
+   the modules' rules, so it reads as unavailable instead of merely looking clickable. */
+.fmdb-form .fmdb-btn-primary {
+	flex: 1;
+}
+
+.fmdb-form .fmdb-btn-secondary:hover:not(:disabled),
+.fmdb-message .fmdb-btn-secondary:hover:not(:disabled) {
+	border-color: var(--reg-black);
+}
+
+.fmdb-form .fmdb-btn:disabled,
+.fmdb-message .fmdb-btn:disabled {
+	background: var(--reg-grey);
+	border-color: var(--reg-grey);
+	color: var(--reg-muted);
+}
+
+/* --- Messages after a submission (class-hooks.md, fmdb-message and its kinds): the card's own scale,
+   font size included — the message is not inside the form, so it inherits the page's font size unless
+   told, and the buttons size themselves in em. The left border tells the kind: yellow for a success,
+   red for an error, grey under maintenance. */
+.fmdb-message {
+	font-family: var(--reg-font);
+	font-size: 14px;
+	color: var(--reg-ink);
+	width: min(100%, 46rem);
+	box-sizing: border-box;
+	margin: 15px auto;
+	padding: 12px 15px;
+	border: 1px solid var(--reg-grey, #cccccc);
+	border-left: 5px solid var(--reg-yellow, #f5ba1a);
+	background: #ffffff;
+	box-shadow: 0 0 3px rgba(0, 0, 0, 0.1);
+}
+
+.fmdb-message.fmdb-message-error {
+	border-left-color: var(--reg-error);
+}
+
+.fmdb-message.fmdb-message-maintenance {
+	border-left-color: var(--reg-grey);
+}
+
+.fmdb-message .fmdb-message-content > :first-child {
+	margin-top: 0;
+}
+
+.fmdb-message .fmdb-message-content > :last-child {
+	margin-bottom: 0;
+}
+
+.fmdb-message .fmdb-message-details {
+	display: block;
+	margin-top: 6px;
+	font-size: 11px;
+	color: var(--reg-muted);
+}
+
+/* --- Extended inputs (class-hooks.md, Extended inputs): the chips, the rating, the switch and the card
+   are drawn by the variables above; the consent's statement and its terms link take the card's tones. */
+.fmdb-form .fmdbext-consent-label {
+	font-size: 13px;
+	color: var(--reg-ink);
+}
+
+.fmdb-form .fmdbext-consent-terms-link {
+	color: var(--reg-yellow-dark);
+	text-decoration: underline;
+}
+
+.fmdb-form .fmdbext-consent-terms-link:hover,
+.fmdb-form .fmdbext-consent-terms-link:focus-visible {
+	color: var(--reg-black);
+}
+
+.fmdb-form .fmdbext-scale-label,
+.fmdb-form .fmdbext-switch-button-label,
+.fmdb-form .fmdbext-rating-items[data-fmdbext-icon="number"] .fmdbext-rating-label {
+	font-size: 13px;
+}
+
+/* --- Surfaces (class-hooks.md, Surfaces: live, edit mode, inspection previews). The inspection preview
+   renders the form as a div with no buttons: the card keeps its frame, without the room a button row
+   would take at the bottom. In edit mode the Page Builder's boxes sit on the card; nothing else to draw. */
+.fmdb-form[data-fmdb-cm-view="true"] {
+	margin: 15px auto;
+}
+
+/* A form reference with no form selected (class-hooks.md, fmdb-form-reference-empty), edit mode only:
+   a dashed frame in the card's tones, so the empty box can be found and clicked. */
+.fmdb-form-reference-empty {
+	padding: 12px 15px;
+	border: 1px dashed var(--reg-grey, #cccccc);
+	color: var(--reg-muted, #7b7b7b);
+	font-family: var(--reg-font, Verdana, Geneva, sans-serif);
+	font-size: 13px;
+}
+
+/* --- Motion: the transitions above are decoration; a visitor who asked for less motion gets none. */
+@media (prefers-reduced-motion: reduce) {
+	.fmdb-form,
+	.fmdb-message {
+		--fmdb-btn-transition: none;
+		--fmdb-step-transition: none;
+	}
+
+	.fmdb-form .fmdb-form-control,
+	.fmdb-form input[type="file"].fmdb-form-control::file-selector-button {
+		transition: none;
+	}
+}
