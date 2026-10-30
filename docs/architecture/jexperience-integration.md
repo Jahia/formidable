@@ -348,6 +348,13 @@ this is the level where the script is tested. The touched guard reads `isTrusted
 only on the events of a click: its case uses radios. The same applies to the reset case, because jsdom
 keeps the `selectedOptions` of a select after a reset.
 
+**Checked by hand (2026-10-30)**, with jExperience and jCustomer 3 on the local stack, on the playground's
+complete form: its `country` select is mapped to `countryName` with Prefill on and `then: hidden`, and
+"Company size" has the rule `country` is in `FR`. A visitor whose profile has no `countryName` gets the
+select visible and empty, and "Company size" hidden until the visitor picks France. With `countryName: FR`
+on the same profile, a reload fills and hides the select, its value still submitted, and "Company size" is
+shown. With `DE`, "Company size" stays hidden.
+
 ---
 
 ## The identifier
