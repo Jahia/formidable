@@ -1,5 +1,63 @@
 # formidable Changelog
 
+## 0.6.0
+
+### New Features
+
+* Added a One-at-a-time form experience that shows one field or fieldset per screen, inside the form's steps. Visitors move on with Next, the Enter key, or one pick in a radio group, card, rating or scale, and fields hidden by conditional logic are skipped (#423)
+
+* Added a Phone field that shows the phone keypad on mobile devices and checks the format of the number (#459)
+
+  The browser offers the visitor's saved number, and an author can replace the default format with a stricter one or turn the format check off.
+
+* Added a warning in Page Builder when a form’s captcha is not set up, and a line naming a sign-in-only form (#416)
+
+* Added a help text to fieldsets, shown under the legend and read with the group by assistive technology (#441)
+
+* Added a Matrix view for fieldsets: radio or checkbox fields with the same options lay out as a grid (#439)
+
+* Added the choice to attach imported Jahia Forms results to an existing form, with its field names mapped (#397)
+
+* Improved the Jahia Forms import: a radios or checkboxes matrix becomes a grid of fields, one per row (#440)
+
+* Changed the Jahia Forms import into an optional add-on: install Formidable Forms Import, enable it on the site (#414)
+
+* Added the visitor profile mapping of imported Jahia Forms fields prefilled from a jCustomer property (#399, #403)
+
+* Added a downloadable report of each Jahia Forms import: what each submission lost and what to redo by hand (#403)
+
+* Improved the Jahia Forms import review: one row per form, plain to-do lists, and a choice not to import a form (#402)
+
+* Added the import of Jahia Forms results from the Results page, with their forms recreated on request (#393, #396)
+
+* Added a Card field that shows the options of a single-choice question as clickable cards (#421)
+
+  The Formidable library now gives developers the options of a choice field, so their own choice fields support every options mode.
+
+* Added a Redirect action that sends visitors to a page or a web address after they submit a form (#152)
+
+  Forms imported from Jahia Forms keep the redirect they had.
+
+### Bug Fixes
+
+* Added maven.jahia.com to the Maven repositories formidable uses to download its dependencies.
+
+* Fixed forms in a multi-column layout so the columns beside them no longer drop below in Page Builder (#407)
+
+* Fixed Page Builder drawing a captcha challenge: a Captcha line marks its place, shown in preview and live (#410)
+
+* Fixed jContent crashing ("Something wrong happened") on a right click or in list mode once formidable was installed on a Jahia whose app-shell loads its shared libraries before the UI extensions: the editor extensions of formidable no longer ship Apollo Client in development mode, which froze the query results jContent sorts
+
+* Fixed e-mail actions losing their message to one mistyped address: valid recipients get it, the typo is logged (#411)
+
+* Fixed the field actions zone, which offered a button that did nothing on a site with no field-action type (#430)
+
+* Fixed the fields and actions lists of a form, which a contributor could delete or cut by mistake (#418)
+
+* Changed the Jahia Forms import to import nothing until you choose, with a menu that chooses for all forms at once (#437)
+
+* Hid the Conditional display section from the create dialog of a field, the rules come once the field exists (#449)
+
 ## 0.5.0
 
 ### New Features
