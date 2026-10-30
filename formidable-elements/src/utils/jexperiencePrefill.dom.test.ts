@@ -17,7 +17,7 @@ interface Fixture {
 	/** How the source field renders: a select, radios, or a text input. */
 	shape?: 'select' | 'radio' | 'text';
 	/** What follows the write, as the block carries it; absent is "editable". */
-	then?: 'readOnly' | 'hidden';
+	afterWrite?: 'readOnly' | 'hidden';
 	/** The loaded profile's properties; undefined is no tracker on the page. */
 	profile?: Record<string, unknown>;
 	/** The tracker is there but has not run its callbacks yet: the context arrives later. */
@@ -48,9 +48,11 @@ const ruleFor = (shape: Fixture['shape']) => JSON.stringify(parseConditionalLogi
 /** The document listeners each script instance adds; removed after the test, or a stale instance would prefill the next form. */
 let documentListeners: Array<[string, EventListenerOrEventListenerObject]> = [];
 
-function mount({shape = 'select', then, profile, contextLater = false, activateWem}: Fixture = {}) {
-	const block = {formId: FORM_ID, name: 'Contact', path: '/sites/mysite/contents/contact', prefill: {country: {property: 'country', ...(then ? {then} : {})}}};
-	document.body.innerHTML = `<script type="application/json" data-formidable-jxp="${FORM_ID}">${JSON.stringify(block)}</script>`
+function mount({shape = 'select', afterWrite, profile, contextLater = false, activateWem}: Fixture = {}) {
+	// Written as JSON: the block's key is `then`, which an object literal would make a thenable (Sonar S7739).
+	const entry = afterWrite ? `{"property":"country","then":"${afterWrite}"}` : '{"property":"country"}';
+	const block = `{"formId":"${FORM_ID}","name":"Contact","path":"/sites/mysite/contents/contact","prefill":{"country":${entry}}}`;
+	document.body.innerHTML = `<script type="application/json" data-formidable-jxp="${FORM_ID}">${block}</script>`
 		+ `<form name="${FORM_ID}">`
 		+ `<div data-fmdb-node-id="n-country" data-fmdb-node-name="country">${sourceMarkup(shape)}</div>`
 		+ '<div class="fmdb-logic-target" style="display: none" aria-hidden="true" data-fmdb-logic-hidden="true" data-fmdb-node-id="n-size" data-fmdb-node-name="companySize">'
@@ -62,7 +64,7 @@ function mount({shape = 'select', then, profile, contextLater = false, activateW
 	// The tracker jExperience puts in the head; its callbacks are kept, so that a test can load the context.
 	const callbacks: Array<() => void> = [];
 	if (profile) {
-		Object.assign(window, {
+		Object.assign(globalThis, {
 			wem: {
 				getLoadedContext: () => ({profileId: 'p1', profileProperties: profile}),
 				_registerCallback: (callback: () => void) => callbacks.push(callback)
@@ -70,7 +72,7 @@ function mount({shape = 'select', then, profile, contextLater = false, activateW
 			wemLoaded: !contextLater
 		});
 	}
-	Object.assign(window, {digitalDataOverrides: [], digitalData: activateWem === undefined ? undefined : {wemInitConfig: {activateWem}}});
+	Object.assign(globalThis, {digitalDataOverrides: [], digitalData: activateWem === undefined ? undefined : {wemInitConfig: {activateWem}}});
 
 	// The logic wired as useMultiStep wires it.
 	const syncVisibility = () => applyConditionalLogicVisibility(form);
@@ -80,7 +82,7 @@ function mount({shape = 'select', then, profile, contextLater = false, activateW
 	form.addEventListener('reset', () => setTimeout(syncVisibility, 0));
 
 	const addEventListener = vi.spyOn(document, 'addEventListener');
-	window.eval(source);
+	globalThis.eval(source);
 	documentListeners = addEventListener.mock.calls.map(([type, listener]) => [type, listener]);
 	addEventListener.mockRestore();
 
@@ -95,7 +97,7 @@ function mount({shape = 'select', then, profile, contextLater = false, activateW
 		target: wrapper('companySize'),
 		control: form.elements.namedItem('country') as HTMLSelectElement | HTMLInputElement,
 		loadContext: () => {
-			Object.assign(window, {wemLoaded: true});
+			Object.assign(globalThis, {wemLoaded: true});
 			callbacks.forEach(callback => callback());
 		}
 	};
@@ -117,7 +119,7 @@ afterEach(() => {
 	documentListeners.forEach(([type, listener]) => document.removeEventListener(type, listener));
 	documentListeners = [];
 	for (const key of ['formidableJxp', 'wem', 'wemLoaded', 'digitalData', 'digitalDataOverrides']) {
-		Reflect.deleteProperty(window, key);
+		Reflect.deleteProperty(globalThis, key);
 	}
 	document.body.innerHTML = '';
 	vi.restoreAllMocks();
@@ -125,9 +127,9 @@ afterEach(() => {
 
 describe('a rule on a prefilled field', () => {
 	it('shows its target when the profile names the value, the source out of sight but still submitted', () => {
-		const {form, source, target, control} = mount({profile: {country: 'FR'}, then: 'hidden'});
+		const {form, source, target, control} = mount({profile: {country: 'FR'}, afterWrite: 'hidden'});
 
-		expect((window as unknown as {digitalDataOverrides: unknown[]}).digitalDataOverrides)
+		expect((globalThis as unknown as {digitalDataOverrides: unknown[]}).digitalDataOverrides)
 			.toEqual([{wemInitConfig: {requiredProfileProperties: ['country']}}]);
 		expect(control.value).toBe('FR');
 		expect(source.dataset.fmdbPrefilled).toBe('hidden');
@@ -140,14 +142,14 @@ describe('a rule on a prefilled field', () => {
 	});
 
 	it('keeps its target hidden when the profile names another value', () => {
-		const {control, target} = mount({profile: {country: 'DE'}, then: 'hidden'});
+		const {control, target} = mount({profile: {country: 'DE'}, afterWrite: 'hidden'});
 
 		expect(control.value).toBe('DE');
 		expect(shown(target)).toBe(false);
 	});
 
 	it('leaves the source to the visitor when the profile has no value, and follows the answer', () => {
-		const {form, source, target, control} = mount({profile: {firstName: 'Ada'}, then: 'hidden'});
+		const {form, source, target, control} = mount({profile: {firstName: 'Ada'}, afterWrite: 'hidden'});
 
 		expect(control.value).toBe('');
 		expect(source.style.display).not.toBe('none');
@@ -163,7 +165,7 @@ describe('a rule on a prefilled field', () => {
 		['no tracker on the page', {}],
 		['tracking disabled by the visitor', {profile: {country: 'FR'}, activateWem: false}]
 	])('writes nothing with %s, and follows the answer', (unusedCase, fixture: Fixture) => {
-		const {form, source, target, control} = mount({...fixture, then: 'hidden'});
+		const {form, source, target, control} = mount({...fixture, afterWrite: 'hidden'});
 
 		expect(control.value).toBe('');
 		expect('fmdbPrefilled' in source.dataset).toBe(false);
@@ -199,7 +201,7 @@ describe('a rule on a prefilled field', () => {
 	});
 
 	it('read-only: the target follows the prefilled value, not a change the lock puts back', () => {
-		const {source, target, control} = mount({profile: {country: 'FR'}, then: 'readOnly'});
+		const {source, target, control} = mount({profile: {country: 'FR'}, afterWrite: 'readOnly'});
 
 		expect(source.dataset.fmdbPrefilled).toBe('readonly');
 		expect(control.getAttribute('aria-readonly')).toBe('true');
@@ -212,7 +214,7 @@ describe('a rule on a prefilled field', () => {
 
 	it('a reset gives the source back empty, then the prefill runs again and the target follows', async () => {
 		// Radios: jsdom keeps a select's selectedOptions from before a reset, which the logic reads.
-		const {form, source, target} = mount({shape: 'radio', profile: {country: 'FR'}, then: 'hidden'});
+		const {form, source, target} = mount({shape: 'radio', profile: {country: 'FR'}, afterWrite: 'hidden'});
 		const france = form.querySelector<HTMLInputElement>('input[value="FR"]')!;
 		expect(france.checked).toBe(true);
 		expect(shown(target)).toBe(true);
