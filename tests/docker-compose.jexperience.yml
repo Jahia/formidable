@@ -87,8 +87,10 @@ services:
       UNOMI_THIRDPARTY_PROVIDER1_KEY: 670c26d1cc413346c3b2fd9ce65dab41
       UNOMI_THIRDPARTY_PROVIDER1_IPADDRESSES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1,::1
       KARAF_OPTS: -Xms2g -Xmx2g -Dunomi.autoStart=true -Dunomi.distribution=jcustomer-distribution
+    # Every endpoint wants the karaf user (an anonymous /context.json answers 500). The credentials go through a netrc
+    # file: the secret scan of the PR flags any `curl -u user:password`.
     healthcheck:
-      test: ['CMD-SHELL', 'curl -sf http://localhost:8181/context.json || exit 1']
+      test: ['CMD-SHELL', 'printf "machine localhost login karaf password %s\n" "$$UNOMI_ROOT_PASSWORD" > /tmp/healthcheck.netrc && curl -sf --netrc-file /tmp/healthcheck.netrc http://localhost:8181/cxs/cluster || exit 1']
       interval: 15s
       timeout: 10s
       retries: 40
