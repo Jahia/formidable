@@ -12,9 +12,9 @@ import {CmShell} from "~/design/CmShell";
  *
  * Reached through graphql-core's cm fallback: jContent asks for no view at all because the
  * form is not a displayable node. Opening a form in the Page Builder does not change that:
- * the form stays without a page of its own (jmix:visuallyEditable, rendered through the
- * platform's content template and the hidden.visualEdit view), so this inspection keeps
- * its role in the drawer and the Content Editor preview.
+ * the form stays without a page of its own (jContent renders it through the platform's
+ * content template and the hidden.visualEdit view), so this inspection keeps its role in
+ * the drawer and the Content Editor preview.
  */
 jahiaComponent(
 	{

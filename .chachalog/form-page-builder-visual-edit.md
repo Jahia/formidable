@@ -2,4 +2,4 @@
 formidable: minor
 ---
 
-Added Page Builder editing of a form from its content folder, with no page of its own; requires Jahia 8.2.5.0 (#297)
+Added a heading and a centred column to a form edited in the Page Builder from its content folder (#297). They show with default 8.11.0 or later, in the Page Builder only.

@@ -6,14 +6,15 @@ import {
 } from "@jahia/javascript-modules-library";
 
 /**
- * Page Builder view of a form opened from its content folder (jmix:visuallyEditable, Jahia
- * 8.2.5.0+). The platform renders such a form through its generic content template, an otherwise
- * empty page, so nothing around the form says which form is being authored. This view supplies that
+ * Page Builder view of a form opened from its content folder. jContent renders such a form through
+ * the generic content template of the default module, an otherwise empty page, so nothing around
+ * the form says which form is being authored. This view supplies that
  * frame — the form's title as a heading — and includes the default view inline. The inclusion is
  * what keeps the Page Builder to the one box the platform already draws around the form: rendering
  * the node again would nest a second box on the same path.
  *
- * Never reaches preview or live: the platform picks a hidden.visualEdit view in edit mode only.
+ * Never reaches preview or live: the default module (8.11.0+) picks a hidden.visualEdit view in
+ * edit mode only.
  */
 jahiaComponent(
 	{

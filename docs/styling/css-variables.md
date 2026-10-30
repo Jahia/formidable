@@ -274,8 +274,9 @@ jExperience and orange to jContent's warnings.
 
 ### Page Builder frame of a standalone form
 
-A form opened in the Page Builder from its content folder (Jahia 8.2.5.0+) is rendered in an
-otherwise empty page, so the module gives it a column and a heading: `.fmdb-visual-edit`
+A form opened in the Page Builder from its content folder is rendered in an otherwise empty
+page, the content template of the `default` module. From default 8.11.0, that frame renders the
+form's `hidden.visualEdit` view, so the module gives it a column and a heading: `.fmdb-visual-edit`
 wraps the form, `.fmdb-visual-edit-title` carries the form's title. Both exist in that frame
 only — never in a page, in preview or in live — so a business stylesheet can ignore them; a
 template set that wants a different authoring width sets the variables on `.fmdb-visual-edit`.
