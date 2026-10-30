@@ -1,0 +1,118 @@
+# The stack of the jExperience runner (.github/workflows/jexperience-tests.yml): the services of docker-compose.yml,
+# plus a jCustomer and the Elasticsearch it stores profiles in. ci.startup.sh reads this file when the workflow names
+# it as docker_compose_file. Compose starts the services in order: Elasticsearch, the role and user jCustomer
+# connects with, jCustomer, then Jahia.
+services:
+  jahia:
+    image: '${JAHIA_IMAGE}'
+    container_name: jahia
+    depends_on:
+      jcustomer:
+        condition: service_healthy
+    ports:
+      - '8000:8000'
+      - '8080:8080'
+      - '8101:8101'
+    environment:
+      JAHIA_LICENSE: ${JAHIA_LICENSE}
+      SUPER_USER_PASSWORD: ${SUPER_USER_PASSWORD}
+      CATALINA_OPTS: ${CATALINA_OPTS}
+      NEXUS_USERNAME: ${NEXUS_USERNAME}
+      NEXUS_PASSWORD: ${NEXUS_PASSWORD}
+      JPDA: 'true'
+    extra_hosts:
+      - jahia:127.0.0.1
+    networks:
+      - stack
+
+  # Security on: jCustomer connects as the jcustomer user that elasticsearch-setup creates.
+  elasticsearch:
+    image: '${ELASTICSEARCH_IMAGE:-ghcr.io/jahia/elasticsearch:9}'
+    container_name: elasticsearch
+    environment:
+      discovery.type: single-node
+      ELASTIC_PASSWORD: password
+      xpack.security.enabled: 'true'
+      ES_JAVA_OPTS: -Xms1500m -Xmx1500m
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf -u elastic:password http://localhost:9200/_cluster/health || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      - stack
+
+  # One-shot. A jCustomer that starts before the user exists fails every index write, and does not recover.
+  elasticsearch-setup:
+    image: curlimages/curl:8.11.1
+    container_name: elasticsearch-setup
+    restart: 'no'
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        curl -sf -u elastic:password -X PUT -H 'Content-Type: application/json' \
+          -d '{"cluster":["manage"],"indices":[{"names":["*"],"privileges":["read","manage","write"]}]}' \
+          http://elasticsearch:9200/_security/role/jcustomer
+        curl -sf -u elastic:password -X PUT -H 'Content-Type: application/json' \
+          -d '{"password":"password","roles":["jcustomer"]}' \
+          http://elasticsearch:9200/_security/user/jcustomer
+    networks:
+      - stack
+
+  # One node. The jExperience settings of provisioning-manifest-jexperience.yml point Jahia at https://jcustomer:9443.
+  jcustomer:
+    image: '${JCUSTOMER_IMAGE}'
+    container_name: jcustomer
+    depends_on:
+      elasticsearch-setup:
+        condition: service_completed_successfully
+    environment:
+      UNOMI_ELASTICSEARCH_ADDRESSES: elasticsearch:9200
+      UNOMI_ELASTICSEARCH_USERNAME: jcustomer
+      UNOMI_ELASTICSEARCH_PASSWORD: password
+      UNOMI_ELASTICSEARCH_INDEXPREFIX: formidable-tests
+      UNOMI_ROOT_PASSWORD: jcustomerP@55
+      UNOMI_HAZELCAST_TCPIP_MEMBERS: jcustomer
+      UNOMI_CLUSTER_PUBLIC_ADDRESS: http://jcustomer:8181
+      UNOMI_CLUSTER_INTERNAL_ADDRESS: https://jcustomer:9443
+      UNOMI_CLUSTER_NODEID: jcustomer-node-1
+      # jCustomer accepts the events Jahia sends with this key from these addresses only. The network of the
+      # stack is not pinned, so the list is every private block; the key is the credential.
+      UNOMI_THIRDPARTY_PROVIDER1_KEY: 670c26d1cc413346c3b2fd9ce65dab41
+      UNOMI_THIRDPARTY_PROVIDER1_IPADDRESSES: 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,127.0.0.1,::1
+      KARAF_OPTS: -Xms2g -Xmx2g -Dunomi.autoStart=true -Dunomi.distribution=jcustomer-distribution
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -sf http://localhost:8181/context.json || exit 1']
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 60s
+    networks:
+      - stack
+
+  # Cypress container
+  cypress:
+    image: '${TESTS_IMAGE}'
+    ipc: host
+    container_name: cypress
+    depends_on:
+      - jahia
+    environment:
+      MANIFEST: ${MANIFEST}
+      JAHIA_URL: ${JAHIA_URL}
+      JAHIA_HOST: ${JAHIA_HOST}
+      JAHIA_PORT: ${JAHIA_PORT}
+      NEXUS_USERNAME: ${NEXUS_USERNAME}
+      NEXUS_PASSWORD: ${NEXUS_PASSWORD}
+      SUPER_USER_PASSWORD: ${SUPER_USER_PASSWORD}
+      TESTS_PROFILE: ${TESTS_PROFILE:-}
+    networks:
+      - stack
+networks:
+  stack:

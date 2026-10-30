@@ -1,0 +1,35 @@
+# The jExperience runner (.github/workflows/jexperience-tests.yml): the modules of provisioning-manifest-build.yml,
+# jExperience, and its settings pointing at the jCustomer of docker-compose.jexperience.yml. The modules of the build
+# are installed after this manifest. env.provision.sh of @jahia/cypress replaces NEXUS_USERNAME and NEXUS_PASSWORD.
+- karafCommand: "bundle:list"
+- addMavenRepository: 'https://devtools.jahia.com/nexus/content/groups/public/@snapshots@noreleases@id=JahiaPublicSnapshots'
+- installBundle:
+    - 'mvn:org.jahia.modules/content-integrity'
+    - 'mvn:org.jahia.modules/jcontent'
+  autoStart: true
+  uninstallPreviousVersion: true
+
+- addMavenRepository: 'https://devtools.jahia.com/nexus/content/groups/enterprise/@id=jahia-enterprise@snapshots'
+  username: NEXUS_USERNAME
+  password: NEXUS_PASSWORD
+- addMavenRepository: 'https://devtools.jahia.com/nexus/content/groups/marketing-factory-group/@id=marketing-factory-group@snapshots'
+  username: NEXUS_USERNAME
+  password: NEXUS_PASSWORD
+- installBundle:
+    - 'mvn:org.jahia.modules/jexperience'
+  autoStart: true
+  uninstallPreviousVersion: true
+
+- editConfiguration: 'org.jahia.modules.jexperience.settings'
+  configIdentifier: 'global'
+  properties:
+    jexperience.jCustomerURL: 'https://jcustomer:9443'
+    jexperience.jCustomerPublicURL: '$WEBAPP_CONTEXT/modules/jexperience/proxy/$CURRENT_SITE'
+    jexperience.jCustomerUsername: 'karaf'
+    jexperience.jCustomerPassword: 'jcustomerP@55'
+    jexperience.jCustomerTrustAllCertificates: 'true'
+    jexperience.jCustomerUsePublicAddressesForAdmin: 'false'
+    jexperience.jCustomerKey: '670c26d1cc413346c3b2fd9ce65dab41'
+    jexperience.excludedDevicesClasses: 'Robot,Robot Mobile,Robot Imitator,Hacker,Unknown'
+    jexperience.enableConsentManager: 'false'
+    jexperience.waitForProfileMergeOnLogin: 'true'

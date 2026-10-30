@@ -15,6 +15,13 @@ On a pull request, CI splits the suite over three runners, one config file each
 (`cypress.shard-*.config.ts`, defined in `cypress.shards.ts`). To run one shard
 locally: `yarn e2e:ci --config-file cypress.shard-fields.config.ts`.
 
+The specs of `cypress/e2e/jexperience/` need a jExperience and a jCustomer, so every
+config excludes them except `cypress.shard-jexperience.config.ts`. They run on a fourth
+runner, `.github/workflows/jexperience-tests.yml`, with the stack of
+`docker-compose.jexperience.yml`. The runner starts on a pull request that changes a file
+of the jExperience behaviour, and from the Actions tab. To run them locally against a Jahia
+wired to a jCustomer: `yarn e2e:ci --config-file cypress.shard-jexperience.config.ts`.
+
 ## Manual-testing playground
 
 ```bash
