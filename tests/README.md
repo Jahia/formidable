@@ -11,8 +11,9 @@ yarn e2e:debug   # interactive Cypress runner
 yarn typecheck   # type-checks the whole suite (specs, support, page objects) in a second
 ```
 
-On a pull request, CI splits the suite over three runners, one config file each
-(`cypress.shard-*.config.ts`, defined in `cypress.shards.ts`). To run one shard
+On a pull request, on a merge to `main` and on a manual run, CI splits the suite
+over three runners, one config file each (`cypress.shard-*.config.ts`, defined in
+`cypress.shards.ts`). The nightlies run the whole suite on one runner. To run one shard
 locally: `yarn e2e:ci --config-file cypress.shard-fields.config.ts`.
 
 ## Manual-testing playground
