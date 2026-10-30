@@ -6,6 +6,7 @@
 			"name": "logic",
 			"labelKey": "fmdb.section.logic",
 			"rank": 1.10,
+			"displayModes": ["edit"],
 			"fieldSets": [
 				{
 					"name": "rules",
