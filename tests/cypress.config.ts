@@ -41,7 +41,8 @@ export default defineConfig({
 			// eslint-disable-next-line @typescript-eslint/no-require-imports
 			return require('./cypress/plugins/index.js')(on, config)
 		},
-		excludeSpecPattern: ['**/*.ignore.ts'],
+		// The jExperience specs need a jCustomer, which only their own runner starts (cypress.shard-jexperience.config.ts).
+		excludeSpecPattern: ['**/*.ignore.ts', 'cypress/e2e/jexperience/**'],
 		baseUrl: 'http://localhost:8080',
 	}
 })

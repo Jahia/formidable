@@ -408,6 +408,16 @@ const PHONE_NUMBER_RULE = JSON.stringify({
 	values: ['phone']
 });
 
+// A rule on a field the profile prefills (the complete form's country): conditional logic driven by the profile.
+const COMPANY_SIZE_RULE = JSON.stringify({
+	logicId: 'pg-company-size',
+	sourceFieldName: 'country',
+	sourceFieldType: 'fmdb:select',
+	valueKind: 'choice',
+	operator: 'in',
+	values: ['FR']
+});
+
 const contactChannelSelect = (): JahiaNode => withFrench(
 	getSelectNode({
 		name: 'contactChannel',
@@ -662,6 +672,11 @@ const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid,
 	// "did the visitor choose" guard reading the live state mistakes for a choice. And hidden once the profile
 	// knows the country: the field disappears, its value is still submitted.
 	), 'countryName', {strategy: 'setIfMissing', prefill: true, then: 'hidden'}),
+	// A rule on the prefilled country (#422): shown when the profile says France, or when the visitor picks it.
+	withFrench(
+		withLogics(getInputTextNode({name: 'companySize', title: 'Company size (shown for France)'}), COMPANY_SIZE_RULE),
+		[{name: 'jcr:title', value: 'Taille de l\'entreprise (affiché pour la France)'}]
+	),
 	// The group and the switch feed the two properties the playground adds to jCustomer (see above), and are
 	// prefilled from them: the multi-valued and the boolean shapes of the prefill.
 	mappedTo(withFrench(getCheckboxNode(CHECKBOX_GROUP_COMPLETE), [
