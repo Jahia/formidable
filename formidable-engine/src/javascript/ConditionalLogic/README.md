@@ -286,6 +286,12 @@ The runtime visibility evaluation is implemented in `formidable-elements`:
 - `conditionalLogic.ts` evaluates the rules and hides or shows the target wrappers
 - browser-side evaluation prefers `sourceNodeId` and falls back to `sourceFieldName` only for legacy or degraded cases
 
+A rule that depends on a jExperience profile property is an ordinary field rule. Its source is a field
+that the jExperience module prefills from the profile, and the visitor answers it when the profile has no
+value. The prefill sends `input` and `change` after it writes a value, so the rule is evaluated again.
+This folder has no jExperience source. See "Driving conditional logic from the profile" in
+`docs/architecture/jexperience-integration.md`.
+
 ## Limitation: duplicate system names
 
 Conditional logic is not fully safe when two different form fields share the same JCR/system name.
