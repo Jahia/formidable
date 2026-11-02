@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,12 +31,28 @@ class PageLinksTest {
     }
 
     @Test
-    void theRewrittenUrlLosesTheServletContextPathAndKeepsThePlatformsOne() {
-        // Verifies the OSGi servlet trap: /modules is the servlet's context path, never part of a page link.
+    void theRewritingSeesThePlatformsContextPathNotTheServlets() {
+        // Verifies the OSGi servlet trap: the platform's rewriting starts the URL with the request's context path and
+        // looks a vanity URL up only when it equals the link's, so it must never read the servlet's /modules.
+        AtomicReference<String> seen = new AtomicReference<>();
         Optional<String> url = PageLinks.urlOf(page(), request(), null,
-                (link, req, resp) -> "/modules/sites/mysite/home.html", "");
+                (link, req, resp) -> {
+                    seen.set(req.getContextPath());
+                    return req.getContextPath() + "/thanks";
+                }, "/jahia");
 
-        assertEquals(Optional.of("/sites/mysite/home.html"), url);
+        assertEquals("/jahia", seen.get());
+        assertEquals(Optional.of("/jahia/thanks"), url);
+    }
+
+    @Test
+    void aPageOfAnotherServerNameCarriesThePlatformsContextPathAfterTheHost() {
+        // Verifies the rule that puts another site's server name in front of the rewritten URL: the context path that
+        // follows the host is the platform's, never /modules.
+        Optional<String> url = PageLinks.urlOf(page(), request(), null,
+                (link, req, resp) -> "http://serverb:8080" + req.getContextPath() + "/home/thank-you.html", "");
+
+        assertEquals(Optional.of("http://serverb:8080/home/thank-you.html"), url);
     }
 
     @Test
