@@ -72,7 +72,9 @@ Browser
                    │    - subject + to normalized with FieldEscaper.headerSafe()
                    │    - HTML body uses FieldEscaper.html() for interpolated values
                    ├─ fmdb:emailContentAction:
-                   │    - emails the submitted values; optionally attaches the validated
+                   │    - emails the submitted values, one row per answered field in the
+                   │      order of the form, under the field's title, a choice under its
+                   │      option's label (ContentEmailRows); optionally attaches the validated
                    │      uploads (in memory), within the action's and the global caps
                    └─ fmdb:forwardAction:
                         - reads targetId from JCR node
@@ -557,7 +559,7 @@ appear in the list.
 |---|---|
 | `fmdb:save2jcrAction` | Saves form data as JCR child nodes under `formidable-results` (see `docs/architecture/save-to-jcr.md`) |
 | `fmdb:emailNotificationAction` | Sends a notification email via Jahia `MailService`; `${fieldName}` interpolation in subject and body; headers normalized and HTML body escaped. The addresses are parsed strict before the send, as the mail service parses them later on its queue (`EmailAddresses`): a `to` entry it would refuse is left out and logged against the action, the message goes to the others; a `from` it would refuse gives way to the default sender; with no valid recipient nothing is sent, logged, and the submission goes on — a typo costs an e-mail, never a submission |
-| `fmdb:emailContentAction` | Sends the submitted form content by email; may optionally attach validated uploaded files. The same handling of the addresses |
+| `fmdb:emailContentAction` | Sends the submitted form content by email: one row per answered field, in the order of the form, headed by the field's title in the submission's language, a manual choice shown by its option's label (a sourced choice keeps its value, a name no field declares comes last; `ContentEmailRows`). May optionally attach validated uploaded files. The same handling of the addresses |
 | `fmdb:forwardAction` | Forwards declared form fields + pre-parsed files to a target endpoint resolved from config by ID |
 
 ### forwardAction — target registry
