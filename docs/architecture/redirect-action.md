@@ -123,4 +123,6 @@ The [import](forms-import.md) converts `fcnt:redirectToAPageAction` and `fcnt:re
 - Cypress: `tests/cypress/e2e/actions/89-redirect-action.cy.ts` (a form redirecting to a path, to another website,
   to a page, live, with no submission message before the next page and no submitted value in its URL; the constraint
   refusing an address without a scheme; unusable targets answering without a redirect; the first usable redirect
-  winning; the two warnings of the actions zone).
+  winning; the two warnings of the actions zone), and `90-redirect-page-links.cy.ts` (the absolute URL of a page of a
+  site with another server name, the vanity URL of a page that has one, for a submission to a server name other than
+  `localhost`, which the platform needs for both).
