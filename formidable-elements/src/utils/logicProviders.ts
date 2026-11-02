@@ -186,7 +186,7 @@ const hostedProvider = (
 ): ScalarLogicProvider => {
 	const resolve = (): HostedLogicProvider | undefined => {
 		try {
-			return typeof globalThis.window === 'undefined' ? undefined : host();
+			return globalThis.window === undefined ? undefined : host();
 		} catch {
 			return undefined;
 		}
