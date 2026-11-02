@@ -69,7 +69,7 @@ export const fetchSources = async (input: SourcesInput, post: GraphQLPost = post
     return {
         sources: buildSourceFieldOptions(field.path, form.descendants?.nodes ?? []),
         logicIdToSource: buildLogicIdToSourceMap(field.descendant?.children?.nodes ?? []),
-        installedModules: field.site?.installedModulesWithAllDependencies ?? []
+        installedModules: field.site?.installedModules ?? []
     };
 };
 

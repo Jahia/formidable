@@ -32,12 +32,12 @@ describe('the providers of the editor and of the browser', () => {
 });
 
 describe('the jExperience profile provider', () => {
-    it('is offered only on a site with jExperience and the Formidable integration', () => {
+    it('is offered only on a site jExperience is enabled on, as the page decides', () => {
         const ids = (modules: string[]) => offeredLogicProviders(modules).map(provider => provider.id);
 
         expect(ids(['formidable-elements'])).not.toContain('jexperience:profile');
-        expect(ids(['formidable-elements', 'jexperience'])).not.toContain('jexperience:profile');
-        expect(ids(['formidable-elements', 'jexperience', 'formidable-jexperience-engine'])).toContain('jexperience:profile');
+        expect(ids(['formidable-elements', 'formidable-jexperience-engine'])).not.toContain('jexperience:profile');
+        expect(ids(['formidable-elements', 'jexperience'])).toContain('jexperience:profile');
         expect(ids([])).toEqual(['jsVariable', 'urlParam', 'cookie']);
     });
 
@@ -48,6 +48,8 @@ describe('the jExperience profile provider', () => {
         expect(provider.isValidRef!(' nbOfVisits ')).toBe(true);
         expect(provider.isValidRef!('first name')).toBe(false);
         expect(provider.isValidRef!('properties[country]')).toBe(false);
+        // read as one key of the profile's properties, so a path never resolves
+        expect(provider.isValidRef!('address.city')).toBe(false);
     });
 
     it('keeps an operator it offers and falls back to its first one otherwise', () => {

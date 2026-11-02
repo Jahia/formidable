@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine.render;
 
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.modules.formidable.jexperience.engine.util.Json;
 import org.jahia.modules.formidable.jexperience.engine.util.Sql2;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -35,9 +36,6 @@ class LogicProperties {
     static final String SOURCE_TYPE = "jexperience:profile";
     /** The key of a rule of that source that names the profile property. */
     static final String CONFIG_KEY = "property";
-    /** The engine's property of {@code fmdbmix:formLogicElement} that holds the rules, one JSON object each. */
-    static final String LOGICS = "logics";
-
     /** The properties, each once and in the form's order, and the paths of every element they were read from. */
     record Logic(List<String> properties, List<String> dependencies) {
     }
@@ -49,10 +47,10 @@ class LogicProperties {
         while (elements.hasNext()) {
             JCRNodeWrapper element = (JCRNodeWrapper) elements.nextNode();
             dependencies.add(element.getPath());
-            if (!element.hasProperty(LOGICS)) {
+            if (!element.hasProperty(FmdbProperty.LOGICS)) {
                 continue;
             }
-            for (Value value : element.getProperty(LOGICS).getValues()) {
+            for (Value value : element.getProperty(FmdbProperty.LOGICS).getValues()) {
                 String property = propertyOf(value.getString(), element.getPath());
                 if (property != null && !properties.contains(property)) {
                     properties.add(property);

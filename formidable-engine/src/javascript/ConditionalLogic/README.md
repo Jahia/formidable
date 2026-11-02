@@ -80,7 +80,8 @@ parameter (`urlParam`), a cookie (`cookie`) and a property of the visitor's jExp
 (`jexperience:profile`). Each entry is the whole description of its source: the id stored in the
 rule, the rule key that holds its reference (`configKey`), its labels, a check of the reference, the
 operators a rule may test, and the modules the site must have for the source to be offered
-(`requiredModules`). The query of `graphql/queries.ts` reads the site's modules with the form.
+(`requiredModules`). The query of `graphql/queries.ts` reads the modules enabled on the site itself
+(`installedModules`, not their dependencies), the list the page's own gate reads.
 
 The list is closed, and it is not a public extension point yet. It is shaped as one would be, so
 that a registry opens later by moving entries, not by changing their shape: the id of a source that

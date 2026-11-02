@@ -48,7 +48,7 @@ describe('fetchSources', () => {
 		const form = {uuid: 'u-form', workspace: 'EDIT', name: 'f', path: '/sites/s/contents/forms/f', primaryNodeType: {name: 'fmdb:form'}, descendants: {nodes: []}};
 		const withSite = vi.fn().mockResolvedValue(answer({
 			...field('city', 'fmdb:inputText'),
-			site: {installedModulesWithAllDependencies: ['formidable-elements', 'jexperience']},
+			site: {installedModules: ['formidable-elements', 'jexperience']},
 			ancestors: [form]
 		}));
 		const withoutSite = vi.fn().mockResolvedValue(answer({...field('city', 'fmdb:inputText'), ancestors: [form]}));

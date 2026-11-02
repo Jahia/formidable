@@ -120,14 +120,21 @@
    * then: a blocked tracker, a refused consent or a context still loading makes every such rule false,
    * never "the property is absent". A value is read as a string, as every logic source is; a property
    * the profile does not hold, or holds as a list or an object, is absent.
+   *
+   * The context holds only the properties the tracker was asked for before it started: when they could
+   * not be asked for (logicRequested below), a missing one says nothing about the profile, so the source
+   * is unavailable rather than every property absent.
    */
+  let logicRequested = false;
   api.logicProvider = {
-    available: () => api.trackerReady(),
+    available: () => logicRequested && api.trackerReady(),
     read: (property) => {
-      if (!api.trackerReady()) {
+      if (!api.logicProvider.available()) {
         return undefined;
       }
-      const value = (window.wem.getLoadedContext().profileProperties || {})[property];
+      const properties = window.wem.getLoadedContext().profileProperties || {};
+      // own keys only: a name such as "toString" is no property of the profile
+      const value = Object.prototype.hasOwnProperty.call(properties, property) ? properties[property] : undefined;
       return value === undefined || value === null || typeof value === "object"
         ? undefined
         : String(value);
@@ -218,8 +225,16 @@
     }
   });
   if (required.length > 0) {
-    if (Array.isArray(window.digitalDataOverrides)) {
+    if (window.wemLoaded === true) {
+      // the tracker started before this script: its context was requested without these properties
+      console.warn(
+        "[Formidable] jExperience's tracker started before the form script: the profile properties " +
+          required.join(", ") +
+          " were not requested: nothing will be prefilled and the conditions on the profile stay false",
+      );
+    } else if (Array.isArray(window.digitalDataOverrides)) {
       window.digitalDataOverrides.push({ wemInitConfig: { requiredProfileProperties: required } });
+      logicRequested = true;
     } else {
       // the block is written for a tracked site only, so the array should be there: said once, or a page
       // that never prefills would have nothing to show for it

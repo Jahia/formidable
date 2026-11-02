@@ -23,7 +23,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.jexperience.engine.util.JExperienceSite;
@@ -166,9 +168,9 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         return new LogicProperties().read(session, form);
     }
 
-    private String block(JCRNodeWrapper form, String uuid, String contextPath, java.util.Map<String, PrefillMappings.Entry> prefill,
-                         java.util.List<String> logic) {
-        // Built by hand: this module carries no JSON library at runtime. What the form maps for SENDING is
+    private String block(JCRNodeWrapper form, String uuid, String contextPath, Map<String, PrefillMappings.Entry> prefill,
+                         List<String> logic) {
+        // Built by hand, with Json's script-safe escaping: the block sits inside a <script> element. What the form maps for SENDING is
         // deliberately not here — the send decision reads the tracker's own watch list, which a mapped form
         // is in through the rule this integration publishes. The prefill pairs are, because they are the one
         // thing the context cannot say: which field a returned property belongs to. The logic properties are,

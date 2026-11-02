@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.jexperience.engine.render;
 
+import org.jahia.modules.formidable.engine.api.FmdbProperty;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -30,7 +31,7 @@ class LogicPropertiesTest {
     private static JCRNodeWrapper element(String name, String... rules) throws RepositoryException {
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
         when(node.getPath()).thenReturn("/sites/mysite/contents/contact/fields/" + name);
-        when(node.hasProperty(LogicProperties.LOGICS)).thenReturn(rules.length > 0);
+        when(node.hasProperty(FmdbProperty.LOGICS)).thenReturn(rules.length > 0);
         if (rules.length > 0) {
             JCRValueWrapper[] values = new JCRValueWrapper[rules.length];
             for (int i = 0; i < rules.length; i++) {
@@ -39,7 +40,7 @@ class LogicPropertiesTest {
             }
             JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
             when(property.getValues()).thenReturn(values);
-            when(node.getProperty(LogicProperties.LOGICS)).thenReturn(property);
+            when(node.getProperty(FmdbProperty.LOGICS)).thenReturn(property);
         }
         return node;
     }

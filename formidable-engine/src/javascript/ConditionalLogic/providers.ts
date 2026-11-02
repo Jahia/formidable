@@ -52,8 +52,8 @@ const JS_VARIABLE_PATH_PATTERN = /^(window\.)?[A-Za-z_$][\w$]*(\.([A-Za-z_$][\w$
 // Cookie names are tokens: no separators, no whitespace, no control characters.
 const COOKIE_NAME_PATTERN = /^[\w!#$%&'*+\-.^`|~]+$/;
 
-// jCustomer profile property ids: one name, no whitespace, no path syntax beyond a dot.
-const PROFILE_PROPERTY_PATTERN = /^[\w.-]+$/;
+// jCustomer profile property ids: one top-level name, read as a flat key, so no path syntax.
+const PROFILE_PROPERTY_PATTERN = /^[\w-]+$/;
 
 const PROVIDERS: LogicProviderDescriptor[] = [
     {
@@ -93,8 +93,9 @@ const PROVIDERS: LogicProviderDescriptor[] = [
         configPlaceholderKey: 'conditionalLogic.providers.jexperienceProfile.configPlaceholder',
         isValidRef: ref => PROFILE_PROPERTY_PATTERN.test(ref.trim()),
         operators: PROVIDER_OPERATORS,
-        // jExperience puts the tracker on the page, formidable-jexperience-engine the script that reads it
-        requiredModules: ['jexperience', 'formidable-jexperience-engine']
+        // the page's own gate (JExperienceSite.tracked): jExperience enabled on the site itself. The
+        // script that reads the tracker comes with a global render filter, enabled on no site.
+        requiredModules: ['jexperience']
     }
 ];
 

@@ -141,7 +141,7 @@ export interface GraphNode {
     isTextField?: boolean;
     properties?: PropertyValue[] | null;
     defaultProperties?: PropertyValue[] | null;
-    site?: {defaultLanguage?: string | null; installedModulesWithAllDependencies?: string[] | null} | null;
+    site?: {defaultLanguage?: string | null; installedModules?: string[] | null} | null;
     ancestors?: GraphAncestorNode[] | null;
     descendants?: {nodes?: GraphNode[] | null} | null;
     descendant?: {children?: {nodes?: LogicSrcNode[] | null} | null} | null;

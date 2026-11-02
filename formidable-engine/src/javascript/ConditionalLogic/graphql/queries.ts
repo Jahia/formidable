@@ -16,7 +16,7 @@ export const CONDITIONAL_LOGIC_SOURCES = `
             nodeByPath(path: $path) {
                 ...JcrNodeIdentity
                 site {
-                    installedModulesWithAllDependencies
+                    installedModules
                 }
                 descendant(relPath: "logicsSrc") {
                     children {

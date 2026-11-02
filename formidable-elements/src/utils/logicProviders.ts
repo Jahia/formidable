@@ -211,7 +211,13 @@ const hostedProvider = (
 				return undefined;
 			}
 		},
-		subscribe: (refs, onChange) => resolve()?.subscribe?.(refs, onChange) ?? (() => undefined)
+		subscribe: (refs, onChange) => {
+			try {
+				return resolve()?.subscribe?.(refs, onChange) ?? (() => undefined);
+			} catch {
+				return () => undefined;
+			}
+		}
 	};
 };
 

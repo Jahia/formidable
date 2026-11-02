@@ -282,9 +282,10 @@ over an error the visitor cannot see.
 An author can show or hide a field on a property of the visitor's profile — "Company size" only when
 `country` equals `FR`. The rule source is `jexperience:profile`, with the property under `property`
 and the five operators of every source outside the form (`equals`, `notEquals`, `contains`,
-`exists`, `notExists`). The rules editor offers it on a site that has `jexperience` and
-`formidable-jexperience-engine` among its modules; a rule already stored on it stays editable
-elsewhere, and fails closed.
+`exists`, `notExists`). The rules editor offers it on a site that has `jexperience` among the
+modules enabled on the site itself, the first term of `JExperienceSite.tracked`; a rule already
+stored on it stays editable elsewhere, and fails closed. The property is one top-level name, read as
+a key of the context's `profileProperties`, so the editor refuses a dotted path.
 
 ```
 1  render filter                                  the block lists the properties the form's rules read: "logic": ["country"]
@@ -300,8 +301,10 @@ The browser reads the value. The form island forwards each rule on this source t
 the tracker's context, so the tracker's API stays in this script. **The source is unavailable, not
 absent, when the tracker gate is closed** — no tracker, a refused consent, a bot filter, a context
 still loading: every rule on it is false, `notExists` included, and the property is left out of the
-submit-time declaration. A property the loaded profile does not hold, or holds as a list or an
-object, is absent: `exists` is false and `notExists` true.
+submit-time declaration. It is unavailable too when the properties could not be asked for — no
+`digitalDataOverrides` on the page, or a tracker that started before the script — because the context
+then holds none of them, whatever the profile does. A property the loaded profile does not hold as
+its own key, or holds as a list or an object, is absent: `exists` is false and `notExists` true.
 
 The server never asks jCustomer. At submission it judges the rule on the value the browser declared,
 as for the `jsVariable`, `urlParam` and `cookie` sources (`ConditionalLogicEvaluator`): an undeclared
