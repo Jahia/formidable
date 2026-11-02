@@ -186,7 +186,7 @@ const hostedProvider = (
 ): ScalarLogicProvider => {
 	const resolve = (): HostedLogicProvider | undefined => {
 		try {
-			return typeof window === 'undefined' ? undefined : host();
+			return typeof globalThis.window === 'undefined' ? undefined : host();
 		} catch {
 			return undefined;
 		}
@@ -216,17 +216,15 @@ const hostedProvider = (
 };
 
 declare global {
-	interface Window {
-		/** Filled by formidable-jexperience-engine's formidable-jxp.js, on a site jExperience tracks. */
-		formidableJxp?: {logicProvider?: HostedLogicProvider};
-	}
+	/** Filled by formidable-jexperience-engine's formidable-jxp.js, on a site jExperience tracks. */
+	var formidableJxp: {logicProvider?: HostedLogicProvider} | undefined;
 }
 
 /** A property of the visitor's jExperience profile, read from the context jExperience's tracker loaded. */
 const jexperienceProfileProvider = hostedProvider(
 	'jexperience:profile',
 	'property',
-	() => window.formidableJxp?.logicProvider
+	() => globalThis.formidableJxp?.logicProvider
 );
 
 const PROVIDERS: ScalarLogicProvider[] = [jsVariableProvider, urlParamProvider, cookieProvider, jexperienceProfileProvider];

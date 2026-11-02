@@ -25,29 +25,29 @@ const declaration = (form: HTMLFormElement) => {
 };
 
 afterEach(() => {
-	delete window.formidableJxp;
+	globalThis.formidableJxp = undefined;
 });
 
 describe('a jExperience profile property as a conditional logic source', () => {
 	it('shows the field when the property has the expected value', () => {
-		window.formidableJxp = {logicProvider: tracker({country: 'FR'})};
+		globalThis.formidableJxp = {logicProvider: tracker({country: 'FR'})};
 		expect(mount('equals', 'FR').hidden()).toBe(false);
 	});
 
 	it('hides the field when the property has another value', () => {
-		window.formidableJxp = {logicProvider: tracker({country: 'DE'})};
+		globalThis.formidableJxp = {logicProvider: tracker({country: 'DE'})};
 		expect(mount('equals', 'FR').hidden()).toBe(true);
 	});
 
 	it('reads a property the profile does not hold as absent', () => {
-		window.formidableJxp = {logicProvider: tracker({})};
+		globalThis.formidableJxp = {logicProvider: tracker({})};
 		expect(mount('notExists').hidden()).toBe(false);
 	});
 
 	it.each(['equals', 'notEquals', 'contains', 'exists', 'notExists'])(
 		'keeps the field hidden with %s when the tracker is blocked or not loaded',
 		operator => {
-			window.formidableJxp = {logicProvider: tracker({country: 'FR'}, false)};
+			globalThis.formidableJxp = {logicProvider: tracker({country: 'FR'}, false)};
 			expect(mount(operator, 'XX').hidden()).toBe(true);
 		}
 	);
@@ -57,22 +57,22 @@ describe('a jExperience profile property as a conditional logic source', () => {
 	});
 
 	it('keeps the field hidden when the jExperience script throws', () => {
-		window.formidableJxp = {logicProvider: {available: () => true, read: () => {
+		globalThis.formidableJxp = {logicProvider: {available: () => true, read: () => {
 			throw new Error('broken');
 		}}};
 		expect(mount('exists').hidden()).toBe(true);
 	});
 
 	it('declares the value the browser read, and an absent property as null', () => {
-		window.formidableJxp = {logicProvider: tracker({country: 'FR'})};
+		globalThis.formidableJxp = {logicProvider: tracker({country: 'FR'})};
 		expect(declaration(mount('equals', 'FR').form)).toEqual({v: 1, providers: {'jexperience:profile': {country: 'FR'}}});
 
-		window.formidableJxp = {logicProvider: tracker({})};
+		globalThis.formidableJxp = {logicProvider: tracker({})};
 		expect(declaration(mount('equals', 'FR').form)).toEqual({v: 1, providers: {'jexperience:profile': {country: null}}});
 	});
 
 	it('declares nothing for an unavailable source, so the server fails its rules closed', () => {
-		window.formidableJxp = {logicProvider: tracker({country: 'FR'}, false)};
+		globalThis.formidableJxp = {logicProvider: tracker({country: 'FR'}, false)};
 		expect(declaration(mount('notExists').form)).toBeNull();
 	});
 });

@@ -14,7 +14,8 @@ describe('the providers of the editor and of the browser', () => {
             expect(getRuntimeProvider(id)?.configKey, id).toBe(configKey);
         }
 
-        expect([...logicProviderConfigKeys()].sort()).toEqual(Object.values(editor).sort());
+        const byName = (a: string, b: string) => a.localeCompare(b);
+        expect([...logicProviderConfigKeys()].sort(byName)).toEqual(Object.values(editor).sort(byName));
     });
 
     it.each(listLogicProviders().map(provider => [provider.id, provider.configKey] as const))(

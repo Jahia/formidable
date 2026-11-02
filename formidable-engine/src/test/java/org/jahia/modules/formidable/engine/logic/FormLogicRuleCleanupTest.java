@@ -36,7 +36,7 @@ class FormLogicRuleCleanupTest {
         }
 
         assertFalse(declared.isEmpty(), "no provider found in providers.ts: the pattern no longer matches its entries");
-        assertEquals(declared, FormLogicRuleCleanup.SHIPPED_PROVIDER_CONFIG_KEYS);
+        assertEquals(FormLogicRuleCleanup.SHIPPED_PROVIDER_CONFIG_KEYS, declared);
     }
 
     @Test
