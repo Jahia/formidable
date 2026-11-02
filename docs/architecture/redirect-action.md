@@ -73,8 +73,8 @@ start with `http://` or `https://` (`www.example.com`, `/sites/mysite/home.html`
    - `page`: the `page` node read in **live**, in the submission's locale (the action node came from that
      session); its URL is `node.getUrl()` passed through the outbound URL rewriting, with a request that reports the
      platform's context path instead of the servlet's `<context>/modules` (`PageLinks`). The rewriting reads the
-     context path from the request: it starts the URL with it, after the server name of another site, and looks a
-     vanity URL up only when it equals the link's. The rewriting calls
+     context path from the request: it starts the rewritten URL with it, and a page of a site with another server name
+     gets that server in front of it; it also looks a vanity URL up only when it equals the link's. The rewriting calls
      `response.encodeURL`, which adds `;jsessionid=...` for a visitor with no session cookie yet, since the platform's
      `web.xml` leaves URL session tracking on: `PageLinks` hands it a response whose `encodeURL` leaves the URL as it
      is. An absolute URL of the server the request reached is reduced to its path and returned with `redirectTo(path)`;

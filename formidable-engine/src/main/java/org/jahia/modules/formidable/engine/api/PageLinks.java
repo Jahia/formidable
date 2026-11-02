@@ -79,8 +79,9 @@ public final class PageLinks {
 
     /**
      * The request the rewriting sees: its context path is the platform's, the one {@code node.getUrl()} starts with.
-     * The rewriting reads the context path from the request: it starts the rewritten URL with it, before the server
-     * name of another site when the page is on one, and looks a vanity URL up only when it equals the link's. Under
+     * The rewriting reads the context path from the request: it starts the rewritten URL with it, and a page of a site
+     * with another server name gets that server in front of it; it also looks a vanity URL up only when it equals the
+     * link's. Under
      * the servlet's {@code <context>/modules}, a page of another site became {@code http://other/modules/...}, a 404,
      * and a page with a vanity URL got its path.
      */

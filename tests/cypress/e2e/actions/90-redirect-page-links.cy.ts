@@ -1,8 +1,8 @@
-import {addNode, createSite, deleteSite, enableModule, getNodeByPath, publishAndWaitJobEnding} from '@jahia/cypress';
-import gql from 'graphql-tag';
+import {addNode, addVanityUrl, createSite, deleteSite, publishAndWaitJobEnding} from '@jahia/cypress';
 import {FORMIDABLE_TEST_SITE, createPublishedLiveFormPage, getInputTextNode, getRedirectActionNode} from '../../support/fixtures';
-import {FORMIDABLE_MODULE_IDS, SITE_HOME_PATH} from '../../support/constants';
+import {SITE_HOME_PATH} from '../../support/constants';
 import {SAME_ORIGIN, postDirectMultipartSubmission, withSameOriginHeaders} from '../security/support';
+import {useFormidableSite} from '../support/useFormidableSite';
 
 /**
  * The URL of a page picked in the redirect action is the one the platform renders for that page
@@ -27,96 +27,57 @@ describe('Actions - 90 Redirect to a page, as the platform links it', () => {
 		fields: {name: 'Ada'},
 		headers: withSameOriginHeaders({Host: hostA, Origin: `${protocol}//${hostA}`, Referer: `${protocol}//${hostA}/`})
 	});
-	const redirectOf = (response: Cypress.Response<unknown>) => {
-		expect(response.status).to.eq(200);
-		return (response.body as {redirect?: string}).redirect;
-	};
-	const uuidOf = (path: string) => getNodeByPath(path).then(node => node.data.jcr.nodeByPath.uuid as string);
-	const recreateTestSite = (serverName: string) => {
-		deleteSite(FORMIDABLE_TEST_SITE.key);
-		createSite(FORMIDABLE_TEST_SITE.key, {...FORMIDABLE_TEST_SITE.config, serverName});
-		FORMIDABLE_MODULE_IDS.forEach(moduleId => enableModule(moduleId, FORMIDABLE_TEST_SITE.key));
+	const expectRedirect = (formId: string, lang: string, redirect: string) => submit(formId, lang).then(response => {
+		expect(response.status, lang).to.eq(200);
+		expect(response.body, lang).to.deep.equal({success: true, redirect});
+	});
+	const addPage = (parentPath: string, name: string, titles: Record<string, string>) => addNode({
+		parentPathOrId: parentPath,
+		name,
+		primaryNodeType: 'jnt:page',
+		properties: [
+			...Object.entries(titles).map(([language, value]) => ({name: 'jcr:title', value, language})),
+			{name: 'j:templateName', value: 'simple'}
+		]
+	}).then(response => response.data.jcr.addNode.uuid as string);
+	const expectRedirectsTo = (formName: string, pageUuid: string, targets: Record<string, string>) => {
+		createPublishedLiveFormPage(formName, formName, nameField(), undefined, undefined, {
+			actions: [getRedirectActionNode({pageUuid})],
+			publishLanguages: LANGUAGES
+		}).then(({formId}) => {
+			Object.entries(targets).forEach(([lang, target]) => expectRedirect(formId, lang, target));
+		});
 	};
 
+	useFormidableSite({serverName: SERVER_A});
+
 	before(() => {
-		recreateTestSite(SERVER_A);
 		deleteSite(SITE_B);
 		createSite(SITE_B, {...FORMIDABLE_TEST_SITE.config, serverName: SERVER_B});
 	});
 
-	beforeEach(() => {
-		cy.login();
-	});
-
-	afterEach(() => {
-		cy.logout();
-	});
-
 	after(() => {
 		deleteSite(SITE_B);
-		// the other specs submit on localhost
-		recreateTestSite(FORMIDABLE_TEST_SITE.config.serverName);
 	});
 
 	it('sends the visitor to a page of a site with another server name at that server\'s address', () => {
-		const pagePath = `/sites/${SITE_B}/home/thank-you`;
-		addNode({
-			parentPathOrId: `/sites/${SITE_B}/home`,
-			name: 'thank-you',
-			primaryNodeType: 'jnt:page',
-			properties: [
-				{name: 'jcr:title', value: 'Thank you', language: 'en'},
-				{name: 'jcr:title', value: 'Merci', language: 'fr'},
-				{name: 'j:templateName', value: 'simple'}
-			]
-		});
-		publishAndWaitJobEnding(pagePath, LANGUAGES);
-
-		uuidOf(pagePath).then(pageUuid => {
-			createPublishedLiveFormPage('redirect-other-site-form', 'Redirect to a page of another site', nameField(), undefined, undefined, {
-				actions: [getRedirectActionNode({pageUuid})],
-				publishLanguages: LANGUAGES
-			}).then(({formId}) => {
-				// the default language of the site has no language in its URL, and no /modules, the servlet's context path
-				submit(formId, 'en').then(response => expect(redirectOf(response)).to.eq(`${originB}/home/thank-you.html`));
-				submit(formId, 'fr').then(response => expect(redirectOf(response)).to.eq(`${originB}/fr/home/thank-you.html`));
+		addPage(`/sites/${SITE_B}/home`, 'thank-you', {en: 'Thank you', fr: 'Merci'}).then(pageUuid => {
+			publishAndWaitJobEnding(`/sites/${SITE_B}/home/thank-you`, LANGUAGES);
+			// the default language of the site has no language in its URL, and no /modules, the servlet's context path
+			expectRedirectsTo('redirect-other-site-form', pageUuid, {
+				en: `${originB}/home/thank-you.html`,
+				fr: `${originB}/fr/home/thank-you.html`
 			});
 		});
 	});
 
 	it('sends the visitor to the vanity URL of a page that has one', () => {
 		const pagePath = `${SITE_HOME_PATH}/vanity-target`;
-		createPublishedLiveFormPage('redirect-vanity-holder', 'The vanity target holder', nameField(), 'vanity-target', 'Thanks', {
-			pageProperties: [{name: 'jcr:title', value: 'Merci', language: 'fr'}],
-			publishLanguages: LANGUAGES
-		});
-		cy.apollo({
-			mutation: gql`
-				mutation addVanityUrls($path: String!) {
-					jcr {
-						mutateNode(pathOrId: $path) {
-							addVanityUrl(vanityUrlInputList: [
-								{language: "en", url: "/thanks", active: true, defaultMapping: true},
-								{language: "fr", url: "/merci", active: true, defaultMapping: true}
-							]) {
-								uuid
-							}
-						}
-					}
-				}
-			`,
-			variables: {path: pagePath}
-		});
-		publishAndWaitJobEnding(pagePath, LANGUAGES);
-
-		uuidOf(pagePath).then(pageUuid => {
-			createPublishedLiveFormPage('redirect-vanity-form', 'Redirect to a page with a vanity URL', nameField(), undefined, undefined, {
-				actions: [getRedirectActionNode({pageUuid})],
-				publishLanguages: LANGUAGES
-			}).then(({formId}) => {
-				submit(formId, 'en').then(response => expect(redirectOf(response)).to.eq('/thanks'));
-				submit(formId, 'fr').then(response => expect(redirectOf(response)).to.eq('/merci'));
-			});
+		addPage(SITE_HOME_PATH, 'vanity-target', {en: 'Thanks', fr: 'Merci'}).then(pageUuid => {
+			addVanityUrl(pagePath, 'en', '/thanks');
+			addVanityUrl(pagePath, 'fr', '/merci');
+			publishAndWaitJobEnding(pagePath, LANGUAGES);
+			expectRedirectsTo('redirect-vanity-form', pageUuid, {en: '/thanks', fr: '/merci'});
 		});
 	});
 });

@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -16,6 +17,9 @@ import static org.mockito.Mockito.when;
 
 class PageLinksTest {
 
+    /** Jahia at the web root, and under a context path. */
+    private static final List<String> PLATFORM_CONTEXT_PATHS = List.of("", "/dx");
+
     private static JCRNodeWrapper page() {
         JCRNodeWrapper page = mock(JCRNodeWrapper.class);
         when(page.getUrl()).thenReturn("/cms/render/live/fr/sites/mysite/home.html");
@@ -24,8 +28,13 @@ class PageLinksTest {
     }
 
     private static HttpServletRequest request() {
+        return request("");
+    }
+
+    /** A request to the engine's servlet, whose context path is the platform's followed by /modules. */
+    private static HttpServletRequest request(String platformContextPath) {
         HttpServletRequest request = mock(HttpServletRequest.class);
-        when(request.getContextPath()).thenReturn("/modules");
+        when(request.getContextPath()).thenReturn(platformContextPath + "/modules");
         when(request.getServerName()).thenReturn("www.example.com");
         return request;
     }
@@ -33,26 +42,30 @@ class PageLinksTest {
     @Test
     void theRewritingSeesThePlatformsContextPathNotTheServlets() {
         // Verifies the OSGi servlet trap: the platform's rewriting starts the URL with the request's context path and
-        // looks a vanity URL up only when it equals the link's, so it must never read the servlet's /modules.
-        AtomicReference<String> seen = new AtomicReference<>();
-        Optional<String> url = PageLinks.urlOf(page(), request(), null,
-                (link, req, resp) -> {
-                    seen.set(req.getContextPath());
-                    return req.getContextPath() + "/thanks";
-                }, "/jahia");
+        // looks a vanity URL up only when it equals the link's, so it must never read the servlet's <context>/modules.
+        for (String platformContextPath : PLATFORM_CONTEXT_PATHS) {
+            AtomicReference<String> seen = new AtomicReference<>();
+            Optional<String> url = PageLinks.urlOf(page(), request(platformContextPath), null,
+                    (link, req, resp) -> {
+                        seen.set(req.getContextPath());
+                        return req.getContextPath() + "/thanks";
+                    }, platformContextPath);
 
-        assertEquals("/jahia", seen.get());
-        assertEquals(Optional.of("/jahia/thanks"), url);
+            assertEquals(platformContextPath, seen.get());
+            assertEquals(Optional.of(platformContextPath + "/thanks"), url, platformContextPath);
+        }
     }
 
     @Test
     void aPageOfAnotherServerNameCarriesThePlatformsContextPathAfterTheHost() {
         // Verifies the rule that puts another site's server name in front of the rewritten URL: the context path that
-        // follows the host is the platform's, never /modules.
-        Optional<String> url = PageLinks.urlOf(page(), request(), null,
-                (link, req, resp) -> "http://serverb:8080" + req.getContextPath() + "/home/thank-you.html", "");
+        // follows the host is the platform's, never <context>/modules.
+        for (String platformContextPath : PLATFORM_CONTEXT_PATHS) {
+            Optional<String> url = PageLinks.urlOf(page(), request(platformContextPath), null,
+                    (link, req, resp) -> "http://serverb:8080" + req.getContextPath() + "/home/thank-you.html", platformContextPath);
 
-        assertEquals(Optional.of("http://serverb:8080/home/thank-you.html"), url);
+            assertEquals(Optional.of("http://serverb:8080" + platformContextPath + "/home/thank-you.html"), url, platformContextPath);
+        }
     }
 
     @Test
