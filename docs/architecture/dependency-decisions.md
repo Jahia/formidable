@@ -147,7 +147,7 @@ This project uses two distinct dependency strategies in its Java modules:
   declared `[4,5)` and `[3,4)` although its documentation announced the ranges open to 3.4+: on any 3.x
   the bundle did not resolve.
 - `maven-dependency-plugin:analyze-only` with `failOnWarning`, as in the engine.
-- The mapping rules are built and compared as plain maps: no import of Unomi's rule, condition or action packages, no JSON library at runtime (jExperience's admin client serialises the maps). `org.json` is a test dependency, for the golden rule.
+- The mapping rules are built and compared as plain maps: no import of Unomi's rule, condition or action packages, and no JSON library for them (jExperience's admin client serialises the maps). `org.json` is `provided`, as in the engine: the render filter reads the stored conditional-logic rules with it to list the profile properties they read, and the golden-rule test parses the expected JSON.
 - `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, the type the publication listener and the render
   filter apply to) and `jexperience`.
 

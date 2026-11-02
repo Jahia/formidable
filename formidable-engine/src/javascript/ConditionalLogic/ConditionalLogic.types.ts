@@ -3,10 +3,10 @@
  * providers.ts (state outside the form, read in the browser only — the runtime
  * counterpart lives in formidable-elements/src/utils/logicProviders.ts).
  */
-export type RuleSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie';
+export type RuleSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie' | 'jexperience:profile';
 
 /** Rule keys holding what a provider designates, one per provider. */
-export type ProviderConfigKey = 'variable' | 'param' | 'cookie';
+export type ProviderConfigKey = 'variable' | 'param' | 'cookie' | 'property';
 
 /**
  * Shape of the values a source field produces, which drives the offered operators
@@ -64,10 +64,11 @@ export interface ConditionalLogicRule {
     valueKind?: SourceValueKind;
     // Provider-rule config, exactly one of these per rule, named by the provider's
     // configKey: a dotted window variable path (e.g. a datalayer entry), a URL query
-    // parameter name, a cookie name.
+    // parameter name, a cookie name, a jExperience profile property.
     variable?: string;
     param?: string;
     cookie?: string;
+    property?: string;
     operator: LogicOperator;
     value?: string;
     values?: string[];
@@ -140,7 +141,7 @@ export interface GraphNode {
     isTextField?: boolean;
     properties?: PropertyValue[] | null;
     defaultProperties?: PropertyValue[] | null;
-    site?: {defaultLanguage?: string | null} | null;
+    site?: {defaultLanguage?: string | null; installedModulesWithAllDependencies?: string[] | null} | null;
     ancestors?: GraphAncestorNode[] | null;
     descendants?: {nodes?: GraphNode[] | null} | null;
     descendant?: {children?: {nodes?: LogicSrcNode[] | null} | null} | null;

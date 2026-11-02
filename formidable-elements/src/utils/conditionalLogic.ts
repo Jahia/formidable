@@ -1,4 +1,9 @@
-import {getLogicProvider, type LogicSourceType, type ScalarLogicProvider} from '~/utils/logicProviders';
+import {
+	getLogicProvider,
+	isLogicProviderAvailable,
+	type LogicSourceType,
+	type ScalarLogicProvider
+} from '~/utils/logicProviders';
 import {localToday} from '~/components/Input/Date/bounds';
 
 export type ConditionalLogicSourceType = LogicSourceType;
@@ -50,6 +55,7 @@ export interface ConditionalLogicRule {
 	variable?: string;
 	param?: string;
 	cookie?: string;
+	property?: string;
 	operator: ConditionalLogicOperator;
 	value?: string;
 	values?: string[];
@@ -392,8 +398,12 @@ const hasTextContent = (values: string[]): boolean =>
 /**
  * Evaluates a provider rule (a JS variable, a URL parameter, a cookie…). The provider
  * reports one optional string, so the comparison is the same whichever provider it is.
+ * A source that cannot be read at all makes the rule false, whatever the operator: "the
+ * tracker is blocked" must not read as "the property does not exist".
  */
 const evaluateProviderRule = (rule: ConditionalLogicRule, provider: ScalarLogicProvider): boolean => {
+	if (!isLogicProviderAvailable(provider)) return false;
+
 	const ref = rule[provider.configKey];
 	const actual = ref ? provider.read(ref) : undefined;
 	const defined = actual !== undefined;
@@ -481,7 +491,9 @@ export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 
 	for (const [providerId, refs] of refsByProvider) {
 		const provider = getLogicProvider(providerId);
-		if (!provider) continue;
+		// An unavailable source is left undeclared rather than declared absent: the server
+		// then fails its rules closed, as this runtime does.
+		if (!provider || !isLogicProviderAvailable(provider)) continue;
 
 		const state: Record<string, string | null> = {};
 		for (const ref of refs) {

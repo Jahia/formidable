@@ -32,12 +32,14 @@ import java.util.Set;
 
 /**
  * Writes, before every form of a tracked site in live, what the client script needs: a JSON block
- * keyed on the form's UUID — {@code formId}, {@code name}, {@code path}, and the {@code prefill} pairs,
- * field to visitor profile property, for the fields the author asked to prefill — and the declaration
+ * keyed on the form's UUID — {@code formId}, {@code name}, {@code path}, the {@code prefill} pairs,
+ * field to visitor profile property, for the fields the author asked to prefill, and the {@code logic}
+ * list, the profile properties the form's conditional logic reads — and the declaration
  * of the script as a static asset. What the form maps for sending is not in it: the accepted values
  * reach the script through the submission's answer (see {@code block}). The form's mappable fields are
- * registered as dependencies of the fragment: mapping one, or switching its prefill on, must refresh
- * a block the cache would otherwise keep until the form itself is republished.
+ * registered as dependencies of the fragment, and so are its elements that can carry rules: mapping a
+ * field, switching its prefill on or adding a rule on the profile must refresh a block the cache would
+ * otherwise keep until the form itself is republished.
  *
  * <p>The output depends on the published form alone, never on the visitor, so the fragment stays
  * cached and identical for everyone. Every form of a page declares the same asset, and core keeps one
@@ -142,7 +144,9 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
             JCRNodeWrapper form = session.getNodeByIdentifier(uuid);
             PrefillMappings.Prefill prefill = prefillOf(session, form);
             dependencies.addAll(prefill.dependencies());
-            return block(form, uuid, contextPath, prefill.entries());
+            LogicProperties.Logic logic = logicOf(session, form);
+            dependencies.addAll(logic.dependencies());
+            return block(form, uuid, contextPath, prefill.entries(), logic.properties());
         });
     }
 
@@ -154,15 +158,26 @@ public class FormJExperienceRenderFilter extends AbstractFilter {
         return new PrefillMappings().read(session, form);
     }
 
-    private String block(JCRNodeWrapper form, String uuid, String contextPath, java.util.Map<String, PrefillMappings.Entry> prefill) {
+    /**
+     * The profile properties the form's conditional logic reads, with every element that can carry rules
+     * as a dependency, read from the JCR alone in the filter's session; a seam for the tests.
+     */
+    LogicProperties.Logic logicOf(JCRSessionWrapper session, JCRNodeWrapper form) throws RepositoryException {
+        return new LogicProperties().read(session, form);
+    }
+
+    private String block(JCRNodeWrapper form, String uuid, String contextPath, java.util.Map<String, PrefillMappings.Entry> prefill,
+                         java.util.List<String> logic) {
         // Built by hand: this module carries no JSON library at runtime. What the form maps for SENDING is
         // deliberately not here — the send decision reads the tracker's own watch list, which a mapped form
         // is in through the rule this integration publishes. The prefill pairs are, because they are the one
-        // thing the context cannot say: which field a returned property belongs to. Names only, no value.
+        // thing the context cannot say: which field a returned property belongs to. The logic properties are,
+        // because the tracker must be asked for them before it starts. Names only, no value.
         String json = "{\"formId\":" + Json.string(uuid)
                 + ",\"name\":" + Json.string(form.getDisplayableName())
                 + ",\"path\":" + Json.string(form.getPath())
-                + ",\"prefill\":" + PrefillMappings.json(prefill) + "}";
+                + ",\"prefill\":" + PrefillMappings.json(prefill)
+                + ",\"logic\":" + LogicProperties.json(logic) + "}";
         return "<script type=\"application/json\" " + CONFIG_ATTRIBUTE + "=\"" + uuid + "\">" + json + "</script>\n"
                 + scriptAsset(contextPath);
     }

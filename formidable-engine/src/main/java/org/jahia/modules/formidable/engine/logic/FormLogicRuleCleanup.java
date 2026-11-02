@@ -20,14 +20,15 @@ final class FormLogicRuleCleanup {
 
     /**
      * The config key of each provider shipped with this module version (mirrors
-     * the editor-side provider registry). Only these are cleanup candidates: for
-     * any other source type this version cannot tell an empty configuration from
-     * one it simply cannot read.
+     * the editor-side provider registry, which FormLogicRuleCleanupTest checks).
+     * Only these are cleanup candidates: for any other source type this version
+     * cannot tell an empty configuration from one it simply cannot read.
      */
-    private static final Map<String, String> SHIPPED_PROVIDER_CONFIG_KEYS = Map.of(
+    static final Map<String, String> SHIPPED_PROVIDER_CONFIG_KEYS = Map.of(
             "jsVariable", "variable",
             "urlParam", "param",
-            "cookie", "cookie");
+            "cookie", "cookie",
+            "jexperience:profile", "property");
 
     private FormLogicRuleCleanup() {
     }

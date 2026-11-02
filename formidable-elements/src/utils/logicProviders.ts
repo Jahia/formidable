@@ -4,27 +4,38 @@
  * A field source is read from the DOM and yields a list of values, so it stays in the
  * evaluator. Every other source designates one thing outside the form whose current state
  * is a single optional string: a JS variable (a datalayer entry), a URL parameter, a
- * cookie. They therefore share one shape, one operator set and one evaluation path — a new
- * provider is a `read` function and, when the value can change without a form event, a
- * `subscribe`.
+ * cookie, a jExperience profile property. They therefore share one shape, one operator set
+ * and one evaluation path — a new provider is a `read` function and, when the value can
+ * change without a form event, a `subscribe`; one whose system may be missing from the page
+ * adds `available`.
  *
  * This list is internal: providers ship with Formidable, and nothing here is a public
- * extension point yet. The editor half lives in
+ * extension point yet. A provider that belongs to another module is already shaped as one
+ * would be: its entry here only forwards to the object that module's script puts on the
+ * page (see hostedProvider). The editor half lives in
  * formidable-engine/src/javascript/ConditionalLogic/providers.ts and must declare the same
- * ids and config keys — nothing checks that today.
+ * ids and config keys; formidable-engine's providers.test.ts checks it.
  */
 
 /** Config keys a provider rule may carry in its stored JSON, one per provider. */
-export type LogicProviderConfigKey = 'variable' | 'param' | 'cookie';
+export type LogicProviderConfigKey = 'variable' | 'param' | 'cookie' | 'property';
 
 /** What a rule designates: another form field, or one of the providers below. */
-export type LogicSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie';
+export type LogicSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie' | 'jexperience:profile';
 
 export interface ScalarLogicProvider {
 	/** Persisted verbatim as the rule's `sourceType`. */
 	id: Exclude<LogicSourceType, 'field'>;
 	/** The rule property holding what this provider designates. */
 	configKey: LogicProviderConfigKey;
+	/**
+	 * Whether the source can be read at all right now. False when the system behind it is
+	 * not on the page, was blocked (no consent, a bot filter) or has not loaded yet: the rule
+	 * is then false whatever its operator, `notExists` included, and the reference is left out
+	 * of the submit-time declaration, so the server fails closed too. Providers whose state is
+	 * always readable omit it.
+	 */
+	available?(): boolean;
 	/** Current value of the designated thing, or undefined when it does not exist. */
 	read(ref: string): string | undefined;
 	/**
@@ -159,7 +170,66 @@ const cookieProvider: ScalarLogicProvider = {
 	}
 };
 
-const PROVIDERS: ScalarLogicProvider[] = [jsVariableProvider, urlParamProvider, cookieProvider];
+/** What another module's script puts on the page to serve one provider: the provider minus its identity. */
+export type HostedLogicProvider = Pick<ScalarLogicProvider, 'available' | 'read' | 'subscribe'>;
+
+/**
+ * A provider whose implementation belongs to another module, found at call time on the
+ * global that module's script fills — so the order in which the two scripts run does not
+ * matter. Absent, or throwing, it is unavailable: the rule fails closed. That script asks for
+ * a re-evaluation through FORM_LOGIC_INVALIDATE_EVENT once its state is loaded.
+ */
+const hostedProvider = (
+	id: ScalarLogicProvider['id'],
+	configKey: LogicProviderConfigKey,
+	host: () => HostedLogicProvider | undefined
+): ScalarLogicProvider => {
+	const resolve = (): HostedLogicProvider | undefined => {
+		try {
+			return typeof window === 'undefined' ? undefined : host();
+		} catch {
+			return undefined;
+		}
+	};
+
+	return {
+		id,
+		configKey,
+		available: () => {
+			const hosted = resolve();
+			try {
+				return Boolean(hosted) && (typeof hosted!.available !== 'function' || hosted!.available() === true);
+			} catch {
+				return false;
+			}
+		},
+		read: ref => {
+			try {
+				const value = resolve()?.read(ref);
+				return typeof value === 'string' ? value : undefined;
+			} catch {
+				return undefined;
+			}
+		},
+		subscribe: (refs, onChange) => resolve()?.subscribe?.(refs, onChange) ?? (() => undefined)
+	};
+};
+
+declare global {
+	interface Window {
+		/** Filled by formidable-jexperience-engine's formidable-jxp.js, on a site jExperience tracks. */
+		formidableJxp?: {logicProvider?: HostedLogicProvider};
+	}
+}
+
+/** A property of the visitor's jExperience profile, read from the context jExperience's tracker loaded. */
+const jexperienceProfileProvider = hostedProvider(
+	'jexperience:profile',
+	'property',
+	() => window.formidableJxp?.logicProvider
+);
+
+const PROVIDERS: ScalarLogicProvider[] = [jsVariableProvider, urlParamProvider, cookieProvider, jexperienceProfileProvider];
 
 const PROVIDERS_BY_ID = new Map<string, ScalarLogicProvider>(
 	PROVIDERS.map(provider => [provider.id, provider])
@@ -172,6 +242,10 @@ export const getLogicProvider = (sourceType?: string): ScalarLogicProvider | und
 
 export const logicProviderConfigKeys = (): LogicProviderConfigKey[] =>
 	PROVIDERS.map(provider => provider.configKey);
+
+/** Whether a provider's source can be read now; see ScalarLogicProvider.available. */
+export const isLogicProviderAvailable = (provider: ScalarLogicProvider): boolean =>
+	typeof provider.available !== 'function' || provider.available();
 
 /**
  * Event any integrator can dispatch to have conditional logic re-evaluated — after pushing

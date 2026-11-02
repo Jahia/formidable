@@ -1,7 +1,9 @@
 package org.jahia.modules.formidable.engine.logic;
 
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
+import javax.jcr.Value;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -10,6 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class ConditionalLogicEvaluatorTest {
 
@@ -650,6 +654,45 @@ class ConditionalLogicEvaluatorTest {
 
         assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluator.visibility("shownWhenAbsent"));
         assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("shownWhenPresent"));
+    }
+
+    /** A rule of the jExperience profile source as the editor stores it, parsed the way the submission parses it. */
+    private static ConditionalLogicRule storedProfileRule(String operator, String value) throws Exception {
+        Value stored = mock(Value.class);
+        when(stored.getString()).thenReturn(new JSONObject()
+                .put("logicId", "logic-jxp").put("sourceType", "jexperience:profile").put("property", "country")
+                .put("operator", operator).put("value", value == null ? JSONObject.NULL : value).toString());
+        List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(new Value[]{stored});
+        assertEquals(1, rules.size());
+        return rules.get(0);
+    }
+
+    @Test
+    void aProfileRuleIsEvaluatedAgainstTheValueTheBrowserDeclared() throws Exception {
+        // The server never asks jCustomer: the country the browser read is the one the rule is judged on
+        ConditionalLogicRule countryIsFr = storedProfileRule("equals", "FR");
+        assertEquals("country", countryIsFr.providerRef());
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluatorWithDeclaration(
+                Map.of("companySize", List.of(countryIsFr)), Map.of(),
+                "{\"v\":1,\"providers\":{\"jexperience:profile\":{\"country\":\"FR\"}}}").visibility("companySize"));
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluatorWithDeclaration(
+                Map.of("companySize", List.of(countryIsFr)), Map.of(),
+                "{\"v\":1,\"providers\":{\"jexperience:profile\":{\"country\":\"DE\"}}}").visibility("companySize"));
+    }
+
+    @Test
+    void aProfileRuleTheBrowserCouldNotReadStaysHiddenWhateverItsOperator() throws Exception {
+        // A blocked tracker or a refused consent: the browser declares nothing for the property, and even
+        // "does not exist" must not show the field — the server reaches the browser's verdict
+        ConditionalLogicRule noCountry = storedProfileRule("notExists", null);
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, evaluatorWithDeclaration(
+                Map.of("companySize", List.of(noCountry)), Map.of(), "{\"v\":1,\"providers\":{}}").visibility("companySize"));
+        // read and absent is another matter: the profile holds no country
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluatorWithDeclaration(
+                Map.of("companySize", List.of(noCountry)), Map.of(),
+                "{\"v\":1,\"providers\":{\"jexperience:profile\":{\"country\":null}}}").visibility("companySize"));
     }
 
     @Test

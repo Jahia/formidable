@@ -63,7 +63,7 @@
 		"betweenNoMatch": "Cette règle ne correspond actuellement à aucune date : elle est ignorée à la soumission du formulaire.",
 		"loadingSources": "Chargement des champs disponibles...",
 		"noSources": "Aucun champ source supporté n'est disponible avant ce champ.",
-		"help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Sont éligibles les champs qui déclarent un type de valeur : choix (liste, radio, case à cocher), date, nombre et booléen — y compris les champs apportés par d'autres modules. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé. Une condition peut aussi lire une information extérieure au formulaire : une valeur du datalayer, un paramètre d'URL ou un cookie. Ces informations sont lues uniquement dans le navigateur : un champ obligatoire affiché par une telle condition n'est donc pas exigé à l'envoi du formulaire.",
+		"help": "Utilise des champs placés avant celui-ci pour afficher ou masquer ce champ. Sont éligibles les champs qui déclarent un type de valeur : choix (liste, radio, case à cocher), date, nombre et booléen — y compris les champs apportés par d'autres modules. \"Aucun champ source supporté...\" signifie qu'aucun champ compatible précédent n'a été trouvé. Une condition peut aussi lire une information extérieure au formulaire : une valeur du datalayer, un paramètre d'URL, un cookie ou, sur un site suivi par jExperience, une propriété du profil du visiteur (fausse tant que le tracker est bloqué ou que le visiteur n'a pas donné son consentement). Ces informations sont lues uniquement dans le navigateur : un champ obligatoire affiché par une telle condition n'est donc pas exigé à l'envoi du formulaire.",
 		"allSourcesUsed": "Tous les champs source disponibles sont déjà utilisés par les règles au-dessus.",
 		"unresolvedContext": "Impossible de résoudre le chemin du champ édité.",
 		"formNotFound": "Impossible de retrouver le formulaire parent.",
@@ -86,6 +86,11 @@
 				"label": "Cookie",
 				"configLabel": "Nom du cookie",
 				"configPlaceholder": "consent-marketing"
+			},
+			"jexperienceProfile": {
+				"label": "Propriété du profil jExperience",
+				"configLabel": "Propriété du profil",
+				"configPlaceholder": "country"
 			}
 		},
 		"providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et sera supprimée à l'enregistrement.",

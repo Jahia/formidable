@@ -1,7 +1,7 @@
 /*
  * Formidable, jExperience integration: the client half.
  *
- * Two jobs, both driven by the JSON block the render filter writes before each form:
+ * Three jobs, all driven by the JSON block the render filter writes before each form:
  *
  * 1. Sends the `form` event of an accepted submission through jExperience's tracker, after the
  *    server answered 200 and with the values the server accepted, never the DOM fields. The form
@@ -11,9 +11,12 @@
  *    every block's `prefill` properties is pushed once into `digitalDataOverrides`, so that the one
  *    context request the tracker makes anyway returns them; once the context is loaded AND the form
  *    island has taken the form over (`formidable:ready`), the values are written into the fields.
+ * 3. Serves the profile to conditional logic. The block's `logic` properties join the same request;
+ *    the form island reads them through `logicProvider` and is asked to evaluate its rules again
+ *    once the context is loaded.
  *
  * Design and gates: docs/architecture/jexperience-integration.md ("Rendering and prefill",
- * "Submitting", "The send condition").
+ * "Submitting", "The send condition", "Conditional logic").
  *
  * One instance per page whatever the number of forms: every form declares the same static asset and
  * core keeps one of them in the head. The guard below is the belt to that braces — a page built
@@ -106,6 +109,32 @@
   };
 
   // ---------------------------------------------------------------------------------------------
+  // Conditional logic: the profile as a rule source
+
+  /** Dispatched on the document to have the forms evaluate their rules again (FORM_LOGIC_INVALIDATE_EVENT). */
+  const LOGIC_INVALIDATE_EVENT = "fmdb:logic-invalidate";
+
+  /**
+   * What the form island forwards its `jexperience:profile` rules to (hostedProvider in
+   * formidable-elements/src/utils/logicProviders.ts). Readable once the tracker gate opens, and only
+   * then: a blocked tracker, a refused consent or a context still loading makes every such rule false,
+   * never "the property is absent". A value is read as a string, as every logic source is; a property
+   * the profile does not hold, or holds as a list or an object, is absent.
+   */
+  api.logicProvider = {
+    available: () => api.trackerReady(),
+    read: (property) => {
+      if (!api.trackerReady()) {
+        return undefined;
+      }
+      const value = (window.wem.getLoadedContext().profileProperties || {})[property];
+      return value === undefined || value === null || typeof value === "object"
+        ? undefined
+        : String(value);
+    },
+  };
+
+  // ---------------------------------------------------------------------------------------------
   // Sending
 
   /**
@@ -147,7 +176,7 @@
   });
 
   // ---------------------------------------------------------------------------------------------
-  // Prefill, part one: ask the tracker for the properties, once for the whole page.
+  // Prefill, part one, and conditional logic: ask the tracker for the properties, once for the whole page.
   //
   // jExperience creates `window.digitalDataOverrides` in the head and hands the array to the tracker
   // at `wem.init()`; the tracker merges its entries at DOMContentLoaded, concatenating arrays. This
@@ -168,7 +197,26 @@
     return names;
   };
 
+  /** The profile properties the page's conditional logic reads, each once. */
+  api.logicProperties = () => {
+    const names = [];
+    api.configs().forEach((config) => {
+      (Array.isArray(config.logic) ? config.logic : []).forEach((property) => {
+        if (typeof property === "string" && property && names.indexOf(property) === -1) {
+          names.push(property);
+        }
+      });
+    });
+    return names;
+  };
+
+  const logicProperties = api.logicProperties();
   const required = api.prefillProperties();
+  logicProperties.forEach((property) => {
+    if (required.indexOf(property) === -1) {
+      required.push(property);
+    }
+  });
   if (required.length > 0) {
     if (Array.isArray(window.digitalDataOverrides)) {
       window.digitalDataOverrides.push({ wemInitConfig: { requiredProfileProperties: required } });
@@ -178,7 +226,7 @@
       console.warn(
         "[Formidable] jExperience's digitalDataOverrides is not on the page: the profile properties " +
           required.join(", ") +
-          " cannot be requested and nothing will be prefilled",
+          " cannot be requested: nothing will be prefilled and the conditions on the profile stay false",
       );
     }
   }
@@ -622,17 +670,23 @@
     if (window.wemLoaded === true) {
       callback();
     } else if (window.wem && typeof window.wem._registerCallback === "function") {
-      window.wem._registerCallback(callback, "Formidable prefill", 100);
+      window.wem._registerCallback(callback, "Formidable profile", 100);
     } else {
       // a consent tool or a bot filter that kept the tracker off the page decides for this script too;
       // said once, so that a page that never prefills can be read
       console.warn(
-        "[Formidable] no jExperience tracker on the page when the form script ran: the mapped fields are not prefilled",
+        "[Formidable] no jExperience tracker on the page when the form script ran: the mapped fields are not prefilled and the conditions on the profile stay false",
       );
     }
   };
   if (required.length > 0) {
-    onTrackerReady(attemptAll);
+    onTrackerReady(() => {
+      attemptAll();
+      // the island may have evaluated its rules before the context was there: they read it now
+      if (logicProperties.length > 0) {
+        document.dispatchEvent(new Event(LOGIC_INVALIDATE_EVENT));
+      }
+    });
     attemptAll();
   }
 })();

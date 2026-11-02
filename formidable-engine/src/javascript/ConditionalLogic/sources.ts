@@ -10,6 +10,8 @@ import type {GraphNode, SourceFieldOption} from './ConditionalLogic.types';
 export interface SourcesLoad {
     sources: SourceFieldOption[];
     logicIdToSource: Map<string, {name: string; uuid: string}>;
+    /** The modules of the field's site, its own and their dependencies: a provider may need some of them. */
+    installedModules: string[];
 }
 
 /** The coordinates of one load — also its sharing key: the same field, workspace and languages share one request. */
@@ -66,7 +68,8 @@ export const fetchSources = async (input: SourcesInput, post: GraphQLPost = post
 
     return {
         sources: buildSourceFieldOptions(field.path, form.descendants?.nodes ?? []),
-        logicIdToSource: buildLogicIdToSourceMap(field.descendant?.children?.nodes ?? [])
+        logicIdToSource: buildLogicIdToSourceMap(field.descendant?.children?.nodes ?? []),
+        installedModules: field.site?.installedModulesWithAllDependencies ?? []
     };
 };
 
@@ -150,17 +153,18 @@ interface HeldLoad {
     key: string;
     sources: SourceFieldOption[];
     logicIdToSource: Map<string, {name: string; uuid: string}>;
+    installedModules: string[];
     failed: boolean;
 }
 
-export interface SharedSources extends Pick<HeldLoad, 'sources' | 'logicIdToSource'> {
+export interface SharedSources extends Pick<HeldLoad, 'sources' | 'logicIdToSource' | 'installedModules'> {
     /** True until the load this row holds has answered. */
     loading: boolean;
     /** The i18n key of what prevents a list: no field path to load for, or a failed request. */
     errorKey: 'conditionalLogic.unresolvedContext' | 'conditionalLogic.loadError' | null;
 }
 
-const NOTHING: Pick<HeldLoad, 'sources' | 'logicIdToSource'> = {sources: [], logicIdToSource: new Map()};
+const NOTHING: Pick<HeldLoad, 'sources' | 'logicIdToSource' | 'installedModules'> = {sources: [], logicIdToSource: new Map(), installedModules: []};
 
 /** What a row shows, from the load that answered last — pure, so the tests cover it without rendering. */
 export const sharedSourcesView = (input: SourcesInput | null, held: HeldLoad | null): SharedSources => {
@@ -175,6 +179,7 @@ export const sharedSourcesView = (input: SourcesInput | null, held: HeldLoad | n
     return {
         sources: held.sources,
         logicIdToSource: held.logicIdToSource,
+        installedModules: held.installedModules,
         loading: false,
         errorKey: held.failed ? 'conditionalLogic.loadError' : null
     };
@@ -205,7 +210,7 @@ export const useSharedSources = (
         acquireSources(input)
             .then(load => {
                 if (!cancelled) {
-                    setHeld({key, sources: load.sources, logicIdToSource: load.logicIdToSource, failed: false});
+                    setHeld({key, sources: load.sources, logicIdToSource: load.logicIdToSource, installedModules: load.installedModules, failed: false});
                 }
             })
             .catch((error: unknown) => {

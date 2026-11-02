@@ -8,8 +8,10 @@ import type {LogicOperator, ProviderConfigKey, RuleSourceType} from './Condition
  * A provider is therefore fully declarative here: no per-provider React, and no
  * per-provider code in the runtime evaluator either (see
  * formidable-elements/src/utils/logicProviders.ts, which must declare the same ids and
- * config keys — nothing checks that today). This list is internal to the engine; it is
- * deliberately not a public extension point yet.
+ * config keys; providers.test.ts checks it). This list is internal to the engine; it is
+ * deliberately not a public extension point yet, but each entry is the whole description a
+ * registered provider would give — its operators and the modules it needs included — so that
+ * opening it later moves entries, without changing their shape.
  */
 export interface LogicProviderDescriptor {
     id: Exclude<RuleSourceType, 'field'>;
@@ -21,6 +23,13 @@ export interface LogicProviderDescriptor {
     configPlaceholderKey: string;
     /** Rejects a reference the runtime could never resolve. */
     isValidRef?: (ref: string) => boolean;
+    /** What a rule on this provider may test, the first being the default of a new rule. */
+    operators: LogicOperator[];
+    /**
+     * Modules the site must have for the provider to be offered: those that put its state on the
+     * page. A rule already stored on it stays editable where they are missing; it fails closed there.
+     */
+    requiredModules?: string[];
 }
 
 /**
@@ -43,6 +52,9 @@ const JS_VARIABLE_PATH_PATTERN = /^(window\.)?[A-Za-z_$][\w$]*(\.([A-Za-z_$][\w$
 // Cookie names are tokens: no separators, no whitespace, no control characters.
 const COOKIE_NAME_PATTERN = /^[\w!#$%&'*+\-.^`|~]+$/;
 
+// jCustomer profile property ids: one name, no whitespace, no path syntax beyond a dot.
+const PROFILE_PROPERTY_PATTERN = /^[\w.-]+$/;
+
 const PROVIDERS: LogicProviderDescriptor[] = [
     {
         id: 'jsVariable',
@@ -50,14 +62,16 @@ const PROVIDERS: LogicProviderDescriptor[] = [
         labelKey: 'conditionalLogic.providers.jsVariable.label',
         configLabelKey: 'conditionalLogic.providers.jsVariable.configLabel',
         configPlaceholderKey: 'conditionalLogic.providers.jsVariable.configPlaceholder',
-        isValidRef: ref => JS_VARIABLE_PATH_PATTERN.test(ref.trim())
+        isValidRef: ref => JS_VARIABLE_PATH_PATTERN.test(ref.trim()),
+        operators: PROVIDER_OPERATORS
     },
     {
         id: 'urlParam',
         configKey: 'param',
         labelKey: 'conditionalLogic.providers.urlParam.label',
         configLabelKey: 'conditionalLogic.providers.urlParam.configLabel',
-        configPlaceholderKey: 'conditionalLogic.providers.urlParam.configPlaceholder'
+        configPlaceholderKey: 'conditionalLogic.providers.urlParam.configPlaceholder',
+        operators: PROVIDER_OPERATORS
     },
     {
         id: 'cookie',
@@ -65,11 +79,30 @@ const PROVIDERS: LogicProviderDescriptor[] = [
         labelKey: 'conditionalLogic.providers.cookie.label',
         configLabelKey: 'conditionalLogic.providers.cookie.configLabel',
         configPlaceholderKey: 'conditionalLogic.providers.cookie.configPlaceholder',
-        isValidRef: ref => COOKIE_NAME_PATTERN.test(ref.trim())
+        isValidRef: ref => COOKIE_NAME_PATTERN.test(ref.trim()),
+        operators: PROVIDER_OPERATORS
+    },
+    {
+        // Namespaced: the id is stored in every rule, and a provider of another module must never
+        // collide with one of Formidable's. The i18n keys are spelt out, as i18next reads ':' as a
+        // namespace separator.
+        id: 'jexperience:profile',
+        configKey: 'property',
+        labelKey: 'conditionalLogic.providers.jexperienceProfile.label',
+        configLabelKey: 'conditionalLogic.providers.jexperienceProfile.configLabel',
+        configPlaceholderKey: 'conditionalLogic.providers.jexperienceProfile.configPlaceholder',
+        isValidRef: ref => PROFILE_PROPERTY_PATTERN.test(ref.trim()),
+        operators: PROVIDER_OPERATORS,
+        // jExperience puts the tracker on the page, formidable-jexperience-engine the script that reads it
+        requiredModules: ['jexperience', 'formidable-jexperience-engine']
     }
 ];
 
 export const listLogicProviders = (): LogicProviderDescriptor[] => PROVIDERS;
+
+/** The providers a new rule may pick on a site with these modules. */
+export const offeredLogicProviders = (installedModules: string[]): LogicProviderDescriptor[] =>
+    PROVIDERS.filter(provider => (provider.requiredModules ?? []).every(module => installedModules.includes(module)));
 
 export const getLogicProvider = (sourceType?: string): LogicProviderDescriptor | undefined =>
     sourceType === undefined || sourceType === '' || sourceType === 'field'

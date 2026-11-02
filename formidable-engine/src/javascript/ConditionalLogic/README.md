@@ -73,6 +73,23 @@ This separation matters because the selector has two different concerns:
 
 Keeping them together made the main component harder to read and harder to evolve.
 
+### `providers.ts`
+
+The sources of a rule that are not another form field: a datalayer value (`jsVariable`), a URL
+parameter (`urlParam`), a cookie (`cookie`) and a property of the visitor's jExperience profile
+(`jexperience:profile`). Each entry is the whole description of its source: the id stored in the
+rule, the rule key that holds its reference (`configKey`), its labels, a check of the reference, the
+operators a rule may test, and the modules the site must have for the source to be offered
+(`requiredModules`). The query of `graphql/queries.ts` reads the site's modules with the form.
+
+The list is closed, and it is not a public extension point yet. It is shaped as one would be, so
+that a registry opens later by moving entries, not by changing their shape: the id of a source that
+belongs to a module is namespaced (`jexperience:profile`), and its runtime half in
+`formidable-elements/src/utils/logicProviders.ts` only forwards to the object that module's script
+puts on the page. Three lists must stay in step — this one, the runtime one, and
+`SHIPPED_PROVIDER_CONFIG_KEYS` of the server's `FormLogicRuleCleanup` — and `providers.test.ts` and
+`FormLogicRuleCleanupTest` check it.
+
 ## Data flow
 
 1. The editor opens on a field with the `logics` property.

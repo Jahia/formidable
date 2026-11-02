@@ -114,11 +114,12 @@
             <artifactId>osgi.annotation</artifactId>
             <scope>provided</scope>
         </dependency>
-        <!-- The golden-rule test parses the expected JSON with org.json, the engine's own JSON library. -->
+        <!-- org.json, which the platform ships and the engine imports too: the render filter reads the stored
+             conditional-logic rules with it, and the golden-rule test parses the expected JSON. -->
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <scope>test</scope>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>

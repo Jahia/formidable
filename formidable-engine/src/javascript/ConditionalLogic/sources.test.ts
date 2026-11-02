@@ -44,6 +44,19 @@ describe('fetchSources', () => {
 		expect(load.logicIdToSource.get('rule-1')).toEqual({name: 'country', uuid: 'u-country'});
 	});
 
+	it('reads the modules of the field\'s site, which decide the providers offered, and none when the answer has no site', async () => {
+		const form = {uuid: 'u-form', workspace: 'EDIT', name: 'f', path: '/sites/s/contents/forms/f', primaryNodeType: {name: 'fmdb:form'}, descendants: {nodes: []}};
+		const withSite = vi.fn().mockResolvedValue(answer({
+			...field('city', 'fmdb:inputText'),
+			site: {installedModulesWithAllDependencies: ['formidable-elements', 'jexperience']},
+			ancestors: [form]
+		}));
+		const withoutSite = vi.fn().mockResolvedValue(answer({...field('city', 'fmdb:inputText'), ancestors: [form]}));
+
+		expect((await fetchSources(input, withSite)).installedModules).toEqual(['formidable-elements', 'jexperience']);
+		expect((await fetchSources(input, withoutSite)).installedModules).toEqual([]);
+	});
+
 	it('fails when no form stands above the field', async () => {
 		const post = vi.fn().mockResolvedValue(answer({...field('orphan', 'fmdb:inputText'), ancestors: []}));
 
@@ -58,7 +71,7 @@ describe('fetchSources', () => {
 });
 
 describe('acquireSources / releaseSources', () => {
-	const result: SourcesLoad = {sources: [], logicIdToSource: new Map()};
+	const result: SourcesLoad = {sources: [], logicIdToSource: new Map(), installedModules: []};
 
 	afterEach(() => {
 		forgetSources();
@@ -107,7 +120,7 @@ describe('acquireSources / releaseSources', () => {
 });
 
 describe('sharedSourcesView', () => {
-	const held = {key: 'EDIT|/sites/s/contents/forms/f/fields/city|en|en', sources: [], logicIdToSource: new Map(), failed: false};
+	const held = {key: 'EDIT|/sites/s/contents/forms/f/fields/city|en|en', sources: [], logicIdToSource: new Map(), installedModules: [], failed: false};
 
 	it('says what prevents a list, then loads, then shows the load it holds', () => {
 		expect(sharedSourcesView(null, null)).toMatchObject({loading: false, errorKey: 'conditionalLogic.unresolvedContext'});

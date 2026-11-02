@@ -3,7 +3,7 @@ import {JCR_NODE_IDENTITY_SOURCE} from '../../graphql';
 /**
  * Everything the rules editor needs, in ONE operation: the edited field, the logic source references
  * its `logicsSrc` subnode holds, and — through the field's `fmdb:form` ancestor — the whole form tree
- * the source dropdown offers. Two queries in sequence before (the field, then the form at the path the
+ * the source dropdown offers, and the modules of the site, which decide the providers it offers. Two queries in sequence before (the field, then the form at the path the
  * first answered), each paying the editor client's batching window; the site default language, which
  * holds the option identity of choice fields, now comes from the editor context. The flags on each
  * descendant come from the engine's value-kind markers, so a third-party field opts in from its own
@@ -15,6 +15,9 @@ export const CONDITIONAL_LOGIC_SOURCES = `
         jcr(workspace: $workspace) {
             nodeByPath(path: $path) {
                 ...JcrNodeIdentity
+                site {
+                    installedModulesWithAllDependencies
+                }
                 descendant(relPath: "logicsSrc") {
                     children {
                         nodes {

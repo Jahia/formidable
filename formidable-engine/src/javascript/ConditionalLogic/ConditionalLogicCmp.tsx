@@ -19,7 +19,7 @@ import {
     withStoredValues
 } from './ConditionalLogic.utils';
 import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
-import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
+import {getLogicProvider, type LogicProviderDescriptor, offeredLogicProviders, PROVIDER_OPERATORS} from './providers';
 import {useSharedSources} from './sources';
 import {
     allRuleValuesOf,
@@ -220,7 +220,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const defaultLanguage = extractDefaultLanguage(props, language);
     // One load of the form per field being edited, shared by every rule row (sources.ts): the editor
     // mounts a row per rule and remounts them all when one is added, each needing the same form.
-    const {sources, logicIdToSource, loading, errorKey} = useSharedSources(currentNodePath, {workspace, language, defaultLanguage});
+    const {sources, logicIdToSource, installedModules, loading, errorKey} = useSharedSources(currentNodePath, {workspace, language, defaultLanguage});
     const error = translated(t, errorKey);
     const rule = useMemo(() => parseRule(value), [value]);
     // Whether the provider-reference input was visited: its error only shows after
@@ -423,7 +423,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     // against a newer version: it gets its own rendering below, never the field-rule UI,
     // and keeps its raw sourceType so nothing rewrites the stored rule.
     const {isUnknownSourceType, ruleSourceType} = ruleSourceTypeOf(rule, selectedProvider);
-    const providerOperator = sanitizeProviderOperator(rule.operator);
+    const providerOperator = sanitizeProviderOperator(rule.operator, selectedProvider);
 
     const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
         const nextType = (item.value ?? 'field') as RuleSourceType;
@@ -444,7 +444,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 logicId: rule.logicId || generateLogicId(),
                 sourceType: nextProvider.id,
                 [nextProvider.configKey]: '',
-                operator: PROVIDER_OPERATORS[0],
+                operator: nextProvider.operators[0],
                 value: ''
             })));
             return;
@@ -462,11 +462,15 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         })));
     };
 
+    // A provider the site lacks the modules of is not offered, except to the rule already on it
+    const offeredProviders = offeredLogicProviders(installedModules);
     const sourceTypeOptions = [
         {label: t('conditionalLogic.sourceTypes.field'), value: 'field'},
-        ...listLogicProviders().map(provider => ({label: t(provider.labelKey), value: provider.id}))
+        ...offeredProviders
+            .concat(selectedProvider && !offeredProviders.includes(selectedProvider) ? [selectedProvider] : [])
+            .map(provider => ({label: t(provider.labelKey), value: provider.id}))
     ];
-    const providerOperatorOptions = PROVIDER_OPERATORS.map(operator => ({
+    const providerOperatorOptions = (selectedProvider?.operators ?? PROVIDER_OPERATORS).map(operator => ({
         label: t(`conditionalLogic.operators.${operator}`),
         value: operator
     }));
