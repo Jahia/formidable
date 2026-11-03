@@ -5,7 +5,8 @@ How a template set — or, exceptionally, a form's own custom CSS — styles the
 contract; this one says how the pieces fit together:
 
 - [Class hooks](class-hooks.md) — the stable class names the markup carries, the `data-` attributes
-  that go with them, and the surfaces (live, edit mode, inspection previews) where they appear.
+  that go with them, and the surfaces (live, edit mode, inspection previews, the Page Builder frame
+  of a standalone form) where they appear.
 - [CSS variables](css-variables.md) — every value the base stylesheets hard-code, exposed for a
   template set to set.
 
@@ -35,6 +36,7 @@ messages are drawn by the client under the same names. Read each line as *class 
 indented by nesting; `[…]` are attributes; the note on the right says when the branch exists.
 
 ```text
+div.fmdb-visual-edit                                    the Page Builder frame of a standalone form only: the column that holds all of the below
 div.fmdb-spinner                                        while a submission is in flight
 div.fmdb-message.fmdb-message-{success|error|maintenance}
 │                                                       after a submission (client) or under read-only maintenance (server)
