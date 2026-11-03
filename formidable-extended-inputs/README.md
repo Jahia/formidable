@@ -18,8 +18,9 @@ and serves as a real-world validation of it.
 | `fmdbext:switch`             | Boolean yes/no; `toggle` or `buttons` display mode, presentation-only state labels                       | boolean `true`/`false` |
 | `fmdbext:consent`            | Explicit terms/GDPR consent checkbox with rich-text statement and optional link to a terms page/document | `true`                 |
 | `fmdbext:phone`              | Phone number as an `<input type="tel">`: the phone keypad on mobile, `tel` autofill, a default format pattern | the number as typed    |
+| `fmdbext:password`           | Password as an `<input type="password">`, a **sensitive field**: its value goes only to the actions that consume it (a sign-up or sign-in action of another module), never to Save to JCR, e-mail, forward or jExperience | none: kept from every action but the ones that consume it |
 
-All types extend `fmdbmix:element` + `fmdbmix:validationMessages` (the phone through `fmdbmix:textValidationMessages`), use the standard `fmdb-` markup
+All types extend `fmdbmix:element` + `fmdbmix:validationMessages` (the phone and the password through `fmdbmix:textValidationMessages`), use the standard `fmdb-` markup
 conventions (`name` = node name, `id` = `<type>-<uuid>`, `fmdb-form-group` wrapper), and are pure
 SSR — no client Islands, all interactivity is native HTML + CSS.
 
@@ -67,6 +68,26 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
   already the mask of the text field.
 - **The import of Jahia Forms still creates a text field** for a Forms phone field. Its mapping to `fmdbext:phone`
   when this module is deployed, as for the switch, the rating and the consent, is a follow-up.
+
+## Password field (issue [#447](https://github.com/Jahia/formidable/issues/447))
+
+- **A sensitive field**: the type carries `fmdbmix:sensitiveField`. The submission pipeline sets its value apart
+  from every other one and hands it only to a contextual action whose `sensitiveFieldsConsumed` opts in, and to the
+  field actions whose Java type consumes sensitive values. Save to JCR, the e-mail actions, forward, the response
+  (so jExperience) and the logs never see it. See "Sensitive fields" in
+  [`form-submission-flow.md`](../docs/architecture/form-submission-flow.md#sensitive-fields).
+- **Never `fmdbmix:profileMappableField`, a value kind nor `fmdbmix:fileField`**: no jCustomer mapping, no
+  conditional-logic rule reads it, and no upload carries it. `scripts/check-field-markers.mjs` fails on a type of
+  this repository that declares one of them with `fmdbmix:sensitiveField`.
+- **No default value**: the markup of a password field holds no secret.
+- **`autocompleteMode`** picks `new-password` (sign-up, password change) or `current-password` (sign-in) for the
+  browser's password manager.
+- **`maxLength` is autocreated as 128, and mandatory**: an author can change it, never clear it. The consuming action
+  hashes the password, and an unbounded one is a cost for nothing. The view renders `maxlength="128"` for a
+  node without the property. The rules of the password itself (letters, digits, symbols) belong to the action that receives it.
+- **In the browser**: the wrapper carries `data-fmdb-sensitive="true"`, which the browser reads to recognise a secret.
+  A form message never prints it through a `${...}` placeholder, and the island empties it after a refused
+  submission and after a redirect fallback.
 
 ## Known limitations
 

@@ -5,7 +5,7 @@
 
 ## Project Overview
 
-**Formidable** is Jahia's form management solution (replacement for Jahia Forms). It enables form creation with multi-step support, fieldsets, 14 core field types (plus 6 optional ones in formidable-extended-inputs), conditional logic, CAPTCHA, and a pluggable action pipeline (save to JCR, email, forward to endpoint).
+**Formidable** is Jahia's form management solution (replacement for Jahia Forms). It enables form creation with multi-step support, fieldsets, 14 core field types (plus 7 optional ones in formidable-extended-inputs), conditional logic, CAPTCHA, and a pluggable action pipeline (save to JCR, email, forward to endpoint).
 
 ### Monorepo Structure
 
@@ -15,17 +15,17 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 |---|---|---|
 | `formidable-elements/` | Front-end — form rendering (React 19 SSR + client hydration via Islands) | Vite, `@jahia/vite-plugin`, TypeScript |
 | `formidable-engine/` | Java/OSGi action pipeline + editor extensions (custom selectors, form results panel) | Maven bundle, `@jahia/vite-federation-plugin` (Module Federation, React 18) |
-| `formidable-extended-inputs/` | Optional field types (card, consent, phone, switch, rating, scale) | Vite, TypeScript |
+| `formidable-extended-inputs/` | Optional field types (card, consent, phone, password, switch, rating, scale) | Vite, TypeScript |
 | `formidable-jexperience-engine/` | jExperience integration: the profile mapping of fields (editor section fed by jCustomer's profile properties), the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; later the prefill — see `docs/architecture/jexperience-integration.md` | Maven bundle, depends on `formidable-engine` and `jexperience` |
 | `formidable-forms-import/` | The import of the forms and results of Jahia Forms (Java + a jContent app): the Import button and dialog of the Results page, the dry run and import jobs, the converters of the export; compiles against the engine's api only | Maven bundle, `@jahia/vite-federation-plugin` |
 | `packages/formidable/` | The npm package `@jahia/formidable-library`: the rendering contract (help text, validation attributes, input mask, choice options — the latter's resolution under the `/server` entry point) every view is built on. Consumed as `workspace:*` inside the monorepo (a plain version range would still resolve to the workspace), published to npm by the release workflow | TypeScript (tsc, nodenext), vitest |
-| `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, four field actions — blocked words, email domain, Experian, ZeroBounce — with the two providers' doubles registered as servlets, a choicelist initializer, content-integrity checks) | Maven, Vite |
+| `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, two contextual form actions on either side of the sensitive-value boundary — `SensitiveConsumerFormAction` opts in, `SensitiveNonConsumerFormAction` does not —, five field actions — blocked words, email domain, Experian, ZeroBounce, and a password policy that runs on a sensitive field (`PasswordPolicyFieldAction`) — with the two providers' doubles registered as servlets, a choicelist initializer, content-integrity checks) | Maven, Vite |
 | `tests/` | Cypress E2E suite (not a Maven module) | Cypress 14, `@jahia/cypress` |
 
 ### Key Documentation
 
 Architecture decisions and internal flows are documented in `docs/`:
-- `form-submission-flow.md` — request lifecycle, pipeline steps, server-side safeguards
+- `form-submission-flow.md` — request lifecycle, pipeline steps, server-side safeguards, the sensitive fields (step 9a) and the decision log of the engine-wide choices
 - `how-to-create-form-action.md` — step-by-step guide for a custom `FormAction` OSGi service
 - `how-to-create-field-action.md` — step-by-step guide for a custom `FieldAction` OSGi service (a check of one field's value)
 - `how-to-extend-views-and-elements-from-third-party-module.md` — rendering contract for external views and custom elements
@@ -108,14 +108,16 @@ The public API — custom actions, the submission response, the names of the con
 - `FormAction.java` — strategy interface (`getNodeType()` + `execute()`)
 - `FormActionException.java` — exception with HTTP status (`badRequest()`, `serverError()`)
 - `SubmittedFile.java` — file upload abstraction
-- `FieldAction.java` + `FieldActionRequest.java` + `FieldActionResult.java` — one field's value judged server-side, at the pre-check and at submission (`getNodeType()` + `execute()`)
+- `FieldAction.java` + `FieldActionRequest.java` + `FieldActionResult.java` — one field's value judged server-side, at the pre-check and at submission (`getNodeType()` + `execute()`); `consumesSensitiveValues()` (default `false`) is the opt-in to run on a sensitive field
+- `FieldActionTypes.java` — the field-action types a site offers, and `consumesSensitiveValues(type)` (a default method, `false`): whether the Java action registered for a type runs on a sensitive field, which the views ask
 - `FieldActionGateway.java` — the one way a field action reaches its service, handed an `Endpoint` read from its module's own configuration
 - `ProviderFieldAction.java` + `EmailVerificationFieldAction.java` + `EmailAddress.java` — the shape of an action behind a provider, its email specialisation, the address parsing
 - `ChoiceOptionsResolver.java` — how many choices a choice field offers, counted as the views render it
 - `FormResultsStore.java` — the results of a site as the engine keeps them (root, an entry's own ACL, day split, submission names, readers synced from the form), for a module that writes results of its own: the Forms import, to become a module
 - `CaptchaSetup.java` — whether the captcha widget and its verification are both configured
 - `ChoiceOptionsSources.java` — whether the configuration declares an options source under a key
-- `ContextualFormAction.java` + `FormActionContext.java` + `FormActionResult.java` — a `FormAction` that gets the response, the locale and site, and may return a redirect (a path of this server, or an http(s) URL read from the configuration) or a message for the browser
+- `ContextualFormAction.java` + `FormActionContext.java` + `FormActionResult.java` — a `FormAction` that gets the response, the locale and site, and may return a redirect (a path of this server, or an http(s) URL read from the configuration) or a message for the browser. `ContextualFormAction#sensitiveFieldsConsumed(actionNode)` (default `SensitiveFields.none()`) returning `SensitiveFields.all()` is the only way a form action receives the values of `fmdbmix:sensitiveField` fields, in `FormActionContext.sensitiveParameters()` and `sensitiveParameter(name)`
+- `SensitiveFields.java` — the closed type of that opt-in: a final class with a private constructor, built only by `none()` and `all()`; a module reads a selection (`selectsAll()`) and never builds one
 - `RedirectTargets.java` — the two rules of a redirect target: a path of this server, or an absolute http(s) URL read from the configuration
 - `PageLinks.java` — the URL of a page as the platform prints it (URL rewriting, vanity URLs), for an action that sends the visitor to a page
 - `SubmissionResponseEnricher.java` + `AcceptedSubmission.java` — entries a module of its own adds to the JSON body of an accepted submission
@@ -128,13 +130,23 @@ The four name holders are used qualified (`FmdbMixin.TEXT_FIELD`), never statica
 
 Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `SendEmailContentFormAction`, `ForwardSubmissionFormAction`, `RedirectFormAction` (five — captcha is not an action: it is a mixin plus OSGi config, verified by the pipeline before the actions run).
 
+### Sensitive values
+
+A sensitive value is the value of a field whose type declares `fmdbmix:sensitiveField` (`fmdbext:password`). The pipeline splits the accepted values at step 9a, and only code that opts in from Java ever receives the sensitive map (`docs/architecture/form-submission-flow.md`, "Sensitive fields", and its decision log, rows D1 to D4).
+- A field type whose value is a secret declares `fmdbmix:sensitiveField`, and never `fmdbmix:profileMappableField`, `fmdbmix:textField` nor `fmdbmix:fileField` (`scripts/check-field-markers.mjs` refuses each pair; the runtime ignores the mapping and the logic source of a sensitive type, logs one warning per type that also declares `fmdbmix:fileField`, and hands the uploads of a sensitive field to no action).
+- After step 9a, actions, enrichers and log lines read the public map (`publicParameters`). Only the checks (the required check and the field actions) read every value, and only the dispatch of an action that opts in reads the sensitive map.
+- A form action opts in only through `ContextualFormAction#sensitiveFieldsConsumed(actionNode)` returning `SensitiveFields.all()`, a field action only through `FieldAction#consumesSensitiveValues()`. Never through a mixin. Neither stores, mails, logs nor returns a sensitive value; an action that relays values elsewhere (a CRM sync, a forward) never opts in.
+- A log line names fields, never values.
+- On a sensitive field, the engine renders `${value}` in a field action's rejection message as the empty string: the engine writes that message from the contributor's text, so it never prints the password. The verdict cache keeps no entry keyed by the value. A field action that opts in is trusted with how it calls its service.
+- **Review check**: a change that adds a field type, a form action, a field action, a response enricher or a log line on the submission path keeps sensitive values out of it: a secret type carries the marker; nothing new reads the raw parsed map; a new opt-in is justified and keeps the value to itself; nothing that has not opted in echoes a value into a message, a cache key, a header or a log.
+
 ### Adding a New Field Type
 
 1. Create `formidable-elements/src/components/Input/MyField/definition.cnd`:
    ```cnd
    [fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField
    ```
-   `fmdbmix:submittableField` (engine marker) says the field submits a value: it is what offers the field-actions switch in the field's editor — declare it on every field with a value (never on a file field, a button or a container). `fmdbmix:profileMappableField` (engine marker) lets an author map the field to a jCustomer profile property when the jExperience module is deployed — declare it on every field whose value a profile could hold (never on a file field). Add the value-kind mixin (`fmdbmix:textField`, `fmdbmix:numberField`…) that matches what the field submits.
+   `fmdbmix:submittableField` (engine marker) says the field submits a value: it is what offers the field-actions switch in the field's editor — declare it on every field with a value (never on a file field, a button or a container). `fmdbmix:profileMappableField` (engine marker) lets an author map the field to a jCustomer profile property when the jExperience module is deployed — declare it on every field whose value a profile could hold (never on a file field). Add the value-kind mixin (`fmdbmix:textField`, `fmdbmix:numberField`…) that matches what the field submits. A field whose value is a secret declares `fmdbmix:sensitiveField` instead of `fmdbmix:profileMappableField`, and never `fmdbmix:textField` (whose only use is conditional logic) nor `fmdbmix:fileField`. Another value kind (`fmdbmix:numberField`…) is allowed for the server's format check, and never makes the field a logic source (see "Sensitive values").
 2. Create `default.server.tsx` with `jahiaComponent({ componentType: "view", nodeType: "fmdb:myField", name: "default" }, ...)`
 3. HTML `name` = `currentNode.getName()`; HTML `id` = `input-${currentNode.getIdentifier()}`
 
@@ -149,6 +161,8 @@ Built-in actions: `SaveToJcrFormAction`, `SendEmailNotificationFormAction`, `Sen
 4. If the action never writes to the repository, also extend `fmdbmix:readOnlyCompatibleAction`;
    otherwise its forms are blocked (FMDB-014) while the platform is in read-only maintenance
    (see `docs/extension/how-to-create-form-action.md`)
+5. The action never receives a sensitive value unless it is a `ContextualFormAction` whose `sensitiveFieldsConsumed`
+   opts in, with the duty that goes with it (see "Sensitive values")
 
 ## Developer Commands
 

@@ -351,7 +351,7 @@ its say at the pre-check) decide whether an action runs; the Java `FieldAction` 
 type is executed — none registered, the check is unavailable. `ACCEPT` moves on. `REJECT`
 becomes one `FieldActionMessage` — level `error` when the action blocks, `warning` otherwise; the
 contributor's `rejectionMessage` in the visitor's locale, `${value}` interpolated through
-`TemplateInterpolator` with `FieldEscaper.html`, the rich text itself trusted as the form's responses are;
+`TemplateInterpolator` with `FieldEscaper.html` (the empty string on a sensitive field), the rich text itself trusted as the form's responses are;
 the field name, and — for the logs and the tests only, never in a response — the action's id and type. It
 ends the run when the action blocks, since the first blocking refusal wins. `UNAVAILABLE` is what the
 contributor's `whenUnavailable` says, and **its `detail` reaches DEBUG only**: that string is the action's
@@ -369,6 +369,45 @@ accept obtained with `?lang=<a locale where the check passes>` must not serve th
 `FieldActionRuntime`, one OSGi component, holds the registered Java actions, the verdict cache, the
 endpoint's rate limiter, the cache of the forms' declared actions (below) and the dispatcher built on them,
 and both servlets reference it — so the verdict the pre-check gave is the one the pipeline finds.
+
+### On a sensitive field
+
+A field whose type declares `fmdbmix:sensitiveField` (a password) holds a secret, and a field action sends the value
+it judges somewhere. The field's own checks are legitimate there — a password policy, a breached-password range
+check —, a generic one written for any text or for emails is not. So **only the actions whose Java type opts in
+run on a sensitive field**: `FieldAction#consumesSensitiveValues()`, `false` by default.
+
+- `FieldActionCollector.read` marks every action of a sensitive field (`ResolvedFieldAction.onSensitiveField`), and
+  `FieldActionDispatcher.runnable` drops those whose registered Java action answers `false`. A type no deployed
+  module registers stays: the dispatcher answers it unavailable without running any code, and the contributor's
+  outage rule decides, as on any field. `execute` asks the action it is about to run again, so an action registered
+  meanwhile that does not opt in is never handed the value. The list the contributor built stays as it is: the
+  switch is still offered in the editor, since the type is `fmdbmix:submittableField`, and an action that does not
+  opt in simply never runs.
+- The pre-check endpoint answers `404` `FMDB-004` for a sensitive field whose every action is of a registered type
+  that does not opt in, as for a field with no action; step 11b judges the value from the pipeline's sensitive map ([Sensitive
+  fields](form-submission-flow.md#sensitive-fields)).
+- The page asks the engine whether each action of a sensitive field opts in: the element wrapper reads
+  `FieldActionTypes#consumesSensitiveValues`, and marks the field for the browser (`data-fmdb-field-action`) only for
+  the actions that do. A type no deployed module registers answers `false` there, so the browser does not pre-check
+  it: sending the password only to be told the check is unavailable gains nothing. Step 11b still judges it with the
+  outage rule at submission. Without the service, no action consumes: the browser never sends a password to the
+  pre-check for nothing. The marker is in the rendered HTML, which the page cache keeps, and the cache does not know
+  which modules are deployed: after a module that provides a field action for a sensitive field is deployed or
+  stopped, flush the site's cache so that cached pages pre-check accordingly. The submission judges the value
+  either way.
+- The engine keeps the value out of what it holds itself. The verdict cache is skipped: no entry is keyed by the
+  value, so the action runs at the pre-check and again at submission. A cache entry would keep the password in the
+  server's memory for the TTL, in a map that every visitor shares, keyed by the trimmed value. The logs name the
+  field and never carry an action's own words (`detail`, an exception message).
+- The rejection message renders `${value}` as the empty string. The dispatcher writes that message from the
+  contributor's text, so it is the engine's output, not the action's, and it never prints the password.
+
+An action that opts in is trusted with the value, and the engine does not restrict what it does with it: how it calls
+its service, through the gateway or not, is its own. It takes on a duty the engine cannot enforce: it sends the value
+only where its check needs it, and never stores or logs it. The samples'
+`fmdbsample:passwordPolicyAction` is the shape to copy ([How to create a field
+action](../extension/how-to-create-field-action.md#on-a-sensitive-field)).
 
 ### The endpoint — `POST /modules/formidable-engine/field-action?fid=<form UUID>&lang=<lang>`
 
@@ -641,6 +680,9 @@ credential in a log line or in the object it returns.
   a guest refused on a members-only form (`FMDB-009`). Only the walk of a form the visitor has read, and
   the action nodes themselves, are read in a system session — the submitter has no reason to have read
   access to the action nodes.
+- **A sensitive field runs only the field actions that opt in** (`FieldAction#consumesSensitiveValues()`), with no
+  verdict cache entry keyed by its value, `${value}` empty in its rejection message and no value in the engine's
+  logs ([On a sensitive field](#on-a-sensitive-field)).
 - **The captcha is not re-checked at the pre-check** (a token is single-use); the pre-check of a
   captcha-protected form is bounded by the rate limit, the cap and the cache, or switched off.
 - **Where the trust sits: the module's configuration and the action's code.** An action's class reads its own
@@ -738,6 +780,8 @@ call per blocking action and non-blank value never pre-checked.
 | 2026-09-25 | **Next settles the step; \"at submission\" means \"when the visitor leaves the field's step\" in a multi-step form; a refusal anywhere brings its step on screen** (HDU, review of #346, option (b) of the two offered) | Three ordinary paths left a refused field invisible in a hidden step: a blur answer landing after a synchronous Next, a submit-triggered action of an early step asked only at the final settle, the pipeline's FMDB-015 on a hidden control. The strict reading of \"at submission\" — asked at the final Submit only — would have bounced the visitor from the last step to the first; asked at Next it costs the same in the normal flow. Rule kept from `anchorFieldMessages`: a refusal the visitor cannot see is worse than a generic one |
 | 2026-09-25 | **A field being checked says so under it** — `span.fmdb-field-action-checking`, glyph and \"Checking…\", `role=\"status\"`, small and muted by default, every value a variable (HDU) | Submit and Next now wait for the checks; the 60% fade of the controls said nothing about which field the form was waiting for, and a spinner over the form would hide the field the answer lands on |
 | 2026-09-25 | **A refusal at submission is focused by the island once the loading state has cleared, and the message of an earlier attempt goes as the next one leaves** (review of #346) | The spinner hides the form while the request runs, so a call made from the request code focused a hidden control; and a stale "An error occurred" stayed above an anchored refusal, which the page promised to show alone |
+| 2026-11-03 | **On a sensitive field, only the field actions whose Java type opts in run** (`FieldAction#consumesSensitiveValues()`, default `false`), never cached by the value, never echoed by the rejection message, never in the engine's logs ([formidable#447](https://github.com/Jahia/formidable/issues/447)) | A password's own checks (a policy, a breached-password range check) are legitimate; a generic check is not, whatever the editor holds. The opt-in is the code's, not a mixin's: decision D2 of the [form submission flow](form-submission-flow.md#decision-log) |
+| 2026-11-04 | **On a sensitive field, a type no deployed module registers is an unavailable check**: the contributor's outage rule decides, as on any field (review of #478) | It beat skipping the action, which turned a password policy off while its module was stopped or redeployed: every password was accepted, whatever the outage rule said. The value reaches no code either way. The cost accepted: a generic check whose module is down, attached to a password with "refuse when unavailable", refuses passwords until the module is back, though it would never run on that field |
 
 ## Open questions
 

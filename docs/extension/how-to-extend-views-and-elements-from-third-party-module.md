@@ -527,6 +527,49 @@ end of the Content section of the field's editor, and every future setting meant
 same way (`docs/architecture/field-actions.md`). The submission itself does not depend on it — a field
 without the marker is still submitted; it only lacks those switches.
 
+### A field whose value is a secret
+
+A field whose value is a secret by nature (a password, a one-time code) declares a third marker,
+`fmdbmix:sensitiveField`, next to `fmdbmix:element` and `fmdbmix:submittableField`:
+
+```cnd
+[mymod:oneTimeCode] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:sensitiveField
+ - required (boolean) = true autocreated
+ - maxLength (long) = 12 autocreated
+```
+
+The submission pipeline then sets its value apart before any action runs: only a `ContextualFormAction` whose
+`sensitiveFieldsConsumed` opts in receives it ([How to create a form
+action](how-to-create-form-action.md#step-6c-receive-sensitive-values)), and only the field actions whose Java type
+opts in judge it ([How to create a field action](how-to-create-field-action.md#on-a-sensitive-field)). Save to JCR,
+the e-mail actions, forward, the response enrichers (so jExperience), every other field action and the logs never
+see it, whatever else the form holds ([Sensitive fields](../architecture/form-submission-flow.md#sensitive-fields)).
+
+The exclusion rules of a sensitive type:
+
+- **never** `fmdbmix:profileMappableField`: a secret is not mapped to a jCustomer profile property;
+- **never** `fmdbmix:textField`, nor another value kind that makes it a logic source: a conditional-logic rule has no
+  business reading a secret;
+- **never** `fmdbmix:fileField`: the marker is for a secret the visitor types, and the pipeline hands the uploads of a
+  sensitive field to no action;
+- no default value, and no value in the markup. The field wrapper that Formidable renders around your view carries
+  `data-fmdb-sensitive="true"`, and the browser recognises the secret by that attribute: your view may render any
+  control type, such as `<input type="password">` with the right `autocomplete` (`new-password` or
+  `current-password`) or a text input for a one-time code. After a refused submission and after a redirect fallback,
+  the island empties the text controls of the wrapper (an `input` or a `textarea`) and skips a checkbox, a radio or a
+  button, such as a show/hide toggle. A `${…}` placeholder of a form message prints nothing for the field.
+
+A CND cannot forbid a pair of supertypes, so the runtime enforces the first three rules: on a type that declares
+`fmdbmix:sensitiveField`, the engine and the jExperience module ignore `fmdbmix:profileMappableField` and
+`fmdbmix:textField` (no profile property offered for a mapping, no prefill, nothing sent to jCustomer, no logic
+source), the engine hands the uploads of the field to no action, and each logs one warning per type and conflicting
+marker so that you learn why. The jExperience section still shows in the field's editor, with no property to offer. Inside this repository
+`scripts/check-field-markers.mjs` refuses each pair at build time; your module's CND never goes through it.
+
+What no code can enforce stays your duty: a type that holds a secret and does not declare the marker has its value
+treated as any other — stored, mailed, sent to jCustomer. `fmdbext:password` of `formidable-extended-inputs` is the
+model.
+
 ## Make your field a conditional-logic source
 
 Any field type can let contributors build "show/hide other fields based on my value"
