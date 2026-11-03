@@ -142,6 +142,10 @@ including field types contributed by third-party modules (see
 | `fmdbmix:booleanField` | `boolean` | — (the extended inputs' switch and consent) |
 | `fmdbmix:textField` | `text` | `fmdb:inputText`, `fmdb:textarea`, `fmdb:inputEmail` |
 
+A field type carrying `fmdbmix:sensitiveField` (the extended inputs' password) is never
+offered as a source, even when it also declares one of these mixins: the source query
+reads the marker as `isSensitiveField`, and `buildSourceFieldOptions` drops the field.
+
 `sourceDescriptors.ts` maps each valueKind to a default descriptor (operators,
 value widget, choice property). Per-type overrides exist only where a core type
 deviates from the kind default: `fmdb:select` stores choices under `options`,

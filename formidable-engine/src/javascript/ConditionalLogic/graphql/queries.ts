@@ -42,6 +42,7 @@ export const CONDITIONAL_LOGIC_SOURCES = `
                             isNumberField: isNodeType(type: {types: ["fmdbmix:numberField"]})
                             isBooleanField: isNodeType(type: {types: ["fmdbmix:booleanField"]})
                             isTextField: isNodeType(type: {types: ["fmdbmix:textField"]})
+                            isSensitiveField: isNodeType(type: {types: ["fmdbmix:sensitiveField"]})
                             properties(names: ["options", "fieldKey"], language: $language) {
                                 name
                                 value

@@ -42,6 +42,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * when the field holds several values (a checkbox group, a multiple select), the shape the mapping
  * rule expects: {@link FieldShapes} decides both. Nothing is added for a site whose pages carry no
  * tracker ({@link JExperienceSite#tracked}): there would be nobody to read it.</p>
+ *
+ * <p>A sensitive field ({@code fmdbmix:sensitiveField}) is never in it. The pipeline already keeps its value out of
+ * the accepted parameters, and a sensitive type is not mappable; a type that declares the marker anyway is skipped
+ * here before its value is even looked up.</p>
  */
 @Component(service = SubmissionResponseEnricher.class, immediate = true)
 public class SubmissionEventEnricher implements SubmissionResponseEnricher {
@@ -87,6 +91,9 @@ public class SubmissionEventEnricher implements SubmissionResponseEnricher {
             NodeIterator nodes = mappableFields(form);
             while (nodes.hasNext()) {
                 JCRNodeWrapper field = (JCRNodeWrapper) nodes.nextNode();
+                if (FieldShapes.isSensitive(field)) {
+                    continue;
+                }
                 String name = field.getName();
                 List<String> values = answered(submission.parameters().get(name));
                 if (!values.isEmpty()) {

@@ -138,6 +138,8 @@ export interface GraphNode {
     isNumberField?: boolean;
     isBooleanField?: boolean;
     isTextField?: boolean;
+    // fmdbmix:sensitiveField (a password): never a source, whatever value-kind marker the type also declares.
+    isSensitiveField?: boolean;
     properties?: PropertyValue[] | null;
     defaultProperties?: PropertyValue[] | null;
     site?: {defaultLanguage?: string | null} | null;

@@ -9,8 +9,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Infers a field's {@link FieldShape} from the semantic mixins the engine defines, never from
@@ -21,12 +24,21 @@ import org.jahia.modules.formidable.engine.api.FmdbMixin;
  * exception: its cardinality follows its number of choices, as the view renders it. The table is
  * the one of the integration design (docs/architecture/jexperience-integration.md, "Type
  * compatibility in the dropdown").
+ *
+ * <p>A sensitive field ({@code fmdbmix:sensitiveField}, a password) is never mappable, whatever else its type declares:
+ * sensitive wins. A type that declares the mappable marker too is told once, so that its developer learns why the
+ * mapping is ignored.</p>
  */
 public final class FieldShapes {
 
     public static final String MULTIPLE_PROPERTY = "multiple";
 
-    private static final List<String> RELEVANT_TYPES = List.of(FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.FILE_FIELD,
+    private static final Logger log = LoggerFactory.getLogger(FieldShapes.class);
+
+    /** The sensitive field types already reported as also declaring the mappable marker: said once per type. */
+    static final Set<String> SENSITIVE_MAPPABLE_TYPES_REPORTED = ConcurrentHashMap.newKeySet();
+
+    private static final List<String> RELEVANT_TYPES = List.of(FmdbMixin.SENSITIVE_FIELD, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.FILE_FIELD,
             FmdbMixin.EMAIL_FIELD, FmdbMixin.CHOICE_FIELD, FmdbMixin.NUMBER_FIELD, FmdbMixin.BOOLEAN_FIELD, FmdbMixin.DATE_FIELD,
             FmdbMixin.DATETIME_LOCAL_FIELD, FmdbMixin.COLOR_FIELD, FmdbMixin.TEXT_FIELD, FmdbMixin.CARDINALITY_FROM_CHOICES);
 
@@ -69,10 +81,26 @@ public final class FieldShapes {
                 types.add(type);
             }
         }
+        if (types.contains(FmdbMixin.SENSITIVE_FIELD)) {
+            reportIfMappable(node.getPrimaryNodeTypeName(), types.contains(FmdbMixin.PROFILE_MAPPABLE_FIELD));
+            return Optional.empty();
+        }
         boolean multiple = pendingMultiple.isPresent()
                 ? pendingMultiple.get()
                 : node.hasProperty(MULTIPLE_PROPERTY) && node.getProperty(MULTIPLE_PROPERTY).getBoolean();
         return infer(types::contains, name -> MULTIPLE_PROPERTY.equals(name) && multiple, choiceCount);
+    }
+
+    /**
+     * Whether the field is sensitive, which no reader of the mappable marker may map, prefill nor send: the marker's
+     * own readers ask it before anything else.
+     */
+    public static boolean isSensitive(JCRNodeWrapper node) throws RepositoryException {
+        if (!node.isNodeType(FmdbMixin.SENSITIVE_FIELD)) {
+            return false;
+        }
+        reportIfMappable(node.getPrimaryNodeTypeName(), node.isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD));
+        return true;
     }
 
     /**
@@ -82,11 +110,16 @@ public final class FieldShapes {
      * so far.
      */
     public static Optional<FieldShape> infer(NodeType type, boolean multiple, ChoiceCount choiceCount) throws RepositoryException {
+        if (type.isNodeType(FmdbMixin.SENSITIVE_FIELD)) {
+            reportIfMappable(type.getName(), type.isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD));
+        }
         return infer(type::isNodeType, name -> MULTIPLE_PROPERTY.equals(name) && multiple, choiceCount);
     }
 
     static Optional<FieldShape> infer(Predicate<String> isNodeType, Predicate<String> flag, ChoiceCount choiceCount) throws RepositoryException {
-        if (!isNodeType.test(FmdbMixin.PROFILE_MAPPABLE_FIELD) || isNodeType.test(FmdbMixin.FILE_FIELD)) {
+        // sensitive wins: a secret is never mapped, whatever else the type declares
+        if (isNodeType.test(FmdbMixin.SENSITIVE_FIELD)
+                || !isNodeType.test(FmdbMixin.PROFILE_MAPPABLE_FIELD) || isNodeType.test(FmdbMixin.FILE_FIELD)) {
             return Optional.empty();
         }
         // the email input also carries fmdbmix:textField: the more specific kind wins
@@ -109,6 +142,15 @@ public final class FieldShapes {
         }
         // text, colour, and the kinds without a value mixin (the hidden input) hold a string
         return Optional.of(new FieldShape(STRING, false));
+    }
+
+    /** The one WARN of a sensitive type that also declares the mappable marker, once per type. */
+    private static void reportIfMappable(String typeName, boolean mappable) {
+        if (mappable && SENSITIVE_MAPPABLE_TYPES_REPORTED.add(String.valueOf(typeName))) {
+            log.warn("[FieldShapes] Field type '{}' declares both {} and {}: a sensitive field is never mapped to the "
+                    + "visitor profile, prefilled nor sent to jExperience, and its mapping is ignored. Remove {} from the type.",
+                    typeName, FmdbMixin.SENSITIVE_FIELD, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.PROFILE_MAPPABLE_FIELD);
+        }
     }
 
     /** The renderer's own rule: exactly one choice is one checkbox, one value; anything else, unknown included, is a group. */
