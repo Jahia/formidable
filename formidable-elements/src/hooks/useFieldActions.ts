@@ -11,6 +11,7 @@ import {
 	parseFieldMessages,
 	showFieldMessages,
 } from '~/utils/fieldActionMessages';
+import {isSecretControl} from '~/utils/sensitiveFields';
 
 /**
  * The marker the element wrapper carries when the field has actions: `blur` when the engine is to be
@@ -94,8 +95,15 @@ const anchorOf = (controls: FieldControls): FormControl | undefined => controls.
 /**
  * The values the field would submit right now, blank ones dropped: one per selected option or checked
  * box, the checked radio's, the control's otherwise. Each is asked about on its own — the engine judges
- * one value per call — and a value repeated is asked once.
+ * one value per call — and a value repeated is asked once. A secret is asked about as typed, untrimmed:
+ * the server judges the raw value at the submission.
  */
+/** The value a control gives: trimmed, but a secret as it was typed — the server judges the raw value. */
+const submittedValueOf = (control: FormControl): string => {
+	const value = control.value.trim();
+	return value && isSecretControl(control) ? control.value : value;
+};
+
 export const valuesOf = (controls: FormControl[]): string[] => {
 	const values = new Set<string>();
 	for (const control of controls) {
@@ -108,7 +116,7 @@ export const valuesOf = (controls: FormControl[]): string[] => {
 			if (NEVER_ASKED_TYPES.has(control.type)) continue;
 			if ((control.type === 'radio' || control.type === 'checkbox') && !control.checked) continue;
 		}
-		values.add(control.value.trim());
+		values.add(submittedValueOf(control));
 	}
 	values.delete('');
 	return Array.from(values);

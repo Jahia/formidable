@@ -60,4 +60,23 @@ describe('interpolateMessage', () => {
 
 		expect(message).toBe('Picked music, sport by ');
 	});
+
+	it('never prints a password, whatever placeholder the author wrote', () => {
+		// a ${password} in a success or error message printed the secret on screen
+		const typed = 'S3cret!pw';
+		const message = interpolateMessage('Welcome ${email}, your password is ${password}',
+			formDataOf({email: 'ada@example.com', password: typed}), 'en-US',
+			fieldName => (fieldName === 'password' ? 'password' : null));
+
+		expect(message).toBe('Welcome ada@example.com, your password is ');
+	});
+
+	it('prints none of the values of a secret name that two fields share', () => {
+		// a name submitted by a text field and a sensitive one: joining the values would print the secret
+		const message = interpolateMessage('Codes: ${code}',
+			formDataOf({code: ['ABC', '4821']}), 'en-US',
+			fieldName => (fieldName === 'code' ? 'password' : null));
+
+		expect(message).toBe('Codes: ');
+	});
 });

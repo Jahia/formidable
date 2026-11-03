@@ -1,0 +1,21 @@
+// Password component - a secret the form carries to the actions that consume it and nowhere else.
+// fmdbmix:sensitiveField (engine) is what makes it so: the submission pipeline sets the value apart and hands it
+// only to a contextual action whose sensitiveFieldsConsumed opts in (a sign-up or sign-in action of another
+// module), and to the field actions whose Java type consumes sensitive values (a password policy). Save to JCR,
+// the e-mail actions, forward, the response enrichers (so jExperience) and every other field action never receive
+// it. For the same reason the type is NOT fmdbmix:profileMappableField (no jCustomer profile property), NOT
+// fmdbmix:textField (a conditional-logic rule has no business reading a password) and NOT fmdbmix:fileField (no
+// upload carries a secret).
+// autocompleteMode tells the browser's password manager what the field is: 'new-password' (a sign-up or a password
+// change: it offers to generate one and never fills the saved one) or 'current-password' (a sign-in: it fills).
+// maxLength defaults to 128 and is mandatory: the password is hashed server-side and an unbounded one is a cost
+// lever. An author can lower or raise the bound, never clear it, so the engine always enforces one. The ranges keep
+// it so: the engine checks a bound only when it is >= 0, so a negative maxLength would lift the limit, and 0 would
+// refuse every submission.
+[fmdbext:password] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:sensitiveField, fmdbmix:textValidationMessages
+ - helpText (string, richtext[ckeditor.toolbar='FormidableHelp',ckeditor.customConfig='$context/modules/formidable-engine/javascript/ckeditor/helpTextConfig.js']) i18n indexed=no
+ - required (boolean) = true autocreated
+ - placeholder (string) i18n indexed=no
+ - autocompleteMode (string, choicelist[resourceBundle]) = 'new-password' autocreated indexed=no < 'new-password', 'current-password'
+ - minLength (long) < '[0,1024]'
+ - maxLength (long) = 128 autocreated mandatory < '[1,1024]'
