@@ -37,7 +37,7 @@ class ResolvedFieldActionTest {
         property(node, FmdbProperty.SEVERITY, "WARN");
         property(node, FmdbProperty.WHEN_UNAVAILABLE, "reject");
 
-        ResolvedFieldAction action = ResolvedFieldAction.read(node);
+        ResolvedFieldAction action = ResolvedFieldAction.read(node, false);
 
         assertEquals("action-1", action.id());
         assertEquals("myco:crmLookupAction", action.nodeType());
@@ -53,7 +53,7 @@ class ResolvedFieldActionTest {
         // defaults apply — blur, block, accept — the same reading the editor shows for an untouched action.
         JCRNodeWrapper node = actionNode();
 
-        ResolvedFieldAction action = ResolvedFieldAction.read(node);
+        ResolvedFieldAction action = ResolvedFieldAction.read(node, false);
 
         assertEquals(ResolvedFieldAction.Trigger.BLUR, action.trigger());
         assertEquals(ResolvedFieldAction.Severity.BLOCK, action.severity());
@@ -70,7 +70,7 @@ class ResolvedFieldActionTest {
         property(node, FmdbProperty.SEVERITY, "whatever");
         property(node, FmdbProperty.WHEN_UNAVAILABLE, "");
 
-        ResolvedFieldAction action = ResolvedFieldAction.read(node);
+        ResolvedFieldAction action = ResolvedFieldAction.read(node, false);
 
         assertEquals(ResolvedFieldAction.Trigger.BLUR, action.trigger());
         assertEquals(ResolvedFieldAction.Severity.BLOCK, action.severity());

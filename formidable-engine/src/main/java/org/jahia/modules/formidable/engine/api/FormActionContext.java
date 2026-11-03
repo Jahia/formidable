@@ -19,9 +19,10 @@ import java.util.stream.Collectors;
  * never keep one past it, never hand one to another thread.</p>
  *
  * <p>The values are split in two. {@link #parameters()} holds the fields every action may read;
- * {@link #sensitiveParameters()} is for the values of fields that only the action consuming them may read (a
- * password). No field type is sensitive yet, so the pipeline hands it empty: the component is part of the record from
- * the start because a record cannot gain one without breaking the code that builds it.</p>
+ * {@link #sensitiveParameters()} holds the values of the fields carrying {@code fmdbmix:sensitiveField} (a password),
+ * and is empty unless the action opted in through {@link ContextualFormAction#sensitiveFieldsConsumed}. A sensitive
+ * value is therefore never in the map the built-in actions (save to JCR, e-mail, forward) read, nor in what the
+ * response enrichers see.</p>
  *
  * @param actionNode          the action's configuration node, read in the live workspace
  * @param formNode            the submitted form, in the same session as {@code actionNode}
@@ -38,8 +39,9 @@ import java.util.stream.Collectors;
  *                            It is not read again when an action changes the authenticated user
  * @param locale              the submission's locale (the {@code lang} parameter), the one to translate a message in
  * @param siteKey             the key of the form's site
- * @param parameters          the accepted values of the fields, by field name
- * @param sensitiveParameters the accepted values of the sensitive fields, by field name: always empty for now
+ * @param parameters          the accepted values of the fields that are not sensitive, by field name
+ * @param sensitiveParameters the accepted values of the sensitive fields, by field name: empty unless the action opted
+ *                            in to them
  * @param files               the validated uploads
  */
 public record FormActionContext(
@@ -63,12 +65,23 @@ public record FormActionContext(
         files = files == null ? List.of() : List.copyOf(files);
     }
 
-    /** The first non-blank value of a field, or {@code null} when it was left unanswered. */
+    /** The first non-blank value of a field, or {@code null} when it was left unanswered. A sensitive field has none here. */
     public String parameter(String fieldName) {
         if (fieldName == null) {
             return null;
         }
         return first(parameters.get(fieldName));
+    }
+
+    /**
+     * The first non-blank value of a sensitive field, or {@code null}: left unanswered, not a sensitive field, or not
+     * one this action opted in to.
+     */
+    public String sensitiveParameter(String fieldName) {
+        if (fieldName == null) {
+            return null;
+        }
+        return first(sensitiveParameters.get(fieldName));
     }
 
     private static String first(List<String> values) {

@@ -12,6 +12,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -64,6 +65,52 @@ class FieldActionCollectorTest {
 
         assertEquals(List.of("uuid-deliverability", "uuid-crm"), actions.stream().map(ResolvedFieldAction::id).toList());
         assertEquals("myco:crmLookupAction", actions.get(1).nodeType());
+    }
+
+    @Test
+    void theActionsOfASensitiveFieldAreReadAsSuchForTheDispatcherToFilter() throws Exception {
+        // Verifies the collector's part of the field-action opt-in: under a field carrying fmdbmix:sensitiveField every
+        // action comes back marked, so that the dispatcher — which alone knows which registered Java types opt in —
+        // runs only those, at the pipeline's step 11b and at the pre-check endpoint alike; a plain field's are not.
+        JCRNodeWrapper password = fieldWithActions("password", action("generic", "myco:crmLookupAction"), action("policy", "myco:passwordPolicy"));
+        when(password.isNodeType(FmdbMixin.SENSITIVE_FIELD)).thenReturn(true);
+        JCRNodeWrapper email = fieldWithActions("email", action("crm", "myco:crmLookupAction"));
+
+        List<ResolvedFieldAction> actions = FieldActionCollector.read(password);
+
+        assertEquals(2, actions.size());
+        assertTrue(actions.stream().allMatch(ResolvedFieldAction::onSensitiveField));
+        assertFalse(FieldActionCollector.read(email).get(0).onSensitiveField());
+    }
+
+    @Test
+    void aNameOneOfWhoseFieldsIsSensitiveIsSensitive() throws Exception {
+        // Verifies the fail-closed rule of a shared name: both fields submit under it, so when the second carries the
+        // marker the actions the first field kept are marked too — a generic check never meets the password's value.
+        JCRNodeWrapper first = fieldWithActions("secret", action("generic", "myco:crmLookupAction"));
+        JCRNodeWrapper second = node("secret", "fmdbext:password", List.of(FmdbMixin.FORM_ELEMENT, FmdbMixin.SENSITIVE_FIELD));
+        JCRNodeWrapper fields = node("fields", "fmdb:fieldList", List.of(), first, second);
+        JCRNodeWrapper form = node("contact", "fmdb:form", List.of(FmdbMixin.FORM_ROOT), fields);
+
+        Map<String, List<ResolvedFieldAction>> byField = FieldActionCollector.collect(form);
+
+        assertEquals("uuid-generic", byField.get("secret").get(0).id());
+        assertTrue(byField.get("secret").get(0).onSensitiveField());
+    }
+
+    @Test
+    void aSensitiveFieldBeforeTheFieldOfItsNameThatHasActionsStillMarksThem() throws Exception {
+        // Verifies the shared-name rule whatever the tree order: the sensitive field without actions comes first, the
+        // plain field of its name with actions after it, and the actions it brings are marked all the same.
+        JCRNodeWrapper password = node("secret", "fmdbext:password", List.of(FmdbMixin.FORM_ELEMENT, FmdbMixin.SENSITIVE_FIELD));
+        JCRNodeWrapper plain = fieldWithActions("secret", action("generic", "myco:crmLookupAction"), action("crm", "myco:crm"));
+        JCRNodeWrapper fields = node("fields", "fmdb:fieldList", List.of(), password, plain);
+        JCRNodeWrapper form = node("contact", "fmdb:form", List.of(FmdbMixin.FORM_ROOT), fields);
+
+        Map<String, List<ResolvedFieldAction>> byField = FieldActionCollector.collect(form);
+
+        assertEquals(List.of("uuid-generic", "uuid-crm"), byField.get("secret").stream().map(ResolvedFieldAction::id).toList());
+        assertTrue(byField.get("secret").stream().allMatch(ResolvedFieldAction::onSensitiveField));
     }
 
     @Test

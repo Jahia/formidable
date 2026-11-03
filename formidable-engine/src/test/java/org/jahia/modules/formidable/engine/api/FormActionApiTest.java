@@ -12,6 +12,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
@@ -51,6 +52,9 @@ class FormActionApiTest {
         assertEquals("ada@example.com", context.parameter("email"));
         assertNull(context.parameter("missing"));
         assertEquals(List.of("s3cret"), context.sensitiveParameters().get("password"));
+        assertEquals("s3cret", context.sensitiveParameter("password"));
+        assertNull(context.sensitiveParameter("email"));
+        assertNull(context.parameter("password"));
         Map<String, List<String>> parameters = context.parameters();
         List<String> noValues = List.of();
         assertThrows(UnsupportedOperationException.class, () -> parameters.put("x", noValues));
@@ -70,6 +74,8 @@ class FormActionApiTest {
 
         assertNull(answered.parameter(null));
         assertNull(empty.parameter(null));
+        assertNull(answered.sensitiveParameter(null));
+        assertNull(empty.sensitiveParameter("password"));
     }
 
     @Test
@@ -82,5 +88,40 @@ class FormActionApiTest {
         Map<String, List<String>> noParameters = Map.of();
         List<SubmittedFile> noFiles = List.of();
         assertThrows(UnsupportedOperationException.class, () -> action.execute(null, null, null, noParameters, noFiles));
+    }
+
+    @Test
+    void neitherAFormActionNorAFieldActionReceivesASensitiveValueUnlessItOptsIn() {
+        // Verifies the defaults of the three opt-ins: a contextual action selects no sensitive field, a field action
+        // does not judge one, and a field-action types service that does not answer leaves every type out.
+        ContextualFormAction action = new ContextualFormAction() {
+            @Override public String getNodeType() { return "t:x"; }
+            @Override public FormActionResult execute(FormActionContext context) { return FormActionResult.none(); }
+        };
+        FieldAction check = new FieldAction() {
+            @Override public String getNodeType() { return "t:check"; }
+            @Override public FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) { return FieldActionResult.accept(); }
+        };
+
+        FieldActionTypes types = actionList -> List.of();
+
+        assertSame(SensitiveFields.none(), action.sensitiveFieldsConsumed(mock(JCRNodeWrapper.class)));
+        assertFalse(check.consumesSensitiveValues());
+        assertFalse(types.consumesSensitiveValues("myco:passwordPolicyAction"));
+    }
+
+    @Test
+    void aFieldActionRequestNeverPrintsItsValue() {
+        // Verifies the log hygiene of what a field action judges: a log line that prints the request names the form,
+        // the field and the locale, never the value, which may be a password.
+        FieldActionRequest request = new FieldActionRequest("8f7e2a10-0000-4000-8000-000000000001", "password",
+                "S3cretPass!", Locale.FRENCH);
+
+        String printed = request.toString();
+
+        assertFalse(printed.contains("S3cretPass!"), printed);
+        assertTrue(printed.contains("8f7e2a10-0000-4000-8000-000000000001"), printed);
+        assertTrue(printed.contains("password"), printed);
+        assertTrue(printed.contains("fr"), printed);
     }
 }
