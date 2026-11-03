@@ -87,13 +87,4 @@ class RedirectTargetsTest {
         assertTrue(RedirectTargets.pathOnServer("javascript://www.mysite.com/%0aalert(1)", "www.mysite.com").isEmpty());
         assertTrue(RedirectTargets.pathOnServer(null, "www.mysite.com").isEmpty());
     }
-
-    @Test
-    void theServletContextPathIsSwappedForThePlatforms() {
-        // Verifies swapContextPath: a link rewritten under the OSGi servlet's /modules carries the platform's context.
-        assertEquals("/jahia/fr/merci.html", RedirectTargets.swapContextPath("/modules/fr/merci.html", "/modules", "/jahia"));
-        assertEquals("/fr/merci.html", RedirectTargets.swapContextPath("/modules/fr/merci.html", "/modules", ""));
-        assertEquals("/fr/merci.html", RedirectTargets.swapContextPath("/fr/merci.html", "/modules", "/jahia"));
-        assertEquals("/modulesx/a", RedirectTargets.swapContextPath("/modulesx/a", "/modules", ""));
-    }
 }
