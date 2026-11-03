@@ -48,6 +48,18 @@ export function getBlockedWordsFieldActionNode(data: BlockedWordsFieldActionData
 }
 
 /**
+ * The samples module's password policy (fmdbsample:passwordPolicyAction): a field action whose Java type opts in to
+ * sensitive values, the only kind the engine runs on a password field. It refuses a value without a digit.
+ */
+export function getPasswordPolicyFieldActionNode(data: FieldActionFeedbackData = {}): JahiaNode {
+	return {
+		name: data.name || 'passwordPolicy',
+		primaryNodeType: 'fmdbsample:passwordPolicyAction',
+		properties: feedbackProperties(data)
+	};
+}
+
+/**
  * Switches the field's actions on, as the editor's Enable field actions switch does — the mixin and
  * its 'actions' list — with the given actions in execution order. One addNode mutation creates it
  * all: the mixin's autocreated list and the declared child of the same name meet in one node.

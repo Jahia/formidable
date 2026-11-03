@@ -2,7 +2,7 @@ import {BaseFormElementData, ChoiceData, JahiaNode, NodeProperty} from './types'
 
 /**
  * Node factories for the formidable-extended-inputs add-on fields
- * (fmdbext:card, fmdbext:phone, fmdbext:rating, fmdbext:scale, fmdbext:switch, fmdbext:consent).
+ * (fmdbext:card, fmdbext:phone, fmdbext:rating, fmdbext:scale, fmdbext:switch, fmdbext:consent, fmdbext:password).
  */
 
 export interface RatingData extends BaseFormElementData {
@@ -144,4 +144,23 @@ export function getPhoneNode(data: PhoneData): JahiaNode {
 	if (data.autocomplete) properties.push({name: 'autocomplete', value: data.autocomplete});
 	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
 	return {name: data.name || 'phone', primaryNodeType: 'fmdbext:phone', properties};
+}
+
+export interface PasswordData extends BaseFormElementData {
+	required?: boolean;
+	autocompleteMode?: 'new-password' | 'current-password';
+	minLength?: number;
+	maxLength?: number;
+}
+
+/** fmdbext:password: a sensitive field, its value reaches only the actions that consume sensitive values. */
+export function getPasswordNode(data: PasswordData): JahiaNode {
+	const properties: NodeProperty[] = [];
+	if (data.title) properties.push({name: 'jcr:title', value: data.title, language: 'en'});
+	if (data.helpText) properties.push({name: 'helpText', value: data.helpText, language: 'en'});
+	if (data.required !== undefined) properties.push({name: 'required', value: String(data.required), type: 'BOOLEAN'});
+	if (data.autocompleteMode) properties.push({name: 'autocompleteMode', value: data.autocompleteMode});
+	if (data.minLength !== undefined) properties.push({name: 'minLength', value: String(data.minLength), type: 'LONG'});
+	if (data.maxLength !== undefined) properties.push({name: 'maxLength', value: String(data.maxLength), type: 'LONG'});
+	return {name: data.name || 'password', primaryNodeType: 'fmdbext:password', properties};
 }

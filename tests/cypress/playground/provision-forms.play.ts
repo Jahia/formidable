@@ -27,7 +27,12 @@
  *                 — manual, options source, category and content, each single and multiple, every
  *                 field with words of its own (the content ones point at texts under
  *                 contents/agencies and contents/services; the agencies hold an unpublished draft
- *                 to showcase that only published contents reach live)
+ *                 to showcase that only published contents reach live); plus the one sensitive field
+ *                 of the set, an optional password (fmdbext:password) with the samples' password policy
+ *                 on it, and after the save the samples' sensitive values consumer: the only action that
+ *                 receives the password, which it answers with two response headers of the submission
+ *                 (X-Fmdb-Sample-Sensitive-Fields, X-Fmdb-Sample-Password-Received), while the saved
+ *                 result holds no password
  *   - languages   a choice field whose French labels are half translated, to try the site's
  *                 "replace untranslated content" setting both ways
  *   - redirect    one field and two redirect actions after the save: the first sends the visitor to the
@@ -93,9 +98,12 @@ import {
 	getInputFileNode,
 	getInputNumberNode,
 	getInputTextNode,
+	getPasswordNode,
+	getPasswordPolicyFieldActionNode,
 	getRadioNode,
 	getRedirectActionNode,
 	getSelectNode,
+	getSensitiveConsumerActionNode,
 	getSourcedChoiceFieldNode,
 	getStepNode,
 	getSwitchNode,
@@ -698,12 +706,36 @@ const completeFormNodes = ({tvCategoryUuid, audioCategoryUuid, agenciesRootUuid,
 		{name: 'placeholder', value: 'Décrivez le projet'}
 	]),
 	withFrench(getInputFileNode(INPUT_FILE_MULTIPLE), [{name: 'jcr:title', value: 'Pièces jointes'}]),
+	// The sensitive field: its value reaches the consumer action this form runs after the save (completeFormActions), and
+	// nothing else. Named `password`, the name whose receipt the consumer reports. The samples' password policy, a field
+	// action that opts in to sensitive values, refuses a value without a digit as the field is left. Optional, so that a
+	// hand test can leave it empty: the engine hands over no blank value, and the consumer reports no password received.
+	withFieldActions(withFrench(getPasswordNode({
+		name: 'password',
+		title: 'Password',
+		helpText: '<p>At least 8 characters, one of them a digit. Only the sample consumer action receives it.</p>',
+		required: false,
+		autocompleteMode: 'new-password',
+		minLength: 8
+	}), [
+		{name: 'jcr:title', value: 'Mot de passe'},
+		{name: 'helpText', value: '<p>Au moins 8 caractères, dont un chiffre. Seule l\'action exemple consommatrice le reçoit.</p>'}
+	]), [getPasswordPolicyFieldActionNode()]),
 	// --- The rest of the options matrix (manual single and multiple, and the sourced single select, are above).
 	withFrench(getSourcedChoiceFieldNode({primaryNodeType: 'fmdb:checkbox', name: 'viewing', title: 'How you watch TV (options source: static list, multiple)', sourceKey: 'viewing'}), [{name: 'jcr:title', value: 'Comment vous regardez la TV (source d\'options : liste statique, multiple)'}]),
 	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:radio', name: 'tvCategory', title: 'Your TV technology (category product/tv, single)', rootCategoryUuid: tvCategoryUuid}), [{name: 'jcr:title', value: 'Votre technologie TV (catégorie product/tv, choix unique)'}]),
 	withFrench(getCategoryChoiceFieldNode({primaryNodeType: 'fmdb:checkbox', name: 'audioCategories', title: 'Audio products you are interested in (category product/audio, multiple)', rootCategoryUuid: audioCategoryUuid}), [{name: 'jcr:title', value: 'Produits audio qui vous intéressent (catégorie product/audio, choix multiple)'}]),
 	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'agency', title: 'Your agency (content: texts under contents/agencies, single)', rootNodeUuid: agenciesRootUuid, nodeType: 'jnt:text'}), [{name: 'jcr:title', value: 'Votre agence (contenu : textes sous contents/agencies, choix unique)'}]),
 	withFrench(getContentChoiceFieldNode({primaryNodeType: 'fmdb:select', name: 'services', title: 'Services you need (content: texts under contents/services, multiple select)', rootNodeUuid: servicesRootUuid, nodeType: 'jnt:text', multiple: true}), [{name: 'jcr:title', value: 'Services souhaités (contenu : textes sous contents/services, sélection multiple)'}])
+];
+
+// What the complete form runs after the save: the samples' sensitive values consumer (formidable-test-module-samples-java,
+// deployed with the site's modules), titled in both languages. It answers the submission with the number of sensitive
+// fields it received and whether the password held a value, in the response headers SENSITIVE_CONSUMER_HEADERS names: the
+// browser's network panel shows the password reaching it, the results show Save to JCR keeping none.
+const completeFormActions = (): JahiaNode[] => [
+	withFrench(withEnglish(getSensitiveConsumerActionNode(), [{name: 'jcr:title', value: 'Sensitive values consumer'}]),
+		[{name: 'jcr:title', value: 'Consommateur de valeurs sensibles'}])
 ];
 
 const languagesFormNodes = (): JahiaNode[] => [
@@ -867,7 +899,7 @@ describe('Playground - provision manual-testing forms', () => {
 			title: 'Complete form',
 			frTitle: 'Formulaire complet',
 			provision: (look, {title, frTitle}, roots) => {
-				provisionForm(look, 'complete', title, frTitle, completeFormNodes(roots))
+				provisionForm(look, 'complete', title, frTitle, completeFormNodes(roots), [], completeFormActions())
 					.then(({livePath}) => cy.log(`${look.label} complete form: /en/sites/${FORMIDABLE_TEST_SITE.key}/${livePath}`));
 			}
 		},
@@ -1071,7 +1103,7 @@ describe('Playground - provision manual-testing forms', () => {
 				form.waitForSubmit();
 			});
 
-			// Complete form: every field type, with the PDF and CSV fixtures as attachments.
+			// Complete form: every field type, with the PDF and CSV fixtures as attachments, and a password.
 			// The third entry picks "Pickup", which reveals the conditional pickup location.
 			// Three of the profile fields ask for something once the profile's value is in (birth date and
 			// gender read-only, country hidden): from the second visitor on, the profile knows them, and the
@@ -1112,10 +1144,10 @@ describe('Playground - provision manual-testing forms', () => {
 				});
 			};
 			[
-				{code: 'AB-1234', email: 'fanny.girard@example.com', birth: '1988-04-12', color: '#ff5733', interests: ['Sports', 'Music'], delivery: 'Express', pickup: null, gender: 'Female', kids: '2', country: 'FR', newsletter: true, department: 'Engineering', summary: 'A new intranet for the engineering team, with a form for incident reports.', files: ['cypress/fixtures/files/document.pdf']},
-				{code: 'CD-5678', email: 'gabriel.lefevre@example.com', birth: '1975-11-30', color: '#3366cc', interests: ['Reading'], delivery: 'Standard', pickup: null, gender: 'Male', kids: '0', country: 'DE', newsletter: false, department: 'Sales', summary: 'Quarterly sales dashboard with an export of the leads collected on the site.', files: ['cypress/fixtures/files/sample.csv']},
-				{code: 'EF-9012', email: 'helene.petit@example.com', birth: '1992-07-08', color: '#2e8b57', interests: ['Sports'], delivery: 'Pickup', pickup: 'Paris - Rue de Rivoli', gender: 'Other', kids: '3', country: 'CH', newsletter: true, department: 'Support', summary: 'Support knowledge base migration, including the attached inventory and specification.', files: ['cypress/fixtures/files/document.pdf', 'cypress/fixtures/files/sample.csv']}
-			].forEach(({code, email, birth, color, interests, delivery, pickup, gender, kids, country, newsletter, department, summary, files}) => {
+				{code: 'AB-1234', password: 'Fanny-pass-1', email: 'fanny.girard@example.com', birth: '1988-04-12', color: '#ff5733', interests: ['Sports', 'Music'], delivery: 'Express', pickup: null, gender: 'Female', kids: '2', country: 'FR', newsletter: true, department: 'Engineering', summary: 'A new intranet for the engineering team, with a form for incident reports.', files: ['cypress/fixtures/files/document.pdf']},
+				{code: 'CD-5678', password: 'Gabriel-pass-2', email: 'gabriel.lefevre@example.com', birth: '1975-11-30', color: '#3366cc', interests: ['Reading'], delivery: 'Standard', pickup: null, gender: 'Male', kids: '0', country: 'DE', newsletter: false, department: 'Sales', summary: 'Quarterly sales dashboard with an export of the leads collected on the site.', files: ['cypress/fixtures/files/sample.csv']},
+				{code: 'EF-9012', password: 'Helene-pass-3', email: 'helene.petit@example.com', birth: '1992-07-08', color: '#2e8b57', interests: ['Sports'], delivery: 'Pickup', pickup: 'Paris - Rue de Rivoli', gender: 'Other', kids: '3', country: 'CH', newsletter: true, department: 'Support', summary: 'Support knowledge base migration, including the attached inventory and specification.', files: ['cypress/fixtures/files/document.pdf', 'cypress/fixtures/files/sample.csv']}
+			].forEach(({code, password, email, birth, color, interests, delivery, pickup, gender, kids, country, newsletter, department, summary, files}) => {
 				const form = visitLiveForm(livePageOf(look, 'complete'));
 				contextLoaded();
 				form.getTextInput(INPUT_TEXT_COMPLETE.name!).type(code);
@@ -1145,6 +1177,8 @@ describe('Playground - provision manual-testing forms', () => {
 				form.getSelectInput('department').select(department);
 				form.getTextarea(TEXTAREA_COMPLETE.name!).type(summary);
 				form.getFileInput(INPUT_FILE_MULTIPLE.name!).attachFile(files).shouldHaveSelectedFileCount(files.length);
+				// a digit in each, for the password policy; only the consumer action receives it, the saved entry holds none
+				cy.get('form.fmdb-form [data-fmdb-node-name="password"] input[type="password"]').type(password, {log: false});
 				form.submit();
 				form.waitForSubmit().shouldHaveSubmissionMessage('Form submitted successfully!');
 			});

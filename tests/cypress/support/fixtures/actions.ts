@@ -49,6 +49,35 @@ export function getLogSubmissionActionNode(name: string = 'logSubmission'): Jahi
 }
 
 /**
+ * The test module's contextual action that consumes the sensitive values of the form (fmdbsample:sensitiveConsumerAction,
+ * formidable-test-module-samples-java): it opts in from its Java class, and reports the number of sensitive fields it
+ * received and whether the field named `password` held a non-blank value, `true` or `false`, in the response headers
+ * SENSITIVE_CONSUMER_HEADERS names.
+ */
+export function getSensitiveConsumerActionNode(name: string = 'sensitiveConsumer'): JahiaNode {
+	return {name, primaryNodeType: 'fmdbsample:sensitiveConsumerAction', properties: []};
+}
+
+/**
+ * The test module's contextual action that does not opt in (fmdbsample:sensitiveNonConsumerAction): it reports the
+ * number of sensitive fields it received, always 0, and the names of its public fields, in the response headers
+ * SENSITIVE_NON_CONSUMER_HEADERS names.
+ */
+export function getSensitiveNonConsumerActionNode(name: string = 'sensitiveNonConsumer'): JahiaNode {
+	return {name, primaryNodeType: 'fmdbsample:sensitiveNonConsumerAction', properties: []};
+}
+
+/** The response headers of the two sample actions, lower-cased as Cypress exposes them. Counts, yes or no, and names only. */
+export const SENSITIVE_CONSUMER_HEADERS = {
+	sensitiveFields: 'x-fmdb-sample-sensitive-fields',
+	passwordReceived: 'x-fmdb-sample-password-received'
+} as const;
+export const SENSITIVE_NON_CONSUMER_HEADERS = {
+	sensitiveFields: 'x-fmdb-sample-non-consumer-sensitive-fields',
+	fields: 'x-fmdb-sample-non-consumer-fields'
+} as const;
+
+/**
  * A forward action pointing at a configured forward target (fmdb:forwardAction, targetId is a
  * choicelist fed by the forward target files).
  */
