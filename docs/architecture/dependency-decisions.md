@@ -112,6 +112,10 @@ This project uses two distinct dependency strategies in its Java modules:
   range. Constants of the `Fmdb*` classes never raise it: the compiler inlines them.
 - `commons-lang:commons-lang` — referenced by the signatures of the JCR wrappers the unit tests mock,
   never called directly.
+- `org.jahia.modules:graphql-dxm-provider` 3.2.0 and `io.github.graphql-java:graphql-java-annotations`
+  (the parent's version) — `provided`, every transitive excluded, for the one GraphQL field the rules
+  editor lists the profile properties through (`ProfilePropertiesQueryExtension`). Both ship with every
+  Jahia 8.2; bnd computes the imports `[3.2,4)` and `[21.1,22)` from the compile versions.
 
 ### Notes
 

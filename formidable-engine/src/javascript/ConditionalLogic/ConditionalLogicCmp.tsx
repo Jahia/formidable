@@ -21,6 +21,7 @@ import {
 import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
 import {getLogicProvider, type LogicProviderDescriptor, offeredLogicProviders, PROVIDER_OPERATORS} from './providers';
 import {useSharedSources} from './sources';
+import {refChoiceOptions, useRefChoices} from './refChoices';
 import {
     allRuleValuesOf,
     describeRuleView,
@@ -223,6 +224,9 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const {sources, logicIdToSource, installedModules, loading, errorKey} = useSharedSources(currentNodePath, {workspace, language, defaultLanguage});
     const error = translated(t, errorKey);
     const rule = useMemo(() => parseRule(value), [value]);
+    // A provider that lists its references (refChoices.ts) shows a dropdown, and the text input only
+    // while the list is unavailable.
+    const refChoices = useRefChoices(getLogicProvider(rule.sourceType), currentNodePath);
     // Whether the provider-reference input was visited: its error only shows after
     // that (a rule opened with a stored reference is validated right away). Declared
     // with the other hooks — the component has early returns further down.
@@ -605,32 +609,64 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         isLastRuleOfList(id, allRuleValuesOf(props.form, field.name))
     );
 
+    const markRefTouched = () => {
+        setProviderRefTouched(true);
+        if (rule.logicId) {
+            touchedProviderRefs.add(rule.logicId);
+        }
+    };
+
+    const renderProviderRef = (provider: LogicProviderDescriptor) => {
+        if (refChoices.status !== 'none') {
+            const refOptions = refChoices.status === 'ready'
+                ? refChoiceOptions(refChoices.choices, rule[provider.configKey] ?? '', provider.isValidRef)
+                : [];
+            return (
+                <Dropdown
+                    variant="outlined"
+                    data={refOptions}
+                    hasSearch={refOptions.length >= 5}
+                    value={(rule[provider.configKey] ?? '') || undefined}
+                    placeholder={t(provider.configLabelKey)}
+                    isDisabled={field.readOnly || refChoices.status === 'loading'}
+                    className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
+                    aria-label={t(provider.configLabelKey)}
+                    onChange={(_event, item) => {
+                        markRefTouched();
+                        if (item.value) {
+                            updateProviderRule({[provider.configKey]: item.value});
+                        }
+                    }}
+                />
+            );
+        }
+
+        return (
+            <Input
+                id={`${id}-provider-ref`}
+                isReadOnly={field.readOnly}
+                placeholder={t(provider.configPlaceholderKey)}
+                // A reference easily outgrows its cell: hovering reveals it in full.
+                title={(rule[provider.configKey] ?? '') || undefined}
+                aria-label={t(provider.configLabelKey)}
+                aria-invalid={showProviderRefError ? true : undefined}
+                aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
+                value={rule[provider.configKey] ?? ''}
+                size="big"
+                className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
+                onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
+                onBlur={markRefTouched}
+            />
+        );
+    };
+
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
     const renderProviderRule = (provider: LogicProviderDescriptor) => {
         return (
         <>
             <div>
-                <Input
-                    id={`${id}-provider-ref`}
-                    isReadOnly={field.readOnly}
-                    placeholder={t(provider.configPlaceholderKey)}
-                    // A reference easily outgrows its cell: hovering reveals it in full.
-                    title={(rule[provider.configKey] ?? '') || undefined}
-                    aria-label={t(provider.configLabelKey)}
-                    aria-invalid={showProviderRefError ? true : undefined}
-                    aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
-                    value={rule[provider.configKey] ?? ''}
-                    size="big"
-                    className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
-                    onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
-                    onBlur={() => {
-                        setProviderRefTouched(true);
-                        if (rule.logicId) {
-                            touchedProviderRefs.add(rule.logicId);
-                        }
-                    }}
-                />
+                {renderProviderRef(provider)}
             </div>
             <div>
                 <Dropdown

@@ -83,6 +83,13 @@ operators a rule may test, and the modules the site must have for the source to 
 (`requiredModules`). The query of `graphql/queries.ts` reads the modules enabled on the site itself
 (`installedModules`, not their dependencies), the list the page's own gate reads.
 
+A source that can list its references declares where (`refChoices`: a GraphQL document and how to read
+its answer). The row then offers a dropdown instead of the text input, and `refChoices.ts` loads the
+list once for every row of the field. The jExperience profile lists the properties of jCustomer's
+schema through formidable-jexperience-engine. A stored reference the list lacks stays as its own entry,
+and the row keeps the text input while the list cannot be had: the module is not installed, jCustomer
+cannot be asked, or the request failed.
+
 The list is closed, and it is not a public extension point yet. It is shaped as one would be, so
 that a registry opens later by moving entries, not by changing their shape: the id of a source that
 belongs to a module is namespaced (`jexperience:profile`), and its runtime half in

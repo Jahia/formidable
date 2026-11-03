@@ -23,6 +23,8 @@ describe('Form logic - 514 jExperience profile property source', () => {
 
 	const PROXY = `/modules/jexperience/proxy/${FORMIDABLE_TEST_SITE.key}/cxs`;
 	const PROFILE_SOURCE = 'jExperience profile property';
+	// jCustomer's default schema names the property so; the live tests below set `country`, which has no type
+	const COUNTRY_PROPERTY_LABEL = 'Country ISO code (countryName)';
 
 	before(function () {
 		// before the suite's own beforeEach logs in: the checks below need root
@@ -114,14 +116,18 @@ describe('Form logic - 514 jExperience profile property source', () => {
 
 			logicField.addRule();
 			logicField.selectSourceType(0, PROFILE_SOURCE);
+			// the properties of jCustomer's schema, a read-only one included: no form writes a visit count
+			logicField.openProviderRefDropdown(0);
+			logicField.menuShouldHaveItems([COUNTRY_PROPERTY_LABEL, 'Number of visits (nbOfVisits)']);
+			logicField.closeMenu();
+			logicField.selectProviderRef(0, COUNTRY_PROPERTY_LABEL);
 			// offered with the operators of every source outside the form
-			logicField.openProviderOperatorDropdown(0);
+			logicField.openProviderOperatorDropdown(0, true);
 			logicField.menuShouldHaveItems(['equals', 'does not equal', 'contains', 'is defined', 'is not defined']);
 			logicField.closeMenu();
-			// 'is defined' needs no value, so the only text input is the property name
-			logicField.selectProviderOperator(0, 'is defined');
-			logicField.ruleShouldHaveTextInputCount(0, 1);
-			logicField.typeTextValue(0, 'country');
+			// 'is defined' needs no value, and the property is picked: the rule has no text input
+			logicField.selectProviderOperator(0, 'is defined', true);
+			logicField.ruleShouldHaveTextInputCount(0, 0);
 			editor.save();
 
 			cy.waitUntil(() => getConditionalLogicNode(targetPath).then(node =>
@@ -131,7 +137,7 @@ describe('Form logic - 514 jExperience profile property source', () => {
 				const storedRule = parseStoredLogicRule(node.properties!.find(property => property.name === 'logics')!.values![0]);
 
 				expect(storedRule.sourceType).to.equal('jexperience:profile');
-				expect(storedRule.property).to.equal('country');
+				expect(storedRule.property).to.equal('countryName');
 				expect(storedRule.operator).to.equal('exists');
 				expect(storedRule.value).to.equal(undefined);
 				expect(storedRule.sourceFieldName).to.equal(undefined);

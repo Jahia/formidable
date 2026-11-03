@@ -39,7 +39,7 @@ const contextPath = (): string =>
  * server answered in 20 to 35 ms. The editor reads the form once and keeps nothing in the client's
  * cache, so a direct request loses nothing and skips the wait.
  */
-export const postGraphQL: GraphQLPost = async (query, variables) => {
+export const postGraphQLRequest = async <T>(query: string, variables: object): Promise<T> => {
     const response = await fetch(`${contextPath()}/modules/graphql`, {
         method: 'POST',
         credentials: 'same-origin',
@@ -50,8 +50,10 @@ export const postGraphQL: GraphQLPost = async (query, variables) => {
         throw new Error(`GraphQL answered ${response.status}`);
     }
 
-    return response.json() as Promise<GraphQLResponse>;
+    return response.json() as Promise<T>;
 };
+
+export const postGraphQL: GraphQLPost = (query, variables) => postGraphQLRequest<GraphQLResponse>(query, variables);
 
 /** Reads the form around the field in one round trip and shapes it for the editor; fails when no form stands above the field. */
 export const fetchSources = async (input: SourcesInput, post: GraphQLPost = postGraphQL): Promise<SourcesLoad> => {

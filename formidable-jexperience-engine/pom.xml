@@ -121,6 +121,32 @@
             <artifactId>json</artifactId>
             <scope>provided</scope>
         </dependency>
+        <!-- The GraphQL API of the platform, for the field the conditional-logic editor lists the profile
+             properties through: the provider's extension point and the annotations it reads. Both ship with Jahia. -->
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>graphql-dxm-provider</artifactId>
+            <version>3.2.0</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.github.graphql-java</groupId>
+            <artifactId>graphql-java-annotations</artifactId>
+            <version>${graphql-java-annotations.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>

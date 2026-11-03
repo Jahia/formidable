@@ -19,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
@@ -48,10 +49,14 @@ public class ProfilePropertyCatalog {
     static final Duration TIME_TO_LIVE = Duration.ofMinutes(1);
     static final Duration UNAVAILABLE_TIME_TO_LIVE = Duration.ofSeconds(10);
 
-    /** A site's entry: the list, or — with a null list — the memory of a failed read and its reason. */
-    private record Entry(List<ProfilePropertyDescriptor> properties, String failure, Instant expires) {
+    /** The two lists one read of a site's schema yields: what a field may be mapped to, what a rule may read. */
+    private record Lists(List<ProfilePropertyDescriptor> mappable, List<ProfilePropertyDescriptor> readable) {
+    }
+
+    /** A site's entry: the lists, or — with null lists — the memory of a failed read and its reason. */
+    private record Entry(Lists lists, String failure, Instant expires) {
         boolean unavailable() {
-            return properties == null;
+            return lists == null;
         }
     }
 
@@ -85,6 +90,19 @@ public class ProfilePropertyCatalog {
 
     /** The mappable profile properties of the site, sorted by label, less than a minute old. */
     public List<ProfilePropertyDescriptor> profileProperties(String siteKey) throws ProfilePropertiesUnavailableException {
+        return lists(siteKey).mappable();
+    }
+
+    /**
+     * The profile properties of the site a conditional-logic rule may read, sorted by label, from the same
+     * read as {@link #profileProperties(String)}: the read-only ones included, lists and nested sets left out
+     * ({@link ProfilePropertyFilter#describeReadable}).
+     */
+    public List<ProfilePropertyDescriptor> readableProfileProperties(String siteKey) throws ProfilePropertiesUnavailableException {
+        return lists(siteKey).readable();
+    }
+
+    private Lists lists(String siteKey) throws ProfilePropertiesUnavailableException {
         Objects.requireNonNull(siteKey, "siteKey");
         Entry cached = cache.get(siteKey);
         Instant now = clock.get();
@@ -93,10 +111,10 @@ public class ProfilePropertyCatalog {
                 throw new ProfilePropertiesUnavailableException(cached.failure()
                         + " (remembered for " + UNAVAILABLE_TIME_TO_LIVE.toSeconds() + " s before jCustomer is asked again)");
             }
-            return cached.properties();
+            return cached.lists();
         }
         try {
-            List<ProfilePropertyDescriptor> fresh = fetch(siteKey);
+            Lists fresh = fetch(siteKey);
             // the clock is read again: the call may have waited out the admin client's timeout (30 s by default)
             cache.put(siteKey, new Entry(fresh, null, clock.get().plus(TIME_TO_LIVE)));
             return fresh;
@@ -113,7 +131,7 @@ public class ProfilePropertyCatalog {
         cache.clear();
     }
 
-    private List<ProfilePropertyDescriptor> fetch(String siteKey) throws ProfilePropertiesUnavailableException {
+    private Lists fetch(String siteKey) throws ProfilePropertiesUnavailableException {
         ContextServerService service = contextServerService.get();
         if (service == null) {
             throw new ProfilePropertiesUnavailableException("the jExperience module is not available");
@@ -125,15 +143,19 @@ public class ProfilePropertyCatalog {
             PropertyType[] types = service.executeGetRequest(siteKey, PROPERTY_TYPES_ENDPOINT, null, null, PropertyType[].class);
             if (types == null) {
                 // a bodyless answer is an empty schema, not an outage
-                return List.of();
+                return new Lists(List.of(), List.of());
             }
-            return Arrays.stream(types)
-                    .map(ProfilePropertyFilter::describe)
-                    .flatMap(Optional::stream)
-                    .sorted(Comparator.comparing(ProfilePropertyDescriptor::label, String.CASE_INSENSITIVE_ORDER))
-                    .toList();
+            return new Lists(sortedBy(types, ProfilePropertyFilter::describe), sortedBy(types, ProfilePropertyFilter::describeReadable));
         } catch (IOException | RuntimeException e) {
             throw new ProfilePropertiesUnavailableException("could not read the profile properties of site '" + siteKey + "': " + e.getMessage(), e);
         }
+    }
+
+    private static List<ProfilePropertyDescriptor> sortedBy(PropertyType[] types, Function<PropertyType, Optional<ProfilePropertyDescriptor>> filter) {
+        return Arrays.stream(types)
+                .map(filter)
+                .flatMap(Optional::stream)
+                .sorted(Comparator.comparing(ProfilePropertyDescriptor::label, String.CASE_INSENSITIVE_ORDER))
+                .toList();
     }
 }

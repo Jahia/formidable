@@ -1,4 +1,6 @@
 import type {LogicOperator, ProviderConfigKey, RuleSourceType} from './ConditionalLogic.types';
+import {JEXPERIENCE_PROFILE_PROPERTIES} from './graphql';
+import type {RefChoicesLoad, RefChoicesSource} from './refChoices';
 
 /**
  * Rule sources that are not another form field: state outside the form, read in the
@@ -30,6 +32,11 @@ export interface LogicProviderDescriptor {
      * page. A rule already stored on it stays editable where they are missing; it fails closed there.
      */
     requiredModules?: string[];
+    /**
+     * Where the references a rule may pick are listed, when the provider can list them: the row then
+     * offers a dropdown, and falls back to the text input only while the list is unavailable.
+     */
+    refChoices?: RefChoicesSource;
 }
 
 /**
@@ -54,6 +61,23 @@ const COOKIE_NAME_PATTERN = /^[\w!#$%&'*+\-.^`|~]+$/;
 
 // jCustomer profile property ids: one top-level name, read as a flat key, so no path syntax.
 const PROFILE_PROPERTY_PATTERN = /^[\w-]+$/;
+
+interface ProfilePropertiesData {
+    formidableJExperienceProfileProperties?: {available?: boolean; properties?: {name?: string; label?: string}[]} | null;
+}
+
+/** The answer of {@link JEXPERIENCE_PROFILE_PROPERTIES} as dropdown entries; unavailable when jCustomer could not be asked. */
+export const readProfileProperties = (data: unknown): RefChoicesLoad => {
+    const answer = (data as ProfilePropertiesData | null | undefined)?.formidableJExperienceProfileProperties;
+    if (!answer?.available) {
+        return {available: false, choices: []};
+    }
+
+    return {
+        available: true,
+        choices: (answer.properties ?? []).flatMap(({name, label}) => (name ? [{value: name, label: label || name}] : []))
+    };
+};
 
 const PROVIDERS: LogicProviderDescriptor[] = [
     {
@@ -95,7 +119,8 @@ const PROVIDERS: LogicProviderDescriptor[] = [
         operators: PROVIDER_OPERATORS,
         // the page's own gate (JExperienceSite.tracked): jExperience enabled on the site itself. The
         // script that reads the tracker comes with a global render filter, enabled on no site.
-        requiredModules: ['jexperience']
+        requiredModules: ['jexperience'],
+        refChoices: {query: JEXPERIENCE_PROFILE_PROPERTIES, read: readProfileProperties}
     }
 ];
 
