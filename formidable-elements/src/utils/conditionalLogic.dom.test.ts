@@ -56,11 +56,20 @@ describe('a jExperience profile property as a conditional logic source', () => {
 		expect(mount('notExists').hidden()).toBe(true);
 	});
 
-	it('keeps the field hidden when the jExperience script throws', () => {
+	it('keeps the field hidden when the jExperience script throws, whatever the operator', () => {
 		globalThis.formidableJxp = {logicProvider: {available: () => true, read: () => {
 			throw new Error('broken');
 		}}};
 		expect(mount('exists').hidden()).toBe(true);
+		// read as "absent", a broken script would show this one
+		expect(mount('notExists').hidden()).toBe(true);
+	});
+
+	it('declares nothing for a property whose read throws, so the server fails its rule closed', () => {
+		globalThis.formidableJxp = {logicProvider: {available: () => true, read: () => {
+			throw new Error('broken');
+		}}};
+		expect(declaration(mount('notExists').form)).toEqual({v: 1, providers: {'jexperience:profile': {}}});
 	});
 
 	it('declares the value the browser read, and an absent property as null', () => {

@@ -36,7 +36,10 @@ export interface ScalarLogicProvider {
 	 * always readable omit it.
 	 */
 	available?(): boolean;
-	/** Current value of the designated thing, or undefined when it does not exist. */
+	/**
+	 * Current value of the designated thing, or undefined when it does not exist. Throws when the
+	 * source cannot be read after all; callers read through readLogicProvider, which tells the two apart.
+	 */
 	read(ref: string): string | undefined;
 	/**
 	 * Notifies when any of the designated things may have changed, for state that moves
@@ -203,13 +206,10 @@ const hostedProvider = (
 				return false;
 			}
 		},
+		// A throw passes through: readLogicProvider counts it as unavailable, never as absent
 		read: ref => {
-			try {
-				const value = resolve()?.read(ref);
-				return typeof value === 'string' ? value : undefined;
-			} catch {
-				return undefined;
-			}
+			const value = resolve()?.read(ref);
+			return typeof value === 'string' ? value : undefined;
 		},
 		subscribe: (refs, onChange) => {
 			try {
@@ -250,6 +250,22 @@ export const logicProviderConfigKeys = (): LogicProviderConfigKey[] =>
 /** Whether a provider's source can be read now; see ScalarLogicProvider.available. */
 export const isLogicProviderAvailable = (provider: ScalarLogicProvider): boolean =>
 	typeof provider.available !== 'function' || provider.available();
+
+/** What a read that threw returns: the source could not be read, so its rules fail closed. */
+export const UNREADABLE: unique symbol = Symbol('unreadable');
+
+/**
+ * Reads a provider's reference: its value, undefined when the thing does not exist, or
+ * UNREADABLE when the read threw — a source that is unavailable after all. Read as "absent",
+ * a broken script would show a field gated on `notExists`, and declare it absent to the server.
+ */
+export const readLogicProvider = (provider: ScalarLogicProvider, ref: string): string | undefined | typeof UNREADABLE => {
+	try {
+		return provider.read(ref);
+	} catch {
+		return UNREADABLE;
+	}
+};
 
 /**
  * Event any integrator can dispatch to have conditional logic re-evaluated — after pushing

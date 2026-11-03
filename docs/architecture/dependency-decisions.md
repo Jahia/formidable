@@ -153,7 +153,12 @@ This project uses two distinct dependency strategies in its Java modules:
 - `maven-dependency-plugin:analyze-only` with `failOnWarning`, as in the engine.
 - The mapping rules are built and compared as plain maps: no import of Unomi's rule, condition or action packages, and no JSON library for them (jExperience's admin client serialises the maps). `org.json` is `provided`, as in the engine: the render filter reads the stored conditional-logic rules with it to list the profile properties they read, and the golden-rule test parses the expected JSON.
 - `jahia-depends`: `formidable-engine` (the marker mixin), `formidable-elements` (`fmdb:form`, the type the publication listener and the render
-  filter apply to) and `jexperience`.
+  filter apply to), `jexperience` and `graphql-dxm-provider` (the rules editor's list of profile properties). The GraphQL
+  imports stay mandatory: the provider ships with every Jahia 8.2 and the jExperience integration needs it as the rest of
+  Jahia's UI does, so an optional import would only guard a platform without its GraphQL API.
+- `org.json` is imported as `version="0"`, any version: bnd otherwise pins the one the build compiled against
+  (`[20231013.0,20231014)`, a date, not a semantic version), and the bundle would not resolve on a Jahia that exports
+  another. Naming the package without a version is not enough, bnd still adds the pin; the engine's import carries it.
 
 ### OSGi SPI surface
 

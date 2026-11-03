@@ -2,7 +2,9 @@ import {
 	getLogicProvider,
 	isLogicProviderAvailable,
 	type LogicSourceType,
-	type ScalarLogicProvider
+	readLogicProvider,
+	type ScalarLogicProvider,
+	UNREADABLE
 } from '~/utils/logicProviders';
 import {localToday} from '~/components/Input/Date/bounds';
 
@@ -405,7 +407,9 @@ const evaluateProviderRule = (rule: ConditionalLogicRule, provider: ScalarLogicP
 	if (!isLogicProviderAvailable(provider)) return false;
 
 	const ref = rule[provider.configKey];
-	const actual = ref ? provider.read(ref) : undefined;
+	const actual = ref ? readLogicProvider(provider, ref) : undefined;
+	if (actual === UNREADABLE) return false;
+
 	const defined = actual !== undefined;
 	const expected = rule.value ?? '';
 
@@ -497,7 +501,9 @@ export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 
 		const state: Record<string, string | null> = {};
 		for (const ref of refs) {
-			state[ref] = provider.read(ref) ?? null;
+			const value = readLogicProvider(provider, ref);
+			// a read that threw is left undeclared, as an unavailable source is
+			if (value !== UNREADABLE) state[ref] = value ?? null;
 		}
 
 		providers[providerId] = state;

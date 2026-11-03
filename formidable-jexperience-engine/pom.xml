@@ -12,8 +12,9 @@
     <description>The jExperience integration of Formidable forms: profile mapping of the fields, the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker, and later the prefill (docs/architecture/jexperience-integration.md)</description>
     <properties>
         <!-- The marker mixin and the response SPI come from the engine, fmdb:form (the type the publication
-             listener and the render filter apply to) from the elements, ContextServerService from jExperience. -->
-        <jahia-depends>formidable-engine,formidable-elements,jexperience</jahia-depends>
+             listener and the render filter apply to) from the elements, ContextServerService from jExperience,
+             and the GraphQL API the rules editor lists the profile properties through from graphql-dxm-provider. -->
+        <jahia-depends>formidable-engine,formidable-elements,jexperience,graphql-dxm-provider</jahia-depends>
         <sonar.sources>src,pom.xml</sonar.sources>
         <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
@@ -194,6 +195,7 @@
                             org.jahia.services.content.nodetypes,
                             org.jahia.services.content.nodetypes.initializers,
                             org.jahia.utils.i18n,
+                            org.json;version="0",
                             *
                         </Import-Package>
                     </instructions>
