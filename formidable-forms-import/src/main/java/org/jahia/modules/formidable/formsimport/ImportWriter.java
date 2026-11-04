@@ -256,8 +256,9 @@ public class ImportWriter {
     private void writeField(JCRNodeWrapper parent, ImportedField field) throws RepositoryException {
         JCRNodeWrapper node = parent.addNode(JCRContentUtils.findAvailableNodeName(parent, field.name()), field.nodeType());
         i18n(node, TITLE, field.titles());
-        if (field.required()) {
-            node.setProperty(ImportedField.REQUIRED_PROPERTY, "true");
+        // false too: a password or a consent is required by default, an optional source field must not become mandatory
+        if (field.required() != null) {
+            node.setProperty(ImportedField.REQUIRED_PROPERTY, field.required().toString());
         }
         // the mixins of other modules first: their properties have no definition on the type alone
         for (String mixin : field.mixins()) {

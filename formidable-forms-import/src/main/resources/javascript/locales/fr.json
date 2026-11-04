@@ -151,7 +151,9 @@
 					"termsLink": "Le lien vers les conditions ({{link}}) n’est pas repris : ajoutez-le à l’énoncé",
 					"prefillUnknownProperty": "Non lié à la propriété {{property}} du profil visiteur : jCustomer n’a pas cette propriété. Créez-la, puis liez le champ",
 					"prefillIncompatible": "Non lié à la propriété {{property}} du profil visiteur : son type ne convient pas à un champ {{type}}",
-					"profileUnchecked": "Lié à la propriété {{property}} du profil visiteur, sans vérification : jCustomer était injoignable. Vérifiez que la propriété existe"
+					"profileUnchecked": "Lié à la propriété {{property}} du profil visiteur, sans vérification : jCustomer était injoignable. Vérifiez que la propriété existe",
+					"passwordRecreated": "Aucune action importée ne reçoit le mot de passe : ajoutez une action qui l’utilise, ou retirez le champ. Sur un formulaire de connexion, réglez Gestionnaire de mots de passe du navigateur sur Mot de passe actuel",
+					"showPasswordToggle": "L’œil qui affichait le mot de passe saisi n’est pas repris : Formidable n’a pas cette option"
 				},
 				"form": {
 					"fieldsetAroundMatrix": "Le groupe de champs {{fieldset}} ne contenait que la matrice {{matrix}} : la matrice est devenue le groupe, intitulé {{matrix}}, et le titre {{fieldset}} n’est pas repris",
@@ -176,7 +178,8 @@
 					"constraints": "Les limites de soumission ne sont pas reprises : Formidable n’a pas cette fonction",
 					"captchaOn": "Captcha activé, avec le captcha de cette instance",
 					"captchaOff": "Captcha non activé : cette instance n’en a pas, configurez-en un puis ajoutez-le au formulaire",
-					"passwordDropped": "Le champ mot de passe {{field}} n’est pas recréé : il serait stocké et envoyé en clair",
+					"passwordDropped": "Le champ mot de passe {{field}} n’est pas recréé : installez formidable-extended-inputs pour obtenir un champ mot de passe",
+					"passwordConfirmationDropped": "Le champ mot de passe {{field}} confirmait {{password}} : il n’est pas recréé, Formidable n’a pas de champ de confirmation",
 					"contentDisplayDropped": "L’affichage de contenu {{field}} n’est pas recréé : il ne soumet rien",
 					"fieldDropped": "Le champ {{field}} ({{source}}) n’est pas recréé"
 				},

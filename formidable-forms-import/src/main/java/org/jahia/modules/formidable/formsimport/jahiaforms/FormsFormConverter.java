@@ -15,6 +15,7 @@ import org.json.JSONObject;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +44,8 @@ public final class FormsFormConverter {
     /** The Forms accept-terms box (forms-extended-inputs). */
     private static final String ACCEPT_TERMS_KIND = "acceptTermCheckbox";
     private static final String PLAIN_LANGUAGE = "";
+    /** The value of {@code showpassword} that draws the eye revealing the password. */
+    private static final String SHOW = "show";
 
     /** The Forms file-type groups a {@code fileValidation} selects, as {@code accept} can say them; {@code all} restricts nothing. */
     private static final Map<String, String> FILE_TYPES = Map.of(
@@ -100,9 +103,10 @@ public final class FormsFormConverter {
         SystemNames names = new SystemNames();
         List<ImportNote> report = new ArrayList<>();
         String buildingLang = languageOf(form.buildingLang());
+        Map<String, String> confirmations = passwordConfirmations(form);
         List<ImportedElement> elements = form.steps().size() == 1
-                ? elementsOf(form.steps().get(0), results, buildingLang, names, report)
-                : stepsOf(form, results, buildingLang, names, report);
+                ? elementsOf(form.steps().get(0), results, buildingLang, names, confirmations, report)
+                : stepsOf(form, results, buildingLang, names, confirmations, report);
         reportFormSettings(form, report);
         Map<String, String> titles = titlesOf(form, buildingLang);
         List<ImportedAction> actions = actionsOf(form, report);
@@ -143,22 +147,25 @@ public final class FormsFormConverter {
                 List.of(ImportNote.info("form.fromLabels")));
     }
 
-    private List<ImportedElement> stepsOf(FormsForm form, FormsResults results, String buildingLang, SystemNames names, List<ImportNote> report) {
+    private List<ImportedElement> stepsOf(FormsForm form, FormsResults results, String buildingLang, SystemNames names,
+                                         Map<String, String> confirmations, List<ImportNote> report) {
         List<ImportedElement> steps = new ArrayList<>();
         for (FormsStep step : form.steps()) {
             String name = names.reserve(step.name());
             steps.add(new ImportedContainer(name, ImportedContainer.STEP, nonBlank(step.titles()),
-                    elementsOf(step, results, buildingLang, names, report)));
+                    elementsOf(step, results, buildingLang, names, confirmations, report)));
         }
         return steps;
     }
 
     /**
      * The fields of a step, the ones between a fieldset start and its end wrapped in a fieldset; a matrix, a
-     * fieldset itself, never under one ({@link StepLayout}).
+     * fieldset itself, never under one ({@link StepLayout}). The confirmation of a password is left out.
+     *
+     * @param confirmations the passwords that confirm another, by node name, each with the name of the one it confirms
      */
     private List<ImportedElement> elementsOf(FormsStep step, FormsResults results, String buildingLang,
-                                            SystemNames names, List<ImportNote> report) {
+                                            SystemNames names, Map<String, String> confirmations, List<ImportNote> report) {
         StepLayout layout = new StepLayout(names, buildingLang, report);
         for (FormsField definition : step.fields()) {
             String kind = definition.kind();
@@ -166,6 +173,9 @@ public final class FormsFormConverter {
                 layout.openFieldset(definition);
             } else if (FormsFieldTypes.isFieldsetEnd(kind)) {
                 layout.closeFieldset();
+            } else if (confirmations.containsKey(definition.name())) {
+                report.add(ImportNote.info("form.passwordConfirmationDropped", FIELD, definition.name(),
+                        "password", confirmations.get(definition.name())));
             } else if (!FormsFieldTypes.isButton(kind)) {
                 if (laysOutAsMatrix(definition, buildingLang)) {
                     // before the matrix takes its name: a fieldset that holds nothing yet gives its own back. A matrix
@@ -176,6 +186,33 @@ public final class FormsFormConverter {
             }
         }
         return layout.finish();
+    }
+
+    /**
+     * The passwords that confirm an earlier password of the form: an equal-to rule names it. Formidable has no
+     * confirm-password field, and no action compares the two values, so the confirmation is not recreated
+     * (docs/architecture/forms-import.md, "The fields"). An equal-to rule that names any other field is reported
+     * as a rule not carried over.
+     */
+    private static Map<String, String> passwordConfirmations(FormsForm form) {
+        List<String> passwords = new ArrayList<>();
+        Map<String, String> confirmations = new HashMap<>();
+        for (FormsField definition : form.fields()) {
+            if (!FormsFieldTypes.KIND_PASSWORD.equals(definition.kind())) {
+                continue;
+            }
+            String confirmed = definition.validation(FormsValidation.EQUAL_TO)
+                    .map(rule -> plain(rule, FormsOptionNames.EQUAL_TO_FIELD))
+                    .map(String::trim)
+                    .filter(passwords::contains)
+                    .orElse(null);
+            if (confirmed != null) {
+                confirmations.put(definition.name(), confirmed);
+            } else {
+                passwords.add(definition.name());
+            }
+        }
+        return confirmations;
     }
 
     /**
@@ -697,6 +734,14 @@ public final class FormsFormConverter {
                 }
             }
             case "rating" -> field.property(FormsFieldTypes.MAX_VALUE, plain(definition, FormsOptionNames.MAX));
+            case FormsFieldTypes.KIND_PASSWORD -> {
+                // no imported action receives a sensitive value: the author adds the one that consumes it
+                field.report(ImportNote.action("field.passwordRecreated"));
+                String show = plain(definition, FormsOptionNames.SHOW_PASSWORD);
+                if (show != null && SHOW.equals(show.trim())) {
+                    field.report(ImportNote.info("field.showPasswordToggle"));
+                }
+            }
             case ACCEPT_TERMS_KIND -> {
                 if (mapping.is(FormsFieldTypes.CONSENT)) {
                     field.i18nProperty(FormsFieldTypes.STATEMENT, statementOf(field, definition, titles));
@@ -864,7 +909,7 @@ public final class FormsFormConverter {
 
     private static ImportNote notRecreated(FormsField definition) {
         return switch (definition.kind()) {
-            case "password" -> ImportNote.action("form.passwordDropped", FIELD, definition.name());
+            case FormsFieldTypes.KIND_PASSWORD -> ImportNote.action("form.passwordDropped", FIELD, definition.name());
             case "contentDisplay" -> ImportNote.info("form.contentDisplayDropped", FIELD, definition.name());
             default -> ImportNote.action("form.fieldDropped", FIELD, definition.name(), "source", definition.type());
         };

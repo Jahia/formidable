@@ -151,7 +151,9 @@
 					"termsLink": "The link to the terms ({{link}}) is not carried over: add it to the statement",
 					"prefillUnknownProperty": "Not mapped to the visitor profile property {{property}}: jCustomer has no such property. Create it, then map the field",
 					"prefillIncompatible": "Not mapped to the visitor profile property {{property}}: its type does not fit a {{type}} field",
-					"profileUnchecked": "Mapped to the visitor profile property {{property}}, unchecked: jCustomer could not be reached. Check that the property exists"
+					"profileUnchecked": "Mapped to the visitor profile property {{property}}, unchecked: jCustomer could not be reached. Check that the property exists",
+					"passwordRecreated": "No imported action receives the password: add an action that uses it, or remove the field. On a sign-in form, set Browser password manager to Current password",
+					"showPasswordToggle": "The eye that showed the typed password is not carried over: Formidable has no such toggle"
 				},
 				"form": {
 					"fromLabels": "Rebuilt from the labels of its results: Jahia Forms no longer holds the form",
@@ -176,7 +178,8 @@
 					"constraints": "The submission limits are not carried over: Formidable has no such feature",
 					"captchaOn": "Captcha turned on, with the captcha of this instance",
 					"captchaOff": "Captcha not turned on: this instance has none, set one up then add it to the form",
-					"passwordDropped": "The password field {{field}} is not recreated: it would be stored and mailed in clear",
+					"passwordDropped": "The password field {{field}} is not recreated: install formidable-extended-inputs to get a password field",
+					"passwordConfirmationDropped": "The password field {{field}} confirmed {{password}}: it is not recreated, Formidable has no confirmation field",
 					"contentDisplayDropped": "The content display {{field}} is not recreated: it submits nothing",
 					"fieldDropped": "The field {{field}} ({{source}}) is not recreated"
 				},

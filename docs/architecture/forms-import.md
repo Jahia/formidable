@@ -281,7 +281,7 @@ says. The third column gives what the import writes into `data` for that field, 
 | `textAreaDefinition` | `fmdb:textarea`, with `rows` | Unchanged |
 | `numberDefinition` | `fmdb:inputNumber` | Unchanged |
 | `hiddenDefinition` | `fmdb:inputHidden`, with its `value` | Unchanged |
-| `passwordDefinition` | Not recreated, reported: Forms masked the password in storage and in the mail, but a Formidable text field would store and mail it in clear | Dropped, with the placeholder `**********` |
+| `passwordDefinition` | `fmdbext:password`, with `required`, and with `minLength` and `maxLength` from a `rangeLengthValidation`. The report says that no imported action receives the value. `autocompleteMode` keeps its default, `new-password`, and the report asks for **Current password** on a sign-in form. `showpassword` is reported: Formidable has no toggle. A password whose `equalToValidation` names an earlier password is a confirmation. Formidable has no confirmation field, so the confirmation is not recreated, and the report says so. Without the extended inputs, not recreated, reported | Dropped, with the placeholder `**********`, whether the field is recreated or not |
 | `selectBasicDefinition`, `selectMultipleDefinition` | `fmdb:select`, `multiple` for the second, with manual options | The option key, one or several, unchanged |
 | `multipleRadiosDefinition`, `multipleRadiosInlineDefinition` | `fmdb:radio` with manual options | The option key |
 | `multipleCheckBoxesDefinition`, `multipleCheckBoxesInlineDefinition` | `fmdb:checkbox` with manual options | The option keys |
@@ -298,7 +298,9 @@ says. The third column gives what the import writes into `data` for that field, 
 
 The `fmdbext:*` types belong to `formidable-extended-inputs`. The import uses them when the repository
 registers the type, as the migrations test a type before they query it, and falls back on the
-`formidable-elements` type of the row otherwise, with a line in the report.
+`formidable-elements` type of the row otherwise, with a line in the report. The password has no fallback:
+a `formidable-elements` text field would store and mail it in clear, so without `fmdbext:password` the
+field is not recreated.
 
 For every field:
 
@@ -306,12 +308,14 @@ For every field:
 - `placeholder` and `helptext` become `placeholder` and `helpText`; a select, which has no placeholder,
   takes it as its `optionsEmptyLabel`; a setting the target type does not declare is reported, never
   written, so that the writer meets no constraint violation;
-- a `requiredValidation` sets `required`, and its message becomes `msgValueMissing`;
+- a `requiredValidation` sets `required` to `true`, and its message becomes `msgValueMissing`; without
+  one, `required` is written `false`. The import writes it on every type that has the setting, because
+  `fmdbext:password` and `fmdbext:consent` are required by default;
 - a `rangeLengthValidation` sets `minLength` and `maxLength`, a `rangeValidation` sets `minValue` and
   `maxValue`, a `regexValidation` sets `pattern`, each with its message in the slot of the type
   (`msgTooShort` and `msgTooLong`, `msgRangeUnderflow` and `msgRangeOverflow`, `msgPatternMismatch`); an
   `emailValidation` on an e-mail field fills `msgTypeMismatch`. A rule the field type cannot carry,
-  and `equalToValidation`, are reported;
+  and `equalToValidation` on a field that is not the confirmation of a password, are reported;
 - a manual option is written as Formidable stores it, `{"value","label","selected"}` per language: the Forms
   key becomes the value, so that the imported values match, and the Forms label becomes the label. A choice
   marked `"visible": false` is left out, on every choice field as on the rows and columns of a matrix:
@@ -319,7 +323,7 @@ For every field:
   it again; an answer that holds it keeps its key, with no option to show a label;
 - a prefill from the visitor profile (`fcnt:mfffPrefill`, `fcnt:mfffMappingOnly`) is written as the mapping
   of the field to that profile property when the jExperience integration is installed and reaches the field
-  type and the profile server declares the property with a type the field holds (see the decisions), the first
+  type, the type is not sensitive (`fmdbmix:sensitiveField`, which the engine never maps), and the profile server declares the property with a type the field holds (see the decisions), the first
   of the kind on a field; every other prefill, and `logics`, are reported,
   with the names of the fields they touch, and nothing is written for them. `inputsize` is dropped.
 
@@ -697,7 +701,9 @@ until it does.
 
 A later run finds forms and submissions wherever they live in the site: a form moved out of
 `imported-forms`, reworked or renamed is found, and left as it is, even when the export changed; a
-submission already imported is skipped. The run adds the forms and the submissions that are missing, into
+submission already imported is skipped. A found form therefore gets no field it lacks: a password field
+that an earlier version of the import did not create stays missing. The author adds it, or deletes the
+form and imports it again. The run adds the forms and the submissions that are missing, into
 the entry of the form it found, and names each value after the field whose `fmdbmix:importedField` carries
 the `fieldId` of its label node, so a field the contributor renamed keeps receiving its values. An import
 that stopped half-way therefore runs again as it is, and a second export of the same site, taken later,

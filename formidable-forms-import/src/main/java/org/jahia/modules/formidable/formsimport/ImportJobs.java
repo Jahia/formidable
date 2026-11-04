@@ -33,6 +33,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NodeType;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -413,11 +414,17 @@ public class ImportJobs {
         return setup != null && setup.isComplete();
     }
 
-    /** Whether a field type takes a mapping to a visitor profile property: the jExperience integration's mixin reaches it. */
+    /**
+     * Whether a field type takes a mapping to a visitor profile property: the jExperience integration's mixin reaches
+     * it, and the type is not sensitive, whose mapping the engine ignores whatever the type declares.
+     */
     private static boolean isProfileMappable(JCRSessionWrapper session, String type) {
         try {
-            return hasNodeType(session, FormsFormConverter.PROFILE_MAPPING_MIXIN)
-                    && session.getWorkspace().getNodeTypeManager().getNodeType(type).isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD);
+            if (!hasNodeType(session, FormsFormConverter.PROFILE_MAPPING_MIXIN)) {
+                return false;
+            }
+            NodeType nodeType = session.getWorkspace().getNodeTypeManager().getNodeType(type);
+            return nodeType.isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD) && !nodeType.isNodeType(FmdbMixin.SENSITIVE_FIELD);
         } catch (RepositoryException e) {
             return false;
         }

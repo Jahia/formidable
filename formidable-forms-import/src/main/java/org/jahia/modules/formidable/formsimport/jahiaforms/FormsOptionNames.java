@@ -29,6 +29,8 @@ final class FormsOptionNames {
     /** The statement of the box, its braced text rendered as the link to the terms file of {@code link}, a repository path. */
     static final String TERMS_LABEL = "termsLabel";
     static final String LINK = "link";
+    /** Whether a password shows the eye that reveals what was typed, {@code show} or {@code hide} ({@code passwordDefinition.wzd}). */
+    static final String SHOW_PASSWORD = "showpassword";
 
     // validation rules (the option names are the designView keys of forms-core_en.properties)
     static final String REGEX = "regex";
@@ -36,6 +38,8 @@ final class FormsOptionNames {
     static final String FILE_TYPE = "filetype";
     /** The number of files a {@code fcnt:fileNumberValidation} allows. */
     static final String FILE_NUMBER = "filenumber";
+    /** The node name of the field an {@code fcnt:equalToValidation} compares with. */
+    static final String EQUAL_TO_FIELD = "equaltofieldid";
 
     // actions
     static final String TO = "to";
