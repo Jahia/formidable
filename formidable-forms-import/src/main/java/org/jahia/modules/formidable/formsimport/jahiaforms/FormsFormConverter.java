@@ -41,6 +41,9 @@ public final class FormsFormConverter {
     private static final String RULE = "rule";
     private static final String PROPERTY = "property";
     private static final String TYPE = "type";
+    private static final String SETTING = "setting";
+    private static final String VALUE = "value";
+    private static final String KEPT = "kept";
     /** The Forms accept-terms box (forms-extended-inputs). */
     private static final String ACCEPT_TERMS_KIND = "acceptTermCheckbox";
     private static final String PLAIN_LANGUAGE = "";
@@ -604,14 +607,14 @@ public final class FormsFormConverter {
                 if (!field.accepts(FormsFieldTypes.MIN_LENGTH)) {
                     return false;
                 }
-                bounds(field, rule, FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH);
+                bounds(field, rule, mapping, FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH);
                 message(field, rule, FormsFieldTypes.MSG_TOO_SHORT, FormsFieldTypes.MSG_TOO_LONG);
             }
             case FormsValidation.RANGE -> {
                 if (!field.accepts(FormsFieldTypes.MIN_VALUE)) {
                     return false;
                 }
-                bounds(field, rule, FormsFieldTypes.MIN_VALUE, FormsFieldTypes.MAX_VALUE);
+                bounds(field, rule, mapping, FormsFieldTypes.MIN_VALUE, FormsFieldTypes.MAX_VALUE);
                 message(field, rule, FormsFieldTypes.MSG_RANGE_UNDERFLOW, FormsFieldTypes.MSG_RANGE_OVERFLOW);
             }
             case FormsValidation.REGEX -> {
@@ -642,9 +645,32 @@ public final class FormsFormConverter {
         return true;
     }
 
-    private static void bounds(ImportedField.Builder field, FormsValidation rule, String minProperty, String maxProperty) {
-        field.property(minProperty, plain(rule, FormsOptionNames.MIN));
-        field.property(maxProperty, plain(rule, FormsOptionNames.MAX));
+    private static void bounds(ImportedField.Builder field, FormsValidation rule, FormsFieldTypes.Mapping mapping,
+                               String minProperty, String maxProperty) {
+        field.property(minProperty, within(field, mapping, minProperty, plain(rule, FormsOptionNames.MIN)));
+        field.property(maxProperty, within(field, mapping, maxProperty, plain(rule, FormsOptionNames.MAX)));
+    }
+
+    /**
+     * A bound brought to the nearest end of the range its type constrains it to, and reported: the writer cannot set
+     * a value outside the range. A value that is no number is left to the writer, as on a type without a range.
+     */
+    private static String within(ImportedField.Builder field, FormsFieldTypes.Mapping mapping, String property, String value) {
+        FormsFieldTypes.Range range = FormsFieldTypes.range(mapping.nodeType(), property);
+        if (range == null || value == null || value.isBlank()) {
+            return value;
+        }
+        long bound;
+        try {
+            bound = Long.parseLong(value.trim());
+        } catch (NumberFormatException e) {
+            return value;
+        }
+        long kept = range.clamp(bound);
+        if (kept != bound) {
+            field.report(ImportNote.action("field.boundClamped", SETTING, property, VALUE, value.trim(), KEPT, String.valueOf(kept)));
+        }
+        return String.valueOf(kept);
     }
 
     /** The message of the rule, per language, into each slot the type has for it. */

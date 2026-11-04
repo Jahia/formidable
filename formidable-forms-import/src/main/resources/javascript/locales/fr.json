@@ -153,7 +153,8 @@
 					"prefillIncompatible": "Non lié à la propriété {{property}} du profil visiteur : son type ne convient pas à un champ {{type}}",
 					"profileUnchecked": "Lié à la propriété {{property}} du profil visiteur, sans vérification : jCustomer était injoignable. Vérifiez que la propriété existe",
 					"passwordRecreated": "Aucune action importée ne reçoit le mot de passe : ajoutez une action qui l’utilise, ou retirez le champ. Sur un formulaire de connexion, réglez Gestionnaire de mots de passe du navigateur sur Mot de passe actuel",
-					"showPasswordToggle": "L’œil qui affichait le mot de passe saisi n’est pas repris : Formidable n’a pas cette option"
+					"showPasswordToggle": "L’œil qui affichait le mot de passe saisi n’est pas repris : Formidable n’a pas cette option",
+					"boundClamped": "Son réglage {{setting}} de {{value}} sort de ce que le champ accepte : ramené à {{kept}}"
 				},
 				"form": {
 					"fieldsetAroundMatrix": "Le groupe de champs {{fieldset}} ne contenait que la matrice {{matrix}} : la matrice est devenue le groupe, intitulé {{matrix}}, et le titre {{fieldset}} n’est pas repris",

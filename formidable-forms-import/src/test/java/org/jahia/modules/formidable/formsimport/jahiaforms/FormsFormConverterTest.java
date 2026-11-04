@@ -511,6 +511,29 @@ class FormsFormConverterTest {
     }
 
     @Test
+    void aPasswordLengthOutsideTheRangeOfTheFieldIsBroughtWithinItAndReported() {
+        FormsValidation wide = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "min", new FormsOption("min", "2000", Map.of()), "max", new FormsOption("max", "5000", Map.of())));
+        FormsValidation zero = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "max", new FormsOption("max", "0", Map.of())));
+        FormsField first = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null, Map.of(), List.of(wide), List.of(), false);
+        FormsField second = new FormsField("pin_0_2", "u2", PASSWORD_TYPE, Map.of("en", "PIN"), null, Map.of(), List.of(zero), List.of(), false);
+
+        List<ImportedField> fields = EVERYTHING.convert(formOf(first, second), null).fields().toList();
+
+        // the writer cannot set a value outside the range of the CND, so the import never hands it one
+        assertEquals("1024", fields.get(0).properties().get(FormsFieldTypes.MIN_LENGTH));
+        assertEquals("1024", fields.get(0).properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertTrue(has(fields.get(0).report(), "field.boundClamped", "setting", FormsFieldTypes.MIN_LENGTH, "value", "2000", "kept", "1024"),
+                fields.get(0).report().toString());
+        assertTrue(has(fields.get(0).report(), "field.boundClamped", "setting", FormsFieldTypes.MAX_LENGTH, "value", "5000", "kept", "1024"),
+                fields.get(0).report().toString());
+        assertEquals("1", fields.get(1).properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertTrue(has(fields.get(1).report(), "field.boundClamped", "setting", FormsFieldTypes.MAX_LENGTH, "value", "0", "kept", "1"),
+                fields.get(1).report().toString());
+    }
+
+    @Test
     void anOptionalPasswordStaysOptionalAndAHiddenOneShowsNoToggle() {
         FormsField definition = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null,
                 Map.of(FormsOptionNames.SHOW_PASSWORD, new FormsOption(FormsOptionNames.SHOW_PASSWORD, "hide", Map.of())),

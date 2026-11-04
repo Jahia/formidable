@@ -153,7 +153,8 @@
 					"prefillIncompatible": "Not mapped to the visitor profile property {{property}}: its type does not fit a {{type}} field",
 					"profileUnchecked": "Mapped to the visitor profile property {{property}}, unchecked: jCustomer could not be reached. Check that the property exists",
 					"passwordRecreated": "No imported action receives the password: add an action that uses it, or remove the field. On a sign-in form, set Browser password manager to Current password",
-					"showPasswordToggle": "The eye that showed the typed password is not carried over: Formidable has no such toggle"
+					"showPasswordToggle": "The eye that showed the typed password is not carried over: Formidable has no such toggle",
+					"boundClamped": "Its {{setting}} of {{value}} is outside what the field accepts: set to {{kept}}"
 				},
 				"form": {
 					"fromLabels": "Rebuilt from the labels of its results: Jahia Forms no longer holds the form",

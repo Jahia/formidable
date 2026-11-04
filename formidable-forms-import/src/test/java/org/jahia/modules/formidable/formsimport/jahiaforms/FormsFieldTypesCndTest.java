@@ -63,6 +63,18 @@ class FormsFieldTypesCndTest {
     }
 
     @Test
+    void theRangesOfThePasswordFieldAreTheOnesItsCndDeclares() throws IOException {
+        String cnd = Files.readString(MODULES.get(1).resolve("src/components/Input/Password/definition.cnd"));
+        for (String property : List.of(FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH)) {
+            FormsFieldTypes.Range range = FormsFieldTypes.range(FormsFieldTypes.PASSWORD, property);
+            Matcher declared = Pattern.compile("^\\s*-\\s*" + property + "\\s*\\(long\\)[^\\n]*<\\s*'\\[(\\d+),(\\d+)\\]'", Pattern.MULTILINE).matcher(cnd);
+            assertTrue(declared.find(), property + " declares no range in the Password CND");
+            assertEquals(Long.parseLong(declared.group(1)), range.min(), property);
+            assertEquals(Long.parseLong(declared.group(2)), range.max(), property);
+        }
+    }
+
+    @Test
     void theParserReadsATypeItsSupertypesAndItsProperties() throws IOException {
         Map<String, Declared> types = parseAll();
         Declared select = types.get(FormsFieldTypes.SELECT);

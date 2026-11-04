@@ -87,6 +87,16 @@ final class FormsFieldTypes {
             // no pattern: a regular expression rule is reported
             Map.entry(PASSWORD, union(Set.of(HELP_TEXT, REQUIRED, PLACEHOLDER, MIN_LENGTH, MAX_LENGTH), TEXT_MESSAGES)));
 
+    /** The values a property of a type may take, both ends included, as its CND declares them ({@code < '[1,1024]'}). */
+    record Range(long min, long max) {
+        long clamp(long value) {
+            return Math.max(min, Math.min(max, value));
+        }
+    }
+
+    private static final Map<String, Map<String, Range>> RANGES = Map.of(
+            PASSWORD, Map.of(MIN_LENGTH, new Range(0, 1024), MAX_LENGTH, new Range(1, 1024)));
+
     /**
      * @param nodeType the type to create
      * @param note what the report says of the choice, or null when the type is the natural equivalent
@@ -177,6 +187,11 @@ final class FormsFieldTypes {
     /** The properties a type declares among those the import writes; empty for a type this map does not know. */
     static Set<String> accepted(String nodeType) {
         return ACCEPTED.getOrDefault(nodeType, Set.of());
+    }
+
+    /** The range a property of a type is constrained to, or null when its CND sets none. */
+    static Range range(String nodeType, String property) {
+        return RANGES.getOrDefault(nodeType, Map.of()).get(property);
     }
 
     /** The kinds the import turns into something else than a field, or into nothing; a password depends on the instance ({@link #of}). */
