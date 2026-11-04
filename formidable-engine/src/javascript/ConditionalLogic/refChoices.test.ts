@@ -1,6 +1,15 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {acquireRefChoices, fetchRefChoices, forgetRefChoices, refChoiceOptions, UNAVAILABLE} from './refChoices';
+import {acquireRefChoices, fetchRefChoices, forgetRefChoices, refChoiceOptions, type RefChoicesSource, UNAVAILABLE} from './refChoices';
 import {getLogicProvider, type LogicProviderDescriptor} from './providers';
+
+/** Where the provider below lists its references. */
+const segmentChoices: RefChoicesSource = {
+	query: 'query AcmeSegments($path: String!) { acmeSegments(path: $path) { name } }',
+	read: data => {
+		const names = (data as {acmeSegments?: {name: string}[] | null} | undefined)?.acmeSegments;
+		return names ? {available: true, choices: names.map(({name}) => ({value: name, label: name.toUpperCase()}))} : UNAVAILABLE;
+	}
+};
 
 /** A provider that lists its references, as an extension module registers one. */
 const segment: LogicProviderDescriptor = {
@@ -11,13 +20,7 @@ const segment: LogicProviderDescriptor = {
 	configPlaceholderKey: 'acme:segment.configPlaceholder',
 	operators: ['equals'],
 	isValidRef: ref => /^\w+$/.test(ref.trim()),
-	refChoices: {
-		query: 'query AcmeSegments($path: String!) { acmeSegments(path: $path) { name } }',
-		read: data => {
-			const names = (data as {acmeSegments?: {name: string}[] | null} | undefined)?.acmeSegments;
-			return names ? {available: true, choices: names.map(({name}) => ({value: name, label: name.toUpperCase()}))} : UNAVAILABLE;
-		}
-	}
+	refChoices: segmentChoices
 };
 const path = '/sites/s/contents/forms/f/fields/size';
 
@@ -30,9 +33,9 @@ describe('the reference list of a provider', () => {
 	it('is asked for the edited field and read as dropdown entries', async () => {
 		const post = vi.fn().mockResolvedValue({data: {acmeSegments: [{name: 'gold'}, {name: 'silver'}]}});
 
-		const load = await fetchRefChoices(segment.refChoices!, path, post);
+		const load = await fetchRefChoices(segmentChoices, path, post);
 
-		expect(post).toHaveBeenCalledWith(segment.refChoices!.query, {path});
+		expect(post).toHaveBeenCalledWith(segmentChoices.query, {path});
 		expect(load).toEqual({available: true, choices: [{value: 'gold', label: 'GOLD'}, {value: 'silver', label: 'SILVER'}]});
 	});
 
@@ -40,7 +43,7 @@ describe('the reference list of a provider', () => {
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const missing = vi.fn().mockResolvedValue({errors: [{message: "Validation error: Field 'acmeSegments' is undefined"}]});
 
-		expect(await fetchRefChoices(segment.refChoices!, path, missing)).toEqual(UNAVAILABLE);
+		expect(await fetchRefChoices(segmentChoices, path, missing)).toEqual(UNAVAILABLE);
 	});
 
 	it('is loaded once for every rule row of the field, and asked again after a failure', async () => {

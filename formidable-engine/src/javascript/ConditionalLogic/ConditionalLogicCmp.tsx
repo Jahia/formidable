@@ -33,7 +33,7 @@ import {
     ruleSourceTypeOf,
     translated
 } from './ruleRow';
-import type {ConditionalLogicRule, LogicOperator, RuleSourceType, SelectorProps} from './ConditionalLogic.types';
+import type {ConditionalLogicRule, LogicOperator, SelectorProps} from './ConditionalLogic.types';
 import './conditionalLogic.css';
 
 
@@ -431,7 +431,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const providerOperator = sanitizeProviderOperator(rule.operator, selectedProvider);
 
     const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
-        const nextType = (item.value ?? 'field') as RuleSourceType;
+        const nextType = item.value ?? 'field';
         if (nextType === ruleSourceType) {
             return;
         }

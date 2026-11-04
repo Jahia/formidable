@@ -22,17 +22,12 @@ import {
  * ids and config keys; formidable-engine's providers.test.ts checks it.
  */
 
-/** The rule property a provider rule keeps its reference under, one per provider. */
-export type LogicProviderConfigKey = string;
-
-/** What a rule designates: another form field, or the id of a provider. */
-export type LogicSourceType = string;
-
 export interface ScalarLogicProvider {
 	/** Persisted verbatim as the rule's `sourceType`. */
 	id: string;
 	/** The rule property holding what this provider designates. */
-	configKey: LogicProviderConfigKey;
+	/** The rule property a rule on this provider keeps its reference under. */
+	configKey: string;
 	/**
 	 * Whether the source can be read at all right now. False when the system behind it is
 	 * not on the page, was blocked (no consent, a bot filter) or has not loaded yet: the rule
@@ -282,7 +277,7 @@ export const getLogicProvider = (sourceType?: string): ScalarLogicProvider | und
 	return BUILT_IN_PROVIDERS.find(provider => provider.id === sourceType) ?? registered.get(sourceType);
 };
 
-export const logicProviderConfigKeys = (): LogicProviderConfigKey[] =>
+export const logicProviderConfigKeys = (): string[] =>
 	[...BUILT_IN_PROVIDERS, ...registered.values()].map(provider => provider.configKey);
 
 /** Whether a provider's source can be read now; see ScalarLogicProvider.available. */

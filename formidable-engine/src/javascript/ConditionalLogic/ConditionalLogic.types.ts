@@ -1,10 +1,4 @@
 /**
- * What a rule designates: another form field, or the id of a provider, built in or registered by
- * another module (providers.ts; state outside the form, read in the browser only).
- */
-export type RuleSourceType = string;
-
-/**
  * Shape of the values a source field produces, which drives the offered operators
  * and the value widget shown next to them. Declared by the field type through the
  * engine's semantic mixins (fmdbmix:choiceField, dateField, numberField,
@@ -41,7 +35,8 @@ export type LogicOperator =
 
 export interface ConditionalLogicRule {
     logicId: string;
-    // Absent on rules stored before jsVariable support; treated as 'field'. A stored rule
+    // Absent on rules stored before jsVariable support; treated as 'field'. It is `field`, or
+    // the id of a provider, built in or registered by another module (providers.ts). A stored rule
     // may name a provider no module registers here (authored against a newer version, or
     // with a module since removed), and it must keep that sourceType
     // verbatim so the rule round-trips unchanged instead of being rewritten as a field

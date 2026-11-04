@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-/// <reference types="vite/client" />
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {registry} from '@jahia/ui-extender';
 import {LOGIC_SOURCE_REGISTRY_TYPE} from '@jahia/formidable-library/logic-sources';
@@ -10,11 +9,13 @@ import {
     installLogicSourceQueue
 } from '../../../formidable-elements/src/utils/logicProviders';
 import {PROFILE_SOURCE_ID, profileSource, readProfileProperties} from './profileSource';
-import pageScript from '../main/resources/javascript/formidable-jxp.js?raw';
+// A path held apart, so that the type-check leaves the page script to its own module's build
+const PAGE_SCRIPT = '../main/resources/javascript/formidable-jxp.js';
 
-/** Runs the page script as the render filter's page would, before or after Formidable's script. */
-const runPageScript = () => {
-    new Function(pageScript)();
+/** Runs the page script anew, as the render filter's page would, before or after Formidable's script. */
+const runPageScript = async () => {
+    vi.resetModules();
+    await import(/* @vite-ignore */ PAGE_SCRIPT);
 };
 
 afterEach(() => {
@@ -25,9 +26,9 @@ afterEach(() => {
 });
 
 describe('the jExperience profile source', () => {
-    it('is the same source in the editor and on the page', () => {
+    it('is the same source in the editor and on the page', async () => {
         registry.add(LOGIC_SOURCE_REGISTRY_TYPE, PROFILE_SOURCE_ID, profileSource);
-        runPageScript();
+        await runPageScript();
         installLogicSourceQueue();
 
         const editor = getEditorProvider(PROFILE_SOURCE_ID);
@@ -37,15 +38,15 @@ describe('the jExperience profile source', () => {
         expect(page?.configKey).toBe(editor?.configKey);
     });
 
-    it('registers on the page whether Formidable\'s script runs before or after it', () => {
+    it('registers on the page whether Formidable\'s script runs before or after it', async () => {
         installLogicSourceQueue();
-        runPageScript();
+        await runPageScript();
 
         expect(getPageProvider(PROFILE_SOURCE_ID)?.configKey).toBe('property');
     });
 
-    it('is unavailable on the page until the tracker loaded the profile', () => {
-        runPageScript();
+    it('is unavailable on the page until the tracker loaded the profile', async () => {
+        await runPageScript();
         installLogicSourceQueue();
 
         expect(getPageProvider(PROFILE_SOURCE_ID)!.available!()).toBe(false);

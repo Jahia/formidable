@@ -3,14 +3,11 @@ import {
 	getLogicProvider,
 	installLogicSourceQueue,
 	isLogicProviderAvailable,
-	type LogicSourceType,
 	readLogicProvider,
 	type ScalarLogicProvider,
 	UNREADABLE
 } from '~/utils/logicProviders';
 import {localToday} from '~/components/Input/Date/bounds';
-
-export type ConditionalLogicSourceType = LogicSourceType;
 
 export type ConditionalLogicValueKind = 'choice' | 'date' | 'number' | 'boolean' | 'text';
 
