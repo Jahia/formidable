@@ -82,7 +82,7 @@ describe('a source another module registers on the page', () => {
 
 		push({id: 'acme:late', configKey: 'segment', read: () => 'gold'});
 		readyState.mockReturnValue('complete');
-		window.dispatchEvent(new Event('load'));
+		globalThis.dispatchEvent(new Event('load'));
 
 		const warned = warn.mock.calls.map(([message]) => String(message));
 		expect(warned.some(message => message.includes('source:acme:gone'))).toBe(true);

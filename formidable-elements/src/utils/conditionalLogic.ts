@@ -148,7 +148,7 @@ const reportUnresolvedRule = (reason: string) => {
 	// missing only if it is still missing once the page has loaded.
 	if (reason.startsWith(SOURCE_REASON_PREFIX) && typeof document !== 'undefined' && document.readyState !== 'complete') {
 		const sourceType = reason.slice(SOURCE_REASON_PREFIX.length);
-		window.addEventListener('load', () => {
+		globalThis.addEventListener('load', () => {
 			if (!getLogicProvider(sourceType)) warnUnresolvedRule(reason);
 		}, {once: true});
 		return;
