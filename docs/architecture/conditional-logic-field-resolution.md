@@ -154,11 +154,12 @@ A source has two halves, registered apart because they run apart:
 
 Both halves follow `EditorLogicSource` and `PageLogicSource` of
 `@jahia/formidable-library/logic-sources`. An entry outside the contract is ignored with a warning,
-and the first registration of an id or a config key wins.
+and the first registration of an id wins.
 
-The page reads a rule without its source: the reference is the one string key of the rule that is no
-shared rule key, the way the server reads it. A rule parsed before the module's page script ran keeps
-its reference, and is evaluated again once the source registers.
+The page parses a rule without its source: it keeps every string key that is no shared rule key, so a
+rule parsed before the module's page script ran keeps its reference. Once the source registers, the
+rule is evaluated again on the key the source declares: a rule stored under another key fails closed
+as a missing reference.
 
 A rule whose source no module registered — the module never deployed, or uninstalled with rules still
 stored — fails closed in the three places:
@@ -372,8 +373,10 @@ The cleanup is deliberately narrow, everything else round-trips untouched:
 - a reference that is **filled but invalid** is kept — it carries intent, the
   editor shows it in error and the runtime fails closed;
 - a rule of any **other source type** — a source another module registers, or
-  one authored by a newer module version — is never touched: the core cannot
-  tell an empty configuration from one it simply cannot read;
+  one authored by a newer module version — is removed only when its
+  configuration is one string key, the shape every source stores, and that
+  string is blank; any other shape is never touched, as the core cannot tell
+  it empty;
 - an unparseable entry is kept as stored rather than silently lost.
 
 ### After duplication, import, or session-save copy

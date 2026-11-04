@@ -2,7 +2,7 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import type {PageLogicSource} from '@jahia/formidable-library/logic-sources';
 import {applyConditionalLogicVisibility, buildLogicStateHeader} from './conditionalLogic';
-import {FORM_LOGIC_INVALIDATE_EVENT, forgetRegisteredLogicProviders, getLogicProvider} from './logicProviders';
+import {FORM_LOGIC_INVALIDATE_EVENT, forgetRegisteredLogicProviders, getLogicProvider, onLogicProviderRegistered} from './logicProviders';
 
 /** A form with one field shown only when the registered source's `tier` matches the rule. */
 const mount = (operator: string, value?: string) => {
@@ -73,13 +73,14 @@ describe('a source another module registers on the page', () => {
 		}
 	);
 
-	it('keeps the reference of a rule parsed before the source registered, and evaluates again on registration', () => {
+	it('keeps the reference of a rule parsed before the source registered, and evaluates again on registration', async () => {
 		const {form, hidden} = mount('equals', 'gold');
 		expect(hidden()).toBe(true);
 		const invalidated = vi.fn();
 		document.addEventListener(FORM_LOGIC_INVALIDATE_EVENT, invalidated);
 
 		push(segmentSource({tier: 'gold'}));
+		await Promise.resolve();
 
 		expect(invalidated).toHaveBeenCalledTimes(1);
 		applyConditionalLogicVisibility(form);
@@ -127,6 +128,46 @@ describe('a source another module registers on the page', () => {
 
 describe('the registration of a page source', () => {
 	afterEach(() => forgetRegisteredLogicProviders());
+
+	it('asks for one evaluation per batch of registrations, once the registering code has run', async () => {
+		push(segmentSource({}));
+		push({id: 'acme:tier', configKey: 'tier', read: () => undefined});
+		const invalidated = vi.fn();
+		const registered = vi.fn();
+		document.addEventListener(FORM_LOGIC_INVALIDATE_EVENT, invalidated);
+		onLogicProviderRegistered(registered);
+
+		// what was pushed before the form came up registers during its first evaluation
+		mount('exists');
+		expect(invalidated).not.toHaveBeenCalled();
+		await Promise.resolve();
+
+		expect(invalidated).toHaveBeenCalledTimes(1);
+		expect(registered).toHaveBeenCalledTimes(1);
+		document.removeEventListener(FORM_LOGIC_INVALIDATE_EVENT, invalidated);
+	});
+
+	it('logs the first throw of a source, and only the first', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		push({id: 'acme:segment', configKey: 'segment', available: () => true, read: () => {
+			throw new Error('broken');
+		}});
+		mount('exists');
+		mount('exists');
+
+		expect(warn.mock.calls.filter(([message]) => String(message).includes('"acme:segment" threw'))).toHaveLength(1);
+	});
+
+	it('keeps a throw of the source\'s unsubscribe function from reaching the form', () => {
+		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		push({id: 'acme:segment', configKey: 'segment', read: () => undefined, subscribe: () => () => {
+			throw new Error('broken');
+		}});
+		mount('exists');
+
+		const unsubscribe = getLogicProvider('acme:segment')!.subscribe!(['tier'], () => undefined);
+		expect(() => unsubscribe()).not.toThrow();
+	});
 
 	it.each([
 		['an id without its module', {id: 'segment', configKey: 'segment', read: () => undefined}],

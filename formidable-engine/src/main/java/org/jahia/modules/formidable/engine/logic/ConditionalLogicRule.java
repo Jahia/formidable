@@ -51,7 +51,7 @@ public record ConditionalLogicRule(
      */
     private static final String VALUE_KEY = "value";
 
-    private static final java.util.Set<String> SHARED_RULE_KEYS = java.util.Set.of(
+    static final java.util.Set<String> SHARED_RULE_KEYS = java.util.Set.of(
             "logicId", "sourceType", "sourceNodeId", "sourceFieldKey", "sourceFieldName",
             "sourceFieldType", "valueKind", "operator", VALUE_KEY, "values");
 

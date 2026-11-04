@@ -90,7 +90,7 @@
 		},
 		"providerRefMissing": "Obligatoire : une règle sans nom ne peut pas être évaluée et sera supprimée à l'enregistrement.",
 		"providerRefInvalid": "Ce nom n'est pas au format attendu et ne pourra pas être lu sur la page.",
-		"unknownSourceType": "Cette condition utilise une source (\"{{type}}\") que cette version du module ne fournit pas — elle a probablement été créée avec une version plus récente. La règle est conservée telle quelle et son champ reste masqué.",
+		"unknownSourceType": "Cette condition utilise une source (\"{{type}}\") qu'aucun module installé ne fournit : le module qui l'ajoute n'est pas installé ou pas chargé, ou la règle a été créée avec une version plus récente. La règle est conservée telle quelle et son champ reste masqué.",
 		"operators": {
 			"in": "est l'une des valeurs suivantes",
 			"notIn": "n'est pas l'une des valeurs suivantes",

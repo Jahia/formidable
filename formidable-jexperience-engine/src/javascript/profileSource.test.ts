@@ -18,10 +18,44 @@ const runPageScript = async () => {
     await import(/* @vite-ignore */ PAGE_SCRIPT);
 };
 
+type TrackerPage = {
+    formidableJxp?: unknown;
+    wem?: unknown;
+    wemLoaded?: boolean;
+    digitalDataOverrides?: unknown[];
+};
+const page = globalThis as unknown as TrackerPage;
+
+/**
+ * A tracked page: one form whose rules read `countryName`, and jExperience's tracker, whose context
+ * holds the visitor's profile once it ran. `startedFirst` is a tracker that ran before the script.
+ */
+const trackedPage = ({startedFirst = false, overrides = true} = {}) => {
+    document.body.innerHTML = '<script type="application/json" data-formidable-jxp="f1">{"formId":"f1","logic":["countryName"]}</script>';
+    const callbacks: (() => void)[] = [];
+    page.wem = {
+        getLoadedContext: () => ({profileId: 'p1', profileProperties: {countryName: 'FR'}}),
+        _registerCallback: (callback: () => void) => callbacks.push(callback)
+    };
+    page.wemLoaded = startedFirst;
+    page.digitalDataOverrides = overrides ? [] : undefined;
+    return {
+        /** The tracker loads the context and runs its callbacks, as wem.js does. */
+        load: () => {
+            page.wemLoaded = true;
+            callbacks.forEach(callback => callback());
+        }
+    };
+};
+
 afterEach(() => {
     registry.remove(LOGIC_SOURCE_REGISTRY_TYPE, PROFILE_SOURCE_ID);
     forgetRegisteredLogicProviders();
-    delete (globalThis as {formidableJxp?: unknown}).formidableJxp;
+    delete page.formidableJxp;
+    delete page.wem;
+    delete page.wemLoaded;
+    delete page.digitalDataOverrides;
+    document.body.innerHTML = '';
     vi.restoreAllMocks();
 });
 
@@ -49,6 +83,35 @@ describe('the jExperience profile source', () => {
         await runPageScript();
         installLogicSourceQueue();
 
+        expect(getPageProvider(PROFILE_SOURCE_ID)!.available!()).toBe(false);
+    });
+
+    it('reads the profile once the tracker loaded the properties the script asked for', async () => {
+        const tracker = trackedPage();
+        await runPageScript();
+        installLogicSourceQueue();
+        const source = getPageProvider(PROFILE_SOURCE_ID)!;
+
+        expect(page.digitalDataOverrides).toEqual([{wemInitConfig: {requiredProfileProperties: ['countryName']}}]);
+        expect(source.available!()).toBe(false);
+        tracker.load();
+
+        expect(source.available!()).toBe(true);
+        expect(source.read('countryName')).toBe('FR');
+    });
+
+    it.each([
+        ['the tracker started before the script', {startedFirst: true}],
+        ['the page has no digitalDataOverrides', {overrides: false}]
+    ])('stays unavailable, not absent, when %s: the properties were never asked for', async (_case, setup) => {
+        vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        const tracker = trackedPage(setup);
+        await runPageScript();
+        installLogicSourceQueue();
+        tracker.load();
+
+        // the tracker itself is ready: only the request gate keeps the source closed
+        expect((page.formidableJxp as {trackerReady: () => boolean}).trackerReady()).toBe(true);
         expect(getPageProvider(PROFILE_SOURCE_ID)!.available!()).toBe(false);
     });
 

@@ -1,9 +1,10 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {acquireRefChoices, fetchRefChoices, forgetRefChoices, refChoiceOptions, type RefChoicesSource, UNAVAILABLE} from './refChoices';
+import type {LogicSourceRefChoicesSource} from '@jahia/formidable-library/logic-sources';
+import {acquireRefChoices, fetchRefChoices, forgetRefChoices, refChoiceOptions, UNAVAILABLE} from './refChoices';
 import {getLogicProvider, type LogicProviderDescriptor} from './providers';
 
 /** Where the provider below lists its references. */
-const segmentChoices: RefChoicesSource = {
+const segmentChoices: LogicSourceRefChoicesSource = {
 	query: 'query AcmeSegments($path: String!) { acmeSegments(path: $path) { name } }',
 	read: data => {
 		const names = (data as {acmeSegments?: {name: string}[] | null} | undefined)?.acmeSegments;

@@ -1,30 +1,18 @@
 import {useEffect, useState} from 'react';
 import {postGraphQLRequest} from './sources';
 import type {LogicProviderDescriptor} from './providers';
-
-/** One entry of a provider's reference dropdown: what the rule stores, and what the author reads. */
-export interface RefChoice {
-    value: string;
-    label: string;
-}
+import type {
+    LogicSourceRefChoice,
+    LogicSourceRefChoices,
+    LogicSourceRefChoicesSource
+} from '@jahia/formidable-library/logic-sources';
 
 /**
- * What a provider's reference list answered: the entries, or `available: false` when the list cannot be
- * had — the module that serves it is not installed, the service behind it is down, the request failed.
- * The rule row then keeps a text input, so a rule can still be written and an existing one still read.
+ * A provider's list answers its entries, or `available: false` when the list cannot be had — the module
+ * that serves it is not installed, the service behind it is down, the request failed. The rule row then
+ * keeps a text input, so a rule can still be written and an existing one still read.
  */
-export interface RefChoicesLoad {
-    available: boolean;
-    choices: RefChoice[];
-}
-
-export const UNAVAILABLE: RefChoicesLoad = {available: false, choices: []};
-
-/** How a provider lists the references a rule may pick: a GraphQL document and how to read its answer. */
-export interface RefChoicesSource {
-    query: string;
-    read: (data: unknown) => RefChoicesLoad;
-}
+export const UNAVAILABLE: LogicSourceRefChoices = {available: false, choices: []};
 
 interface GraphQLAnswer {
     data?: unknown;
@@ -38,10 +26,10 @@ export type RefChoicesPost = (query: string, variables: {path: string}) => Promi
  * field — the module that serves it not installed — fails validation, and so does a refused path.
  */
 export const fetchRefChoices = async (
-    source: RefChoicesSource,
+    source: LogicSourceRefChoicesSource,
     path: string,
     post: RefChoicesPost = (query, variables) => postGraphQLRequest<GraphQLAnswer>(query, variables)
-): Promise<RefChoicesLoad> => {
+): Promise<LogicSourceRefChoices> => {
     const answer = await post(source.query, {path});
     if (answer.errors?.length) {
         console.warn('[ConditionalLogic] no reference list:', answer.errors.map(error => error.message).join('; '));
@@ -56,13 +44,13 @@ export const fetchRefChoices = async (
  * them all when a rule is added, each asking for the same list; the server keeps its own list for a minute,
  * so this one lives as long as the editor's page, less a failure, which the next row asks again.
  */
-const loads = new Map<string, Promise<RefChoicesLoad>>();
+const loads = new Map<string, Promise<LogicSourceRefChoices>>();
 
 export const acquireRefChoices = (
     provider: LogicProviderDescriptor,
     path: string,
-    load: (source: RefChoicesSource, path: string) => Promise<RefChoicesLoad> = fetchRefChoices
-): Promise<RefChoicesLoad> => {
+    load: (source: LogicSourceRefChoicesSource, path: string) => Promise<LogicSourceRefChoices> = fetchRefChoices
+): Promise<LogicSourceRefChoices> => {
     const source = provider.refChoices;
     if (!source) {
         return Promise.resolve(UNAVAILABLE);
@@ -96,7 +84,7 @@ export const forgetRefChoices = (): void => {
  * reference when the list lacks it — gone from the schema, or one the author typed while the list was
  * unavailable — so that opening the rule never rewrites it.
  */
-export const refChoiceOptions = (choices: RefChoice[], stored: string, isValidRef?: (ref: string) => boolean): RefChoice[] => {
+export const refChoiceOptions = (choices: LogicSourceRefChoice[], stored: string, isValidRef?: (ref: string) => boolean): LogicSourceRefChoice[] => {
     const offered = isValidRef ? choices.filter(choice => isValidRef(choice.value)) : choices;
     const current = stored.trim();
     return current === '' || offered.some(choice => choice.value === current)
@@ -104,7 +92,7 @@ export const refChoiceOptions = (choices: RefChoice[], stored: string, isValidRe
         : [{value: current, label: current}, ...offered];
 };
 
-export type RefChoicesView = {status: 'none'} | {status: 'loading'} | {status: 'ready'; choices: RefChoice[]};
+export type RefChoicesView = {status: 'none'} | {status: 'loading'} | {status: 'ready'; choices: LogicSourceRefChoice[]};
 
 /**
  * The reference list of a rule row's provider: `none` when the provider has no list or it is unavailable
@@ -112,7 +100,7 @@ export type RefChoicesView = {status: 'none'} | {status: 'loading'} | {status: '
  */
 export const useRefChoices = (provider: LogicProviderDescriptor | undefined, path: string | undefined): RefChoicesView => {
     const key = provider?.refChoices && path ? `${provider.id}|${path}` : null;
-    const [held, setHeld] = useState<{key: string; load: RefChoicesLoad} | null>(null);
+    const [held, setHeld] = useState<{key: string; load: LogicSourceRefChoices} | null>(null);
 
     useEffect(() => {
         if (!key || !provider || !path) {

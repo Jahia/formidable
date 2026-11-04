@@ -48,13 +48,24 @@ class FormLogicRuleCleanupTest {
     }
 
     @Test
-    void aRuleOfASourceAnExtensionRegistersIsNeverALeftover() {
-        // The core cannot read the configuration of a source it does not ship: even an empty reference stays
-        assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
+    void aRuleOfASourceAnExtensionRegistersIsALeftoverWhenItsOneReferenceIsBlank() {
+        // An extension's rule stores its reference under one string key, as every source does
+        assertTrue(FormLogicRuleCleanup.isTargetlessLeftover(
                 new JSONObject("{\"sourceType\":\"acme:segment\",\"segment\":\"\",\"operator\":\"exists\"}")));
-        assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
-                new JSONObject("{\"sourceType\":\"acme:segment\",\"segment\":\" \",\"operator\":\"equals\"}")));
+        assertTrue(FormLogicRuleCleanup.isTargetlessLeftover(
+                new JSONObject("{\"logicId\":\"l1\",\"sourceType\":\"acme:segment\",\"segment\":\" \",\"operator\":\"equals\",\"value\":\"\"}")));
         assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
                 new JSONObject("{\"sourceType\":\"acme:segment\",\"segment\":\"returning\",\"operator\":\"equals\"}")));
+    }
+
+    @Test
+    void aRuleOfAnotherSourceWhoseConfigurationIsNotOneStringIsKept() {
+        // A newer module version may store another shape: this version cannot tell it empty
+        assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
+                new JSONObject("{\"sourceType\":\"acme:segment\",\"operator\":\"exists\"}")));
+        assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
+                new JSONObject("{\"sourceType\":\"acme:segment\",\"segment\":{\"name\":\"\"},\"operator\":\"exists\"}")));
+        assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
+                new JSONObject("{\"sourceType\":\"acme:segment\",\"segment\":\"\",\"scope\":\"\",\"operator\":\"exists\"}")));
     }
 }

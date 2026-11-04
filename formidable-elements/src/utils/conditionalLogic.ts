@@ -136,7 +136,7 @@ const reportUnresolvedRule = (reason: string) => {
 	reportedUnresolvedReasons.add(reason);
 	console.warn(
 		`[formidable] Conditional logic rule cannot be evaluated (${reason}): its target `
-		+ 'field stays hidden. Check the stored rule or the module version.'
+		+ 'field stays hidden. Check the stored rule, and that the module providing its source is installed.'
 	);
 };
 

@@ -112,22 +112,18 @@ const describe = (entry: RegisteredEntry): LogicProviderDescriptor | null => {
     };
 };
 
-const registeredProviders = (): LogicProviderDescriptor[] => {
-    const entries = (registry.find({type: LOGIC_SOURCE_REGISTRY_TYPE}) ?? []) as unknown as RegisteredEntry[];
-    const providers: LogicProviderDescriptor[] = [];
-    for (const entry of entries) {
-        if (!descriptors.has(entry)) {
-            descriptors.set(entry, describe(entry));
-        }
-
-        const provider = descriptors.get(entry);
-        if (provider && !providers.some(known => known.id === provider.id || known.configKey === provider.configKey)) {
-            providers.push(provider);
-        }
+const descriptorOf = (entry: RegisteredEntry): LogicProviderDescriptor | null => {
+    if (!descriptors.has(entry)) {
+        descriptors.set(entry, describe(entry));
     }
 
-    return providers;
+    return descriptors.get(entry) ?? null;
 };
+
+const registeredProviders = (): LogicProviderDescriptor[] =>
+    ((registry.find({type: LOGIC_SOURCE_REGISTRY_TYPE}) ?? []) as unknown as RegisteredEntry[])
+        .map(descriptorOf)
+        .filter((provider): provider is LogicProviderDescriptor => provider !== null);
 
 /** The built-ins, then the sources registered by the modules loaded in this jContent. */
 export const listLogicProviders = (): LogicProviderDescriptor[] => [...BUILT_IN_PROVIDERS, ...registeredProviders()];
@@ -136,10 +132,20 @@ export const listLogicProviders = (): LogicProviderDescriptor[] => [...BUILT_IN_
 export const offeredLogicProviders = (installedModules: string[]): LogicProviderDescriptor[] =>
     listLogicProviders().filter(provider => (provider.requiredModules ?? []).every(module => installedModules.includes(module)));
 
-export const getLogicProvider = (sourceType?: string): LogicProviderDescriptor | undefined =>
-    sourceType === undefined || sourceType === '' || sourceType === 'field'
-        ? undefined
-        : listLogicProviders().find(provider => provider.id === sourceType);
+/** The provider of a rule: a built-in, or the entry registered under that id, read directly. */
+export const getLogicProvider = (sourceType?: string): LogicProviderDescriptor | undefined => {
+    if (sourceType === undefined || sourceType === '' || sourceType === 'field') {
+        return undefined;
+    }
+
+    const builtIn = BUILT_IN_PROVIDERS.find(provider => provider.id === sourceType);
+    if (builtIn) {
+        return builtIn;
+    }
+
+    const entry = registry.get(LOGIC_SOURCE_REGISTRY_TYPE, sourceType) as unknown as RegisteredEntry | undefined;
+    return (entry && descriptorOf(entry)) ?? undefined;
+};
 
 /** Every key a provider rule may store, used to strip stale config when the type changes. */
 export const providerConfigKeys = (): string[] => listLogicProviders().map(provider => provider.configKey);

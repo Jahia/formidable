@@ -57,6 +57,15 @@ export interface LogicSourceRefChoices {
 }
 
 /**
+ * How a source lists the references a rule may pick: a GraphQL document, run with the variable
+ * `path` (the edited node), and how to read its answer.
+ */
+export interface LogicSourceRefChoicesSource {
+	query: string;
+	read: (data: unknown) => LogicSourceRefChoices;
+}
+
+/**
  * The editor half: everything the rule row needs, in jContent. Its id is the registry key. A type
  * rather than an interface, so that it is a `Service` of the `@jahia/ui-extender` registry.
  */
@@ -76,14 +85,8 @@ export type EditorLogicSource = {
 	 * it stays editable where they are missing, and fails closed on the page.
 	 */
 	requiredModules?: string[];
-	/**
-	 * When the source can list the references a rule may pick: a GraphQL document, run with the
-	 * variable `path` (the edited node), and how to read its answer. The row then offers a dropdown.
-	 */
-	refChoices?: {
-		query: string;
-		read: (data: unknown) => LogicSourceRefChoices;
-	};
+	/** When the source can list the references a rule may pick. The row then offers a dropdown. */
+	refChoices?: LogicSourceRefChoicesSource;
 };
 
 /** The page half: how the visitor's browser reads the source. */

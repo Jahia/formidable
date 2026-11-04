@@ -25,7 +25,6 @@ import {
 export interface ScalarLogicProvider {
 	/** Persisted verbatim as the rule's `sourceType`. */
 	id: string;
-	/** The rule property holding what this provider designates. */
 	/** The rule property a rule on this provider keeps its reference under. */
 	configKey: string;
 	/**
@@ -186,34 +185,87 @@ declare global {
 }
 
 const registered = new Map<string, ScalarLogicProvider>();
+const registrationListeners = new Set<() => void>();
+let notificationPending = false;
 
 /**
  * A source another module's script registers, wrapped so that a throw of its code never
- * reaches the evaluator: it then counts as unavailable, and its rules fail closed.
+ * reaches the evaluator: it then counts as unavailable, and its rules fail closed. The first
+ * throw of a source is logged, so a broken script is told apart from a condition that is false.
  */
-const guarded = (source: PageLogicSource): ScalarLogicProvider => ({
-	id: source.id,
-	configKey: source.configKey,
-	available: () => {
-		try {
-			return typeof source.available !== 'function' || source.available() === true;
-		} catch {
-			return false;
+const guarded = (source: PageLogicSource): ScalarLogicProvider => {
+	let reported = false;
+	const report = (what: string, error: unknown) => {
+		if (reported) return;
+		reported = true;
+		console.warn(`[formidable] The logic source "${source.id}" threw in ${what}: its rules fail closed.`, error);
+	};
+
+	return {
+		id: source.id,
+		configKey: source.configKey,
+		available: () => {
+			try {
+				return typeof source.available !== 'function' || source.available() === true;
+			} catch (error) {
+				report('available()', error);
+				return false;
+			}
+		},
+		// The throw passes on: readLogicProvider counts it as unavailable, never as absent
+		read: ref => {
+			let value: unknown;
+			try {
+				value = source.read(ref);
+			} catch (error) {
+				report('read()', error);
+				throw error;
+			}
+
+			return typeof value === 'string' ? value : undefined;
+		},
+		subscribe: (refs, onChange) => {
+			let unsubscribe: unknown;
+			try {
+				unsubscribe = source.subscribe?.(refs, onChange);
+			} catch (error) {
+				report('subscribe()', error);
+				return () => undefined;
+			}
+
+			return () => {
+				try {
+					if (typeof unsubscribe === 'function') unsubscribe();
+				} catch (error) {
+					report('its unsubscribe function', error);
+				}
+			};
 		}
-	},
-	// A throw passes through: readLogicProvider counts it as unavailable, never as absent
-	read: ref => {
-		const value = source.read(ref);
-		return typeof value === 'string' ? value : undefined;
-	},
-	subscribe: (refs, onChange) => {
-		try {
-			return source.subscribe?.(refs, onChange) ?? (() => undefined);
-		} catch {
-			return () => undefined;
+	};
+};
+
+/**
+ * Tells the forms, once per batch of registrations and after the code that registered has run,
+ * that sources were added: their rules are evaluated again, and a source that watches its state
+ * is subscribed to (onLogicProviderRegistered).
+ */
+const notifyRegistration = () => {
+	if (notificationPending) return;
+	notificationPending = true;
+	queueMicrotask(() => {
+		notificationPending = false;
+		registrationListeners.forEach(listener => listener());
+		if (typeof document !== 'undefined') {
+			document.dispatchEvent(new Event(FORM_LOGIC_INVALIDATE_EVENT));
 		}
-	}
-});
+	});
+};
+
+/** Calls the listener after each batch of registrations. Returns a function that stops it. */
+export const onLogicProviderRegistered = (listener: () => void): (() => void) => {
+	registrationListeners.add(listener);
+	return () => registrationListeners.delete(listener);
+};
 
 const isUsableSource = (source: PageLogicSource | undefined): source is PageLogicSource => {
 	if (!source || typeof source.read !== 'function') return false;
@@ -226,8 +278,8 @@ const isUsableSource = (source: PageLogicSource | undefined): source is PageLogi
 
 /**
  * Registers the page half of a source another module adds, and has the forms evaluate their
- * rules again. The first registration of an id or a config key wins; an entry outside the
- * contract is ignored. Another module's script reaches it by pushing onto
+ * rules again. The first registration of an id wins; an entry outside the contract is
+ * ignored. Another module's script reaches it by pushing onto
  * window.formidableLogicSources.
  */
 export const registerLogicProvider = (source: PageLogicSource): void => {
@@ -236,14 +288,12 @@ export const registerLogicProvider = (source: PageLogicSource): void => {
 		return;
 	}
 
-	if (registered.has(source.id) || [...registered.values()].some(provider => provider.configKey === source.configKey)) {
+	if (registered.has(source.id)) {
 		return;
 	}
 
 	registered.set(source.id, guarded(source));
-	if (typeof document !== 'undefined') {
-		document.dispatchEvent(new Event(FORM_LOGIC_INVALIDATE_EVENT));
-	}
+	notifyRegistration();
 };
 
 /**
@@ -265,9 +315,10 @@ export const installLogicSourceQueue = (): void => {
 	(queue ?? []).forEach(registerLogicProvider);
 };
 
-/** Test seam: forgets the registered sources and the installed queue. */
+/** Test seam: forgets the registered sources, their listeners and the installed queue. */
 export const forgetRegisteredLogicProviders = (): void => {
 	registered.clear();
+	registrationListeners.clear();
 	globalThis.formidableLogicSources = undefined;
 };
 
@@ -276,9 +327,6 @@ export const getLogicProvider = (sourceType?: string): ScalarLogicProvider | und
 
 	return BUILT_IN_PROVIDERS.find(provider => provider.id === sourceType) ?? registered.get(sourceType);
 };
-
-export const logicProviderConfigKeys = (): string[] =>
-	[...BUILT_IN_PROVIDERS, ...registered.values()].map(provider => provider.configKey);
 
 /** Whether a provider's source can be read now; see ScalarLogicProvider.available. */
 export const isLogicProviderAvailable = (provider: ScalarLogicProvider): boolean =>
