@@ -5,8 +5,8 @@ import {applyConditionalLogicVisibility, buildLogicStateHeader} from './conditio
 import {FORM_LOGIC_INVALIDATE_EVENT, forgetRegisteredLogicProviders, getLogicProvider, onLogicProviderRegistered} from './logicProviders';
 
 /** A form with one field shown only when the registered source's `tier` matches the rule. */
-const mount = (operator: string, value?: string) => {
-	const rule = JSON.stringify({sourceType: 'acme:segment', segment: 'tier', operator, value});
+const mount = (operator: string, value?: string, sourceType = 'acme:segment') => {
+	const rule = JSON.stringify({sourceType, segment: 'tier', operator, value});
 	document.body.innerHTML = `<form><div data-fmdb-node-name="companySize" data-fmdb-logics='${JSON.stringify([rule])}'></div></form>`;
 	const form = document.querySelector('form')!;
 	const field = form.querySelector<HTMLElement>('[data-fmdb-node-name="companySize"]')!;
@@ -72,6 +72,22 @@ describe('a source another module registers on the page', () => {
 			expect(declaration(form)).toBeNull();
 		}
 	);
+
+	it('warns of a missing source only if it is still missing once the page has loaded', () => {
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const readyState = vi.spyOn(document, 'readyState', 'get').mockReturnValue('loading');
+		mount('exists', undefined, 'acme:late');
+		mount('exists', undefined, 'acme:gone');
+		expect(warn).not.toHaveBeenCalled();
+
+		push({id: 'acme:late', configKey: 'segment', read: () => 'gold'});
+		readyState.mockReturnValue('complete');
+		window.dispatchEvent(new Event('load'));
+
+		const warned = warn.mock.calls.map(([message]) => String(message));
+		expect(warned.some(message => message.includes('source:acme:gone'))).toBe(true);
+		expect(warned.some(message => message.includes('source:acme:late'))).toBe(false);
+	});
 
 	it('keeps the reference of a rule parsed before the source registered, and evaluates again on registration', async () => {
 		const {form, hidden} = mount('equals', 'gold');

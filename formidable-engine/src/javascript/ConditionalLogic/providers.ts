@@ -83,18 +83,34 @@ type RegisteredEntry = EditorLogicSource & {key?: unknown};
 // reference list is not asked for again.
 const descriptors = new WeakMap<object, LogicProviderDescriptor | null>();
 
-const describe = (entry: RegisteredEntry): LogicProviderDescriptor | null => {
-    const id = typeof entry.key === 'string' ? entry.key : '';
-    const usable = LOGIC_SOURCE_ID_PATTERN.test(id)
-        && typeof entry.configKey === 'string'
-        && entry.configKey !== ''
-        && !SHARED_RULE_KEYS.includes(entry.configKey)
-        && !BUILT_IN_PROVIDERS.some(provider => provider.configKey === entry.configKey)
-        && typeof entry.labelKey === 'string'
+const isString = (value: unknown): value is string => typeof value === 'string';
+
+/** Whether a registered entry's id and config key follow the contract. */
+const hasUsableIdentity = (id: string, entry: RegisteredEntry): boolean =>
+    LOGIC_SOURCE_ID_PATTERN.test(id)
+    && isString(entry.configKey)
+    && entry.configKey !== ''
+    && !SHARED_RULE_KEYS.includes(entry.configKey)
+    && !BUILT_IN_PROVIDERS.some(provider => provider.configKey === entry.configKey);
+
+/**
+ * Whether the rest of the entry has the types the rule row relies on. An entry comes from another
+ * module's plain JavaScript, so a wrong type would otherwise throw while every rule row renders.
+ */
+const hasUsableShape = (entry: RegisteredEntry): boolean => {
+    const {refChoices, requiredModules} = entry;
+    return [entry.labelKey, entry.configLabelKey, entry.configPlaceholderKey].every(isString)
         && Array.isArray(entry.operators)
         && entry.operators.length > 0
-        && entry.operators.every(operator => PROVIDER_OPERATORS.includes(operator));
-    if (!usable) {
+        && entry.operators.every(operator => PROVIDER_OPERATORS.includes(operator))
+        && (entry.isValidRef === undefined || typeof entry.isValidRef === 'function')
+        && (requiredModules === undefined || (Array.isArray(requiredModules) && requiredModules.every(isString)))
+        && (refChoices === undefined || (isString(refChoices?.query) && typeof refChoices?.read === 'function'));
+};
+
+const describe = (entry: RegisteredEntry): LogicProviderDescriptor | null => {
+    const id = isString(entry.key) ? entry.key : '';
+    if (!hasUsableIdentity(id, entry) || !hasUsableShape(entry)) {
         console.warn(`[ConditionalLogic] ignored the logic source "${id}": its entry does not follow the contract`);
         return null;
     }

@@ -96,7 +96,11 @@ describe('a provider an extension module registers', () => {
         ['a shared rule key as config key', 'acme:value', {...ACME_SEGMENT, configKey: 'value'}],
         ['the config key of a built-in', 'acme:cookie', {...ACME_SEGMENT, configKey: 'cookie'}],
         ['an operator no provider has', 'acme:numbers', {...ACME_SEGMENT, configKey: 'n', operators: ['gt']}],
-        ['no operator', 'acme:empty', {...ACME_SEGMENT, configKey: 'e', operators: []}]
+        ['no operator', 'acme:empty', {...ACME_SEGMENT, configKey: 'e', operators: []}],
+        ['required modules that are no list', 'acme:modules', {...ACME_SEGMENT, configKey: 'm', requiredModules: 'acme'}],
+        ['a reference check that is no function', 'acme:check', {...ACME_SEGMENT, configKey: 'c', isValidRef: true}],
+        ['a reference list without its reader', 'acme:list', {...ACME_SEGMENT, configKey: 'l', refChoices: {query: 'q'}}],
+        ['a label that is no string', 'acme:label', {...ACME_SEGMENT, configKey: 'b', configLabelKey: 3}]
     ])('is ignored with %s', (_case, id, entry) => {
         vi.spyOn(console, 'warn').mockImplementation(() => undefined);
         registry.add(LOGIC_SOURCE_REGISTRY_TYPE, id, entry);

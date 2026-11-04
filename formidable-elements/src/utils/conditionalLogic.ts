@@ -126,6 +126,15 @@ const ruleUnresolvedReason = (rule: ConditionalLogicRule): string | null => {
 
 const reportedUnresolvedReasons = new Set<string>();
 
+const SOURCE_REASON_PREFIX = 'source:';
+
+const warnUnresolvedRule = (reason: string) => {
+	console.warn(
+		`[formidable] Conditional logic rule cannot be evaluated (${reason}): its target `
+		+ 'field stays hidden. Check the stored rule, and that the module providing its source is installed.'
+	);
+};
+
 /**
  * Reports a rule this runtime cannot evaluate. Once per reason per page: the visibility
  * pass runs on every input event, and a silent unevaluable rule looks exactly like a
@@ -134,10 +143,18 @@ const reportedUnresolvedReasons = new Set<string>();
 const reportUnresolvedRule = (reason: string) => {
 	if (reportedUnresolvedReasons.has(reason)) return;
 	reportedUnresolvedReasons.add(reason);
-	console.warn(
-		`[formidable] Conditional logic rule cannot be evaluated (${reason}): its target `
-		+ 'field stays hidden. Check the stored rule, and that the module providing its source is installed.'
-	);
+
+	// The module's page script may register its source a moment after the form came up: it is
+	// missing only if it is still missing once the page has loaded.
+	if (reason.startsWith(SOURCE_REASON_PREFIX) && typeof document !== 'undefined' && document.readyState !== 'complete') {
+		const sourceType = reason.slice(SOURCE_REASON_PREFIX.length);
+		window.addEventListener('load', () => {
+			if (!getLogicProvider(sourceType)) warnUnresolvedRule(reason);
+		}, {once: true});
+		return;
+	}
+
+	warnUnresolvedRule(reason);
 };
 
 /**
