@@ -308,8 +308,8 @@ orderable
 [fmdbmix:datetimeLocalField] mixin
 [fmdbmix:colorField] mixin
 
-// Marker for profile mapping: a field type carrying it can take part in a jExperience
-// profile mapping. The jExperience module attaches its property mixin to this single
+// Marker for profile mapping: a field type carrying it can take part in a visitor-profile
+// mapping. A visitor-profile integration attaches its property mixin to this single
 // marker (extends), never to a list of field types, so a third-party field opts in from
 // its own CND exactly as it opts into a value kind. Files are not mappable; hidden inputs are.
 [fmdbmix:profileMappableField] mixin

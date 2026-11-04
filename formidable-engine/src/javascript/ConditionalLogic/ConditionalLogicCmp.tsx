@@ -13,6 +13,7 @@ import {
     localIsoDay,
     normalizeStoredRule,
     parseRule,
+    providerRef,
     sanitizeProviderOperator,
     sanitizeOperator,
     TODAY_SENTINEL,
@@ -237,7 +238,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             return false;
         }
 
-        return (initialRule[provider.configKey] ?? '').trim() !== ''
+        return providerRef(initialRule, provider.configKey).trim() !== ''
             || (Boolean(initialRule.logicId) && touchedProviderRefs.has(initialRule.logicId!));
     });
 
@@ -619,14 +620,14 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const renderProviderRef = (provider: LogicProviderDescriptor) => {
         if (refChoices.status !== 'none') {
             const refOptions = refChoices.status === 'ready'
-                ? refChoiceOptions(refChoices.choices, rule[provider.configKey] ?? '', provider.isValidRef)
+                ? refChoiceOptions(refChoices.choices, providerRef(rule, provider.configKey), provider.isValidRef)
                 : [];
             return (
                 <Dropdown
                     variant="outlined"
                     data={refOptions}
                     hasSearch={refOptions.length >= 5}
-                    value={(rule[provider.configKey] ?? '') || undefined}
+                    value={providerRef(rule, provider.configKey) || undefined}
                     placeholder={t(provider.configLabelKey)}
                     isDisabled={field.readOnly || refChoices.status === 'loading'}
                     className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
@@ -647,11 +648,11 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 isReadOnly={field.readOnly}
                 placeholder={t(provider.configPlaceholderKey)}
                 // A reference easily outgrows its cell: hovering reveals it in full.
-                title={(rule[provider.configKey] ?? '') || undefined}
+                title={providerRef(rule, provider.configKey) || undefined}
                 aria-label={t(provider.configLabelKey)}
                 aria-invalid={showProviderRefError ? true : undefined}
                 aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
-                value={rule[provider.configKey] ?? ''}
+                value={providerRef(rule, provider.configKey)}
                 size="big"
                 className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
                 onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}

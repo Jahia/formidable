@@ -25,6 +25,10 @@
 		"./server": {
 			"types": "./src/server.ts",
 			"default": "./src/server.ts"
+		},
+		"./logic-sources": {
+			"types": "./src/logicSources.ts",
+			"default": "./src/logicSources.ts"
 		}
 	},
 	"files": [
@@ -68,6 +72,10 @@
 			"./server": {
 				"types": "./dist/server.d.ts",
 				"default": "./dist/server.js"
+			},
+			"./logic-sources": {
+				"types": "./dist/logicSources.d.ts",
+				"default": "./dist/logicSources.js"
 			}
 		}
 	}

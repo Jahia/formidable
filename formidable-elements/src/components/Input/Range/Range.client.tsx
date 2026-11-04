@@ -7,7 +7,7 @@ import {applyAfterPrefill, clearPrefillMarks, type PrefillDetail, prefillValue, 
 // landing on the slider) must not count as an answer.
 const SLIDER_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown']);
 
-// Dispatched on the hidden mirror by a script that prefills the form (the jExperience integration): the
+// Dispatched on the hidden mirror by a script that prefills the form (an extension module, for example): the
 // mirror is controlled, so a value written into it would be reset at the next render — the island takes
 // the value from the event instead, under the rules of rangePrefill.ts.
 const PREFILL_EVENT = 'formidable:prefill';

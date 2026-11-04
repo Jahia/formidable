@@ -62,21 +62,3 @@ export const CONDITIONAL_LOGIC_SOURCES = `
     }
     ${JCR_NODE_IDENTITY_SOURCE}
 `;
-
-/**
- * The profile properties a `jexperience:profile` rule may read on the site of the edited field, served by
- * formidable-jexperience-engine. Where that module is not installed the field is not in the schema and the
- * query fails validation: the rule row then keeps its text input (refChoices.ts). Sent on its own, so that
- * failure never reaches the form query above.
- */
-export const JEXPERIENCE_PROFILE_PROPERTIES = `
-    query FormidableJExperienceProfileProperties($path: String!) {
-        formidableJExperienceProfileProperties(path: $path) {
-            available
-            properties {
-                name
-                label
-            }
-        }
-    }
-`;

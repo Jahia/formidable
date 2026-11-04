@@ -128,7 +128,7 @@ jahiaComponent(
 		const fieldListNode = currentNode.getNode("fields");
 		const actionListNode = currentNode.hasNode("actions") ? currentNode.getNode("actions") : null;
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
-		// The form's UUID is its one identity: the DOM id and name, what jExperience calls the form
+		// The form's UUID is its one identity: the DOM id and name, what a visitor-profile integration calls the form
 		// (goals, mapping rules, the submission event) and the value of its data-form-id opt-out.
 		const formId = currentNode.getIdentifier();
 		// the title the author gave, not the fallback getDisplayableName() makes from the node name

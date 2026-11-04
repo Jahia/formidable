@@ -21,7 +21,7 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  * properties in j:liveProperties, and the publication's ConflictResolver then skips those
  * properties for good, so a migrated field would never take a later publication into
  * account (#281). Disabling the listeners around the write is the core's own recipe for
- * system rewrites in live (jExperience's Migrator, the 7.3 rating patch).
+ * system rewrites in live (a third-party migrator, the 7.3 rating patch).
  *
  * <p>The default pass keeps observation on: the runtime listeners maintain the editorial
  * invariants there, and the one listener a migration must dodge already checks

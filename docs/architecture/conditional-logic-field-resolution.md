@@ -127,11 +127,45 @@ and the rule carries that provider's single config key instead of any source-fie
 Every provider state is a single optional string, so all of them offer the same operators:
 `exists`, `notExists`, `equals`, `notEquals`, `contains`.
 
-A rule that cannot be evaluated — a `sourceType` this module version does not ship, a
+A rule that cannot be evaluated — a `sourceType` no module provides on this page, a
 missing reference, an unknown operator — fails closed everywhere: the target field stays
 hidden, its wrapper carries `data-fmdb-logic-unresolved` naming the reason, and a console
 warning is emitted once per reason. An unevaluable rule therefore never silently behaves
 like an evaluated one.
+
+### Sources another module registers
+
+The table lists the built-in providers. Another module adds a source of its own, and the core
+modules never name it ([ADR 0001](../adr/0001-extension-modules-register-logic-sources.md)). The
+source's id is `<module>:<name>`, such as `jexperience:profile`: it is stored in every rule, so the
+module part keeps two modules from colliding and names the module a rule needs. Its config key is any
+key that is neither a shared rule key nor the key of a built-in.
+
+A source has two halves, registered apart because they run apart:
+
+- **The editor half** is an entry of the `@jahia/ui-extender` registry, type
+  `formidableLogicSource`, key the source's id, that the module's jContent bundle adds at
+  `jahiaApp-init`. The rule row merges it with the built-ins when it renders
+  (`formidable-engine/src/javascript/ConditionalLogic/README.md`).
+- **The page half** is pushed onto `window.formidableLogicSources` by the module's page script. The
+  form's script takes the array over when it first evaluates: what was pushed before it ran is
+  registered then, and a later push registers at once and dispatches `fmdb:logic-invalidate`, so the
+  order of the two scripts does not matter. A throw of the source's code counts as unavailable.
+
+Both halves follow `EditorLogicSource` and `PageLogicSource` of
+`@jahia/formidable-library/logic-sources`. An entry outside the contract is ignored with a warning,
+and the first registration of an id or a config key wins.
+
+The page reads a rule without its source: the reference is the one string key of the rule that is no
+shared rule key, the way the server reads it. A rule parsed before the module's page script ran keeps
+its reference, and is evaluated again once the source registers.
+
+A rule whose source no module registered — the module never deployed, or uninstalled with rules still
+stored — fails closed in the three places:
+
+- the page hides the field and flags its wrapper `source:<id>`;
+- the page declares nothing for the source at submit time, so the server hides the field too;
+- the editor shows the rule with the unknown-source message, and never writes it back from the row.
 
 ### Server-side consequence
 
@@ -337,9 +371,9 @@ The cleanup is deliberately narrow, everything else round-trips untouched:
 
 - a reference that is **filled but invalid** is kept — it carries intent, the
   editor shows it in error and the runtime fails closed;
-- a rule with an **unknown source type** (authored by a newer module version)
-  is never touched: this version cannot tell an empty configuration from one
-  it simply cannot read;
+- a rule of any **other source type** — a source another module registers, or
+  one authored by a newer module version — is never touched: the core cannot
+  tell an empty configuration from one it simply cannot read;
 - an unparseable entry is kept as stored rather than silently lost.
 
 ### After duplication, import, or session-save copy

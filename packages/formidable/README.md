@@ -108,8 +108,25 @@ The server entry point needs `@jahia/javascript-modules-library`, a peer depende
 JavaScript module already has. `resolveFieldOptions` types the node by the members it reads
 (`ChoiceFieldNode`), which a `JCRNodeWrapper` satisfies.
 
-These, with the help text, validation and mask exports above, are the whole public API: the mask
-tokens and the caret arithmetic the hook is built on stay inside the package.
+### Conditional-logic sources
+
+`@jahia/formidable-library/logic-sources` is the contract of a source of conditional logic that
+your module adds: a rule then shows or hides a field on a state your module reads, such as a
+property of the visitor's profile. It holds types and constants only, no React, so a jContent
+bundle and a plain page script both use it. A source has two halves with the same id
+(`<module>:<name>`) and the same config key:
+
+- the editor half, an `EditorLogicSource` your jContent bundle registers:
+  `registry.add(LOGIC_SOURCE_REGISTRY_TYPE, "acme:segment", source)`;
+- the page half, a `PageLogicSource` your page script pushes:
+  `(window.formidableLogicSources ??= []).push(source)`, before or after Formidable's script runs.
+
+A rule on a source that no module registered fails closed: its field stays hidden on the page and
+on the server. [Conditional logic field resolution](https://github.com/Jahia/formidable/blob/main/docs/architecture/conditional-logic-field-resolution.md)
+describes the registration and the evaluation.
+
+These, with the help text, validation, mask and logic-source exports above, are the whole public
+API: the mask tokens and the caret arithmetic the hook is built on stay inside the package.
 
 ## Documentation
 

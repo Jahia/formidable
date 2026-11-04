@@ -1,5 +1,5 @@
 import type {ConditionalLogicRule, LogicOperator, SourceFieldOption} from './ConditionalLogic.types';
-import {dateBetweenIssue, isScalarValueKind, localIsoDay} from './ConditionalLogic.utils';
+import {dateBetweenIssue, isScalarValueKind, localIsoDay, providerRef} from './ConditionalLogic.utils';
 import type {LogicProviderDescriptor} from './providers';
 import type {LogicSourceDescriptor} from './sourceDescriptors';
 import {operatorNeedsValue} from './sourceDescriptors';
@@ -58,7 +58,7 @@ export const providerReferenceIssue = (
         return null;
     }
 
-    const ref = (rule[provider.configKey] ?? '').trim();
+    const ref = providerRef(rule, provider.configKey).trim();
     if (ref === '') {
         return 'conditionalLogic.providerRefMissing';
     }

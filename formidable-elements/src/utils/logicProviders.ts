@@ -1,31 +1,36 @@
+import {
+	LOGIC_SOURCE_ID_PATTERN,
+	type PageLogicSource,
+	SHARED_RULE_KEYS
+} from '@jahia/formidable-library/logic-sources';
+
 /**
  * Conditional logic sources that are not another form field.
  *
  * A field source is read from the DOM and yields a list of values, so it stays in the
  * evaluator. Every other source designates one thing outside the form whose current state
  * is a single optional string: a JS variable (a datalayer entry), a URL parameter, a
- * cookie, a jExperience profile property. They therefore share one shape, one operator set
- * and one evaluation path — a new provider is a `read` function and, when the value can
- * change without a form event, a `subscribe`; one whose system may be missing from the page
- * adds `available`.
+ * cookie, or what a source registered by another module reads. They therefore share one
+ * shape, one operator set and one evaluation path — a new provider is a `read` function and,
+ * when the value can change without a form event, a `subscribe`; one whose system may be
+ * missing from the page adds `available`.
  *
- * This list is internal: providers ship with Formidable, and nothing here is a public
- * extension point yet. A provider that belongs to another module is already shaped as one
- * would be: its entry here only forwards to the object that module's script puts on the
- * page (see hostedProvider). The editor half lives in
+ * The built-in providers are below. Another module adds one by pushing its page half onto
+ * window.formidableLogicSources, PAGE_LOGIC_SOURCES_GLOBAL of the library (docs/adr/0001-extension-modules-register-logic-sources.md);
+ * this module never names it. The editor half of the built-ins lives in
  * formidable-engine/src/javascript/ConditionalLogic/providers.ts and must declare the same
  * ids and config keys; formidable-engine's providers.test.ts checks it.
  */
 
-/** Config keys a provider rule may carry in its stored JSON, one per provider. */
-export type LogicProviderConfigKey = 'variable' | 'param' | 'cookie' | 'property';
+/** The rule property a provider rule keeps its reference under, one per provider. */
+export type LogicProviderConfigKey = string;
 
-/** What a rule designates: another form field, or one of the providers below. */
-export type LogicSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie' | 'jexperience:profile';
+/** What a rule designates: another form field, or the id of a provider. */
+export type LogicSourceType = string;
 
 export interface ScalarLogicProvider {
 	/** Persisted verbatim as the rule's `sourceType`. */
-	id: Exclude<LogicSourceType, 'field'>;
+	id: string;
 	/** The rule property holding what this provider designates. */
 	configKey: LogicProviderConfigKey;
 	/**
@@ -173,79 +178,112 @@ const cookieProvider: ScalarLogicProvider = {
 	}
 };
 
-/** What another module's script puts on the page to serve one provider: the provider minus its identity. */
-export type HostedLogicProvider = Pick<ScalarLogicProvider, 'available' | 'read' | 'subscribe'>;
+const BUILT_IN_PROVIDERS: ScalarLogicProvider[] = [jsVariableProvider, urlParamProvider, cookieProvider];
 
-/**
- * A provider whose implementation belongs to another module, found at call time on the
- * global that module's script fills — so the order in which the two scripts run does not
- * matter. Absent, or throwing, it is unavailable: the rule fails closed. That script asks for
- * a re-evaluation through FORM_LOGIC_INVALIDATE_EVENT once its state is loaded.
- */
-const hostedProvider = (
-	id: ScalarLogicProvider['id'],
-	configKey: LogicProviderConfigKey,
-	host: () => HostedLogicProvider | undefined
-): ScalarLogicProvider => {
-	const resolve = (): HostedLogicProvider | undefined => {
-		try {
-			return globalThis.window === undefined ? undefined : host();
-		} catch {
-			return undefined;
-		}
-	};
+/** The built-in providers alone, which the editor and the server know as well. */
+export const builtInLogicProviders = (): ScalarLogicProvider[] => BUILT_IN_PROVIDERS;
 
-	return {
-		id,
-		configKey,
-		available: () => {
-			const hosted = resolve();
-			try {
-				return Boolean(hosted) && (typeof hosted!.available !== 'function' || hosted!.available() === true);
-			} catch {
-				return false;
-			}
-		},
-		// A throw passes through: readLogicProvider counts it as unavailable, never as absent
-		read: ref => {
-			const value = resolve()?.read(ref);
-			return typeof value === 'string' ? value : undefined;
-		},
-		subscribe: (refs, onChange) => {
-			try {
-				return resolve()?.subscribe?.(refs, onChange) ?? (() => undefined);
-			} catch {
-				return () => undefined;
-			}
-		}
-	};
-};
+type LogicSourceQueue = PageLogicSource[] | {push: (...sources: PageLogicSource[]) => number};
 
 declare global {
-	/** Filled by formidable-jexperience-engine's formidable-jxp.js, on a site jExperience tracks. */
-	var formidableJxp: {logicProvider?: HostedLogicProvider} | undefined;
+	/** The page halves other modules push, before or after this script runs (installLogicSourceQueue). */
+	var formidableLogicSources: LogicSourceQueue | undefined;
 }
 
-/** A property of the visitor's jExperience profile, read from the context jExperience's tracker loaded. */
-const jexperienceProfileProvider = hostedProvider(
-	'jexperience:profile',
-	'property',
-	() => globalThis.formidableJxp?.logicProvider
-);
+const registered = new Map<string, ScalarLogicProvider>();
 
-const PROVIDERS: ScalarLogicProvider[] = [jsVariableProvider, urlParamProvider, cookieProvider, jexperienceProfileProvider];
+/**
+ * A source another module's script registers, wrapped so that a throw of its code never
+ * reaches the evaluator: it then counts as unavailable, and its rules fail closed.
+ */
+const guarded = (source: PageLogicSource): ScalarLogicProvider => ({
+	id: source.id,
+	configKey: source.configKey,
+	available: () => {
+		try {
+			return typeof source.available !== 'function' || source.available() === true;
+		} catch {
+			return false;
+		}
+	},
+	// A throw passes through: readLogicProvider counts it as unavailable, never as absent
+	read: ref => {
+		const value = source.read(ref);
+		return typeof value === 'string' ? value : undefined;
+	},
+	subscribe: (refs, onChange) => {
+		try {
+			return source.subscribe?.(refs, onChange) ?? (() => undefined);
+		} catch {
+			return () => undefined;
+		}
+	}
+});
 
-const PROVIDERS_BY_ID = new Map<string, ScalarLogicProvider>(
-	PROVIDERS.map(provider => [provider.id, provider])
-);
+const isUsableSource = (source: PageLogicSource | undefined): source is PageLogicSource => {
+	if (!source || typeof source.read !== 'function') return false;
+	if (typeof source.id !== 'string' || !LOGIC_SOURCE_ID_PATTERN.test(source.id)) return false;
+	return typeof source.configKey === 'string'
+		&& source.configKey !== ''
+		&& !SHARED_RULE_KEYS.includes(source.configKey)
+		&& !BUILT_IN_PROVIDERS.some(provider => provider.configKey === source.configKey);
+};
 
-export const getLogicProvider = (sourceType?: string): ScalarLogicProvider | undefined =>
-	sourceType === undefined || sourceType === '' || sourceType === 'field'
-		? undefined
-		: PROVIDERS_BY_ID.get(sourceType);
+/**
+ * Registers the page half of a source another module adds, and has the forms evaluate their
+ * rules again. The first registration of an id or a config key wins; an entry outside the
+ * contract is ignored. Another module's script reaches it by pushing onto
+ * window.formidableLogicSources.
+ */
+export const registerLogicProvider = (source: PageLogicSource): void => {
+	if (!isUsableSource(source)) {
+		console.warn('[Formidable] ignored a logic source that does not follow the contract:', (source as {id?: unknown} | undefined)?.id);
+		return;
+	}
+
+	if (registered.has(source.id) || [...registered.values()].some(provider => provider.configKey === source.configKey)) {
+		return;
+	}
+
+	registered.set(source.id, guarded(source));
+	if (typeof document !== 'undefined') {
+		document.dispatchEvent(new Event(FORM_LOGIC_INVALIDATE_EVENT));
+	}
+};
+
+/**
+ * Takes over the queue other modules push onto: what was pushed before this script ran is
+ * registered now, and a later push registers at once. Idempotent.
+ */
+export const installLogicSourceQueue = (): void => {
+	if (globalThis.window === undefined) return;
+
+	const queue = globalThis.formidableLogicSources;
+	if (queue && !Array.isArray(queue)) return;
+
+	globalThis.formidableLogicSources = {
+		push: (...sources: PageLogicSource[]) => {
+			sources.forEach(registerLogicProvider);
+			return registered.size;
+		}
+	};
+	(queue ?? []).forEach(registerLogicProvider);
+};
+
+/** Test seam: forgets the registered sources and the installed queue. */
+export const forgetRegisteredLogicProviders = (): void => {
+	registered.clear();
+	globalThis.formidableLogicSources = undefined;
+};
+
+export const getLogicProvider = (sourceType?: string): ScalarLogicProvider | undefined => {
+	if (sourceType === undefined || sourceType === '' || sourceType === 'field') return undefined;
+
+	return BUILT_IN_PROVIDERS.find(provider => provider.id === sourceType) ?? registered.get(sourceType);
+};
 
 export const logicProviderConfigKeys = (): LogicProviderConfigKey[] =>
-	PROVIDERS.map(provider => provider.configKey);
+	[...BUILT_IN_PROVIDERS, ...registered.values()].map(provider => provider.configKey);
 
 /** Whether a provider's source can be read now; see ScalarLogicProvider.available. */
 export const isLogicProviderAvailable = (provider: ScalarLogicProvider): boolean =>

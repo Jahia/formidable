@@ -34,7 +34,7 @@ export const RESET_EVENT = 'formidable:reset';
 /**
  * Dispatched on the form element when the visitor asks for another form from the message that followed a
  * submission. Detail: {formId}. The form is the same element, emptied: what a script put in it at page
- * load — the jExperience prefill — is gone, and this is what tells it to do its work again.
+ * load — a prefill script, for example — is gone, and this is what tells it to do its work again.
  */
 export const NEW_FORM_EVENT = 'formidable:newForm';
 
@@ -89,14 +89,14 @@ export default function Form({
 			// be read from the DOM once mounted, hence the state initialization here.
 			// eslint-disable-next-line @eslint-react/hooks-extra/no-direct-set-state-in-use-effect
 			setHasBlockingSourceError(Boolean(formRef.current.querySelector(BLOCKING_SOURCE_ERROR_SELECTOR)));
-			// The island is in charge from here: a script that writes into the fields (the jExperience
-			// prefill) waits for this, so that no island resets what it wrote. The twin of
+			// The island is in charge from here: a script that writes into the fields (a prefill
+			// script) waits for this, so that no island resets what it wrote. The twin of
 			// formidable:submitted — bubbling, the form's UUID in the detail, nothing else.
 			formRef.current.dispatchEvent(new CustomEvent(READY_EVENT, {bubbles: true, detail: {formId}}));
 		}
 	}, [formId]);
 
-	// A reset empties the form, so whatever a script had written into it is gone — the jExperience prefill
+	// A reset empties the form, so whatever a script had written into it is gone — a prefill script's values
 	// included. The native event fires BEFORE the browser restores the defaults, so the announcement waits
 	// for the end of the task: a listener that fills the form again must not be undone by the reset itself.
 	useEffect(() => {
@@ -227,7 +227,7 @@ export default function Form({
 	}, [reveal, isLoading, currentStep, stepIndexOf, setCurrentStep, showScreenOf]);
 
 	// Another form, after an accepted submission: the island emptied it on the 2xx, so a script that
-	// filled it at page load — the jExperience prefill — is told to do its work again. Only this path
+	// filled it at page load — a prefill script — is told to do its work again. Only this path
 	// says it: after an error the form keeps everything the visitor typed (see below), and a script
 	// told the form was new would write over their corrections.
 	const startAnother = () => {
@@ -333,14 +333,14 @@ export default function Form({
 				// fall back to the node name, and three untitled forms would be announced "form", "form-2",
 				// "form-3"; an unnamed landmark is not announced as one, which is better than a wrong name.
 				aria-label={formTitle || undefined}
-				// jExperience's tracker attaches its own submit listener to any form whose name or id a
-				// goal or a mapping rule watches, and sends the raw DOM fields before validation. Two
+				// A visitor-tracking script can attach its own submit listener to any form whose name or
+				// id a goal or a mapping rule watches, and send the raw DOM fields before validation. Two
 				// attributes keep it off, one per code path, and they live in different files: the
 				// initial scan is the Unomi tracker's, bundled into wem.min.js, and it skips a form
 				// carrying data-form-id (the Jahia Forms convention); the observer of late forms is
-				// jExperience's own wem.js, and it skips a form whose dataset.wemObserved is set.
-				// Submissions reach jCustomer through formidable-jexperience-engine only, with the
-				// values the pipeline accepted. Asserted by the Cypress spec of the form's attributes.
+				// wem.js, and it skips a form whose dataset.wemObserved is set. Submissions reach a
+				// visitor profile through an extension module only, with the values the pipeline
+				// accepted. Asserted by the Cypress spec of the form's attributes.
 				data-form-id={formId}
 				data-wem-observed="true"
 				// Read back from the DOM by the visibility pass: the rules describe the

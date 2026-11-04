@@ -9,7 +9,7 @@ import java.util.OptionalInt;
  * The choices a choice field offers to a visitor, counted as the rendered view resolves them:
  * the field's manual list, aligned on the site's default language, or the list its options
  * source delivers — categories under a root, content of a type, a declared source. For a module
- * that needs a field's cardinality without re-implementing the options modes: the jExperience
+ * that needs a field's cardinality without re-implementing the options modes: a visitor-profile
  * integration reads it to tell a single checkbox (one choice, one value) from a checkbox group.
  */
 public interface ChoiceOptionsResolver {

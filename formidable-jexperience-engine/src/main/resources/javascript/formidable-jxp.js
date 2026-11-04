@@ -12,8 +12,8 @@
  *    context request the tracker makes anyway returns them; once the context is loaded AND the form
  *    island has taken the form over (`formidable:ready`), the values are written into the fields.
  * 3. Serves the profile to conditional logic. The block's `logic` properties join the same request;
- *    the form island reads them through `logicProvider` and is asked to evaluate its rules again
- *    once the context is loaded.
+ *    the source `jexperience:profile` is registered with Formidable's conditional logic, which reads
+ *    them through it and is asked to evaluate its rules again once the context is loaded.
  *
  * Design and gates: docs/architecture/jexperience-integration.md ("Rendering and prefill",
  * "Submitting", "The send condition", "Conditional logic").
@@ -115,8 +115,8 @@
   const LOGIC_INVALIDATE_EVENT = "fmdb:logic-invalidate";
 
   /**
-   * What the form island forwards its `jexperience:profile` rules to (hostedProvider in
-   * formidable-elements/src/utils/logicProviders.ts). Readable once the tracker gate opens, and only
+   * The page half of the logic source `jexperience:profile`: what Formidable's conditional logic
+   * reads its rules through, once registered below. Readable once the tracker gate opens, and only
    * then: a blocked tracker, a refused consent or a context still loading makes every such rule false,
    * never "the property is absent". A value is read as a string, as every logic source is; a property
    * the profile does not hold, or holds as a list or an object, is absent.
@@ -140,6 +140,21 @@
         : String(value);
     },
   };
+
+  /**
+   * Registers the source with Formidable's conditional logic: a push onto the queue Formidable's
+   * own script takes over, whichever of the two runs first (PageLogicSource in
+   * @jahia/formidable-library/logic-sources). The id and the config key are the editor half's
+   * (src/javascript/profileSource.ts); profileSource.test.ts checks it.
+   */
+  api.logicSource = {
+    id: "jexperience:profile",
+    configKey: "property",
+    available: () => api.logicProvider.available(),
+    read: (property) => api.logicProvider.read(property),
+  };
+  window.formidableLogicSources = window.formidableLogicSources || [];
+  window.formidableLogicSources.push(api.logicSource);
 
   // ---------------------------------------------------------------------------------------------
   // Sending

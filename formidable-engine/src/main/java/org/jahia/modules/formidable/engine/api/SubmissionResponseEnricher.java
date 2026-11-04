@@ -11,7 +11,7 @@ import java.util.Map;
  * submission: its actions ran, so an exception is logged and the body is sent without that
  * enricher's entries.</p>
  *
- * <p>Keys are top-level keys of the body. Name them after your module ({@code "jexperience"});
+ * <p>Keys are top-level keys of the body. Name them after your module ({@code "acme"} for a module named acme);
  * {@code success}, {@code errorCode}, {@code actionsCompleted}, {@code actionsTotal} and {@code messages} belong to
  * the servlet and are ignored. Values are plain Java — {@link Map}, {@link java.util.Collection},
  * {@link String}, {@link Number}, {@link Boolean} — nested as needed, serialised as JSON.</p>

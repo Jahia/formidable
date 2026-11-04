@@ -5,7 +5,7 @@ import {registry} from '@jahia/ui-extender';
  * levels stack on one page (field list > step or fieldset > field): steps and fieldsets — the
  * two ways of grouping fields — share one gold, so a contributor reads "a group" at a glance
  * whatever its type. The field list keeps jContent's default box on purpose: it is the neutral
- * frame around everything, not a level to spot. Purple is left to jExperience, orange to
+ * frame around everything, not a level to spot. Purple is left to extension modules, orange to
  * jContent's warnings.
  *
  * jContent looks the config up with registry.find({type: 'pageBuilderBoxConfig', target: nodeType});

@@ -40,16 +40,21 @@ class FormLogicRuleCleanupTest {
     }
 
     @Test
-    void aProfileRuleWithoutAPropertyIsALeftover() {
+    void aBuiltInRuleWithoutAReferenceIsALeftover() {
         assertTrue(FormLogicRuleCleanup.isTargetlessLeftover(
-                new JSONObject("{\"sourceType\":\"jexperience:profile\",\"property\":\" \",\"operator\":\"equals\"}")));
+                new JSONObject("{\"sourceType\":\"urlParam\",\"param\":\" \",\"operator\":\"equals\"}")));
         assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
-                new JSONObject("{\"sourceType\":\"jexperience:profile\",\"property\":\"country\",\"operator\":\"equals\"}")));
+                new JSONObject("{\"sourceType\":\"urlParam\",\"param\":\"utm_source\",\"operator\":\"equals\"}")));
     }
 
     @Test
-    void aRuleOfAnUnknownSourceIsKept() {
+    void aRuleOfASourceAnExtensionRegistersIsNeverALeftover() {
+        // The core cannot read the configuration of a source it does not ship: even an empty reference stays
         assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
                 new JSONObject("{\"sourceType\":\"acme:segment\",\"segment\":\"\",\"operator\":\"exists\"}")));
+        assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
+                new JSONObject("{\"sourceType\":\"acme:segment\",\"segment\":\" \",\"operator\":\"equals\"}")));
+        assertFalse(FormLogicRuleCleanup.isTargetlessLeftover(
+                new JSONObject("{\"sourceType\":\"acme:segment\",\"segment\":\"returning\",\"operator\":\"equals\"}")));
     }
 }

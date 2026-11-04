@@ -332,7 +332,7 @@ export function useFormSubmission({
 
 			// The accepted submission, announced to the page before the island touches the form:
 			// a bubbling DOM event carrying the form's UUID and the server's answer, for scripts
-			// that know nothing of this island (the jExperience module listens for it). The
+			// that know nothing of this island (an extension module may listen for it). The
 			// event says "accepted, here is what the server answered" and nothing else; a listener
 			// that throws does not reach this code (dispatchEvent reports it to the window).
 			const pending: Promise<unknown>[] = [];

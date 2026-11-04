@@ -1,24 +1,40 @@
-import {describe, expect, it} from 'vitest';
-import {getLogicProvider as getRuntimeProvider, logicProviderConfigKeys} from '../../../../formidable-elements/src/utils/logicProviders';
+import {afterEach, describe, expect, it, vi} from 'vitest';
+import {registry} from '@jahia/ui-extender';
+import {LOGIC_SOURCE_REGISTRY_TYPE} from '@jahia/formidable-library/logic-sources';
+import {builtInLogicProviders as builtInPageProviders} from '../../../../formidable-elements/src/utils/logicProviders';
 import {normalizeStoredProviderRule, parseRule, sanitizeProviderOperator} from './ConditionalLogic.utils';
-import {getLogicProvider, listLogicProviders, offeredLogicProviders} from './providers';
+import {builtInLogicProviders, getLogicProvider, listLogicProviders, offeredLogicProviders} from './providers';
 
-describe('the providers of the editor and of the browser', () => {
-    // The editor, the browser runtime and the server each declare the providers; a provider
+/** A source as an extension module registers it: the engine knows nothing of it beforehand. */
+const ACME_SEGMENT = {
+    configKey: 'segment',
+    labelKey: 'acme:segment.label',
+    configLabelKey: 'acme:segment.configLabel',
+    configPlaceholderKey: 'acme:segment.configPlaceholder',
+    operators: ['equals', 'exists', 'notExists'],
+    requiredModules: ['acme'],
+    isValidRef: (ref: string) => /^\w+$/.test(ref.trim())
+};
+
+const unregister = () => {
+    for (const entry of registry.find({type: LOGIC_SOURCE_REGISTRY_TYPE})) {
+        registry.remove(LOGIC_SOURCE_REGISTRY_TYPE, entry.key);
+    }
+};
+
+describe('the built-in providers of the editor and of the browser', () => {
+    // The editor, the browser runtime and the server each declare the built-ins; a built-in
     // missing from one of them is a rule that the editor saves and the page or the server drops.
     // The server's list is checked against this one by FormLogicRuleCleanupTest.
     it('declare the same ids and config keys', () => {
-        const editor = Object.fromEntries(listLogicProviders().map(provider => [provider.id, provider.configKey]));
+        const editor = builtInLogicProviders().map(provider => [provider.id, provider.configKey]);
+        const page = builtInPageProviders().map(provider => [provider.id, provider.configKey]);
 
-        for (const [id, configKey] of Object.entries(editor)) {
-            expect(getRuntimeProvider(id)?.configKey, id).toBe(configKey);
-        }
-
-        const byName = (a: string, b: string) => a.localeCompare(b);
-        expect([...logicProviderConfigKeys()].sort(byName)).toEqual(Object.values(editor).sort(byName));
+        expect(page).toEqual(editor);
+        expect(editor.map(([id]) => id)).toEqual(['jsVariable', 'urlParam', 'cookie']);
     });
 
-    it.each(listLogicProviders().map(provider => [provider.id, provider.configKey] as const))(
+    it.each(builtInLogicProviders().map(provider => [provider.id, provider.configKey] as const))(
         'keep the reference of %s through a parse and a save, as the rule row does at every keystroke',
         (id, configKey) => {
             const stored = JSON.stringify({logicId: 'l1', sourceType: id, [configKey]: 'country', operator: 'exists'});
@@ -31,31 +47,61 @@ describe('the providers of the editor and of the browser', () => {
     );
 });
 
-describe('the jExperience profile provider', () => {
-    it('is offered only on a site jExperience is enabled on, as the page decides', () => {
-        const ids = (modules: string[]) => offeredLogicProviders(modules).map(provider => provider.id);
-
-        expect(ids(['formidable-elements'])).not.toContain('jexperience:profile');
-        expect(ids(['formidable-elements', 'formidable-jexperience-engine'])).not.toContain('jexperience:profile');
-        expect(ids(['formidable-elements', 'jexperience'])).toContain('jexperience:profile');
-        expect(ids([])).toEqual(['jsVariable', 'urlParam', 'cookie']);
+describe('a provider an extension module registers', () => {
+    afterEach(() => {
+        unregister();
+        vi.restoreAllMocks();
     });
 
-    it('accepts a property name and refuses whitespace or path syntax', () => {
-        const provider = getLogicProvider('jexperience:profile')!;
+    it('is unknown until its module registers it, and the stored rule keeps its reference meanwhile', () => {
+        const stored = JSON.stringify({logicId: 'l1', sourceType: 'acme:segment', segment: 'gold', operator: 'equals', value: 'x'});
 
-        expect(provider.isValidRef!('country')).toBe(true);
-        expect(provider.isValidRef!(' nbOfVisits ')).toBe(true);
-        expect(provider.isValidRef!('first name')).toBe(false);
-        expect(provider.isValidRef!('properties[country]')).toBe(false);
-        // read as one key of the profile's properties, so a path never resolves
-        expect(provider.isValidRef!('address.city')).toBe(false);
+        expect(getLogicProvider('acme:segment')).toBeUndefined();
+        expect(parseRule(stored).segment).toBe('gold');
+
+        registry.add(LOGIC_SOURCE_REGISTRY_TYPE, 'acme:segment', ACME_SEGMENT);
+
+        const provider = getLogicProvider('acme:segment')!;
+        expect(provider.configKey).toBe('segment');
+        expect(normalizeStoredProviderRule(parseRule(stored))).toEqual(
+            {logicId: 'l1', sourceType: 'acme:segment', segment: 'gold', operator: 'equals', value: 'x'}
+        );
+        expect(listLogicProviders().map(known => known.id)).toEqual(['jsVariable', 'urlParam', 'cookie', 'acme:segment']);
+    });
+
+    it('is the same object at every lookup, so a rule row does not ask for its list again', () => {
+        registry.add(LOGIC_SOURCE_REGISTRY_TYPE, 'acme:segment', ACME_SEGMENT);
+
+        expect(getLogicProvider('acme:segment')).toBe(getLogicProvider('acme:segment'));
+    });
+
+    it('is offered only on a site that has the modules it requires', () => {
+        registry.add(LOGIC_SOURCE_REGISTRY_TYPE, 'acme:segment', ACME_SEGMENT);
+        const ids = (modules: string[]) => offeredLogicProviders(modules).map(provider => provider.id);
+
+        expect(ids(['formidable-elements'])).toEqual(['jsVariable', 'urlParam', 'cookie']);
+        expect(ids(['formidable-elements', 'acme'])).toContain('acme:segment');
     });
 
     it('keeps an operator it offers and falls back to its first one otherwise', () => {
-        const provider = getLogicProvider('jexperience:profile')!;
+        registry.add(LOGIC_SOURCE_REGISTRY_TYPE, 'acme:segment', ACME_SEGMENT);
+        const provider = getLogicProvider('acme:segment')!;
 
         expect(sanitizeProviderOperator('notExists', provider)).toBe('notExists');
-        expect(sanitizeProviderOperator('gt', provider)).toBe(provider.operators[0]);
+        expect(sanitizeProviderOperator('contains', provider)).toBe('equals');
+    });
+
+    it.each([
+        ['an id without its module', 'segment', ACME_SEGMENT],
+        ['a shared rule key as config key', 'acme:value', {...ACME_SEGMENT, configKey: 'value'}],
+        ['the config key of a built-in', 'acme:cookie', {...ACME_SEGMENT, configKey: 'cookie'}],
+        ['an operator no provider has', 'acme:numbers', {...ACME_SEGMENT, configKey: 'n', operators: ['gt']}],
+        ['no operator', 'acme:empty', {...ACME_SEGMENT, configKey: 'e', operators: []}]
+    ])('is ignored with %s', (_case, id, entry) => {
+        vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+        registry.add(LOGIC_SOURCE_REGISTRY_TYPE, id, entry);
+
+        expect(getLogicProvider(id)).toBeUndefined();
+        expect(console.warn).toHaveBeenCalled();
     });
 });

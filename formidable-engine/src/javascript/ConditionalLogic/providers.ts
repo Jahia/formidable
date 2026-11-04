@@ -1,42 +1,28 @@
-import type {LogicOperator, ProviderConfigKey, RuleSourceType} from './ConditionalLogic.types';
-import {JEXPERIENCE_PROFILE_PROPERTIES} from './graphql';
-import type {RefChoicesLoad, RefChoicesSource} from './refChoices';
+import {registry} from '@jahia/ui-extender';
+import {
+    type EditorLogicSource,
+    LOGIC_SOURCE_ID_PATTERN,
+    LOGIC_SOURCE_REGISTRY_TYPE,
+    SHARED_RULE_KEYS
+} from '@jahia/formidable-library/logic-sources';
+import type {LogicOperator} from './ConditionalLogic.types';
 
 /**
  * Rule sources that are not another form field: state outside the form, read in the
  * browser only. Each designates one thing whose value is a single optional string, so they
- * all share the same operator set and the same editing shape — a name to type in.
+ * all share the same operator set and the same editing shape.
  *
- * A provider is therefore fully declarative here: no per-provider React, and no
- * per-provider code in the runtime evaluator either (see
- * formidable-elements/src/utils/logicProviders.ts, which must declare the same ids and
- * config keys; providers.test.ts checks it). This list is internal to the engine; it is
- * deliberately not a public extension point yet, but each entry is the whole description a
- * registered provider would give — its operators and the modules it needs included — so that
- * opening it later moves entries, without changing their shape.
+ * Two kinds, one shape. The built-in sources below ship with the engine. A module adds a source
+ * of its own by registering its editor half under LOGIC_SOURCE_REGISTRY_TYPE, and its page half
+ * on the page (docs/adr/0001-extension-modules-register-logic-sources.md); the engine never names
+ * such a module. A rule stored on a source no module registered shows as an unknown source.
+ *
+ * The page half of the built-ins is formidable-elements/src/utils/logicProviders.ts, which must
+ * declare the same ids and config keys; providers.test.ts checks it.
  */
-export interface LogicProviderDescriptor {
-    id: Exclude<RuleSourceType, 'field'>;
-    /** The rule key holding what this provider designates. */
-    configKey: ProviderConfigKey;
-    /** i18n keys, under conditionalLogic.providers.<id>. */
-    labelKey: string;
-    configLabelKey: string;
-    configPlaceholderKey: string;
-    /** Rejects a reference the runtime could never resolve. */
-    isValidRef?: (ref: string) => boolean;
-    /** What a rule on this provider may test, the first being the default of a new rule. */
+export interface LogicProviderDescriptor extends Omit<EditorLogicSource, 'operators'> {
+    id: string;
     operators: LogicOperator[];
-    /**
-     * Modules the site must have for the provider to be offered: those that put its state on the
-     * page. A rule already stored on it stays editable where they are missing; it fails closed there.
-     */
-    requiredModules?: string[];
-    /**
-     * Where the references a rule may pick are listed, when the provider can list them: the row then
-     * offers a dropdown, and falls back to the text input only while the list is unavailable.
-     */
-    refChoices?: RefChoicesSource;
 }
 
 /**
@@ -59,27 +45,7 @@ const JS_VARIABLE_PATH_PATTERN = /^(window\.)?[A-Za-z_$][\w$]*(\.([A-Za-z_$][\w$
 // Cookie names are tokens: no separators, no whitespace, no control characters.
 const COOKIE_NAME_PATTERN = /^[\w!#$%&'*+\-.^`|~]+$/;
 
-// jCustomer profile property ids: one top-level name, read as a flat key, so no path syntax.
-const PROFILE_PROPERTY_PATTERN = /^[\w-]+$/;
-
-interface ProfilePropertiesData {
-    formidableJExperienceProfileProperties?: {available?: boolean; properties?: {name?: string; label?: string}[]} | null;
-}
-
-/** The answer of {@link JEXPERIENCE_PROFILE_PROPERTIES} as dropdown entries; unavailable when jCustomer could not be asked. */
-export const readProfileProperties = (data: unknown): RefChoicesLoad => {
-    const answer = (data as ProfilePropertiesData | null | undefined)?.formidableJExperienceProfileProperties;
-    if (!answer?.available) {
-        return {available: false, choices: []};
-    }
-
-    return {
-        available: true,
-        choices: (answer.properties ?? []).flatMap(({name, label}) => (name ? [{value: name, label: label || name}] : []))
-    };
-};
-
-const PROVIDERS: LogicProviderDescriptor[] = [
+const BUILT_IN_PROVIDERS: LogicProviderDescriptor[] = [
     {
         id: 'jsVariable',
         configKey: 'variable',
@@ -105,35 +71,75 @@ const PROVIDERS: LogicProviderDescriptor[] = [
         configPlaceholderKey: 'conditionalLogic.providers.cookie.configPlaceholder',
         isValidRef: ref => COOKIE_NAME_PATTERN.test(ref.trim()),
         operators: PROVIDER_OPERATORS
-    },
-    {
-        // Namespaced: the id is stored in every rule, and a provider of another module must never
-        // collide with one of Formidable's. The i18n keys are spelt out, as i18next reads ':' as a
-        // namespace separator.
-        id: 'jexperience:profile',
-        configKey: 'property',
-        labelKey: 'conditionalLogic.providers.jexperienceProfile.label',
-        configLabelKey: 'conditionalLogic.providers.jexperienceProfile.configLabel',
-        configPlaceholderKey: 'conditionalLogic.providers.jexperienceProfile.configPlaceholder',
-        isValidRef: ref => PROFILE_PROPERTY_PATTERN.test(ref.trim()),
-        operators: PROVIDER_OPERATORS,
-        // the page's own gate (JExperienceSite.tracked): jExperience enabled on the site itself. The
-        // script that reads the tracker comes with a global render filter, enabled on no site.
-        requiredModules: ['jexperience'],
-        refChoices: {query: JEXPERIENCE_PROFILE_PROPERTIES, read: readProfileProperties}
     }
 ];
 
-export const listLogicProviders = (): LogicProviderDescriptor[] => PROVIDERS;
+/** The built-in sources alone, which the page and the server know as well. */
+export const builtInLogicProviders = (): LogicProviderDescriptor[] => BUILT_IN_PROVIDERS;
+
+type RegisteredEntry = EditorLogicSource & {key?: unknown};
+
+// One descriptor per registry entry, so that a row re-rendering gets the same object back and its
+// reference list is not asked for again.
+const descriptors = new WeakMap<object, LogicProviderDescriptor | null>();
+
+const describe = (entry: RegisteredEntry): LogicProviderDescriptor | null => {
+    const id = typeof entry.key === 'string' ? entry.key : '';
+    const usable = LOGIC_SOURCE_ID_PATTERN.test(id)
+        && typeof entry.configKey === 'string'
+        && entry.configKey !== ''
+        && !SHARED_RULE_KEYS.includes(entry.configKey)
+        && !BUILT_IN_PROVIDERS.some(provider => provider.configKey === entry.configKey)
+        && typeof entry.labelKey === 'string'
+        && Array.isArray(entry.operators)
+        && entry.operators.length > 0
+        && entry.operators.every(operator => PROVIDER_OPERATORS.includes(operator));
+    if (!usable) {
+        console.warn(`[ConditionalLogic] ignored the logic source "${id}": its entry does not follow the contract`);
+        return null;
+    }
+
+    return {
+        id,
+        configKey: entry.configKey,
+        labelKey: entry.labelKey,
+        configLabelKey: entry.configLabelKey,
+        configPlaceholderKey: entry.configPlaceholderKey,
+        isValidRef: entry.isValidRef,
+        operators: entry.operators,
+        requiredModules: entry.requiredModules,
+        refChoices: entry.refChoices
+    };
+};
+
+const registeredProviders = (): LogicProviderDescriptor[] => {
+    const entries = (registry.find({type: LOGIC_SOURCE_REGISTRY_TYPE}) ?? []) as unknown as RegisteredEntry[];
+    const providers: LogicProviderDescriptor[] = [];
+    for (const entry of entries) {
+        if (!descriptors.has(entry)) {
+            descriptors.set(entry, describe(entry));
+        }
+
+        const provider = descriptors.get(entry);
+        if (provider && !providers.some(known => known.id === provider.id || known.configKey === provider.configKey)) {
+            providers.push(provider);
+        }
+    }
+
+    return providers;
+};
+
+/** The built-ins, then the sources registered by the modules loaded in this jContent. */
+export const listLogicProviders = (): LogicProviderDescriptor[] => [...BUILT_IN_PROVIDERS, ...registeredProviders()];
 
 /** The providers a new rule may pick on a site with these modules. */
 export const offeredLogicProviders = (installedModules: string[]): LogicProviderDescriptor[] =>
-    PROVIDERS.filter(provider => (provider.requiredModules ?? []).every(module => installedModules.includes(module)));
+    listLogicProviders().filter(provider => (provider.requiredModules ?? []).every(module => installedModules.includes(module)));
 
 export const getLogicProvider = (sourceType?: string): LogicProviderDescriptor | undefined =>
     sourceType === undefined || sourceType === '' || sourceType === 'field'
         ? undefined
-        : PROVIDERS.find(provider => provider.id === sourceType);
+        : listLogicProviders().find(provider => provider.id === sourceType);
 
 /** Every key a provider rule may store, used to strip stale config when the type changes. */
-export const providerConfigKeys = (): ProviderConfigKey[] => PROVIDERS.map(provider => provider.configKey);
+export const providerConfigKeys = (): string[] => listLogicProviders().map(provider => provider.configKey);

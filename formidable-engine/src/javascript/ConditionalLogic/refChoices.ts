@@ -35,7 +35,7 @@ export type RefChoicesPost = (query: string, variables: {path: string}) => Promi
 
 /**
  * The provider's list for the node at `path`. An answer with errors is unavailable: a schema without the
- * field — formidable-jexperience-engine not installed — fails validation, and so does a refused path.
+ * field — the module that serves it not installed — fails validation, and so does a refused path.
  */
 export const fetchRefChoices = async (
     source: RefChoicesSource,

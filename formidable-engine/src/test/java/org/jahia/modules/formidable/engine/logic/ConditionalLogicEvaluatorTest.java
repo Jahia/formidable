@@ -656,11 +656,11 @@ class ConditionalLogicEvaluatorTest {
         assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("shownWhenPresent"));
     }
 
-    /** A rule of the jExperience profile source as the editor stores it, parsed the way the submission parses it. */
-    private static ConditionalLogicRule storedProfileRule(String operator, String value) throws Exception {
+    /** A rule of a source an extension module registers, as the editor stores it, parsed the way the submission parses it. */
+    private static ConditionalLogicRule storedExtensionRule(String operator, String value) throws Exception {
         Value stored = mock(Value.class);
         when(stored.getString()).thenReturn(new JSONObject()
-                .put("logicId", "logic-jxp").put("sourceType", "jexperience:profile").put("property", "country")
+                .put("logicId", "logic-acme").put("sourceType", "acme:segment").put("segment", "tier")
                 .put("operator", operator).put("value", value == null ? JSONObject.NULL : value).toString());
         List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(new Value[]{stored});
         assertEquals(1, rules.size());
@@ -668,31 +668,31 @@ class ConditionalLogicEvaluatorTest {
     }
 
     @Test
-    void aProfileRuleIsEvaluatedAgainstTheValueTheBrowserDeclared() throws Exception {
-        // The server never asks jCustomer: the country the browser read is the one the rule is judged on
-        ConditionalLogicRule countryIsFr = storedProfileRule("equals", "FR");
-        assertEquals("country", countryIsFr.providerRef());
+    void anExtensionRuleIsEvaluatedAgainstTheValueTheBrowserDeclared() throws Exception {
+        // The server never asks the extension's backend: the value the browser read is the one the rule is judged on
+        ConditionalLogicRule tierIsGold = storedExtensionRule("equals", "gold");
+        assertEquals("tier", tierIsGold.providerRef());
 
         assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluatorWithDeclaration(
-                Map.of("companySize", List.of(countryIsFr)), Map.of(),
-                "{\"v\":1,\"providers\":{\"jexperience:profile\":{\"country\":\"FR\"}}}").visibility("companySize"));
+                Map.of("companySize", List.of(tierIsGold)), Map.of(),
+                "{\"v\":1,\"providers\":{\"acme:segment\":{\"tier\":\"gold\"}}}").visibility("companySize"));
         assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluatorWithDeclaration(
-                Map.of("companySize", List.of(countryIsFr)), Map.of(),
-                "{\"v\":1,\"providers\":{\"jexperience:profile\":{\"country\":\"DE\"}}}").visibility("companySize"));
+                Map.of("companySize", List.of(tierIsGold)), Map.of(),
+                "{\"v\":1,\"providers\":{\"acme:segment\":{\"tier\":\"silver\"}}}").visibility("companySize"));
     }
 
     @Test
-    void aProfileRuleTheBrowserCouldNotReadStaysHiddenWhateverItsOperator() throws Exception {
-        // A blocked tracker or a refused consent: the browser declares nothing for the property, and even
+    void anExtensionRuleTheBrowserCouldNotReadStaysHiddenWhateverItsOperator() throws Exception {
+        // A blocked script or a refused consent: the browser declares nothing for the reference, and even
         // "does not exist" must not show the field — the server reaches the browser's verdict
-        ConditionalLogicRule noCountry = storedProfileRule("notExists", null);
+        ConditionalLogicRule noTier = storedExtensionRule("notExists", null);
 
         assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, evaluatorWithDeclaration(
-                Map.of("companySize", List.of(noCountry)), Map.of(), "{\"v\":1,\"providers\":{}}").visibility("companySize"));
-        // read and absent is another matter: the profile holds no country
+                Map.of("companySize", List.of(noTier)), Map.of(), "{\"v\":1,\"providers\":{}}").visibility("companySize"));
+        // read and absent is another matter: the source holds no tier
         assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluatorWithDeclaration(
-                Map.of("companySize", List.of(noCountry)), Map.of(),
-                "{\"v\":1,\"providers\":{\"jexperience:profile\":{\"country\":null}}}").visibility("companySize"));
+                Map.of("companySize", List.of(noTier)), Map.of(),
+                "{\"v\":1,\"providers\":{\"acme:segment\":{\"tier\":null}}}").visibility("companySize"));
     }
 
     @Test

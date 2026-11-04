@@ -36,8 +36,8 @@ SSR — no client Islands, all interactivity is native HTML + CSS.
   server-side check of the submitted value, conditional logic and the profile mapping work with no code of their own.
 - **A card shows its option's label only.** An option holds a value, a label and a default selection; a description
   or an image would need a change to the options model and to its editor.
-- **Native radios, the label drawn as the card**: the keyboard, the validation messages and the jExperience read-only
-  lock (which takes the pointer off radios and labels) work as on the radio group.
+- **Native radios, the label drawn as the card**: the keyboard, the validation messages and the read-only
+  lock of a prefill script (which takes the pointer off radios and labels) work as on the radio group.
 - **The options come from `@jahia/formidable-library`**, as for the built-in choice fields: `resolveFieldOptions`
   from its `/server` entry point, `OptionsSourceError` with this module's message when a source cannot deliver.
 - **`data-fmdb-advance-on-change`** on the group says one answer is enough: a One-at-a-time form

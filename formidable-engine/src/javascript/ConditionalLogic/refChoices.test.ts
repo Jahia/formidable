@@ -1,46 +1,57 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import {acquireRefChoices, fetchRefChoices, forgetRefChoices, refChoiceOptions, UNAVAILABLE} from './refChoices';
-import {getLogicProvider, readProfileProperties} from './providers';
+import {getLogicProvider, type LogicProviderDescriptor} from './providers';
 
-const profile = getLogicProvider('jexperience:profile')!;
+/** A provider that lists its references, as an extension module registers one. */
+const segment: LogicProviderDescriptor = {
+	id: 'acme:segment',
+	configKey: 'segment',
+	labelKey: 'acme:segment.label',
+	configLabelKey: 'acme:segment.configLabel',
+	configPlaceholderKey: 'acme:segment.configPlaceholder',
+	operators: ['equals'],
+	isValidRef: ref => /^\w+$/.test(ref.trim()),
+	refChoices: {
+		query: 'query AcmeSegments($path: String!) { acmeSegments(path: $path) { name } }',
+		read: data => {
+			const names = (data as {acmeSegments?: {name: string}[] | null} | undefined)?.acmeSegments;
+			return names ? {available: true, choices: names.map(({name}) => ({value: name, label: name.toUpperCase()}))} : UNAVAILABLE;
+		}
+	}
+};
 const path = '/sites/s/contents/forms/f/fields/size';
 
-const answer = (available: boolean, properties: {name: string; label: string}[] = []) =>
-	({data: {formidableJExperienceProfileProperties: {available, properties}}});
-
-describe('the jExperience profile property list', () => {
-	afterEach(() => forgetRefChoices());
-
-	it('is asked for the edited field and read as dropdown entries', async () => {
-		const post = vi.fn().mockResolvedValue(answer(true, [{name: 'country', label: 'Country (country)'}, {name: 'nbOfVisits', label: 'Visits (nbOfVisits)'}]));
-
-		const load = await fetchRefChoices(profile.refChoices!, path, post);
-
-		expect(post).toHaveBeenCalledWith(profile.refChoices!.query, {path});
-		expect(load).toEqual({available: true, choices: [
-			{value: 'country', label: 'Country (country)'},
-			{value: 'nbOfVisits', label: 'Visits (nbOfVisits)'}
-		]});
+describe('the reference list of a provider', () => {
+	afterEach(() => {
+		forgetRefChoices();
+		vi.restoreAllMocks();
 	});
 
-	it('is unavailable when jCustomer cannot be asked, when the module is missing, or when nothing answers', async () => {
-		expect(await fetchRefChoices(profile.refChoices!, path, vi.fn().mockResolvedValue(answer(false)))).toEqual(UNAVAILABLE);
-		// formidable-jexperience-engine not installed: the field fails validation
-		const missing = vi.fn().mockResolvedValue({errors: [{message: "Validation error: Field 'formidableJExperienceProfileProperties' is undefined"}]});
+	it('is asked for the edited field and read as dropdown entries', async () => {
+		const post = vi.fn().mockResolvedValue({data: {acmeSegments: [{name: 'gold'}, {name: 'silver'}]}});
+
+		const load = await fetchRefChoices(segment.refChoices!, path, post);
+
+		expect(post).toHaveBeenCalledWith(segment.refChoices!.query, {path});
+		expect(load).toEqual({available: true, choices: [{value: 'gold', label: 'GOLD'}, {value: 'silver', label: 'SILVER'}]});
+	});
+
+	it('is unavailable when the query fails, as when the module that serves it is missing', async () => {
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-		expect(await fetchRefChoices(profile.refChoices!, path, missing)).toEqual(UNAVAILABLE);
-		expect(readProfileProperties(null)).toEqual(UNAVAILABLE);
+		const missing = vi.fn().mockResolvedValue({errors: [{message: "Validation error: Field 'acmeSegments' is undefined"}]});
+
+		expect(await fetchRefChoices(segment.refChoices!, path, missing)).toEqual(UNAVAILABLE);
 	});
 
 	it('is loaded once for every rule row of the field, and asked again after a failure', async () => {
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const load = vi.fn()
 			.mockRejectedValueOnce(new Error('network'))
-			.mockResolvedValue({available: true, choices: [{value: 'country', label: 'Country'}]});
+			.mockResolvedValue({available: true, choices: [{value: 'gold', label: 'Gold'}]});
 
-		expect(await acquireRefChoices(profile, path, load)).toEqual(UNAVAILABLE);
-		const first = acquireRefChoices(profile, path, load);
-		const second = acquireRefChoices(profile, path, load);
+		expect(await acquireRefChoices(segment, path, load)).toEqual(UNAVAILABLE);
+		const first = acquireRefChoices(segment, path, load);
+		const second = acquireRefChoices(segment, path, load);
 
 		expect(await first).toEqual(await second);
 		expect(load).toHaveBeenCalledTimes(2);
@@ -55,14 +66,14 @@ describe('the jExperience profile property list', () => {
 });
 
 describe('refChoiceOptions', () => {
-	const choices = [{value: 'country', label: 'Country (country)'}, {value: 'address.city', label: 'City'}];
+	const choices = [{value: 'gold', label: 'Gold'}, {value: 'a.b', label: 'Nested'}];
 
 	it('offers only what the provider can resolve', () => {
-		expect(refChoiceOptions(choices, '', profile.isValidRef)).toEqual([{value: 'country', label: 'Country (country)'}]);
+		expect(refChoiceOptions(choices, '', segment.isValidRef)).toEqual([{value: 'gold', label: 'Gold'}]);
 	});
 
 	it('keeps a stored reference the list lacks, so opening the rule never rewrites it', () => {
-		expect(refChoiceOptions(choices, 'legacyScore', profile.isValidRef).map(choice => choice.value)).toEqual(['legacyScore', 'country']);
-		expect(refChoiceOptions(choices, 'country', profile.isValidRef)).toHaveLength(1);
+		expect(refChoiceOptions(choices, 'legacy', segment.isValidRef).map(choice => choice.value)).toEqual(['legacy', 'gold']);
+		expect(refChoiceOptions(choices, 'gold', segment.isValidRef)).toHaveLength(1);
 	});
 });

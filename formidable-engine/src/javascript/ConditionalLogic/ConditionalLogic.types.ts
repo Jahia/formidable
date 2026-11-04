@@ -1,12 +1,8 @@
 /**
- * What a rule designates: another form field, or one of the providers declared in
- * providers.ts (state outside the form, read in the browser only — the runtime
- * counterpart lives in formidable-elements/src/utils/logicProviders.ts).
+ * What a rule designates: another form field, or the id of a provider, built in or registered by
+ * another module (providers.ts; state outside the form, read in the browser only).
  */
-export type RuleSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie' | 'jexperience:profile';
-
-/** Rule keys holding what a provider designates, one per provider. */
-export type ProviderConfigKey = 'variable' | 'param' | 'cookie' | 'property';
+export type RuleSourceType = string;
 
 /**
  * Shape of the values a source field produces, which drives the offered operators
@@ -45,9 +41,9 @@ export type LogicOperator =
 
 export interface ConditionalLogicRule {
     logicId: string;
-    // Absent on rules stored before jsVariable support; treated as 'field'. Wider than
-    // RuleSourceType on purpose: a stored rule may name a provider this module version
-    // does not ship (authored against a newer one), and it must keep that sourceType
+    // Absent on rules stored before jsVariable support; treated as 'field'. A stored rule
+    // may name a provider no module registers here (authored against a newer version, or
+    // with a module since removed), and it must keep that sourceType
     // verbatim so the rule round-trips unchanged instead of being rewritten as a field
     // rule on save.
     sourceType?: string;
@@ -62,16 +58,13 @@ export interface ConditionalLogicRule {
     // evaluators pick the right comparison semantics (e.g. numeric vs date
     // 'between') without knowing the source type. Absent on older rules.
     valueKind?: SourceValueKind;
-    // Provider-rule config, exactly one of these per rule, named by the provider's
-    // configKey: a dotted window variable path (e.g. a datalayer entry), a URL query
-    // parameter name, a cookie name, a jExperience profile property.
-    variable?: string;
-    param?: string;
-    cookie?: string;
-    property?: string;
     operator: LogicOperator;
     value?: string;
     values?: string[];
+    // Provider-rule config, exactly one key per rule, named by the provider's configKey: a dotted
+    // window variable path (e.g. a datalayer entry), a URL query parameter name, a cookie name, or
+    // what a registered provider designates. Read it with providerRef.
+    [configKey: string]: string | string[] | undefined;
 }
 
 export interface SelectorField {

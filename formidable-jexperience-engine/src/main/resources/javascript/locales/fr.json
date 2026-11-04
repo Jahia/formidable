@@ -1,0 +1,9 @@
+{
+	"conditionalLogic": {
+		"profile": {
+			"label": "Propriété du profil jExperience",
+			"configLabel": "Propriété du profil",
+			"configPlaceholder": "country"
+		}
+	}
+}

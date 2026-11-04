@@ -2,7 +2,7 @@ package org.jahia.modules.formidable.engine.api;
 
 /**
  * The primary node types the engine's own CND declares, for the modules that read or write
- * Formidable content — the jExperience integration, a third-party action, a content-integrity
+ * Formidable content — a visitor-profile integration, a third-party action, a content-integrity
  * check. The names of the authoring model (the form, the fieldsets, the concrete field types)
  * are deliberately absent: formidable-elements declares them, and server-side code reads a
  * mixin of {@link FmdbMixin} rather than a concrete type name. See

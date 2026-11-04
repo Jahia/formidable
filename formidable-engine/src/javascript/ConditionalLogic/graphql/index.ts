@@ -1,1 +1,1 @@
-export {CONDITIONAL_LOGIC_SOURCES, JEXPERIENCE_PROFILE_PROPERTIES} from './queries';
+export {CONDITIONAL_LOGIC_SOURCES} from './queries';

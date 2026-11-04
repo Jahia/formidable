@@ -162,7 +162,7 @@ describe('useFormSubmission: the minimum feedback pause is a floor', () => {
 		requests.at(-1)?.answer(200, '{"success":true}');
 		await vi.advanceTimersByTimeAsync(0);
 
-		// the page hears of the acceptance at once: a listener (the jExperience script) never pays the floor
+		// the page hears of the acceptance at once: a listener (a third-party script) never pays the floor
 		expect(submitted).toHaveBeenCalledOnce();
 		expect(successShown()).toBe(false);
 

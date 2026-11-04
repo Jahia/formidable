@@ -68,7 +68,7 @@ public final class FmdbMixin {
     public static final String DATETIME_LOCAL_FIELD = "fmdbmix:datetimeLocalField";
     public static final String COLOR_FIELD = "fmdbmix:colorField";
 
-    // A field type claims a jExperience profile mapping by applying this one marker
+    // A field type claims a visitor-profile mapping by applying this one marker
     public static final String PROFILE_MAPPABLE_FIELD = "fmdbmix:profileMappableField";
 
     // Date bounds, and the same contract for a date-and-time field
