@@ -73,8 +73,8 @@ class LogicPropertiesTest {
         Matcher configKey = Pattern.compile("profileSource: EditorLogicSource = \\{\\s*configKey: '([^']+)'").matcher(editor);
 
         assertTrue(id.find() && configKey.find(), "profileSource.ts no longer matches the patterns of this test");
-        assertEquals(id.group(1), LogicProperties.SOURCE_TYPE);
-        assertEquals(configKey.group(1), LogicProperties.CONFIG_KEY);
+        assertEquals(LogicProperties.SOURCE_TYPE, id.group(1));
+        assertEquals(LogicProperties.CONFIG_KEY, configKey.group(1));
     }
 
     @Test

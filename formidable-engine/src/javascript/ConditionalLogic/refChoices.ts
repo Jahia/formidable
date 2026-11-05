@@ -38,7 +38,8 @@ export const fetchRefChoices = async (
         return UNAVAILABLE;
     }
 
-    const load = source.read(answer.data) as Partial<LogicSourceRefChoices> | undefined;
+    // typed by the contract, written in another module's plain JavaScript
+    const load: Partial<LogicSourceRefChoices> | undefined = source.read(answer.data);
     if (load?.available !== true) {
         return UNAVAILABLE;
     }
