@@ -140,6 +140,15 @@ A sensitive value is the value of a field whose type declares `fmdbmix:sensitive
 - On a sensitive field, the engine renders `${value}` in a field action's rejection message as the empty string: the engine writes that message from the contributor's text, so it never prints the password. The verdict cache keeps no entry keyed by the value. A field action that opts in is trusted with how it calls its service.
 - **Review check**: a change that adds a field type, a form action, a field action, a response enricher or a log line on the submission path keeps sensitive values out of it: a secret type carries the marker; nothing new reads the raw parsed map; a new opt-in is justified and keeps the value to itself; nothing that has not opted in echoes a value into a message, a cache key, a header or a log.
 
+### Reading a Jahia Forms export
+
+`formidable-forms-import` reads the nodes that Jahia Forms 3.x writes (`docs/architecture/forms-import.md`, "Source model (Forms 3.x)"). Each name it reads comes from what Forms writes, never from what the Forms editor shows.
+- An option of a Forms field, rule or action is a child node named after the key that the `.wzd` of its type declares, in the block `properties` or `propertiesI18n` (`forms-core`, `src/main/resources/fcnt_<type>/html/<type>.wzd`). The design view binds the same key (`ng-model="input.validations[validationName].rangelengthmin"`), and a rule's JS reads it (`rule.rangelengthmin`).
+- A key of `forms-core_en.properties` is never an option name: it labels the editor. `fcnt_rangeLengthValidation.designView.min` is the label of the option `rangelengthmin`. The import once read `min` and `max` from those keys and dropped the bounds of every length rule; [formidable#482](https://github.com/Jahia/formidable/issues/482) tracks the same bug on the value rule, the pattern and the hidden value.
+- A value that the `.wzd` does not declare is a property of the field node, which the export writes as an attribute, such as `choiceField`.
+- A test or a hand-written export writes an option under the literal name that Forms writes, never through an import constant, so that the test checks the import against Forms and not against itself.
+- **Review check**: a change that reads a Forms option or property cites the `.wzd`, the design view or the Forms CND it was read from.
+
 ### Adding a New Field Type
 
 1. Create `formidable-elements/src/components/Input/MyField/definition.cnd`:
