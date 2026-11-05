@@ -44,6 +44,27 @@ describe('fetchSources', () => {
 		expect(load.logicIdToSource.get('rule-1')).toEqual({name: 'country', uuid: 'u-country'});
 	});
 
+	it('never offers a sensitive field as a source, even one whose type also declares a value kind', async () => {
+		const post = vi.fn().mockResolvedValue(answer({
+			...field('greeting', 'fmdb:inputText', {isTextField: true}),
+			ancestors: [{
+				uuid: 'u-form', workspace: 'EDIT', name: 'f', path: '/sites/s/contents/forms/f', primaryNodeType: {name: 'fmdb:form'},
+				descendants: {nodes: [
+					field('email', 'fmdb:inputEmail', {isTextField: true}),
+					field('password', 'fmdbext:password', {isSensitiveField: true}),
+					// a third-party type declaring the forbidden pair: sensitive wins
+					field('pin', 'acme:pin', {isSensitiveField: true, isTextField: true}),
+					field('greeting', 'fmdb:inputText', {isTextField: true})
+				]}
+			}]
+		}));
+
+		const load = await fetchSources(input, post);
+
+		expect(post.mock.calls[0][0]).toContain('isSensitiveField: isNodeType(type: {types: ["fmdbmix:sensitiveField"]})');
+		expect(load.sources.map(source => source.name)).toEqual(['email']);
+	});
+
 	it('fails when no form stands above the field', async () => {
 		const post = vi.fn().mockResolvedValue(answer({...field('orphan', 'fmdb:inputText'), ancestors: []}));
 

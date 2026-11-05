@@ -21,7 +21,7 @@ class FieldActionsCacheTest {
 
     private static final String FORM = "8f7e2a10-0000-4000-8000-000000000001";
     private static final Map<String, List<ResolvedFieldAction>> ACTIONS =
-            Map.of("email", List.of(new ResolvedFieldAction("a1", "myco:crmLookupAction", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT)));
+            Map.of("email", List.of(new ResolvedFieldAction("a1", "myco:crmLookupAction", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT, false)));
 
     private final AtomicLong now = new AtomicLong(1_000_000L);
     private final Duration ttl = Duration.ofSeconds(FieldActionsCache.TTL_SECONDS);

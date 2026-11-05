@@ -56,7 +56,10 @@ messages, see [Custom validation](../architecture/custom-validation.md)), `data-
 `data-fmdb-logic-value` (conditional logic, see
 [How to extend views and elements](../extension/how-to-extend-views-and-elements-from-third-party-module.md)),
 `data-fmdb-field-action` on the wrapper of a field with actions (`blur` or `submit`, when the
-page asks the engine about the value — see [Field actions](../architecture/field-actions.md)), and
+page asks the engine about the value — see [Field actions](../architecture/field-actions.md)),
+`data-fmdb-sensitive="true"` on the wrapper of a field whose value is a secret, such as a password (the island
+clears it and a form message never prints it, see
+[Sensitive fields](../architecture/form-submission-flow.md#sensitive-fields)), and
 `data-fmdb-content` on the wrapper of content such as rich text, which One-at-a-time shows with the
 field after it ([One-at-a-time](../architecture/one-at-a-time.md)).
 
@@ -192,11 +195,11 @@ submission is refused. Nothing of these lines exists in live or preview.
 
 ## Extended inputs
 
-The optional `formidable-extended-inputs` module adds six fields — card, consent, phone, rating, scale and
-switch — rendered server-side with no client island: every state is native HTML and CSS. Each keeps
+The optional `formidable-extended-inputs` module adds seven fields — card, consent, password, phone, rating, scale
+and switch — rendered server-side with no client island: every state is native HTML and CSS. Each keeps
 the shared hooks of the form (`fmdb-form-group` on its wrapper, `fmdb-group-legend`, `fmdb-form-label`
-on the phone's label, `fmdb-required-indicator`, `fmdb-form-help`, `fmdb-form-control` on the consent
-checkbox and the phone input) and adds
+on the phone's and the password's labels, `fmdb-required-indicator`, `fmdb-form-help`, `fmdb-form-control` on the
+consent checkbox, the password input and the phone input) and adds
 hooks of its own under the `fmdbext-` prefix. Its stylesheet hard-codes nothing without a
 `--fmdbext-*` variable, set on `.fmdb-form` like the others
 ([CSS variables](css-variables.md#extended-inputs)).
@@ -205,6 +208,7 @@ hooks of its own under the `fmdbext-` prefix. Its stylesheet hard-codes nothing 
 |---|---|
 | `fmdbext-card`, `fmdbext-card-items`, `fmdbext-card-item`, `fmdbext-card-input`, `fmdbext-card-label` | The card field: a `fieldset`, the grid of cards, and each card's radio input and label — the label is the card |
 | `fmdbext-consent`, `fmdbext-consent-input`, `fmdbext-consent-label`, `fmdbext-consent-statement`, `fmdbext-consent-terms-link` | The consent field: its group, the checkbox, the label, the statement in it, and the link to the terms |
+| `fmdbext-password`, `fmdbext-password-input` | The password field: its group, and the `type="password"` input, which keeps the look of a text input |
 | `fmdbext-phone`, `fmdbext-phone-input` | The phone field: its group, and the `type="tel"` input, which keeps the look of a text input |
 | `fmdbext-rating`, `fmdbext-rating-body`, `fmdbext-rating-items`, `fmdbext-rating-item`, `fmdbext-rating-input`, `fmdbext-rating-label` | The rating field: a `fieldset`, its body, the row of items (carries `data-fmdbext-icon`: `star`, `heart`, `thumb` or `number`), and each item's radio input and label |
 | `fmdbext-scale`, `fmdbext-scale-body`, `fmdbext-scale-items`, `fmdbext-scale-item`, `fmdbext-scale-input`, `fmdbext-scale-label` | The scale field: a `fieldset`, its body, the row of chips, and each chip's radio input and label |

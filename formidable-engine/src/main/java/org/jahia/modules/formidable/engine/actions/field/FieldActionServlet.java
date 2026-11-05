@@ -191,8 +191,11 @@ public class FieldActionServlet extends HttpServlet {
             throw new Refusal(HttpServletResponse.SC_UNAUTHORIZED, ErrorCode.FMDB_009,
                     "form " + formId + " is for authenticated visitors only, the caller is a guest");
         }
-        List<ResolvedFieldAction> actions = shared.formActions().get(formId, locale, () -> fieldActionsOf(formId, locale)).get(field);
-        if (actions == null) {
+        List<ResolvedFieldAction> declared = shared.formActions().get(formId, locale, () -> fieldActionsOf(formId, locale)).get(field);
+        // on a sensitive field an action whose registered type does not opt in never runs: a field left with none has
+        // nothing to pre-check
+        List<ResolvedFieldAction> actions = declared == null ? null : shared.dispatcher().runnable(declared);
+        if (actions == null || actions.isEmpty()) {
             throw new Refusal(HttpServletResponse.SC_NOT_FOUND, ErrorCode.FMDB_004,
                     "form " + formId + " has no field '" + field + "' with field actions");
         }

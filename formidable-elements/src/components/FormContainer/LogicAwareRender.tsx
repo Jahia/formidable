@@ -1,7 +1,13 @@
-import {getNodeProps, Render, useServerContext} from "@jahia/javascript-modules-library";
+import {getNodeProps, Render, server, useServerContext} from "@jahia/javascript-modules-library";
 import clsx from "clsx";
 import {type ConditionalLogicRule, parseConditionalLogicRules} from "~/utils/conditionalLogic";
-import {type FieldActionNodeLike, type FieldActionsOfNode, fieldActionsOf} from "~/utils/fieldActions.server";
+import {
+	type FieldActionNodeLike,
+	type FieldActionsOfNode,
+	fieldActionsOf,
+	sensitiveValueConsumersOf,
+} from "~/utils/fieldActions.server";
+import {SENSITIVE_FIELD_MIXIN} from "~/utils/sensitiveFields";
 
 type LogicAwareRenderNode = Parameters<typeof getNodeProps>[0];
 
@@ -19,6 +25,8 @@ export interface LogicAwareRenderProps {
  * Each logicId in the parsed rules maps to a child node under logicsSrc
  * whose logicNodeSource property points to the actual source field.
  * Mutates rules in place to add or refresh sourceNodeId for runtime evaluation.
+ * A rule sourced on a sensitive field is not bound: the engine holds it a broken source and hides
+ * its target, and the client fails it closed on the source wrapper's data-fmdb-sensitive marker.
  */
 const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLogicRule[]) => {
 	try {
@@ -30,6 +38,7 @@ const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLog
 				if (!logicsSrcNode.hasNode(rule.logicId)) continue;
 				const srcChild = logicsSrcNode.getNode(rule.logicId);
 				const sourceNode = srcChild.getProperty("logicNodeSource").getNode();
+				if (sourceNode.isNodeType(SENSITIVE_FIELD_MIXIN)) continue;
 				rule.sourceNodeId = sourceNode.getIdentifier();
 			} catch (e) {
 				console.error(`[LogicAwareRender] Broken weakref for logicId '${rule.logicId}' on node '${node.getPath()}':`, e);
@@ -43,10 +52,12 @@ const resolveSourceNodeIds = (node: LogicAwareRenderNode, logics: ConditionalLog
 /**
  * The field's actions, read for the marker and the zone; an unreadable node is a field without
  * actions here — the pipeline, which walks the form itself, still judges the submission.
+ * On a sensitive field, the engine says which field actions consume its value; the others never make
+ * the browser ask. The engine's service is looked up once per field, and only for a sensitive one.
  */
 const resolveFieldActions = (node: LogicAwareRenderNode): FieldActionsOfNode => {
 	try {
-		return fieldActionsOf(node as unknown as FieldActionNodeLike);
+		return fieldActionsOf(node as unknown as FieldActionNodeLike, sensitiveValueConsumersOf((name) => server.osgi.getService(name)));
 	} catch (e) {
 		console.error(`[LogicAwareRender] Failed to read the field actions of node '${node.getPath()}':`, e);
 		return {hasList: false};
@@ -104,6 +115,9 @@ const LogicAwareRender = ({node, view, parameters, className, showLogicHidden}: 
 			data-fmdb-node-type={node.getPrimaryNodeTypeName()}
 			// Content (rich text) is shown with the field after it in One-at-a-time: the mixin is only readable here.
 			data-fmdb-content={node.isNodeType("fmdbmix:formContent") ? "true" : undefined}
+			// A secret, whatever its control's type (a PIN in a text input, a show/hide toggle): the client
+			// never prints it in a message, empties it after a refusal, and never evaluates a rule on it.
+			data-fmdb-sensitive={node.isNodeType(SENSITIVE_FIELD_MIXIN) ? "true" : undefined}
 			data-fmdb-logics={hasLogic ? JSON.stringify(logics) : undefined}
 			// Rendered on every surface (harmless: the client hook is off in edit mode), absent when
 			// nothing checks the field, so the client never asks about a field with no action.

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import {describe, expect, it} from 'vitest';
-import {fieldKindFromForm} from './messageUtils';
+import {fieldKindFromForm, interpolateMessage} from './messageUtils';
 
 import '~/utils/testSupport/cssEscape';
 
@@ -41,5 +41,47 @@ describe('fieldKindFromForm (DOM)', () => {
 			</div>`);
 
 		expect(fieldKindFromForm(form)('zip')).toBe('text');
+	});
+
+	it('reads a password control as a secret, even inside the wrapper of a third-party node type', () => {
+		// the password field of formidable-extended-inputs has its own node type, unknown here:
+		// the control's type is what tells it is a secret, and no message prints it
+		const form = formOf(`
+			<div data-fmdb-node-name="email" data-fmdb-node-type="fmdb:inputEmail"><input type="email" name="email" value="ada@example.com"></div>
+			<div data-fmdb-node-name="password" data-fmdb-node-type="fmdbext:password"><input type="password" name="password" value="S3cret!pw"></div>`);
+
+		expect(fieldKindFromForm(form)('password')).toBe('password');
+		expect(interpolateMessage('${email} / ${password}', new FormData(form), 'en-US', fieldKindFromForm(form)))
+			.toBe('ada@example.com / ');
+	});
+
+	it('reads a sensitive field as a secret whatever its control type: a PIN in a text input', () => {
+		// a third-party sensitive type renders a text or tel control (a PIN, a show/hide toggle):
+		// the wrapper's data-fmdb-sensitive, written from fmdbmix:sensitiveField, is what tells
+		const form = formOf(`
+			<div data-fmdb-node-name="pin" data-fmdb-node-type="mymod:pin" data-fmdb-sensitive="true">
+				<input type="tel" name="pin" value="4821"/>
+			</div>`);
+
+		expect(fieldKindFromForm(form)('pin')).toBe('password');
+		expect(interpolateMessage('PIN: ${pin}', new FormData(form), 'en-US', fieldKindFromForm(form))).toBe('PIN: ');
+	});
+
+	it('reads a name as a secret when any of the fields sharing it is sensitive', () => {
+		// two fields submit under one name: the name submits the values of both, the secret among them
+		const form = formOf(`
+			<div data-fmdb-node-name="code" data-fmdb-node-type="fmdb:inputText"><input type="text" name="code" value="ABC"/></div>
+			<div data-fmdb-node-name="code" data-fmdb-node-type="mymod:pin" data-fmdb-sensitive="true"><input type="text" name="code" value="4821"/></div>`);
+
+		expect(fieldKindFromForm(form)('code')).toBe('password');
+		expect(interpolateMessage('Code: ${code}', new FormData(form), 'en-US', fieldKindFromForm(form))).toBe('Code: ');
+	});
+
+	it('reads a name as a secret when its password control is not the first control of the name', () => {
+		const form = formOf(`
+			<input type="text" name="secret" value="visible"/>
+			<input type="password" name="secret" value="S3cret!pw"/>`);
+
+		expect(fieldKindFromForm(form)('secret')).toBe('password');
 	});
 });

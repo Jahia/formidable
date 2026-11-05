@@ -1,5 +1,23 @@
+import {isSecretControl, SENSITIVE_SELECTOR} from '~/utils/sensitiveFields';
+
 /** Resolves a field name to its control type ('date', 'number', …), or null when unknown. */
 export type FieldKindResolver = (fieldName: string) => string | null;
+
+/**
+ * The kind of a field whose value is a secret: a message never prints it, whatever placeholder the author wrote.
+ * The server withholds such values from every action but the ones that consume them; the browser still holds what
+ * was typed, so this is where the success and error messages must stop.
+ */
+export const SECRET_KIND = 'password';
+
+/** The controls submitted under a name: none, one, or every one of a group (a radio group, two fields sharing it). */
+const controlsNamed = (form: HTMLFormElement, fieldName: string): Element[] => {
+	const control = form.elements.namedItem(fieldName);
+	if (control instanceof RadioNodeList) {
+		return Array.from<Element>(control);
+	}
+	return control ? [control] : [];
+};
 
 /** The stored node types whose submitted value warrants a localized rendering. */
 const NODE_TYPE_KINDS: Record<string, string> = {
@@ -16,11 +34,22 @@ const NODE_TYPE_KINDS: Record<string, string> = {
  * range branch unreachable. The control's type stays as a fallback for markup without
  * a wrapper (a radio group resolves through its first control; RadioNodeList itself
  * carries no type).
+ *
+ * A secret wins over both: a name is one when ANY of its wrappers carries data-fmdb-sensitive
+ * (a sensitive field type, whatever its control's type: a PIN in a text input, a show/hide
+ * toggle), or ANY of its controls is a secret control. Two fields may share a name, and
+ * the name submits the values of both.
  */
 export const fieldKindFromForm = (form: HTMLFormElement): FieldKindResolver => fieldName => {
-	const wrapper = form.querySelector<HTMLElement>(
-		`[data-fmdb-node-name="${CSS.escape(fieldName)}"]`);
-	const nodeType = wrapper?.dataset.fmdbNodeType;
+	const wrappers = Array.from(form.querySelectorAll<HTMLElement>(
+		`[data-fmdb-node-name="${CSS.escape(fieldName)}"]`));
+	const controls = controlsNamed(form, fieldName);
+	if (wrappers.some(wrapper => wrapper.matches(SENSITIVE_SELECTOR)) || controls.some(isSecretControl)) {
+		return SECRET_KIND;
+	}
+
+	const element = controls[0];
+	const nodeType = wrappers[0]?.dataset.fmdbNodeType;
 	const mappedKind = nodeType ? NODE_TYPE_KINDS[nodeType] : undefined;
 	if (mappedKind) {
 		return mappedKind;
@@ -29,8 +58,6 @@ export const fieldKindFromForm = (form: HTMLFormElement): FieldKindResolver => f
 	// Every wrapped field carries a node type, so an UNKNOWN one (a third-party
 	// field) must fall through to the control's own type — returning null here
 	// would close the extension path for exactly the fields the guides promote.
-	const control = form.elements.namedItem(fieldName);
-	const element = control instanceof RadioNodeList ? control[0] : control;
 	return element instanceof HTMLInputElement ? element.type : null;
 };
 
@@ -51,7 +78,7 @@ export const interpolateMessage = (
 		const values = formData.getAll(fieldName);
 		const kind = fieldKind(fieldName);
 
-		if (values.length === 0) {
+		if (values.length === 0 || kind === SECRET_KIND) {
 			return '';
 		} else if (values.length === 1) {
 			return formatValue(String(values[0]), locale, kind);

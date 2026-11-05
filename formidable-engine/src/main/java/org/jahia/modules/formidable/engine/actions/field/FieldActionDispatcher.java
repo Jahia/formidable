@@ -41,6 +41,12 @@ import java.util.function.Supplier;
  *
  * <p>Every node is read in {@code live} in a system session: the submitter has no reason to have read access to
  * the action nodes, and the message's language is the session's locale.</p>
+ *
+ * <p>On a sensitive field ({@link ResolvedFieldAction#onSensitiveField()}) only the actions whose Java type opts in
+ * ({@link FieldAction#consumesSensitiveValues()}) run — {@link #runnable} — and the engine keeps the value out of what
+ * it holds itself: no verdict cache entry is keyed by it, and the logs name the field and never carry an action's own
+ * words. The contributor's message renders {@code ${value}} empty there: the message is the engine's output, written
+ * from the author's text, not the action's. What the action that opts in does with the value is its own duty.</p>
  */
 public final class FieldActionDispatcher {
 
@@ -96,7 +102,7 @@ public final class FieldActionDispatcher {
      */
     public Outcome run(FieldActionRequest request, List<ResolvedFieldAction> actions, Set<Trigger> triggers, boolean blockingOnly) {
         List<FieldActionMessage> messages = new ArrayList<>();
-        for (ResolvedFieldAction action : actions) {
+        for (ResolvedFieldAction action : runnable(actions)) {
             if (!triggers.contains(action.trigger()) || (blockingOnly && !action.blocking())) {
                 continue;
             }
@@ -115,6 +121,33 @@ public final class FieldActionDispatcher {
         return new Outcome(false, messages);
     }
 
+    /**
+     * The actions that may run, in list order: all of them on a field that is not sensitive; on a sensitive one, all
+     * but those whose registered Java type does not opt in. A type nobody registered stays: {@link #execute} answers it
+     * unavailable without running any code, and the contributor's outage rule decides, as on any field — a password
+     * policy whose module is stopped must not accept every password.
+     */
+    public List<ResolvedFieldAction> runnable(List<ResolvedFieldAction> actions) {
+        return actions.stream()
+                .filter(action -> !action.onSensitiveField() || registered(action.nodeType())
+                        .map(FieldAction::consumesSensitiveValues).orElse(true))
+                .toList();
+    }
+
+    /**
+     * Whether the Java action registered for this field-action type opts in to sensitive values; {@code false} when
+     * none is registered. The first registered action of the type is the one that runs, so it is the one asked.
+     */
+    public boolean consumesSensitiveValues(String fieldActionNodeType) {
+        return registered(fieldActionNodeType).map(FieldAction::consumesSensitiveValues).orElse(false);
+    }
+
+    private Optional<FieldAction> registered(String fieldActionNodeType) {
+        return javaActions.get().stream()
+                .filter(candidate -> candidate.getNodeType() != null && candidate.getNodeType().equals(fieldActionNodeType))
+                .findFirst();
+    }
+
     /** Whether the answer is a refusal for the visitor: a reject is, an accept is not, an unavailable check is what the contributor set. */
     private static boolean refuses(ResolvedFieldAction action, FieldActionResult result, FieldActionRequest request) {
         return switch (result.verdict()) {
@@ -128,7 +161,7 @@ public final class FieldActionDispatcher {
         // The detail is the action's or the view's own words: a provider's answer, an exception message, a
         // fragment of the output — any of which may quote the value the visitor typed. It stays at DEBUG; the
         // line an operator reads names the action, its type, the field and the form, which is enough to find it.
-        if (log.isDebugEnabled()) {
+        if (log.isDebugEnabled() && !action.onSensitiveField()) {
             log.debug("[FieldActionDispatcher] Field action {} could not run: {}", action.id(), result.detail());
         }
         if (action.whenUnavailable() == ResolvedFieldAction.Unavailable.ACCEPT) {
@@ -141,8 +174,14 @@ public final class FieldActionDispatcher {
         return true;
     }
 
-    /** The action's answer for this value, from the cache when it has one, executed and cached otherwise. */
+    /**
+     * The action's answer for this value, from the cache when it has one, executed and cached otherwise. A sensitive
+     * value is never a cache key: its action runs every time.
+     */
     private FieldActionResult verdict(FieldActionRequest request, ResolvedFieldAction action) {
+        if (action.onSensitiveField()) {
+            return execute(request, action);
+        }
         Duration ttl = cacheTtl.get();
         Optional<FieldActionResult> cached = cache.get(action.id(), request.locale(), request.value(), ttl);
         if (cached.isPresent()) {
@@ -154,12 +193,16 @@ public final class FieldActionDispatcher {
     }
 
     private FieldActionResult execute(FieldActionRequest request, ResolvedFieldAction action) {
-        Optional<FieldAction> javaAction = javaActions.get().stream()
-                .filter(candidate -> action.nodeType().equals(candidate.getNodeType()))
-                .findFirst();
+        Optional<FieldAction> javaAction = registered(action.nodeType());
         if (javaAction.isEmpty()) {
             // The type's module is not deployed, or declares no service: the contributor's outage rule decides.
             return FieldActionResult.unavailable("no Java field action is registered for " + action.nodeType());
+        }
+        if (action.onSensitiveField() && !javaAction.get().consumesSensitiveValues()) {
+            // The registrations changed since runnable() read them (a redeploy): the action now registered first does
+            // not opt in, so it is never handed the value.
+            return FieldActionResult.unavailable("the Java field action registered for " + action.nodeType()
+                    + " does not consume sensitive values");
         }
         try {
             FieldActionResult result = inLive(request.locale(), session -> {
@@ -170,10 +213,11 @@ public final class FieldActionDispatcher {
         } catch (Exception e) {
             // One action's failure is that action's verdict, never the visitor's stack trace nor the next action's
             // fate. The exception's TYPE names the failure for the operator; its message and its stack go to DEBUG,
-            // because a message like NumberFormatException: For input string: "…" carries the value by construction.
+            // because a message like NumberFormatException: For input string: "…" carries the value by construction —
+            // and not even there for a sensitive value.
             log.warn("[FieldActionDispatcher] Field action {} ({}) failed on field '{}' of form {}: {}",
                     action.id(), action.nodeType(), request.fieldName(), request.formId(), e.getClass().getSimpleName());
-            if (log.isDebugEnabled()) {
+            if (log.isDebugEnabled() && !action.onSensitiveField()) {
                 log.debug("[FieldActionDispatcher] Field action {} failed", action.id(), e);
             }
             return FieldActionResult.unavailable(e.getClass().getSimpleName() + ": " + e.getMessage());
@@ -190,6 +234,9 @@ public final class FieldActionDispatcher {
      * only would render the same message two different ways — complete once, full of holes the other time. One
      * contract, one rendering: the editor's help text on {@code rejectionMessage} advertises {@code ${value}} and
      * nothing else, and any other name resolves to the empty string, here as there.</p>
+     *
+     * <p>On a sensitive field {@code ${value}} renders as the empty string. The message is the engine's output,
+     * written from the author's text, not the action's, so it never carries the value the action was trusted with.</p>
      */
     private String message(ResolvedFieldAction action, FieldActionRequest request) {
         String template = null;
@@ -204,7 +251,8 @@ public final class FieldActionDispatcher {
         if (template == null || template.isBlank()) {
             template = defaultMessage(request.locale());
         }
-        Map<String, List<String>> values = Map.of(VALUE_PLACEHOLDER, List.of(request.value() == null ? "" : request.value()));
+        String shown = request.value() == null || action.onSensitiveField() ? "" : request.value();
+        Map<String, List<String>> values = Map.of(VALUE_PLACEHOLDER, List.of(shown));
         return TemplateInterpolator.interpolate(template, values, FieldEscaper::html);
     }
 

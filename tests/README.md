@@ -39,7 +39,7 @@ order (CSS before Plain, Complete form first), which is the order jContent's tre
 | `simple` | Minimal contact form (published in EN and FR, custom required messages on the name fields, a select revealing a conditional phone field, an optional single file); the only one showing the two optional buttons, **Reset** and **New form** (offered in the success message); its fields map to the visitor profile when jExperience is there, see below |
 | `newsletter` | Two small fields; only on the two-forms page |
 | `steps` | Three-step form with navigation, a fieldset inside step 2 and conditional logic driven by the delivery method |
-| `complete` | Every built-in field type, in three blocks: the visitor profile fields first (mapped and prefilled when jExperience is there), the other field types, and the choice fields completing the options matrix below |
+| `complete` | Every built-in field type, in three blocks: the visitor profile fields first (mapped and prefilled when jExperience is there), the other field types, and the choice fields completing the options matrix below; plus an optional `password` (`fmdbext:password`), see below |
 | `languages` | Choice field whose French labels are only half translated, to try the site's *Replace untranslated content with the default language content* setting both ways |
 | `<look>-two-forms-page` | A page holding the simple form (referenced) next to the newsletter one: two results sets, two mappings, one tracking script |
 
@@ -53,6 +53,17 @@ The complete form covers every options mode of a choice field, single and multip
 | Content (nodes under a picked root) | `agency` (select, texts under `contents/agencies`) | `services` (multiple select, texts under `contents/services`) |
 
 Every field has an option set of its own, so no two of them read as one field repeated.
+
+**A password.** The complete form holds the one sensitive field of the set, an optional `password`
+(`fmdbext:password`, at least 8 characters), and runs, after its save, the sensitive values consumer of
+formidable-test-module-samples-java: the only action that receives the password ([Sensitive
+fields](../docs/architecture/form-submission-flow.md)). The consumer proves it in two response headers of the
+submission, which the browser's network panel shows: `X-Fmdb-Sample-Sensitive-Fields` (the number of sensitive
+fields it received: 0 when the password is left empty, since the engine hands over only typed values) and
+`X-Fmdb-Sample-Password-Received` (`true` when the password holds a non-blank value, `false` for an empty one).
+The entry Save to JCR wrote holds no password. The samples' password policy, a field action that opts in to
+sensitive values, refuses a password without a digit as the field is left. The sample entries type a password with
+a digit.
 
 All forms carry a save-to-JCR action, so submissions land in the results
 screens. The script also:

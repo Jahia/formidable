@@ -54,3 +54,18 @@
 // against ZeroBounceStubServlet.
 [fmdbsample:zeroBounceEmailAction] > jnt:content, fmdbmix:fieldAction, mix:title
  - jcr:title (string) = resourceBundle('fmdbsample_zeroBounceEmailAction') autocreated i18n
+
+// Two contextual form actions on either side of the sensitive-value boundary (docs/architecture/form-submission-flow.md,
+// "Sensitive fields"). The consumer opts in from its Java class, with sensitiveFieldsConsumed, and reports the number of
+// sensitive fields it received and the length of a field named password; the non-consumer keeps the default and
+// reports the number it received, always 0, and the names of its public fields. Each reports in response headers and
+// never holds a value: a test-only observable, which the suite reads next to Save to JCR on the form of a password.
+// No mixin declares the opt-in: a mixin is content-model data that any CND could attach to another module's action.
+[fmdbsample:sensitiveConsumerAction] > jnt:content, fmdbmix:formAction, mix:title
+
+[fmdbsample:sensitiveNonConsumerAction] > jnt:content, fmdbmix:formAction, mix:title
+
+// A field action that opts in to sensitive values from its Java class (consumesSensitiveValues): the only kind the
+// engine runs on a sensitive field, such as the password input. A password policy, refusing a value without a digit.
+[fmdbsample:passwordPolicyAction] > jnt:content, fmdbmix:fieldAction, mix:title
+ - jcr:title (string) = resourceBundle('fmdbsample_passwordPolicyAction') autocreated i18n

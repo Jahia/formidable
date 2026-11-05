@@ -7,6 +7,7 @@ import org.jahia.services.content.decorator.JCRSiteNode;
 import org.jahia.services.content.nodetypes.ExtendedNodeType;
 import org.jahia.services.content.nodetypes.NodeTypeRegistry;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 
 import javax.jcr.RepositoryException;
 import javax.jcr.nodetype.NodeTypeIterator;
@@ -16,6 +17,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The field-action types a site offers, as the Page Builder's chooser lists them — the platform's rule
@@ -25,12 +27,26 @@ import java.util.Set;
  * and pass the component permission of the mixins declared under {@code jmix:accessControllableContent},
  * checked on the site node as the chooser checks it. The core's own types ({@code system-jahia}) are left out:
  * none takes a mixin of this module. Asked on every render of the zone, which is authoring only; the registry
- * answers from memory.
+ * answers from memory. Whether a type runs on a sensitive field is the {@link FieldActionDispatcher}'s rule, asked of
+ * the shared runtime, so that a view and the engine never disagree on it.
  */
 @Component(service = FieldActionTypes.class, immediate = true)
 public class FieldActionTypesService implements FieldActionTypes {
 
     private static final String ACCESS_CONTROLLABLE_CONTENT = "jmix:accessControllableContent";
+
+    private final AtomicReference<FieldActionRuntime> runtime = new AtomicReference<>();
+
+    @Reference
+    public void setRuntime(FieldActionRuntime service) {
+        runtime.set(service);
+    }
+
+    @Override
+    public boolean consumesSensitiveValues(String fieldActionNodeType) {
+        FieldActionRuntime shared = runtime.get();
+        return shared != null && fieldActionNodeType != null && shared.dispatcher().consumesSensitiveValues(fieldActionNodeType);
+    }
 
     @Override
     public List<String> offeredUnder(JCRNodeWrapper actionList) throws RepositoryException {

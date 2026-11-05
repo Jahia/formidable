@@ -2,7 +2,7 @@
 
 This document explains how Formidable splits JCR node types and mixins between
 `formidable-elements`, `formidable-engine` and `formidable-extended-inputs` (the optional
-extra field types — Card, Consent, Phone, Rating, Scale, Switch — which own their `fmdbext:*` node
+extra field types — Card, Consent, Password, Phone, Rating, Scale, Switch — which own their `fmdbext:*` node
 types and follow the same rules as any third-party field module: concrete types in the
 field module, runtime contracts in the engine).
 
@@ -82,6 +82,7 @@ Examples (non-exhaustive — the CND files are the source of truth):
 - `fmdbmix:numberField`
 - `fmdbmix:booleanField`
 - `fmdbmix:profileMappableField` (the marker a field type claims to take part in a jExperience profile mapping; the jExperience module's property mixin extends this single marker, never a list of field types; it declares nothing — see `jexperience-integration.md`)
+- `fmdbmix:sensitiveField` (the type-level marker of a field whose value is a secret — a password: the pipeline sets its value apart at step 9a and hands it only to the code that opts in from Java, a `ContextualFormAction` through `sensitiveFieldsConsumed` and a field action through `consumesSensitiveValues()`, never to save to JCR, the e-mail actions, forward, the response enrichers or the other field actions; a sensitive type is never also `fmdbmix:profileMappableField`, `fmdbmix:textField` nor `fmdbmix:fileField`; the engine and the jExperience module ignore the first two on it, and the engine hands the uploads of a sensitive field to no action; it declares nothing — see `form-submission-flow.md`, "Sensitive fields" and its decision log. It belongs to the engine because the pipeline is what enforces it; the first type that declares it, `fmdbext:password`, lives in `formidable-extended-inputs`)
 - `fmdbmix:submittableField` (the marker a field type claims to submit a value — every built-in and extended field but the file input, the button and the fieldset; a mixin meant for every such field attaches to it with `extends`, as the field-actions switch `fmdbmix:fieldActions` does. `extends` names one supertype and cannot express "`formElement` minus `nonSubmittable`", which is what the pipeline tests; the pipeline keeps that test, so a third-party field that has not adopted the marker is still submitted — see `field-actions.md`. Inside this repository `scripts/check-field-markers.mjs`, run by CI, refuses a type extending `fmdbmix:element` or `fmdbmix:formElement` that declares none or several of `submittableField`, `nonSubmittable` and `fileField`)
 
 These are not presentation hints. They are runtime contracts interpreted by Java code in the submission pipeline (the options-mode mixins additionally drive the server-side resolution of choice options).

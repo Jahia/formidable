@@ -202,7 +202,7 @@ class FieldActionServletTest {
     }
 
     private static Map<String, List<ResolvedFieldAction>> emailActions(Trigger trigger) {
-        return Map.of("email", List.of(new ResolvedFieldAction("a1", TYPE, trigger, Severity.BLOCK, Unavailable.ACCEPT)));
+        return Map.of("email", List.of(new ResolvedFieldAction("a1", TYPE, trigger, Severity.BLOCK, Unavailable.ACCEPT, false)));
     }
 
     private static String body(String field, String value, String trigger) {
@@ -369,6 +369,22 @@ class FieldActionServletTest {
 
         assertEquals(404, answer.status());
         assertEquals("FMDB-004", answer.body().getString("errorCode"));
+    }
+
+    @Test
+    void onASensitiveFieldTheActionsThatDoNotOptInAreNotThere() throws Exception {
+        // Verifies the pre-check's part of the field-action opt-in: the only action of a password does not opt in, so
+        // the endpoint answers as for a field without actions — FMDB-004 — and the action never meets the value.
+        AtomicInteger calls = new AtomicInteger();
+        Map<String, List<ResolvedFieldAction>> onPassword = Map.of("password",
+                List.of(new ResolvedFieldAction("a1", TYPE, Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT, true)));
+        FieldActionServlet servlet = servlet(runtime(settings(30, 512), dispatcher(FieldActionResult.reject("x"), calls)), true, onPassword);
+
+        Answer answer = post(servlet, request(FORM_ID, body("password", "S3cretPass!", null), "10.0.0.1"));
+
+        assertEquals(404, answer.status());
+        assertEquals("FMDB-004", answer.body().getString("errorCode"));
+        assertEquals(0, calls.get());
     }
 
     @Test

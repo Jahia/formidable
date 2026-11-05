@@ -320,3 +320,21 @@ export const getLatestLiveFormSubmission = (formName: string): Cypress.Chainable
 		return cy.wrap({name: submission.name, path: submission.path, timeZone: submission.timeZone?.value ?? null}, {log: false});
 	});
 };
+
+/**
+ * The stored properties of the latest live submission of a form, by name: what Save to JCR kept under its `data`
+ * node. A single value each; a multi-valued property reads as null.
+ */
+export const getLatestLiveSubmissionValues = (formName: string): Cypress.Chainable<Record<string, string>> =>
+	getLatestLiveFormSubmission(formName).then(({path}) => cy.request({
+		method: 'POST',
+		url: '/modules/graphql',
+		headers: {Origin: (Cypress.config('baseUrl') as string | null) ?? 'http://localhost:8080'},
+		body: {
+			query: 'query($path: String!) { jcr(workspace: LIVE) { nodeByPath(path: $path) { properties { name value } } } }',
+			variables: {path: `${path}/data`}
+		}
+	})).then(response => {
+		const properties = response.body.data.jcr.nodeByPath.properties as Array<{name: string; value: string}>;
+		return Object.fromEntries(properties.map(property => [property.name, property.value]));
+	});

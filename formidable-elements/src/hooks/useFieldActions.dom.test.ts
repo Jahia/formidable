@@ -331,6 +331,32 @@ describe('useFieldActions', () => {
 		expect(input.validity.valid).toBe(true);
 	});
 
+	it('asks about a secret as typed, the way the server judges it: a trailing space counts, a blank one is never asked', () => {
+		const {form} = formWith(`
+			<div data-fmdb-node-name="password" data-fmdb-field-action="blur">
+				<div class="fmdb-form-group"><input type="password" name="password"/></div>
+			</div>
+			<div data-fmdb-node-name="pin" data-fmdb-field-action="blur" data-fmdb-sensitive="true">
+				<div class="fmdb-form-group"><input type="text" name="pin"/></div>
+			</div>`);
+		const [secret, pin] = Array.from(form.querySelectorAll('input'));
+		secret.value = 'Sup3r-Secret! ';
+		pin.value = ' 4821';
+
+		secret.dispatchEvent(bubbling('focusout'));
+		pin.dispatchEvent(bubbling('focusout'));
+
+		expect(requests.map(request => request.sent)).toEqual([
+			{field: 'password', value: 'Sup3r-Secret! ', trigger: 'blur'},
+			{field: 'pin', value: ' 4821', trigger: 'blur'},
+		]);
+
+		secret.value = '   ';
+		secret.dispatchEvent(bubbling('focusout'));
+
+		expect(requests).toHaveLength(2);
+	});
+
 	it('asks once per checked value of a group, on change, and refuses the field if any is refused', async () => {
 		const {form} = formWith(`
 			<div data-fmdb-node-name="topics" data-fmdb-field-action="blur">

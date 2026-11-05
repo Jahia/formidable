@@ -3,13 +3,7 @@ import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {useTranslation} from "react-i18next";
 import AuthoringActionsZone from "~/design/AuthoringActionsZone";
 import {nodeTypeIconUrl} from "~/utils/actionTypeInfo";
-
-const FIELD_ACTION_TYPES_SERVICE = "org.jahia.modules.formidable.engine.api.FieldActionTypes";
-
-// The engine's service, reached over OSGi; it answers a java.util.List.
-interface FieldActionTypesLike {
-	offeredUnder(actionList: JCRNodeWrapper): {isEmpty(): boolean};
-}
+import {FIELD_ACTION_TYPES_SERVICE, type FieldActionTypesLike} from "~/utils/fieldActions.server";
 
 /**
  * Whether the site offers a field-action type to add under this list: what the chooser behind the create
