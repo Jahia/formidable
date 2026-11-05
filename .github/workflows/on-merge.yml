@@ -71,7 +71,16 @@ jobs:
           dependencytrack_apikey: ${{ secrets.DEPENDENCYTRACK_APIKEY }}
           sbom_artifacts: 'build-artifacts'
 
+  # The suite runs on three runners, one Jahia each: the shards are the config files of tests/cypress.shards.ts.
+  # Each shard keeps its own artifact prefix and report name, or the three would overwrite one another.
+  # The shards raise no incident: each would report on one service, and a green shard closes the incident
+  # a red one opened. The nightlies run the whole suite in one job and keep the incident.
   integration-tests:
+    name: Integration Tests (${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ fields, validation, rest ]
     uses: Jahia/jahia-modules-action/.github/workflows/reusable-integration-tests.yml@v2
     needs: build
     secrets: inherit
@@ -79,9 +88,11 @@ jobs:
       jahia_image: ghcr.io/jahia/jahia-ee-dev:8-SNAPSHOT
       module_id: formidable
       testrail_project: Formidable
-      pagerduty_incident_service: formidable-JahiaRL
+      pagerduty_skip_notification: true
       provisioning_manifest: provisioning-manifest-build.yml
-      artifact_prefix: fmb
+      tests_profile: cypress.shard-${{ matrix.shard }}.config.ts
+      artifact_prefix: fmb-${{ matrix.shard }}
+      test_report_name: Tests Report (${{ matrix.shard }})
       module_branch: ${{ github.ref }}
 
   publish:
