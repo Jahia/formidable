@@ -97,6 +97,9 @@ final class FormsFieldTypes {
     private static final Map<String, Map<String, Range>> RANGES = Map.of(
             PASSWORD, Map.of(MIN_LENGTH, new Range(0, 1024), MAX_LENGTH, new Range(1, 1024)));
 
+    /** The value a property takes when the import writes none, as its CND declares it ({@code = 128 autocreated}). */
+    private static final Map<String, Map<String, Long>> DEFAULTS = Map.of(PASSWORD, Map.of(MAX_LENGTH, 128L));
+
     /**
      * @param nodeType the type to create
      * @param note what the report says of the choice, or null when the type is the natural equivalent
@@ -192,6 +195,11 @@ final class FormsFieldTypes {
     /** The range a property of a type is constrained to, or null when its CND sets none. */
     static Range range(String nodeType, String property) {
         return RANGES.getOrDefault(nodeType, Map.of()).get(property);
+    }
+
+    /** The default value of a property of a type, or null when its CND sets none. */
+    static Long defaultValue(String nodeType, String property) {
+        return DEFAULTS.getOrDefault(nodeType, Map.of()).get(property);
     }
 
     /** The kinds the import turns into something else than a field, or into nothing; a password depends on the instance ({@link #of}). */

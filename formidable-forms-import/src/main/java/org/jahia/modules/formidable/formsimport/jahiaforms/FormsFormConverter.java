@@ -106,10 +106,9 @@ public final class FormsFormConverter {
         SystemNames names = new SystemNames();
         List<ImportNote> report = new ArrayList<>();
         String buildingLang = languageOf(form.buildingLang());
-        Map<String, String> confirmations = passwordConfirmations(form);
         List<ImportedElement> elements = form.steps().size() == 1
-                ? elementsOf(form.steps().get(0), results, buildingLang, names, confirmations, report)
-                : stepsOf(form, results, buildingLang, names, confirmations, report);
+                ? elementsOf(form.steps().get(0), results, buildingLang, names, report)
+                : stepsOf(form, results, buildingLang, names, report);
         reportFormSettings(form, report);
         Map<String, String> titles = titlesOf(form, buildingLang);
         List<ImportedAction> actions = actionsOf(form, report);
@@ -151,12 +150,12 @@ public final class FormsFormConverter {
     }
 
     private List<ImportedElement> stepsOf(FormsForm form, FormsResults results, String buildingLang, SystemNames names,
-                                         Map<String, String> confirmations, List<ImportNote> report) {
+                                         List<ImportNote> report) {
         List<ImportedElement> steps = new ArrayList<>();
         for (FormsStep step : form.steps()) {
             String name = names.reserve(step.name());
             steps.add(new ImportedContainer(name, ImportedContainer.STEP, nonBlank(step.titles()),
-                    elementsOf(step, results, buildingLang, names, confirmations, report)));
+                    elementsOf(step, results, buildingLang, names, report)));
         }
         return steps;
     }
@@ -164,11 +163,10 @@ public final class FormsFormConverter {
     /**
      * The fields of a step, the ones between a fieldset start and its end wrapped in a fieldset; a matrix, a
      * fieldset itself, never under one ({@link StepLayout}). The confirmation of a password is left out.
-     *
-     * @param confirmations the passwords that confirm another, by node name, each with the name of the one it confirms
      */
     private List<ImportedElement> elementsOf(FormsStep step, FormsResults results, String buildingLang,
-                                            SystemNames names, Map<String, String> confirmations, List<ImportNote> report) {
+                                            SystemNames names, List<ImportNote> report) {
+        Map<String, String> confirmations = passwordConfirmations(step);
         StepLayout layout = new StepLayout(names, buildingLang, report);
         for (FormsField definition : step.fields()) {
             String kind = definition.kind();
@@ -192,15 +190,16 @@ public final class FormsFormConverter {
     }
 
     /**
-     * The passwords that confirm an earlier password of the form: an equal-to rule names it. Formidable has no
-     * confirm-password field, and no action compares the two values, so the confirmation is not recreated
-     * (docs/architecture/forms-import.md, "The fields"). An equal-to rule that names any other field is reported
-     * as a rule not carried over.
+     * The passwords that confirm an earlier password of the step, by node name, each with the name of the one it
+     * confirms: an equal-to rule names it. Formidable has no confirm-password field, and no action compares the two
+     * values, so the confirmation is not recreated (docs/architecture/forms-import.md, "The fields"). Forms looks the
+     * target up in the current step only, and passes when it is not there, so a rule that names a password of
+     * another step confirms nothing. An equal-to rule that names any other field is reported as a rule not carried over.
      */
-    private static Map<String, String> passwordConfirmations(FormsForm form) {
+    private static Map<String, String> passwordConfirmations(FormsStep step) {
         List<String> passwords = new ArrayList<>();
         Map<String, String> confirmations = new HashMap<>();
-        for (FormsField definition : form.fields()) {
+        for (FormsField definition : step.fields()) {
             if (!FormsFieldTypes.KIND_PASSWORD.equals(definition.kind())) {
                 continue;
             }
@@ -647,8 +646,32 @@ public final class FormsFormConverter {
 
     private static void bounds(ImportedField.Builder field, FormsValidation rule, FormsFieldTypes.Mapping mapping,
                                String minProperty, String maxProperty) {
-        field.property(minProperty, within(field, mapping, minProperty, plain(rule, FormsOptionNames.MIN)));
-        field.property(maxProperty, within(field, mapping, maxProperty, plain(rule, FormsOptionNames.MAX)));
+        String min = within(field, mapping, minProperty, plain(rule, FormsOptionNames.MIN));
+        String max = within(field, mapping, maxProperty, plain(rule, FormsOptionNames.MAX));
+        field.property(minProperty, min);
+        field.property(maxProperty, max == null || max.isBlank() ? aboveDefault(field, mapping, maxProperty, min) : max);
+    }
+
+    /**
+     * The minimum, as the maximum of a field Forms gave none, when the default maximum of the type is below that
+     * minimum, and reported: no value could fill the field otherwise. Null, so that the default applies, in any other case.
+     */
+    private static String aboveDefault(ImportedField.Builder field, FormsFieldTypes.Mapping mapping, String property, String min) {
+        Long preset = FormsFieldTypes.defaultValue(mapping.nodeType(), property);
+        if (preset == null || min == null || min.isBlank()) {
+            return null;
+        }
+        long floor;
+        try {
+            floor = Long.parseLong(min.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        if (floor <= preset) {
+            return null;
+        }
+        field.report(ImportNote.action("field.defaultBoundRaised", SETTING, property, VALUE, String.valueOf(preset), KEPT, min.trim()));
+        return min.trim();
     }
 
     /**

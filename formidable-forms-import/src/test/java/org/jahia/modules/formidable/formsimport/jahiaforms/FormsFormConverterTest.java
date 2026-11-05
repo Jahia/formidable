@@ -534,6 +534,27 @@ class FormsFormConverterTest {
     }
 
     @Test
+    void aMinimumAboveTheDefaultMaximumRaisesTheMaximumToIt() {
+        FormsValidation above = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "min", new FormsOption("min", "200", Map.of())));
+        FormsValidation below = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "min", new FormsOption("min", "12", Map.of())));
+        FormsField first = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null, Map.of(), List.of(above), List.of(), false);
+        FormsField second = new FormsField("pin_0_2", "u2", PASSWORD_TYPE, Map.of("en", "PIN"), null, Map.of(), List.of(below), List.of(), false);
+
+        List<ImportedField> fields = EVERYTHING.convert(formOf(first, second), null).fields().toList();
+
+        // the default maxLength of 128 would leave no value that passes both bounds
+        assertEquals("200", fields.get(0).properties().get(FormsFieldTypes.MIN_LENGTH));
+        assertEquals("200", fields.get(0).properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertTrue(has(fields.get(0).report(), "field.defaultBoundRaised", "setting", FormsFieldTypes.MAX_LENGTH, "value", "128", "kept", "200"),
+                fields.get(0).report().toString());
+        // below the default, the type keeps it
+        assertNull(fields.get(1).properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertFalse(has(fields.get(1).report(), "field.defaultBoundRaised"), fields.get(1).report().toString());
+    }
+
+    @Test
     void anOptionalPasswordStaysOptionalAndAHiddenOneShowsNoToggle() {
         FormsField definition = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null,
                 Map.of(FormsOptionNames.SHOW_PASSWORD, new FormsOption(FormsOptionNames.SHOW_PASSWORD, "hide", Map.of())),
@@ -567,6 +588,26 @@ class FormsFormConverterTest {
                 && PASSWORD_NAME.equals(note.param("password"))), form.report().toString());
         ImportedField secret = form.fields().toList().get(2);
         assertTrue(has(secret.report(), "field.rule", "rule", FormsValidation.EQUAL_TO), secret.report().toString());
+    }
+
+    @Test
+    void aPasswordWhoseEqualToRuleNamesAPasswordOfAnotherStepIsRecreated() {
+        // Forms looks the target of the rule up in the current step only, and passes when it is not there: a field
+        // moved to another step keeps its rules, and the visitor still fills it
+        FormsField first = field(PASSWORD_NAME, PASSWORD_TYPE, "Password");
+        FormsField moved = new FormsField("password_0_2", "u2", PASSWORD_TYPE, Map.of("en", "Repeat"), null, Map.of(),
+                List.of(equalTo(PASSWORD_NAME)), List.of(), false);
+        FormsStep step1 = new FormsStep("step-1", 1, Map.of("en", "Step 1"), List.of(first));
+        FormsStep step2 = new FormsStep("step-2", 2, Map.of("en", "Step 2"), List.of(moved));
+        FormsForm source = new FormsForm("f", "uf", "formFactory/forms/f", "en", Map.of("en", "F"), Map.of(), FormsForm.Settings.NONE,
+                List.of(step1, step2), List.of());
+
+        ImportedForm form = EVERYTHING.convert(source, null);
+
+        assertEquals(List.of(PASSWORD_NAME, "password_0_2"), form.fields().map(ImportedField::sourceName).toList());
+        assertFalse(has(form.report(), "form.passwordConfirmationDropped"), form.report().toString());
+        ImportedField repeat = form.fields().toList().get(1);
+        assertTrue(has(repeat.report(), "field.rule", "rule", FormsValidation.EQUAL_TO), repeat.report().toString());
     }
 
     @Test

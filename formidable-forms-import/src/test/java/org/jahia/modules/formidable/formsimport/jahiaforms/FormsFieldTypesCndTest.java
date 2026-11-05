@@ -63,7 +63,7 @@ class FormsFieldTypesCndTest {
     }
 
     @Test
-    void theRangesOfThePasswordFieldAreTheOnesItsCndDeclares() throws IOException {
+    void theRangesAndTheDefaultOfThePasswordFieldAreTheOnesItsCndDeclares() throws IOException {
         String cnd = Files.readString(MODULES.get(1).resolve("src/components/Input/Password/definition.cnd"));
         for (String property : List.of(FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH)) {
             FormsFieldTypes.Range range = FormsFieldTypes.range(FormsFieldTypes.PASSWORD, property);
@@ -72,6 +72,9 @@ class FormsFieldTypesCndTest {
             assertEquals(Long.parseLong(declared.group(1)), range.min(), property);
             assertEquals(Long.parseLong(declared.group(2)), range.max(), property);
         }
+        Matcher preset = Pattern.compile("^\\s*-\\s*" + FormsFieldTypes.MAX_LENGTH + "\\s*\\(long\\)\\s*=\\s*(\\d+)", Pattern.MULTILINE).matcher(cnd);
+        assertTrue(preset.find(), "maxLength declares no default in the Password CND");
+        assertEquals(Long.parseLong(preset.group(1)), FormsFieldTypes.defaultValue(FormsFieldTypes.PASSWORD, FormsFieldTypes.MAX_LENGTH));
     }
 
     @Test
