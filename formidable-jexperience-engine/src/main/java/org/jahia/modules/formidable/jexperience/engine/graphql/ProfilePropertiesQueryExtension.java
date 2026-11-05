@@ -5,6 +5,7 @@ import graphql.annotations.annotationTypes.GraphQLField;
 import graphql.annotations.annotationTypes.GraphQLName;
 import graphql.annotations.annotationTypes.GraphQLNonNull;
 import graphql.annotations.annotationTypes.GraphQLTypeExtension;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertiesUnavailableException;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertyCatalog;
 import org.jahia.modules.graphql.provider.dxm.DXGraphQLProvider;
@@ -13,6 +14,8 @@ import org.jahia.osgi.BundleUtils;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.decorator.JCRSiteNode;
+import org.jahia.services.sites.JahiaSitesService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +41,7 @@ public final class ProfilePropertiesQueryExtension {
     @GraphQLField
     @GraphQLName("formidableJExperienceProfileProperties")
     @GraphQLDescription("The visitor profile properties a conditional-logic rule may read on the site of the node,"
-            + " sorted by label. Requires the right to edit the node.")
+            + " sorted by label. Requires a form of a site, or a node in one, that the caller may edit.")
     @GraphQLNonNull
     public static GqlProfileProperties profileProperties(
             @GraphQLName("path") @GraphQLNonNull @GraphQLDescription("The path of the field being edited, or of its parent") String path) {
@@ -55,15 +58,30 @@ public final class ProfilePropertiesQueryExtension {
         if (!node.hasPermission(REQUIRED_PERMISSION)) {
             throw new AccessDeniedException("Permission denied on " + path);
         }
+        // a form of a site, and nothing else: getResolveSite() answers the system site for any other node
+        JCRSiteNode site = node.getPath().startsWith("/sites/") ? node.getResolveSite() : null;
+        if (site == null || JahiaSitesService.SYSTEM_SITE_KEY.equals(site.getSiteKey()) || !inForm(node)) {
+            throw new AccessDeniedException("Not a form of a site: " + path);
+        }
         if (catalog == null) {
             return GqlProfileProperties.UNAVAILABLE;
         }
-        String siteKey = node.getResolveSite().getSiteKey();
+        String siteKey = site.getSiteKey();
         try {
             return new GqlProfileProperties(true, catalog.readableProfileProperties(siteKey).stream().map(GqlProfileProperty::new).toList());
         } catch (ProfilePropertiesUnavailableException e) {
             log.warn("[ProfilePropertiesQueryExtension] No profile properties for site '{}': {}", siteKey, e.getMessage());
             return GqlProfileProperties.UNAVAILABLE;
         }
+    }
+
+    /** Whether the node is a form, or sits in one: the editor asks for a field, or for the form or step a new one goes into. */
+    private static boolean inForm(JCRNodeWrapper node) throws RepositoryException {
+        for (JCRNodeWrapper current = node; current != null; current = current.getDepth() > 0 ? current.getParent() : null) {
+            if (current.isNodeType(FmdbMixin.FORM_ROOT)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

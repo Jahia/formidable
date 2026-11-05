@@ -28,13 +28,19 @@ const page = globalThis as unknown as TrackerPage;
 
 /**
  * A tracked page: one form whose rules read `countryName`, and jExperience's tracker, whose context
- * holds the visitor's profile once it ran. `startedFirst` is a tracker that ran before the script.
+ * holds the visitor's profile once it ran. `startedFirst` is a tracker that ran before the script;
+ * `config` is the form's block, `profile` the properties the context holds.
  */
-const trackedPage = ({startedFirst = false, overrides = true} = {}) => {
-    document.body.innerHTML = '<script type="application/json" data-formidable-jxp="f1">{"formId":"f1","logic":["countryName"]}</script>';
+const trackedPage = ({
+    startedFirst = false,
+    overrides = true,
+    config = {formId: 'f1', logic: ['countryName']} as object,
+    profile = {countryName: 'FR'} as Record<string, unknown>
+} = {}) => {
+    document.body.innerHTML = `<script type="application/json" data-formidable-jxp="f1">${JSON.stringify(config)}</script>`;
     const callbacks: (() => void)[] = [];
     page.wem = {
-        getLoadedContext: () => ({profileId: 'p1', profileProperties: {countryName: 'FR'}}),
+        getLoadedContext: () => ({profileId: 'p1', profileProperties: profile}),
         _registerCallback: (callback: () => void) => callbacks.push(callback)
     };
     page.wemLoaded = startedFirst;
@@ -98,6 +104,50 @@ describe('the jExperience profile source', () => {
 
         expect(source.available!()).toBe(true);
         expect(source.read('countryName')).toBe('FR');
+    });
+
+    it('has the forms evaluate their rules again once the tracker loaded the profile, and only then', async () => {
+        const tracker = trackedPage();
+        const invalidations = vi.fn();
+        document.addEventListener('fmdb:logic-invalidate', invalidations);
+        try {
+            await runPageScript();
+            expect(invalidations).not.toHaveBeenCalled();
+
+            tracker.load();
+
+            // the source has no subscribe: this one event is what shows a field the profile allows
+            expect(invalidations).toHaveBeenCalledTimes(1);
+        } finally {
+            document.removeEventListener('fmdb:logic-invalidate', invalidations);
+        }
+    });
+
+    it('leaves the rules alone on a page whose forms read no profile property', async () => {
+        const tracker = trackedPage({config: {formId: 'f1', logic: [], prefill: {email: {property: 'email'}}}});
+        const invalidations = vi.fn();
+        document.addEventListener('fmdb:logic-invalidate', invalidations);
+        try {
+            await runPageScript();
+            tracker.load();
+
+            expect(invalidations).not.toHaveBeenCalled();
+        } finally {
+            document.removeEventListener('fmdb:logic-invalidate', invalidations);
+        }
+    });
+
+    it('reads a property held as a list or an object, or not as its own key, as absent', async () => {
+        const tracker = trackedPage({profile: {countryName: ['FR'], address: {city: 'Paris'}, nbOfVisits: 3}});
+        await runPageScript();
+        installLogicSourceQueue();
+        tracker.load();
+        const source = getPageProvider(PROFILE_SOURCE_ID)!;
+
+        expect(source.read('countryName')).toBeUndefined();
+        expect(source.read('address')).toBeUndefined();
+        expect(source.read('toString')).toBeUndefined();
+        expect(source.read('nbOfVisits')).toBe('3');
     });
 
     it.each([

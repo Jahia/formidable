@@ -49,6 +49,7 @@ describe('Form logic - 515 A source another module registers', () => {
 			pushPageHalf(win as AcmePage);
 		});
 
+	/** A form whose `offer` field is required and shown by a rule on the source. */
 	const liveForm = (name: string, operator: string, value?: string) =>
 		createPublishedLiveFormPage(`${name}-${Date.now()}`, name, [
 			getInputTextNode({name: 'fullname', title: 'fullname'}),
@@ -56,6 +57,8 @@ describe('Form logic - 515 A source another module registers', () => {
 				...getInputTextNode({name: 'offer', title: 'offer'}),
 				properties: [
 					{name: 'jcr:title', value: 'offer', language: 'en'},
+					// required, so that a server that judged it visible refuses it empty
+					{name: 'required', value: 'true', type: 'BOOLEAN'},
 					{name: 'logics', values: [JSON.stringify({logicId: `rt-${name}`, sourceType: SOURCE_ID, segment: 'tier', operator, value})]}
 				]
 			}
@@ -148,7 +151,8 @@ describe('Form logic - 515 A source another module registers', () => {
 			form.getTextInput('fullname').type('Grace');
 			form.submit();
 
-			// nothing is declared for it, so the server fails the rule closed too
+			// nothing is declared for it, so the server fails the rule closed too: the required field, left
+			// empty, is accepted because the server holds it hidden
 			declaredState().then(state => {
 				expect(state?.providers ?? {}).not.to.have.property(SOURCE_ID);
 			});

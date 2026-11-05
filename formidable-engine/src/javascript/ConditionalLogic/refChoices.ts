@@ -23,7 +23,9 @@ export type RefChoicesPost = (query: string, variables: {path: string}) => Promi
 
 /**
  * The provider's list for the node at `path`. An answer with errors is unavailable: a schema without the
- * field — the module that serves it not installed — fails validation, and so does a refused path.
+ * field — the module that serves it not installed — fails validation, and so does a refused path. What the
+ * provider's `read` answers comes from another module's plain JavaScript: an entry that is no pair of
+ * strings is left out.
  */
 export const fetchRefChoices = async (
     source: LogicSourceRefChoicesSource,
@@ -36,7 +38,16 @@ export const fetchRefChoices = async (
         return UNAVAILABLE;
     }
 
-    return source.read(answer.data);
+    const load = source.read(answer.data) as Partial<LogicSourceRefChoices> | undefined;
+    if (load?.available !== true) {
+        return UNAVAILABLE;
+    }
+
+    const choices = Array.isArray(load.choices) ? load.choices : [];
+    return {
+        available: true,
+        choices: choices.filter(choice => typeof choice?.value === 'string' && typeof choice.label === 'string')
+    };
 };
 
 /**
@@ -95,8 +106,17 @@ export const refChoiceOptions = (choices: LogicSourceRefChoice[], stored: string
 export type RefChoicesView = {status: 'none'} | {status: 'loading'} | {status: 'ready'; choices: LogicSourceRefChoice[]};
 
 /**
- * The reference list of a rule row's provider: `none` when the provider has no list or it is unavailable
- * (the row keeps its text input), `loading` until it answers.
+ * The view of a list that answered: `none` when it is unavailable or offers nothing the provider can resolve,
+ * so that the row keeps its text input and the rule can still be written.
+ */
+export const readyView = (load: LogicSourceRefChoices, isValidRef?: (ref: string) => boolean): RefChoicesView => {
+    const offered = isValidRef ? load.choices.filter(choice => isValidRef(choice.value)) : load.choices;
+    return load.available && offered.length > 0 ? {status: 'ready', choices: offered} : {status: 'none'};
+};
+
+/**
+ * The reference list of a rule row's provider: `none` when the provider has no list or nothing to offer
+ * (readyView), `loading` until it answers.
  */
 export const useRefChoices = (provider: LogicProviderDescriptor | undefined, path: string | undefined): RefChoicesView => {
     const key = provider?.refChoices && path ? `${provider.id}|${path}` : null;
@@ -127,5 +147,5 @@ export const useRefChoices = (provider: LogicProviderDescriptor | undefined, pat
         return {status: 'loading'};
     }
 
-    return held.load.available ? {status: 'ready', choices: held.load.choices} : {status: 'none'};
+    return readyView(held.load, provider?.isValidRef);
 };

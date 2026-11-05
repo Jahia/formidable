@@ -619,9 +619,12 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
 
     const renderProviderRef = (provider: LogicProviderDescriptor) => {
         if (refChoices.status !== 'none') {
-            const refOptions = refChoices.status === 'ready'
-                ? refChoiceOptions(refChoices.choices, providerRef(rule, provider.configKey), provider.isValidRef)
-                : [];
+            // while the list loads, the stored reference alone, so that the row does not flash its placeholder
+            const refOptions = refChoiceOptions(
+                refChoices.status === 'ready' ? refChoices.choices : [],
+                providerRef(rule, provider.configKey),
+                provider.isValidRef
+            );
             return (
                 <Dropdown
                     variant="outlined"
@@ -629,7 +632,8 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     hasSearch={refOptions.length >= 5}
                     value={providerRef(rule, provider.configKey) || undefined}
                     placeholder={t(provider.configLabelKey)}
-                    isDisabled={field.readOnly || refChoices.status === 'loading'}
+                    isDisabled={field.readOnly}
+                    isLoading={refChoices.status === 'loading'}
                     className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
                     aria-label={t(provider.configLabelKey)}
                     onChange={(_event, item) => {

@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
 import type {LogicSourceRefChoicesSource} from '@jahia/formidable-library/logic-sources';
-import {acquireRefChoices, fetchRefChoices, forgetRefChoices, refChoiceOptions, UNAVAILABLE} from './refChoices';
+import {acquireRefChoices, fetchRefChoices, forgetRefChoices, readyView, refChoiceOptions, UNAVAILABLE} from './refChoices';
 import {getLogicProvider, type LogicProviderDescriptor} from './providers';
 
 /** Where the provider below lists its references. */
@@ -47,6 +47,16 @@ describe('the reference list of a provider', () => {
 		expect(await fetchRefChoices(segmentChoices, path, missing)).toEqual(UNAVAILABLE);
 	});
 
+	it.each([
+		['no choices', {available: true}, []],
+		['choices that are no list', {available: true, choices: 'gold'}, []],
+		['entries that are no pair of strings', {available: true, choices: [{value: 'gold', label: 'Gold'}, {value: 3, label: 'x'}, null]}, [{value: 'gold', label: 'Gold'}]]
+	])('keeps only well-formed entries when the provider answers %s', async (_case, answer, choices) => {
+		const source: LogicSourceRefChoicesSource = {query: 'q', read: () => answer as never};
+
+		expect(await fetchRefChoices(source, path, vi.fn().mockResolvedValue({data: {}}))).toEqual({available: true, choices});
+	});
+
 	it('is loaded once for every rule row of the field, and asked again after a failure', async () => {
 		vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 		const load = vi.fn()
@@ -79,5 +89,18 @@ describe('refChoiceOptions', () => {
 	it('keeps a stored reference the list lacks, so opening the rule never rewrites it', () => {
 		expect(refChoiceOptions(choices, 'legacy', segment.isValidRef).map(choice => choice.value)).toEqual(['legacy', 'gold']);
 		expect(refChoiceOptions(choices, 'gold', segment.isValidRef)).toHaveLength(1);
+	});
+});
+
+describe('readyView', () => {
+	it('offers a dropdown of what the provider can resolve', () => {
+		expect(readyView({available: true, choices: [{value: 'gold', label: 'Gold'}, {value: 'a.b', label: 'Nested'}]}, segment.isValidRef))
+			.toEqual({status: 'ready', choices: [{value: 'gold', label: 'Gold'}]});
+	});
+
+	it('keeps the text input when the list offers nothing the provider can resolve, so the rule can still be written', () => {
+		expect(readyView({available: true, choices: []}, segment.isValidRef)).toEqual({status: 'none'});
+		expect(readyView({available: true, choices: [{value: 'a.b', label: 'Nested'}]}, segment.isValidRef)).toEqual({status: 'none'});
+		expect(readyView(UNAVAILABLE, segment.isValidRef)).toEqual({status: 'none'});
 	});
 });

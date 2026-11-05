@@ -17,7 +17,8 @@ yarn add @jahia/formidable-library
 ```
 
 React 19 is a peer dependency, as in every Jahia JavaScript module, and so is
-`@jahia/javascript-modules-library`, which the server entry point calls. The package follows
+`@jahia/javascript-modules-library`, which the server entry point calls. Both are optional: the
+`logic-sources` entry point needs neither. The package follows
 Formidable's version numbers: take the version matching the Formidable release your module
 targets.
 

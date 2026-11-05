@@ -8,7 +8,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,6 +39,22 @@ class FormLogicRuleCleanupTest {
 
         assertFalse(declared.isEmpty(), "no provider found in providers.ts: the pattern no longer matches its entries");
         assertEquals(FormLogicRuleCleanup.SHIPPED_PROVIDER_CONFIG_KEYS, declared);
+    }
+
+    @Test
+    void theSharedRuleKeysAreTheLibrarys() throws IOException {
+        // The page and the editor take the one string key outside this list as a rule's reference, as the server does:
+        // a key shared on one side only makes the two judge a field differently
+        String library = Files.readString(Path.of("../packages/formidable/src/logicSources.ts"), StandardCharsets.UTF_8);
+        Matcher list = Pattern.compile("SHARED_RULE_KEYS: readonly string\\[] = \\[([^\\]]*)]").matcher(library);
+        assertTrue(list.find(), "no SHARED_RULE_KEYS found in logicSources.ts: the pattern no longer matches it");
+        Set<String> declared = new LinkedHashSet<>();
+        Matcher key = Pattern.compile("\"([^\"]+)\"").matcher(list.group(1));
+        while (key.find()) {
+            declared.add(key.group(1));
+        }
+
+        assertEquals(ConditionalLogicRule.SHARED_RULE_KEYS, declared);
     }
 
     @Test

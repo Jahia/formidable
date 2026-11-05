@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.jexperience.engine.graphql;
 
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertiesUnavailableException;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertyCatalog;
 import org.jahia.modules.formidable.jexperience.engine.profile.ProfilePropertyDescriptor;
@@ -28,13 +29,25 @@ class ProfilePropertiesQueryExtensionTest {
     private static final String PATH = "/sites/site/contents/form/field";
 
     private static JCRSessionWrapper sessionWith(boolean canEdit) throws Exception {
-        JCRSiteNode site = mock(JCRSiteNode.class);
-        when(site.getSiteKey()).thenReturn("site");
+        return sessionWith(PATH, "site", true, canEdit);
+    }
+
+    /** A session that reads {@code path}: a field whose parent is a form root when {@code inForm}, of the site {@code siteKey} (null: none). */
+    private static JCRSessionWrapper sessionWith(String path, String siteKey, boolean inForm, boolean canEdit) throws Exception {
+        JCRSiteNode site = siteKey == null ? null : mock(JCRSiteNode.class);
+        if (site != null) {
+            when(site.getSiteKey()).thenReturn(siteKey);
+        }
+        JCRNodeWrapper form = mock(JCRNodeWrapper.class);
+        when(form.isNodeType(FmdbMixin.FORM_ROOT)).thenReturn(inForm);
         JCRNodeWrapper node = mock(JCRNodeWrapper.class);
+        when(node.getPath()).thenReturn(path);
         when(node.getResolveSite()).thenReturn(site);
+        when(node.getDepth()).thenReturn(1);
+        when(node.getParent()).thenReturn(form);
         when(node.hasPermission(ProfilePropertiesQueryExtension.REQUIRED_PERMISSION)).thenReturn(canEdit);
         JCRSessionWrapper session = mock(JCRSessionWrapper.class);
-        when(session.getNode(PATH)).thenReturn(node);
+        when(session.getNode(path)).thenReturn(node);
         return session;
     }
 
@@ -64,6 +77,22 @@ class ProfilePropertiesQueryExtensionTest {
         ProfilePropertyCatalog catalog = mock(ProfilePropertyCatalog.class);
         JCRSessionWrapper session = sessionWith(false);
         assertThrows(AccessDeniedException.class, () -> ProfilePropertiesQueryExtension.list(session, catalog, PATH));
+        verify(catalog, never()).readableProfileProperties(any());
+    }
+
+    @Test
+    void refusesANodeOutsideTheFormsOfASite() throws Exception {
+        // Verifies that an editable node elsewhere — the caller's own user node, the system site, a node of a
+        // site outside any form — lists nothing, and that jCustomer is not asked for it.
+        ProfilePropertyCatalog catalog = mock(ProfilePropertyCatalog.class);
+        JCRSessionWrapper user = sessionWith("/users/ab/cd/ef/jdoe", "systemsite", false, true);
+        JCRSessionWrapper systemSite = sessionWith("/sites/systemsite/contents/form/field", "systemsite", true, true);
+        JCRSessionWrapper noSite = sessionWith("/sites/gone/contents/form/field", null, true, true);
+        JCRSessionWrapper notInForm = sessionWith("/sites/site/contents/text", "site", false, true);
+        assertThrows(AccessDeniedException.class, () -> ProfilePropertiesQueryExtension.list(user, catalog, "/users/ab/cd/ef/jdoe"));
+        assertThrows(AccessDeniedException.class, () -> ProfilePropertiesQueryExtension.list(systemSite, catalog, "/sites/systemsite/contents/form/field"));
+        assertThrows(AccessDeniedException.class, () -> ProfilePropertiesQueryExtension.list(noSite, catalog, "/sites/gone/contents/form/field"));
+        assertThrows(AccessDeniedException.class, () -> ProfilePropertiesQueryExtension.list(notInForm, catalog, "/sites/site/contents/text"));
         verify(catalog, never()).readableProfileProperties(any());
     }
 

@@ -9,12 +9,19 @@ import org.junit.jupiter.api.Test;
 
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -56,6 +63,18 @@ class LogicPropertiesTest {
                 return nodes;
             }
         }.read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
+    }
+
+    @Test
+    void theSourceIsTheEditorHalfs() throws IOException {
+        // Maven runs the tests from the module's directory, where the editor half's sources are
+        String editor = Files.readString(Path.of("src/javascript/profileSource.ts"), StandardCharsets.UTF_8);
+        Matcher id = Pattern.compile("PROFILE_SOURCE_ID = '([^']+)'").matcher(editor);
+        Matcher configKey = Pattern.compile("profileSource: EditorLogicSource = \\{\\s*configKey: '([^']+)'").matcher(editor);
+
+        assertTrue(id.find() && configKey.find(), "profileSource.ts no longer matches the patterns of this test");
+        assertEquals(id.group(1), LogicProperties.SOURCE_TYPE);
+        assertEquals(configKey.group(1), LogicProperties.CONFIG_KEY);
     }
 
     @Test
