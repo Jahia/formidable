@@ -281,7 +281,7 @@ says. The third column gives what the import writes into `data` for that field, 
 | `textAreaDefinition` | `fmdb:textarea`, with `rows` | Unchanged |
 | `numberDefinition` | `fmdb:inputNumber` | Unchanged |
 | `hiddenDefinition` | `fmdb:inputHidden`, with its `value` | Unchanged |
-| `passwordDefinition` | Not recreated, reported: Forms masked the password in storage and in the mail, but a Formidable text field would store and mail it in clear | Dropped, with the placeholder `**********` |
+| `passwordDefinition` | `fmdbext:password`, with `required`, and with `minLength` and `maxLength` from a `rangeLengthValidation`. The type accepts 0 to 1024 for `minLength` and 1 to 1024 for `maxLength`: a Forms bound outside that range is set to the nearest end, and reported. `maxLength` defaults to 128: when Forms sets no maximum and its minimum is above 128, `maxLength` takes the minimum, and the report says so. The report says that no imported action receives the value. `autocompleteMode` keeps its default, `new-password`, and the report asks for **Current password** on a sign-in form. `showpassword` is reported: Formidable has no toggle. A password whose `equalToValidation` names an earlier password of the same step is a confirmation: Forms looks the target up in the current step only. Formidable has no confirmation field, so the confirmation is not recreated, and the report says so. Without the extended inputs, not recreated, reported | Dropped, with the placeholder `**********`, whether the field is recreated or not |
 | `selectBasicDefinition`, `selectMultipleDefinition` | `fmdb:select`, `multiple` for the second, with manual options | The option key, one or several, unchanged |
 | `multipleRadiosDefinition`, `multipleRadiosInlineDefinition` | `fmdb:radio` with manual options | The option key |
 | `multipleCheckBoxesDefinition`, `multipleCheckBoxesInlineDefinition` | `fmdb:checkbox` with manual options | The option keys |
@@ -298,7 +298,9 @@ says. The third column gives what the import writes into `data` for that field, 
 
 The `fmdbext:*` types belong to `formidable-extended-inputs`. The import uses them when the repository
 registers the type, as the migrations test a type before they query it, and falls back on the
-`formidable-elements` type of the row otherwise, with a line in the report.
+`formidable-elements` type of the row otherwise, with a line in the report. The password has no fallback:
+a `formidable-elements` text field would store and mail it in clear, so without `fmdbext:password` the
+field is not recreated.
 
 For every field:
 
@@ -306,12 +308,14 @@ For every field:
 - `placeholder` and `helptext` become `placeholder` and `helpText`; a select, which has no placeholder,
   takes it as its `optionsEmptyLabel`; a setting the target type does not declare is reported, never
   written, so that the writer meets no constraint violation;
-- a `requiredValidation` sets `required`, and its message becomes `msgValueMissing`;
+- a `requiredValidation` sets `required` to `true`, and its message becomes `msgValueMissing`; without
+  one, `required` is written `false`. The import writes it on every type that has the setting, because
+  `fmdbext:password` and `fmdbext:consent` are required by default;
 - a `rangeLengthValidation` sets `minLength` and `maxLength`, a `rangeValidation` sets `minValue` and
   `maxValue`, a `regexValidation` sets `pattern`, each with its message in the slot of the type
   (`msgTooShort` and `msgTooLong`, `msgRangeUnderflow` and `msgRangeOverflow`, `msgPatternMismatch`); an
   `emailValidation` on an e-mail field fills `msgTypeMismatch`. A rule the field type cannot carry,
-  and `equalToValidation`, are reported;
+  and `equalToValidation` on a field that is not the confirmation of a password, are reported;
 - a manual option is written as Formidable stores it, `{"value","label","selected"}` per language: the Forms
   key becomes the value, so that the imported values match, and the Forms label becomes the label. A choice
   marked `"visible": false` is left out, on every choice field as on the rows and columns of a matrix:
@@ -319,7 +323,7 @@ For every field:
   it again; an answer that holds it keeps its key, with no option to show a label;
 - a prefill from the visitor profile (`fcnt:mfffPrefill`, `fcnt:mfffMappingOnly`) is written as the mapping
   of the field to that profile property when the jExperience integration is installed and reaches the field
-  type and the profile server declares the property with a type the field holds (see the decisions), the first
+  type, the type is not sensitive (`fmdbmix:sensitiveField`, which the engine never maps), and the profile server declares the property with a type the field holds (see the decisions), the first
   of the kind on a field; every other prefill, and `logics`, are reported,
   with the names of the fields they touch, and nothing is written for them. `inputsize` is dropped.
 
@@ -697,7 +701,9 @@ until it does.
 
 A later run finds forms and submissions wherever they live in the site: a form moved out of
 `imported-forms`, reworked or renamed is found, and left as it is, even when the export changed; a
-submission already imported is skipped. The run adds the forms and the submissions that are missing, into
+submission already imported is skipped. A found form therefore gets no field it lacks: a password field
+that an earlier version of the import did not create stays missing. The author adds it, or deletes the
+form and imports it again. The run adds the forms and the submissions that are missing, into
 the entry of the form it found, and names each value after the field whose `fmdbmix:importedField` carries
 the `fieldId` of its label node, so a field the contributor renamed keeps receiving its values. An import
 that stopped half-way therefore runs again as it is, and a second export of the same site, taken later,
@@ -935,4 +941,4 @@ engine never declared them.
 | 4 | Answered: a form displayed a captcha when its `displayCaptcha` was on **and** its `formFactory` carried a captcha key (`fcmix:captcha`, `captchaApiKey`): `displayCaptcha` is on by default, and without the key Forms shows no captcha, nor the switch (forms-core `formDefinition.formInputs.jsp`, `FormSubmission`); the reader follows both. A recreated form that displayed a captcha gets `fmdbmix:captcha` only when the instance configures a captcha, its widget and its verification both (`CaptchaConfigService.isCaptchaWidgetConfigured() && isCaptchaVerificationConfigured()`, read by `ImportJobs` and handed to the converter); otherwise the report says that the form displayed one and that the instance configures none. | The forms |
 | 5 | The sample exports hold real email addresses, so they must be anonymised before they are committed as fixtures. | Tests |
 | 6 | The columns of an entry imported without a form are the system names of its fields. A snapshot of the Forms labels, per language, on the entry, read by the Results page and the exports, waits for a real import that says the names do not read well enough. | The Results page of a results-only entry |
-| Spike 4 | Partly answered from the sources of `forms-core` 3.x (`src/main/resources/fcnt_*/html/*.wzd`, the design views and the directives): the option nodes are `textOn`/`textOff` for a switch, `max` for a rating, `value` for a hidden field, `filetype` (a JSON list of groups) and `filenumber` for the file rules, `to`/`cc`/`bcc`/`from`/`subject` for the e-mail action, `redirectto` for both redirects, `yes`/`no`/`termsLabel`/`link` for an accept-terms box; the value shapes of a rating, a matrix, a country and a consent are in [The results](#the-results). The entry names of the uploaded files in the zip are confirmed on the second sample export ([The export file](#the-export-file)). Still to confirm on an export that holds them: the labels of a `buttonTriple`. | The buttons |
+| Spike 4 | Partly answered from the sources of `forms-core` 3.x (`src/main/resources/fcnt_*/html/*.wzd`, the design views and the directives): the option nodes are `textOn`/`textOff` for a switch, `max` for a rating, `value` for a hidden field, `filetype` (a JSON list of groups) and `filenumber` for the file rules, `rangelengthmin`/`rangelengthmax` for a length rule, `to`/`cc`/`bcc`/`from`/`subject` for the e-mail action, `redirectto` for both redirects, `yes`/`no`/`termsLabel`/`link` for an accept-terms box; the value shapes of a rating, a matrix, a country and a consent are in [The results](#the-results). The entry names of the uploaded files in the zip are confirmed on the second sample export ([The export file](#the-export-file)). Still to confirm on an export that holds them: the labels of a `buttonTriple`. | The buttons |

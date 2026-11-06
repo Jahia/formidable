@@ -61,6 +61,31 @@ the engine. Its content types stay registered to the engine, and the module's de
 install — see [The module](../architecture/forms-import.md#the-module) for the steps. A released engine never
 declared them.
 
+## 0.5.x → 0.6.0: sensitive fields and the password input
+
+**Nothing to migrate, nothing to configure.**
+
+### What changes
+
+0.6.0 adds a type-level marker, `fmdbmix:sensitiveField`, for a field whose value is a secret, and a first field type
+that declares it, the **Input Password** of `formidable-extended-inputs` (`fmdbext:password`). The value of such a
+field reaches only the code that opts in to it from Java: a contextual action of another module, such as a sign-up
+or a sign-in action, and the field actions written for a password. It never reaches Save to JCR, the e-mail
+notification and content actions, forward, the response enrichers and so the jExperience event, the other field
+actions, nor a log line. See [Sensitive fields](../architecture/form-submission-flow.md#sensitive-fields).
+
+### Who is affected
+
+Nobody on upgrade: no existing field type is sensitive, so every existing form submits, stores, mails and forwards
+exactly what it did. Existing form actions and field actions see no change: the opt-ins
+(`ContextualFormAction#sensitiveFieldsConsumed`, `FieldAction#consumesSensitiveValues()`) default to receiving
+nothing, and only matter on a form that holds a password.
+
+On a form that holds a password, the value is not in the results, the e-mails or what a forward target receives,
+by design. A form with a password and no action that consumes it accepts the submission and drops the value,
+with nothing logged. The developer of a module that ships its own field type holding a secret declares the marker
+([A field whose value is a secret](../extension/how-to-extend-views-and-elements-from-third-party-module.md#a-field-whose-value-is-a-secret)).
+
 ## 0.4.x → 0.5.0: the configuration moves to five files, one per theme
 
 **Automatic on every installation — check the five files after the upgrade.**

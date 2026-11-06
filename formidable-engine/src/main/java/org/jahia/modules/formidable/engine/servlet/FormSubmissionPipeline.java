@@ -8,6 +8,7 @@ import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionContext;
 import org.jahia.modules.formidable.engine.api.FormActionResult;
 import org.jahia.modules.formidable.engine.api.RedirectTargets;
+import org.jahia.modules.formidable.engine.api.SensitiveFields;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionMessage;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionDispatcher;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
@@ -37,6 +38,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -45,6 +48,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -64,6 +68,9 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  *   7.  verifyCaptcha            — only if fmdbmix:captchaProtectedForm is present
  *   8.  collectFormFieldInfo     — build whitelist + types + choices + accept + constraints from JCR
  *   9.  parseMultipart           — first and only read of the stream; unknown fields discarded inline
+ *   9a. separateSensitiveValues  — the values of the fmdbmix:sensitiveField fields are set apart, once validated: the
+ *                                  logic, every action, enricher and log line read the public map, and only a
+ *                                  ContextualFormAction or a field action that opts in receives a sensitive value
  *   10. validateLogicCoherence   — reject values for fields provably hidden by conditional logic
  *   11. validateRequired         — post-parse check for required fields (catches absent fields)
  *   11b. runFieldActions         — the blocking field actions run again server-side (FMDB-015 with messages)
@@ -79,6 +86,9 @@ class FormSubmissionPipeline {
     static final String TOO_MANY_VALUES_TEXT = "Too many answers were sent for this field to be checked. Please select fewer.";
 
     private static final String CAPTCHA_TOKEN_HEADER = "X-Formidable-Captcha-Token";
+
+    /** What stands for the message of a throwable an action that held sensitive values threw, after its class name. */
+    private static final String REDACTED = "%s (message removed: the action held sensitive values)";
 
     /**
      * Header carrying the browser's conditional-logic state declaration: base64-encoded
@@ -149,6 +159,10 @@ class FormSubmissionPipeline {
     private ConditionalLogicEvaluator logicEvaluator;
     private List<ResolvedAction> resolvedActions;
     private HttpServletResponse response;
+    /** The accepted values of the fields that are not sensitive: what the logic, every action, enricher and log line see. */
+    private Map<String, List<String>> publicParameters;
+    /** The accepted values of the sensitive fields: handed only to an action that opts in, never anywhere else. */
+    private Map<String, List<String>> sensitiveParameters;
     /** What the contextual actions told the browser, first redirect and first message winning; empty until dispatched. */
     private FormActionResult browserInstruction = FormActionResult.none();
 
@@ -209,6 +223,7 @@ class FormSubmissionPipeline {
         verifyCaptcha(req);
         collectFormFieldInfo();
         parseMultipart(req);
+        separateSensitiveValues();
         validateLogicCoherence(req);
         validateRequired();
         runFieldActions();
@@ -226,15 +241,15 @@ class FormSubmissionPipeline {
     /**
      * What the pipeline accepted, for the response enrichers the servlet calls once {@link #run}
      * returned: the live form node, its site, the locale and the validated parameters — declared,
-     * non-file fields only, files never leave the pipeline.
+     * non-file, non-sensitive fields only: files and sensitive values never leave the pipeline.
      *
      * @throws IllegalStateException before a run accepted a submission
      */
     AcceptedSubmission accepted() throws RepositoryException {
-        if (formNode == null || parsed == null) {
+        if (formNode == null || publicParameters == null) {
             throw new IllegalStateException("the pipeline has not accepted a submission");
         }
-        return new AcceptedSubmission(formNode, formNode.getResolveSite().getSiteKey(), locale, parsed.parameters());
+        return new AcceptedSubmission(formNode, formNode.getResolveSite().getSiteKey(), locale, publicParameters);
     }
 
     // --- Steps ---
@@ -389,6 +404,59 @@ class FormSubmissionPipeline {
     }
 
     /**
+     * Step 9a — sets apart the values of the sensitive fields ({@code fmdbmix:sensitiveField}, a password), once and
+     * for the rest of the run. From here on there are two maps: the public one the conditional logic, every plain
+     * action, enricher and log line reads, and the sensitive one handed only to a {@link ContextualFormAction} whose
+     * {@link ContextualFormAction#sensitiveFieldsConsumed} selects it. The field actions of a sensitive field that opt
+     * in ({@link FieldActionDispatcher#runnable}) receive its value too, and the required check reads every value. Code
+     * that does not opt in is not filtered after the fact: it is never handed the sensitive map, so a new action,
+     * enricher or log line is safe without doing anything. Runs after the parse, which validated every value (length,
+     * pattern). A sensitive value no action consumes is dropped here.
+     *
+     * <p>A password control sends one value: a sensitive field sent more than once is refused with FMDB-010, which
+     * names the field and never its values.</p>
+     */
+    private void separateSensitiveValues() throws SubmissionException {
+        Set<String> sensitive = fieldMetadata.sensitiveFields();
+        if (sensitive.isEmpty()) {
+            // a plain form sees no change: the public map is the parser's own, writable as before
+            publicParameters = parsed.parameters();
+            sensitiveParameters = Map.of();
+            return;
+        }
+        Map<String, List<String>> open = new LinkedHashMap<>();
+        Map<String, List<String>> secret = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : parsed.parameters().entrySet()) {
+            String fieldName = entry.getKey();
+            if (!sensitive.contains(fieldName)) {
+                open.put(fieldName, entry.getValue());
+            } else if (answers(entry.getValue()) > 1) {
+                // blanks are not counted: two password fields of one name, one left empty, are an honest submission,
+                // and the checks and sensitiveParameter() skip a blank value anyway
+                log.warn("[FormSubmissionPipeline] Sensitive field '{}' carries {} non-blank values, where its control sends one.",
+                        fieldName, answers(entry.getValue()));
+                throw new SubmissionException(ErrorCode.FMDB_010,
+                        "Sensitive field '" + fieldName + "' carries " + answers(entry.getValue())
+                                + " non-blank values, where its control sends one.");
+            } else {
+                // only what the visitor typed: a consumer reading the map gets no blank entry, and an unanswered
+                // sensitive field is no value to hand over
+                List<String> typed = entry.getValue().stream().filter(value -> value != null && !value.isBlank()).toList();
+                if (!typed.isEmpty()) {
+                    secret.put(fieldName, typed);
+                }
+            }
+        }
+        publicParameters = open;
+        sensitiveParameters = Collections.unmodifiableMap(secret);
+        log.debug("[FormSubmissionPipeline] Sensitive fields set apart: {}", sensitive);
+    }
+
+    private static long answers(List<String> values) {
+        return values.stream().filter(value -> value != null && !value.isBlank()).count();
+    }
+
+    /**
      * Rejects a submission that carries a value for a field the server can prove was
      * hidden. The verdict is only acted on when it is a measurement — computed from
      * submitted values and, for provider rules, from the state the browser declared in
@@ -402,11 +470,12 @@ class FormSubmissionPipeline {
      * a value smuggled into a provably hidden field is detected instead of stored.
      */
     private void validateLogicCoherence(HttpServletRequest req) throws SubmissionException {
+        // A sensitive value is never an operand: without it, a rule sourced on such a field is a broken binding.
         logicEvaluator = new ConditionalLogicEvaluator(
                 fieldMetadata.fieldLogicRules(),
                 fieldMetadata.logicIdToFieldName(),
                 fieldMetadata.fieldParentContainers(),
-                parsed.parameters(),
+                publicParameters,
                 readLogicStateDeclaration(req)
         );
 
@@ -498,6 +567,14 @@ class FormSubmissionPipeline {
     }
 
     /**
+     * The sensitive values an action receives, from what its {@link ContextualFormAction#sensitiveFieldsConsumed}
+     * selects: every one for {@link SensitiveFields#all()}, none for {@link SensitiveFields#none()} or {@code null}.
+     */
+    static Map<String, List<String>> select(Map<String, List<String>> sensitive, SensitiveFields selection) {
+        return selection != null && selection.selectsAll() ? sensitive : Map.of();
+    }
+
+    /**
      * Step 11b — the field actions whose refusal blocks, run again server-side. The pre-check the browser asked
      * for while the form was filled is a courtesy; this is the authority, and a browser that skipped the pre-check
      * meets the same actions here — the shared verdict cache making the honest browser's second run free. A field
@@ -513,6 +590,9 @@ class FormSubmissionPipeline {
      * over the whole submission, and only then does an action run. A field over the bound therefore costs no provider
      * call anywhere — a check in the loop would have billed whichever field the map happened to yield first.
      * (docs/architecture/field-actions.md)</p>
+     *
+     * <p>On a sensitive field only the actions that opt in ({@link FieldActionDispatcher#runnable}) judge the value,
+     * and the logic skips them only on a measured verdict ({@link #hiddenFromTheFieldActions}).</p>
      */
     private void runFieldActions() throws SubmissionException {
         if (fieldMetadata.fieldActions().isEmpty()) {
@@ -567,16 +647,28 @@ class FormSubmissionPipeline {
      * would skip every one of them anyway — and none when the logic hides the field or the visitor left it blank.
      */
     private List<String> valuesToJudge(String fieldName, List<ResolvedFieldAction> actions) {
-        if (actions.stream().noneMatch(ResolvedFieldAction::blocking)) {
+        if (fieldActionDispatcher.runnable(actions).stream().noneMatch(ResolvedFieldAction::blocking)) {
             log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': none of them blocks", fieldName);
             return List.of();
         }
         List<String> values = answeredValues(fieldName);
-        if (values.isEmpty() || logicEvaluator.isHidden(fieldName)) {
+        if (values.isEmpty() || hiddenFromTheFieldActions(fieldName)) {
             log.debug("[FormSubmissionPipeline] Skipping the field actions of '{}': unanswered or hidden", fieldName);
             return List.of();
         }
         return values;
+    }
+
+    /**
+     * Whether the logic hides the field from this step, as it hides it from the required check. A sensitive field is
+     * hidden only on a measured verdict, whose value step 10 already refused: a visitor forces the fail-safe verdict
+     * by sending no logic state, and skipping the policy there would hand a consumer that opts in an unjudged secret.
+     */
+    private boolean hiddenFromTheFieldActions(String fieldName) {
+        if (fieldMetadata.sensitiveFields().contains(fieldName)) {
+            return logicEvaluator.visibility(fieldName) == ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED;
+        }
+        return logicEvaluator.isHidden(fieldName);
     }
 
     /**
@@ -627,7 +719,7 @@ class FormSubmissionPipeline {
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
         List<ResolvedAction> actions = actions();
-        List<SubmittedFile> submittedFiles = toSubmittedFiles(parsed.files());
+        List<SubmittedFile> submittedFiles = toSubmittedFiles(publicFiles());
         int total = actions.size();
         int executed = 0;
         String siteKey = siteKeyOrNull();
@@ -641,44 +733,73 @@ class FormSubmissionPipeline {
             if (handler == null) {
                 throw new SubmissionException(
                         ErrorCode.FMDB_008,
-                        "Action '" + nodeType + "' failed (" + executed + "/" + total
-                                + " actions completed): no handler is registered for this action type.",
+                        actionFailed(nodeType, executed, total) + "no handler is registered for this action type.",
                         executed,
                         total
                 );
             }
+            // set inside the action's session, before it runs, once its selection is known; read by the catches below
+            AtomicBoolean held = new AtomicBoolean();
             try {
                 FormActionResult result = jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale,
-                        systemSession -> executeAction(handler, action.id(), systemSession, req, siteKey, submittedFiles));
+                        systemSession -> executeAction(handler, action.id(), systemSession, req, siteKey, submittedFiles, held));
                 executed++;
                 keepFirstInstruction(result, nodeType);
             } catch (WrappedFormActionException e) {
-                FormActionException cause = e.getFormActionException();
-                throw actionFailure(nodeType, executed, total, cause);
+                throw actionFailure(nodeType, executed, total, e.getFormActionException(), held.get());
             } catch (RepositoryException e) {
-                throw actionFailure(nodeType, executed, total, e);
+                throw actionFailure(nodeType, executed, total, e, held.get());
             } catch (RuntimeException e) {
-                if (!isReadOnlyRejection(e)) {
-                    throw e;
-                }
-                throw actionFailure(nodeType, executed, total, e);
+                throw runtimeActionFailure(nodeType, executed, total, e, held.get());
             }
         }
     }
 
+    /** The failure of an action, redacted when it held sensitive values ({@link #redactedActionFailure}). */
+    private SubmissionException actionFailure(String nodeType, int executed, int total, Throwable cause, boolean held) {
+        return held
+                ? redactedActionFailure(nodeType, executed, total, cause)
+                : actionFailure(nodeType, executed, total, cause);
+    }
+
     /**
-     * Runs one action in the system session of the call: a contextual action is handed its context and answers a
-     * result, a plain action receives its five arguments and answers nothing.
+     * The failure of an action that threw a runtime exception: the repository's read-only rejection is an action failure;
+     * any other is rethrown as it is, unless the action held sensitive values.
+     */
+    private SubmissionException runtimeActionFailure(String nodeType, int executed, int total, RuntimeException e,
+                                                     boolean held) {
+        if (isReadOnlyRejection(e)) {
+            return actionFailure(nodeType, executed, total, e, held);
+        }
+        if (!held) {
+            throw e;
+        }
+        // The 500 FMDB-500 the servlet answers to the same exception rethrown, with a cause that keeps the stack
+        // and drops the text: an action that held a secret may have thrown it in its message.
+        return new SubmissionException(ErrorCode.FMDB_500,
+                actionFailed(nodeType, executed, total) + REDACTED.formatted(e.getClass().getName()),
+                redacted(e, false));
+    }
+
+    /**
+     * Runs one action in the system session of the call: a contextual action is handed its context, with the sensitive
+     * values its selection gives ({@link #select}), and answers a result; a plain action receives its five arguments —
+     * the public values — and answers nothing. {@code held} is set before the action runs when it is handed sensitive
+     * values, so that the dispatch knows a failure of the action may carry a secret.
      */
     private FormActionResult executeAction(FormAction handler, String actionId, JCRSessionWrapper systemSession,
-                                           HttpServletRequest req, String siteKey, List<SubmittedFile> files)
-            throws RepositoryException {
+                                           HttpServletRequest req, String siteKey, List<SubmittedFile> files,
+                                           AtomicBoolean held) throws RepositoryException {
         JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(actionId);
         try {
             if (handler instanceof ContextualFormAction contextual) {
-                return contextual.execute(contextFor(actionNode, systemSession, req, siteKey, files));
+                Map<String, List<String>> sensitive = sensitiveParameters.isEmpty()
+                        ? Map.of()
+                        : select(sensitiveParameters, contextual.sensitiveFieldsConsumed(actionNode));
+                held.set(!sensitive.isEmpty());
+                return contextual.execute(contextFor(actionNode, systemSession, req, siteKey, files, sensitive));
             }
-            handler.execute(actionNode, req, session, parsed.parameters(), files);
+            handler.execute(actionNode, req, session, publicParameters, files);
             return FormActionResult.none();
         } catch (FormActionException e) {
             throw new WrappedFormActionException(e);
@@ -696,11 +817,11 @@ class FormSubmissionPipeline {
     }
 
     private FormActionContext contextFor(JCRNodeWrapper actionNode, JCRSessionWrapper systemSession,
-                                         HttpServletRequest req, String siteKey, List<SubmittedFile> files)
-            throws RepositoryException {
-        // no field type is sensitive yet: the map of sensitive values is empty for every action
+                                         HttpServletRequest req, String siteKey, List<SubmittedFile> files,
+                                         Map<String, List<String>> sensitive) throws RepositoryException {
+        // the sensitive values reach only the action whose selection asks for them (step 9a)
         return new FormActionContext(actionNode, systemSession.getNodeByIdentifier(formId), req, response, session,
-                locale, siteKey == null ? "" : siteKey, parsed.parameters(), Map.of(), files);
+                locale, siteKey == null ? "" : siteKey, publicParameters, sensitive, files);
     }
 
     /**
@@ -745,8 +866,51 @@ class FormSubmissionPipeline {
     private SubmissionException actionFailure(String nodeType, int executed, int total, Throwable cause) {
         ErrorCode code = isReadOnlyRejection(cause) ? ErrorCode.FMDB_014 : ErrorCode.FMDB_008;
         return new SubmissionException(code,
-                "Action '" + nodeType + "' failed (" + executed + "/" + total + " actions completed): " + cause.getMessage(),
+                actionFailed(nodeType, executed, total) + cause.getMessage(),
                 executed, total, cause, actionHttpStatus(code, cause));
+    }
+
+    /** The start of an action failure's message: which action failed, and how many of the actions had completed. */
+    private static String actionFailed(String nodeType, int executed, int total) {
+        return "Action '" + nodeType + "' failed (" + executed + "/" + total + " actions completed): ";
+    }
+
+    /**
+     * The failure of an action that held sensitive values: the code and the status {@link #actionFailure} gives, but a
+     * library may have quoted the secret in a message, so the failure keeps the stack of each throwable of the chain
+     * and drops its text ({@link #redacted}). A {@link FormActionException} keeps its own message, which the action
+     * wrote and answers for ({@link ContextualFormAction#sensitiveFieldsConsumed}); only its causes lose their text.
+     */
+    private SubmissionException redactedActionFailure(String nodeType, int executed, int total, Throwable cause) {
+        ErrorCode code = isReadOnlyRejection(cause) ? ErrorCode.FMDB_014 : ErrorCode.FMDB_008;
+        boolean ownMessage = cause instanceof FormActionException;
+        String reason = ownMessage ? cause.getMessage() : REDACTED.formatted(cause.getClass().getName());
+        return new SubmissionException(code,
+                actionFailed(nodeType, executed, total) + reason,
+                executed, total, redacted(cause, ownMessage), actionHttpStatus(code, cause));
+    }
+
+    /**
+     * The failure of an action that held sensitive values, as it may be logged: each throwable of the cause chain
+     * becomes a {@link RedactedThrowable} that names its class and keeps its stack, its message removed.
+     * {@code keepFirstMessage} keeps the message of the first one, a {@link FormActionException}'s. Suppressed
+     * throwables are left out, their text with them.
+     */
+    static Throwable redacted(Throwable failure, boolean keepFirstMessage) {
+        List<Throwable> chain = new ArrayList<>();
+        Set<Throwable> seen = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Throwable current = failure; current != null && seen.add(current); current = current.getCause()) {
+            chain.add(current);
+        }
+        Throwable redacted = null;
+        for (int i = chain.size() - 1; i >= 0; i--) {
+            Throwable original = chain.get(i);
+            String text = i == 0 && keepFirstMessage
+                    ? original.getClass().getName() + ": " + original.getMessage()
+                    : REDACTED.formatted(original.getClass().getName());
+            redacted = new RedactedThrowable(text, redacted, original.getStackTrace());
+        }
+        return redacted;
     }
 
     /**
@@ -772,6 +936,19 @@ class FormSubmissionPipeline {
             }
         }
         return false;
+    }
+
+    /**
+     * The uploads the actions receive: every parsed file but those of a sensitive field. A sensitive type is never a
+     * file field, and the collector warns about a type that declares both. Should such a field still send a file, the
+     * sensitive marker wins: the upload reaches no action, not even one that opts in to the sensitive values.
+     */
+    private List<FormDataParser.FormFile> publicFiles() {
+        Set<String> sensitive = fieldMetadata.sensitiveFields();
+        if (sensitive.isEmpty()) {
+            return parsed.files();
+        }
+        return parsed.files().stream().filter(file -> !sensitive.contains(file.fieldName())).toList();
     }
 
     private static List<SubmittedFile> toSubmittedFiles(List<FormDataParser.FormFile> parsedFiles) {
@@ -829,6 +1006,14 @@ class FormSubmissionPipeline {
     // --- Internal types ---
 
     record ResolvedAction(String id, String path, String nodeType, boolean readOnlyCompatible) {}
+
+    /** A throwable of a failure that may carry a secret, as it is logged: its class name and its stack, never its text. */
+    static final class RedactedThrowable extends Exception {
+        RedactedThrowable(String text, Throwable cause, StackTraceElement[] stackTrace) {
+            super(text, cause, false, true);
+            setStackTrace(stackTrace);
+        }
+    }
 
     private static final class WrappedFormActionException extends RuntimeException {
         private final FormActionException formActionException;

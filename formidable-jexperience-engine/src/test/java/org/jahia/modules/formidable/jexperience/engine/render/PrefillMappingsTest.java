@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.jexperience.engine.render;
 
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
 import org.jahia.services.content.JCRNodeWrapper;
@@ -91,6 +92,24 @@ class PrefillMappingsTest {
         assertEquals("the field is mapped but names no profile property (none chosen, or the list no longer offers it)",
                 PrefillMappings.leftOut(field("switchedOn", "", true, true)));
         assertNull(PrefillMappings.leftOut(field("firstName", "firstName", true, true)));
+    }
+
+    @Test
+    void aSensitiveFieldIsNeverPrefilledEvenMappedWithThePrefillOn() throws Exception {
+        // Verifies "sensitive wins" at the render: a type declaring the sensitive marker and the mappable one (an
+        // extension module's mistake) is mapped with its prefill on, and still never receives a profile value — the
+        // reason is the first one named — while it stays a dependency of the block like any mappable field.
+        JCRNodeWrapper secret = field("password", "password", true, true);
+        when(secret.isNodeType(FmdbMixin.SENSITIVE_FIELD)).thenReturn(true);
+        when(secret.isNodeType(FmdbMixin.PROFILE_MAPPABLE_FIELD)).thenReturn(true);
+        when(secret.getPrimaryNodeTypeName()).thenReturn("myext:prefilledSecret");
+
+        PrefillMappings.Prefill prefill = over(List.of(field("firstName", "firstName", true, true), secret))
+                .read(mock(JCRSessionWrapper.class), mock(JCRNodeWrapper.class));
+
+        assertEquals(List.of("firstName"), List.copyOf(prefill.entries().keySet()));
+        assertEquals(2, prefill.dependencies().size());
+        assertEquals("the field is sensitive (fmdbmix:sensitiveField) and never takes a profile value", PrefillMappings.leftOut(secret));
     }
 
     @Test

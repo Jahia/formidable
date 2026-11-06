@@ -214,20 +214,6 @@ public final class RedirectTargets {
     }
 
     /**
-     * Swaps the context path the engine's servlet reports ({@code <context>/modules}) for the platform's, which is what
-     * a page link must carry once the URL rewriting has run. A URL that does not start with the servlet's context path
-     * is returned as is.
-     */
-    public static String swapContextPath(String rewrittenUrl, String servletContextPath, String platformContextPath) {
-        if (rewrittenUrl == null || servletContextPath == null || servletContextPath.isEmpty()
-                || !rewrittenUrl.startsWith(servletContextPath + "/")) {
-            return rewrittenUrl;
-        }
-        String platform = platformContextPath == null ? "" : platformContextPath;
-        return platform + rewrittenUrl.substring(servletContextPath.length());
-    }
-
-    /**
      * A backslash (some browsers read {@code /\evil.com} as {@code //evil.com}), a control character, a space or line
      * separator of any kind, or an invisible format character such as U+FEFF: the browser refuses the same set
      * ({@code useFormSubmission.ts}), so the two checks agree on what is sent.

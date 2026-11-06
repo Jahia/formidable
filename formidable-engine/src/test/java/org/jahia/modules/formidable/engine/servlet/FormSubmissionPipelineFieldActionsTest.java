@@ -133,10 +133,14 @@ class FormSubmissionPipelineFieldActionsTest {
         field.set(target, value);
     }
 
+    /** Steps 9a and 11b, in the order {@link FormSubmissionPipeline#run} calls them. */
     private static void runFieldActions(FormSubmissionPipeline pipeline) throws Exception {
+        Method separate = FormSubmissionPipeline.class.getDeclaredMethod("separateSensitiveValues");
+        separate.setAccessible(true);
         Method method = FormSubmissionPipeline.class.getDeclaredMethod("runFieldActions");
         method.setAccessible(true);
         try {
+            separate.invoke(pipeline);
             method.invoke(pipeline);
         } catch (InvocationTargetException e) {
             throw (Exception) e.getCause();
@@ -144,11 +148,82 @@ class FormSubmissionPipelineFieldActionsTest {
     }
 
     private static ResolvedFieldAction action(String id, Severity severity) {
-        return new ResolvedFieldAction(id, TYPE, Trigger.BLUR, severity, Unavailable.ACCEPT);
+        return new ResolvedFieldAction(id, TYPE, Trigger.BLUR, severity, Unavailable.ACCEPT, false);
     }
 
     private static ConditionalLogicEvaluator allVisible() {
         return mock(ConditionalLogicEvaluator.class);
+    }
+
+    /** A Java action of the given type, opting in to sensitive values or not, recording the values it judged. */
+    private static FieldAction recording(String type, boolean consumesSensitiveValues, FieldActionResult result, List<String> judged) {
+        return new FieldAction() {
+            @Override
+            public String getNodeType() {
+                return type;
+            }
+
+            @Override
+            public boolean consumesSensitiveValues() {
+                return consumesSensitiveValues;
+            }
+
+            @Override
+            public FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
+                judged.add(request.value());
+                return result;
+            }
+        };
+    }
+
+    @Test
+    void onASensitiveFieldOnlyTheActionsThatOptInJudgeItsValue() throws Exception {
+        // Verifies step 11b on a password: a generic check that does not opt in never sees its value, the policy check that opts in does and refuses with FMDB-015, and the engine's own
+        // refusal text does not carry the password, even when the contributor's message asks for ${value}.
+        String secret = "S3cretPass!";
+        List<String> genericJudged = new ArrayList<>();
+        List<String> policyJudged = new ArrayList<>();
+        FieldActionDispatcher dispatcher = new FieldActionDispatcher(() -> List.of(
+                recording(TYPE, false, FieldActionResult.reject("generic"), genericJudged),
+                recording("myco:passwordPolicy", true, FieldActionResult.reject("weak"), policyJudged)),
+                new VerdictCache(), () -> Duration.ofSeconds(300), repository("Too weak: ${value}"));
+        FormDataParser.FieldInfo password = new FormDataParser.FieldInfo("fmdbext:password", false, false, false, false,
+                false, false, false, java.util.Set.of(), java.util.Set.of(), null);
+        Map<String, List<ResolvedFieldAction>> actions = Map.of("password", List.of(
+                new ResolvedFieldAction("a1", TYPE, Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT, true),
+                new ResolvedFieldAction("a2", "myco:passwordPolicy", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT, true)));
+        FormSubmissionPipeline pipeline = pipelineAtStep11b(dispatcher, actions,
+                Map.of("password", List.of(secret), "email", List.of("ada@example.com")), allVisible());
+        set(pipeline, "fieldMetadata", new FormFieldMetadataCollector.Result(Map.of("password", password), Map.of(), Map.of(), Map.of(), actions,
+                java.util.Set.of("password")));
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> runFieldActions(pipeline));
+
+        assertEquals(ErrorCode.FMDB_015, error.errorCode);
+        assertEquals(List.of(), genericJudged);
+        assertEquals(List.of(secret), policyJudged);
+        assertEquals("Too weak: ", error.messages().get(0).html());
+        assertFalse(error.messages().get(0).html().contains(secret));
+        assertFalse(error.getMessage().contains(secret));
+    }
+
+    @Test
+    void aSensitiveFieldWhoseActionsDoNotOptInIsNotJudged() throws Exception {
+        // Verifies the default: a password carrying only a generic check passes step 11b untouched, the check never run.
+        List<String> judged = new ArrayList<>();
+        FieldActionDispatcher dispatcher = new FieldActionDispatcher(() -> List.of(recording(TYPE, false, FieldActionResult.reject("x"), judged)),
+                new VerdictCache(), () -> Duration.ZERO, repository("No"));
+        FormDataParser.FieldInfo password = new FormDataParser.FieldInfo("fmdbext:password", false, false, false, false,
+                false, false, false, java.util.Set.of(), java.util.Set.of(), null);
+        Map<String, List<ResolvedFieldAction>> actions = Map.of("password",
+                List.of(new ResolvedFieldAction("a1", TYPE, Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT, true)));
+        FormSubmissionPipeline pipeline = pipelineAtStep11b(dispatcher, actions, Map.of("password", List.of("S3cretPass!")), allVisible());
+        set(pipeline, "fieldMetadata", new FormFieldMetadataCollector.Result(Map.of("password", password), Map.of(), Map.of(), Map.of(), actions,
+                java.util.Set.of("password")));
+
+        runFieldActions(pipeline);
+
+        assertTrue(judged.isEmpty());
     }
 
     @Test

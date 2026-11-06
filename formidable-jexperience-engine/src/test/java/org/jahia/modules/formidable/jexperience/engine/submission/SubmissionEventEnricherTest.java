@@ -104,6 +104,26 @@ class SubmissionEventEnricherTest {
 
     @Test
     @SuppressWarnings("unchecked")
+    void aSensitiveFieldNeverLeavesEvenIfItsValueWereInTheParametersAndItsTypeClaimedToBeMappable() throws Exception {
+        // Verifies the last line of defence of a password: the pipeline already keeps sensitive values out of the
+        // accepted parameters (engine, step 11a), and a sensitive type is not mappable so the query would not return
+        // it. Here both defences are removed — the value is in the parameters, the type claims the mappable marker and
+        // a text kind — and the field is still left out of the event, its value never looked up.
+        JCRNodeWrapper password = field("password", FmdbMixin.SENSITIVE_FIELD, FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD);
+        when(password.getPrimaryNodeTypeName()).thenReturn("myext:sentSecret");
+        List<JCRNodeWrapper> fields = List.of(field("firstName", FmdbMixin.PROFILE_MAPPABLE_FIELD, FmdbMixin.TEXT_FIELD), password);
+        Map<String, List<String>> parameters = Map.of("firstName", List.of("Ada"), "password", List.of("Sup3r-Secret!"));
+
+        Map<String, Object> entries = enricher(configured("mysite"), 1, fields)
+                .enrich(new AcceptedSubmission(form(), "mysite", Locale.ENGLISH, parameters));
+
+        Map<String, Object> block = (Map<String, Object>) entries.get(SubmissionEventEnricher.KEY);
+        assertEquals(Map.of("firstName", "Ada"), block.get("fields"));
+        assertTrue(!entries.toString().contains("Sup3r-Secret!"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
     void theBlockCarriesTheFormUuidAndTheValuesShapedLikeTheRule() throws Exception {
         // Verifies the nominal block: a text field gives a string, a checkbox group and a multiple select give
         // lists even with one value, a field the submitter left out is absent, an unknown parameter never appears.

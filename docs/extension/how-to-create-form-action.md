@@ -146,7 +146,8 @@ If the string does not match exactly, the action will never be executed.
 Inside `execute(...)`:
 
 - `actionNode` contains the current action configuration stored in JCR
-- `parameters` contains the validated text fields as `Map<String, List<String>>`
+- `parameters` contains the validated text fields as `Map<String, List<String>>`, minus the sensitive ones (a
+  password): a plain `FormAction` never receives a sensitive value ([Step 6c](#step-6c-receive-sensitive-values))
 - `req` is the current servlet request
 - `session` is the current JCR session
 
@@ -181,6 +182,11 @@ The SPI-level file contract exposes:
 - `originalName`
 - `mimeType`
 - `data`
+
+`files` never holds an upload of a field whose type declares `fmdbmix:sensitiveField`. A sensitive type is never a
+file field, and the pipeline drops the uploads of a type that declares both before the dispatch, even for an
+action that opts in to sensitive values ([Sensitive
+fields](../architecture/form-submission-flow.md#sensitive-fields)).
 
 ## Step 6: Fail correctly with `FormActionException`
 
@@ -248,6 +254,64 @@ public class ThankYouFormAction implements ContextualFormAction {
   redirect is never shown, because a redirect replaces the success message: return one or the other.
 - A **failure** is a `FormActionException`, as in step 6: the browser reads `FMDB-008`.
 
+## Step 6c: Receive sensitive values
+
+A field whose type declares `fmdbmix:sensitiveField` (the password input of `formidable-extended-inputs`) holds a
+secret. The pipeline sets its value apart before any action runs ([Sensitive
+fields](../architecture/form-submission-flow.md#sensitive-fields)): `parameters` never holds it, for a plain action
+as for a contextual one. Only a `ContextualFormAction` can receive it, and only when it opts in from its Java code,
+by overriding `sensitiveFieldsConsumed(actionNode)`:
+
+```java
+@Component(service = FormAction.class)
+public class SignUpFormAction implements ContextualFormAction {
+
+    @Override public String getNodeType() { return "mymod:signUpAction"; }
+
+    /** Every sensitive value of the form; the action reads the field its configuration names. */
+    @Override
+    public SensitiveFields sensitiveFieldsConsumed(JCRNodeWrapper actionNode) {
+        return SensitiveFields.all();
+    }
+
+    @Override
+    public FormActionResult execute(FormActionContext context) throws FormActionException {
+        String email = context.parameter("email");                          // a field that is not sensitive
+        String password = context.sensitiveParameter(passwordField(context.actionNode()));  // only because of the opt-in
+        createAccount(email, hash(password));                               // the value goes where the action needs it, and nowhere else
+        return FormActionResult.none();
+    }
+}
+```
+
+| `sensitiveFieldsConsumed` returns | The action receives |
+|---|---|
+| `SensitiveFields.none()`, the default | no sensitive value |
+| `SensitiveFields.all()` | every sensitive value of the form, in `context.sensitiveParameters()` |
+
+- `SensitiveFields` (`org.jahia.modules.formidable.engine.api`) is a closed type: a final class with a private
+  constructor, built only by its factories. A module reads a selection with `selectsAll()`, and never builds one of
+  its own. Return `SensitiveFields.all()`, and read only the fields the action's configuration names, by convention.
+- The pipeline asks `sensitiveFieldsConsumed` only when the submission carries a sensitive value, at dispatch,
+  with the action's node: keep it a pure answer, with no side effect.
+- `context.sensitiveParameter(name)` answers the first non-blank value, as `parameter(name)` does; `null` for an
+  unanswered field, a field that is not sensitive, or an action that did not opt in.
+- No mixin of the action type declares the opt-in: a mixin is content-model data that any module's CND could attach
+  to your type. The code that handles the secret is the one that says it does.
+- An action that opts in **takes on a duty the engine cannot enforce**: it never stores, mails, logs nor returns a
+  sensitive value — not in a `FormActionResult`, a `FormActionException` message, a cookie, a header, nor anything an
+  operator or the browser reads. An action that would relay the value elsewhere (a CRM sync, a forward) must not opt
+  in. Review of the action's code is the only guarantee. Logging `context` stays safe: its `toString()` names the
+  sensitive fields, never their values.
+- Cap the length of a sensitive value before you hash it. A slow password hash costs time in proportion to its
+  input, and a sensitive type other than `fmdbext:password` (`maxLength` 128) may set no maximum length.
+- A form with a sensitive field and no action that opts in accepts the submission and drops the value, with nothing
+  logged.
+
+`formidable-test-module-samples-java` holds two samples, on either side of the boundary:
+`SensitiveConsumerFormAction` opts in, `SensitiveNonConsumerFormAction` keeps the default. They report counts and
+lengths in response headers for the test suite, which a real action never does.
+
 ## Step 7: Add authoring support
 
 The runtime code is not enough by itself. Contributors still need to be able to create and configure the action node.
@@ -270,7 +334,8 @@ Recommended practices:
 - prefer logical identifiers over raw URLs or secrets stored in content
 - keep outbound targets in operator-managed configuration when possible
 - use strict allowlists for external integrations
-- do not log sensitive submitted values
+- do not log submitted values; a sensitive value (a password) reaches an action only when it opts in ([Step
+  6c](#step-6c-receive-sensitive-values)), and then it is never stored, mailed, logged nor returned
 - return generic error messages for user-facing failures
 
 ## Troubleshooting

@@ -283,6 +283,88 @@ describe('useFormSubmission: a rejection that names a field', () => {
 		await next;
 	});
 
+	it('empties the password controls after a refusal, and only them', async () => {
+		const {form, done} = submitForm(`${EMAIL_FIELD}<div class="fmdb-form-group"><input type="password" name="password" value="Sup3r-Secret!"/></div>`);
+		await settled();
+		requests[0].answer(422, refusal('FMDB-015', 'email', 'We do not know this domain'));
+		await done;
+
+		expect(form.querySelector<HTMLInputElement>('input[type="password"]')!.value).toBe('');
+		// the visitor retypes the password, not the whole form
+		expect(form.querySelector<HTMLInputElement>('input[name="email"]')!.value).toBe('ada@nowhere.test');
+	});
+
+	it('empties every text control of a sensitive field after a refusal, whatever its type, and leaves its toggle alone', async () => {
+		// a third-party sensitive type: a PIN in a tel input, a textarea, a show/hide checkbox
+		const {form, done} = submitForm(`${EMAIL_FIELD}
+			<div data-fmdb-node-name="pin" data-fmdb-sensitive="true">
+				<input type="tel" name="pin" value="4821"/>
+				<textarea name="pinNote">kept secret</textarea>
+				<input type="checkbox" name="pinShown" value="on" checked/>
+			</div>`);
+		const inputs: string[] = [];
+		form.addEventListener('input', event => inputs.push((event.target as HTMLInputElement).name));
+		await settled();
+		requests[0].answer(422, refusal('FMDB-015', 'email', 'We do not know this domain'));
+		await done;
+
+		expect(form.querySelector<HTMLInputElement>('input[name="pin"]')!.value).toBe('');
+		expect(form.querySelector<HTMLTextAreaElement>('textarea')!.value).toBe('');
+		expect(form.querySelector<HTMLInputElement>('input[name="pinShown"]')!.value).toBe('on');
+		expect(form.querySelector<HTMLInputElement>('input[name="email"]')!.value).toBe('ada@nowhere.test');
+		// each emptied control tells its listeners, as the visitor's own typing would: none other
+		expect(inputs).toEqual(['pin', 'pinNote']);
+	});
+
+	it('empties a control React drives through the native setter, so its onChange sees the empty value', async () => {
+		const {form, done} = submitForm(`${EMAIL_FIELD}<div data-fmdb-sensitive="true"><input type="text" name="pin" value="4821"/></div>`);
+		const pin = form.querySelector<HTMLInputElement>('input[name="pin"]')!;
+		// React's value tracker: its own setter on the element records the value, and an input event whose
+		// value equals the recorded one is no change, so onChange never fires and the next render writes it back
+		const native = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!;
+		let tracked = pin.value;
+		Object.defineProperty(pin, 'value', {
+			get: () => native.get!.call(pin),
+			set: (value: string) => {
+				tracked = value;
+				native.set!.call(pin, value);
+			},
+		});
+		const changes: string[] = [];
+		form.addEventListener('input', event => {
+			const value = (event.target as HTMLInputElement).value;
+			if (value !== tracked) changes.push(value);
+		});
+		await settled();
+		requests[0].answer(422, refusal('FMDB-015', 'email', 'We do not know this domain'));
+		await done;
+
+		expect(pin.value).toBe('');
+		expect(changes).toEqual(['']);
+	});
+
+	it('empties the sensitive field only, when a plain field shares its name', async () => {
+		const {form, done} = submitForm(`
+			<div data-fmdb-node-name="code"><input type="text" name="code" value="ABC"/></div>
+			<div data-fmdb-node-name="code" data-fmdb-sensitive="true"><input type="text" name="code" value="4821"/></div>`);
+		await settled();
+		requests[0].answer(503, '{}');
+		await done;
+
+		const [plain, secret] = Array.from(form.querySelectorAll<HTMLInputElement>('input[name="code"]'));
+		expect(secret.value).toBe('');
+		expect(plain.value).toBe('ABC');
+	});
+
+	it('empties the password controls when the request never gets an answer', async () => {
+		const {form, done} = submitForm('<input type="password" name="password" value="Sup3r-Secret!"/>');
+		await settled();
+		requests[0].onerror?.();
+		await done;
+
+		expect(form.querySelector<HTMLInputElement>('input[type="password"]')!.value).toBe('');
+	});
+
 	it('sends once the asynchronous pre-validation accepts, the spinner shown from then', async () => {
 		const {done, setIsLoading} = submitForm(EMAIL_FIELD, () => Promise.resolve(true));
 		await settled();
@@ -432,6 +514,22 @@ describe('useFormSubmission: what an action answers', () => {
 		// a next page slow to answer may still replace this one: nothing it would show is undone
 		expect(reset).not.toHaveBeenCalled();
 		expect(form.querySelector('input')!.value).toBe('Lyon');
+	});
+
+	it('empties the secrets, and only them, when the redirect leaves the page in place', async () => {
+		const {form} = submitForm(`<input name="city" value="Paris"/><input type="password" name="password" value="Sup3r-Secret!"/>
+			<div data-fmdb-node-name="pin" data-fmdb-sensitive="true"><input type="text" name="pin" value="4821"/></div>`);
+		await vi.advanceTimersByTimeAsync(0);
+		requests.at(-1)?.answer(200, '{"success":true,"redirect":"/files/brochure.zip"}');
+		await vi.advanceTimersByTimeAsync(600);
+		// the next page may still come: until the fallback, nothing is touched
+		expect(form.querySelector<HTMLInputElement>('input[name="password"]')!.value).toBe('Sup3r-Secret!');
+
+		await vi.advanceTimersByTimeAsync(3000);
+
+		expect(form.querySelector<HTMLInputElement>('input[name="password"]')!.value).toBe('');
+		expect(form.querySelector<HTMLInputElement>('input[name="pin"]')!.value).toBe('');
+		expect(form.querySelector<HTMLInputElement>('input[name="city"]')!.value).toBe('Paris');
 	});
 
 	it('shows the success outcome when the browser brings the page back from its back-forward cache', async () => {

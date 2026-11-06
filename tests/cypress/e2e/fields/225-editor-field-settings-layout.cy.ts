@@ -14,6 +14,7 @@ import {
 	getInputNumberNode,
 	getInputRangeNode,
 	getInputTextNode,
+	getPasswordNode,
 	getPhoneNode,
 	getRadioNode,
 	getRatingNode,
@@ -234,6 +235,15 @@ const LAYOUTS: Record<string, Layout> = {
 			['validationMessages', TEXT_MESSAGES]
 		]
 	},
+	// A sensitive field from the optional module: laid out as the phone, with no default value nor pattern.
+	'fmdbext:password': {
+		settings: [
+			['helpAndPresentation', ['helpText']],
+			['valueAndInput', ['placeholder', 'autocompleteMode']],
+			['constraints', ['minLength', 'maxLength']],
+			['validationMessages', TEXT_MESSAGES]
+		]
+	},
 	// A choice field from the optional module: laid out as the radio.
 	'fmdbext:card': {
 		content: ['required', 'optionsMode'],
@@ -304,7 +314,8 @@ describe('Form fields - 225 The field editor layout', () => {
 			getScaleNode({name: 'nps', title: 'Recommendation'}),
 			getSwitchNode({name: 'newsletter', title: 'Newsletter'}),
 			getCardNode({name: 'reason', title: 'Reason', choices: [{value: 'sales', label: 'Sales'}]}),
-			getPhoneNode({name: 'mobile', title: 'Mobile'})
+			getPhoneNode({name: 'mobile', title: 'Mobile'}),
+			getPasswordNode({name: 'secret', title: 'Secret'})
 		]);
 	});
 
@@ -441,5 +452,6 @@ describe('Form fields - 225 The field editor layout', () => {
 		assertLayout('newsletter', 'fmdbext:switch');
 		assertLayout('reason', 'fmdbext:card');
 		assertLayout('mobile', 'fmdbext:phone');
+		assertLayout('secret', 'fmdbext:password');
 	});
 });

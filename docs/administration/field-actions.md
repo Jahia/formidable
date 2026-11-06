@@ -47,7 +47,7 @@ development, a malformed one — is logged once with the service's name and the 
 | `enableDevFieldActionEndpoints` | `true` lets a check whose own file says `development=true` call its double over plain HTTP on `localhost` or `host.docker.internal`, as `enableDevForwardTargets` does for the forward targets. `false` by default; never in production |
 | `fieldActionHttpConnectTimeoutSeconds` | Time to establish the connection to the service. Default 5 |
 | `fieldActionHttpRequestTimeoutSeconds` | Total time for one call. A slower service is an unavailable check, which the contributor's **If the check cannot run** setting decides. Default 10 |
-| `fieldActionVerdictCacheTtlSeconds` | How long a verdict on one value is kept, per action, language and value, so that the check run while the visitor typed costs no second call at submission. `0` disables the cache. Default 300 |
+| `fieldActionVerdictCacheTtlSeconds` | How long a verdict on one value is kept, per action, language and value, so that the check run while the visitor typed costs no second call at submission. `0` disables the cache. A sensitive field (a password) is never cached: its checks run at the pre-check and again at submission. Default 300 |
 | `fieldActionRateLimitPerMinute` | Pre-checks accepted per client address and minute on the endpoint (`FMDB-016` past it). `0` switches the endpoint off: the checks then run at submission only. Default 30 |
 | `fieldActionMaxValueLength` | Longest value the endpoint accepts (`FMDB-003` above). Default 512 |
 | `fieldActionMaxValuesPerField` | Distinct answers of one field the submission judges — each may cost a call — before refusing the submission (`FMDB-017`). Default 50 |

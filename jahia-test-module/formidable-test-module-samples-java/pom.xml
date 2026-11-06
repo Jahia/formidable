@@ -72,7 +72,7 @@
             <version>${json.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!-- The samples carry one unit test: a field action's rules are worth showing tested, since a module
+        <!-- The samples carry unit tests: an action's rules are worth showing tested, since a module
              copying this one inherits the shape of both. Nothing else in this module is tested here — the
              Cypress suite exercises it on a running Jahia. -->
         <dependency>
@@ -86,6 +86,14 @@
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
             <version>5.12.0</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- Referenced by the signatures of the JCR wrappers the tests mock (JCRNodeWrapper reaches
+             org.apache.commons.lang.mutable): without it Mockito cannot build the mock type. -->
+        <dependency>
+            <groupId>commons-lang</groupId>
+            <artifactId>commons-lang</artifactId>
+            <version>2.6</version>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -127,6 +135,7 @@
                     <failOnWarning>true</failOnWarning>
                     <ignoredUnusedDeclaredDependencies>
                         <ignoredUnusedDeclaredDependency>org.junit.jupiter:junit-jupiter-engine</ignoredUnusedDeclaredDependency>
+                        <ignoredUnusedDeclaredDependency>commons-lang:commons-lang</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>javax.jcr:jcr</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>org.osgi:osgi.annotation</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>org.springframework:spring-webmvc</ignoredUnusedDeclaredDependency>

@@ -71,8 +71,10 @@ start with `http://` or `https://` (`www.example.com`, `/sites/mysite/home.html`
 1. `RedirectFormAction` (engine, `actions/form/redirect`) is the `ContextualFormAction` of `fmdb:redirectAction`.
 2. Resolution:
    - `page`: the `page` node read in **live**, in the submission's locale (the action node came from that
-     session); its URL is `node.getUrl()` passed through the outbound URL rewriting, the servlet's
-     `<context>/modules` context path swapped for the platform's (`PageLinks`). The rewriting calls
+     session); its URL is `node.getUrl()` passed through the outbound URL rewriting, with a request that reports the
+     platform's context path instead of the servlet's `<context>/modules` (`PageLinks`). The rewriting reads the
+     context path from the request: it starts the rewritten URL with it, and a page of a site with another server name
+     gets that server in front of it; it also looks a vanity URL up only when it equals the link's. The rewriting calls
      `response.encodeURL`, which adds `;jsessionid=...` for a visitor with no session cookie yet, since the platform's
      `web.xml` leaves URL session tracking on: `PageLinks` hands it a response whose `encodeURL` leaves the URL as it
      is. An absolute URL of the server the request reached is reduced to its path and returned with `redirectTo(path)`;
@@ -114,11 +116,13 @@ The [import](forms-import.md) converts `fcnt:redirectToAPageAction` and `fcnt:re
 ## Tests
 
 - Unit (engine): `RedirectFormActionTest` (each target and the kind of redirect it becomes, the language fallback,
-  a page that no longer resolves), `PageLinksTest` (no session id in the URL), `RedirectTargetsTest` (the path of a
-  URL of this server, the context path swap, beside the two rules).
+  a page that no longer resolves), `PageLinksTest` (the platform's context path for the rewriting, no session id in
+  the URL), `RedirectTargetsTest` (the path of a URL of this server, beside the two rules).
 - Unit (elements): `redirectAction.server.test.ts` (the card's detail and its two warnings; the URL warning on the
   list of cases the server's rule and the island's check read too, `redirect-targets.json`).
 - Cypress: `tests/cypress/e2e/actions/89-redirect-action.cy.ts` (a form redirecting to a path, to another website,
   to a page, live, with no submission message before the next page and no submitted value in its URL; the constraint
   refusing an address without a scheme; unusable targets answering without a redirect; the first usable redirect
-  winning; the two warnings of the actions zone).
+  winning; the two warnings of the actions zone), and `90-redirect-page-links.cy.ts` (the absolute URL of a page of a
+  site with another server name, the vanity URL of a page that has one, for a submission to a server name other than
+  `localhost`, which the platform needs for both).

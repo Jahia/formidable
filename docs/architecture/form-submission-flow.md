@@ -54,6 +54,12 @@ Browser
                         ├─ file count limit (config.getUploadMaxFileCount())
                         ├─ Tika magic-byte MIME detection
                         └─ allowed types (field accept within the cfg list, or the cfg list)
+         Step 9a  separateSensitiveValues the values of the fields carrying fmdbmix:sensitiveField (a password)
+                                          are set apart: every plain action, enricher, the logic step and log line
+                                          read the public map; only a ContextualFormAction whose
+                                          sensitiveFieldsConsumed opts in, and the field actions that opt in,
+                                          receive the sensitive one; a sensitive field sent with more than one
+                                          non-blank value → FMDB-010 (see "Sensitive fields" below)
          Step 10  validateLogicCoherence  reject values submitted for fields provably hidden
                                           by conditional logic (see
                                           conditional-logic-field-resolution.md)
@@ -86,6 +92,52 @@ Browser
   └─ show success or error message
 ```
 
+### Sensitive fields
+
+A field type whose value is a secret by nature declares `fmdbmix:sensitiveField` as a supertype, the way it declares
+a value kind: the password input of `formidable-extended-inputs` (`fmdbext:password`) is the first. The marker is
+**type-level**: there is nothing for an author to tick (decision D1 below). The metadata collector reads it at step 8,
+and step 9a splits the accepted values in two maps right after parsing, which has validated every one of them. The
+required check (step 11) and the field actions (step 11b) still judge every value, a password included:
+
+```
+parsed.parameters() ──► public map      every plain FormAction, the response enrichers (AcceptedSubmission),
+                    │                   the field actions of the fields that are not sensitive, the log lines
+                    └─► sensitive map   the fields carrying fmdbmix:sensitiveField: handed only to a
+                                        ContextualFormAction whose sensitiveFieldsConsumed(actionNode) returns
+                                        SensitiveFields.all(), and judged only by the field actions that opt in
+```
+
+Code that does not opt in is not filtered after the fact: the sensitive map is never handed to it, so a new action,
+enricher or log line is safe without doing anything. The opt-in is a Java method of the handler, never a mixin
+(decision D2): `ContextualFormAction#sensitiveFieldsConsumed(actionNode)` returns a `SensitiveFields`, a closed type
+of the engine's `api` package. `SensitiveFields.none()` is the default and selects nothing. `SensitiveFields.all()`
+selects every sensitive value of the form. A module reads a selection with `selectsAll()` and cannot build one of its
+own: the class is final, and its constructor is private. A plain `FormAction` cannot opt in. A field action opts in with `FieldAction#consumesSensitiveValues()`, a boolean, since it
+only ever sees its own field ([Field actions](field-actions.md#on-a-sensitive-field)).
+
+What the pipeline guarantees, whatever the actions do:
+
+| Surface | What happens to a sensitive value |
+|---|---|
+| Parsing and validation (steps 8-11) | judged like any field: required, minimum and maximum length, pattern. A sensitive field sent with more than one non-blank value is refused (FMDB-010): a password control sends one, and a second value would reach a consumer unjudged. The sensitive map holds only non-blank values, and a field left blank is not in it |
+| Conditional logic (step 10, and the editor) | never an operand: step 10 evaluates without the sensitive values, the logic editor offers a sensitive field as no source, and a rule sourced on one is a broken source, which hides its target (fail-safe). In the browser, `LogicAwareRender` binds no rule sourced on a sensitive field, and `conditionalLogic.ts` keeps its target hidden, as on the server. A type that declares `fmdbmix:textField` too has it ignored, with one warning per type and conflicting marker (`FormFieldMetadataCollector`) |
+| Save to JCR, e-mail notification, e-mail content, forward | never received: they are handed the public map, the value is not in it |
+| Response enrichers, hence the jExperience `jexperience` block | never received: `AcceptedSubmission.parameters()` is the public map. The type is not `fmdbmix:profileMappableField` either; on a type that declares both, the jExperience module offers no mapping, never prefills and never sends the field, with one warning per type (`FieldShapes`). The jExperience section of the editor still shows on such a type, with no property to offer: a CND cannot take it off a type that declares both markers |
+| Field actions (step 11b and the pre-check endpoint) | never one whose registered Java type does not opt in (`FieldAction#consumesSensitiveValues()`), dropped by `FieldActionDispatcher.runnable` for both entry points; a type no deployed module registers is an unavailable check, which the contributor's outage rule decides; the actions of a sensitive field run unless the logic proves the field hidden, even when a rule could not be evaluated (fail-safe), so a forged logic state never skips a password policy; no verdict cache entry is keyed by the value, and no DEBUG line carries an action's detail ([Field actions](field-actions.md#on-a-sensitive-field)) |
+| Logs, error body | never: the parser logs reasons without values, `FormActionContext.toString()` names the fields only, the body never echoes a field. An action that was handed sensitive values and fails is logged with its stack trace and every exception's class, every message removed, since a library may quote the secret in one; its status is the one any action's failure gets. A `FormActionException` keeps its own message: the action writes it |
+| Uploads | never received: a sensitive type is never `fmdbmix:fileField` (decision D4). On a type that declares both, the pipeline drops the uploads of the field before the dispatch, so no action receives them, not even one that opts in. `FormFieldMetadataCollector` logs one warning per such type |
+| Browser (formidable-elements) | `LogicAwareRender` writes `data-fmdb-sensitive="true"` on the wrapper of a sensitive field, and the browser recognises a secret by that attribute or by a `type="password"` control. The password renders as a plain `<input type="password">` with no default value. After every refused submission, and after a redirect that leaves the page in place (the redirect fallback), the island empties the text controls of a sensitive wrapper and every `type="password"` input; it skips a checkbox, a radio or a button, such as a show/hide toggle. A `${…}` placeholder of a form message prints nothing for a sensitive field |
+| A `ContextualFormAction` | only when its `sensitiveFieldsConsumed` returns `SensitiveFields.all()`, in `FormActionContext.sensitiveParameters()` and `sensitiveParameter(name)`; it then owns the duty of never storing, mailing, logging nor returning it ([How to create a form action](../extension/how-to-create-form-action.md#step-6c-receive-sensitive-values)) |
+
+A sensitive value no action consumes is dropped at step 9a, and nothing is logged or shown (decision D3): the drop
+is safe by construction, and the warning a form with a password and no consumer deserves belongs to its author, at
+edit time.
+
+Two duties stay out of reach of the code, and the guides state them: an extension type that holds a secret must
+declare the marker ([third-party fields](../extension/how-to-extend-views-and-elements-from-third-party-module.md)),
+and an action or a field action that opts in must keep the value to itself.
+
 ### Response enrichers
 
 Once every action succeeded, the servlet asks the `SubmissionResponseEnricher` OSGi services
@@ -105,7 +157,7 @@ browser what to do next. A `ContextualFormAction` (engine `api` package, same OS
 
 | Part | What it carries |
 |---|---|
-| `FormActionContext` | the action node and the form (one system session), the request, the **response** (to set a cookie; never to write the body), the visitor's session at submission time, the submission's `locale` and the form's `siteKey`, the `parameters`, the validated `files`. `sensitiveParameters` is always empty: no field type is sensitive |
+| `FormActionContext` | the action node and the form (one system session), the request, the **response** (to set a cookie; never to write the body), the visitor's session at submission time, the submission's `locale` and the form's `siteKey`, the public `parameters`, the `sensitiveParameters` (empty unless the action opts in, see [Sensitive fields](#sensitive-fields)), the validated `files` |
 | `FormActionResult` | a redirect of one of two kinds, `redirectPath` (`redirectTo(path)`) or `redirectUrl` (`redirectToUrl(url)`), and/or a `message` (plain text, already translated) for the browser; `FormActionResult.none()` for nothing |
 
 The request reaches the engine through the platform's `/modules` bridge, so `request.getContextPath()` is
@@ -371,6 +423,10 @@ the verdict cache too,
 so the honest browser's second run costs no second provider call. The first refusal ends the submission
 with `FMDB-015` and a `messages` array the browser anchors on the field; `messages` is a key of the
 servlet, reserved from the response enrichers like `success` and `errorCode`.
+
+On a sensitive field an action whose registered Java type does not opt in never runs. A type no deployed module
+registers is an unavailable check, as on any field. The others run on the value of the sensitive map, never cached by
+it ([Sensitive fields](#sensitive-fields)).
 
 ---
 
@@ -641,4 +697,17 @@ the same-origin `formidable-submit` Security Filter is the CSRF control for this
 | `formidable-engine/.../actions/form/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
 | `formidable-engine/.../actions/form/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
 | `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
+| `formidable-engine/.../api/ContextualFormAction.java` | An action with the context and a result; `sensitiveFieldsConsumed(actionNode)`, which returns a `SensitiveFields`, is its opt-in to sensitive values |
+| `formidable-engine/.../api/SensitiveFields.java` | The sensitive fields an action reads: `none()`, the default, or `all()`. A final class with a private constructor, so no module builds a selection of its own |
 | `formidable-engine/.../config/formactions/FormActionsConfigService.java` | Reads the form actions theme; resolves forward targets by ID (CAPTCHA verification is `CaptchaConfigService.verifyCaptcha`)
+
+---
+
+## Decision log
+
+| Date | Decision | Why |
+|---|---|---|
+| 2026-11-03 | **D1. Sensitivity is declared by the field type**: `fmdbmix:sensitiveField`, a marker mixin of the engine that a type takes as a supertype, the way it takes a value kind ([formidable#447](https://github.com/Jahia/formidable/issues/447)). There is no property and nothing for an author to tick | It beat a per-field author flag, the one removed on 2026-10-05 ([jExperience decision log](jexperience-integration.md#decision-log)): that flag was too coarse for personal data, and it promised a guarantee nothing enforced. Here the guarantee is the type's and the pipeline's: "secret by nature" (a password) is a property of what the field is, not of how an author configured it. A personal value an author wants kept from jCustomer stays out of scope: the field is not made mappable. A CND cannot forbid a combination of supertypes, so the readers of the conflicting markers check the sensitive one first ("sensitive wins", one warning per conflicting type), and `scripts/check-field-markers.mjs` refuses the combination in this repository |
+| 2026-11-03 | **D2. Only code that opts in receives sensitive values, and nothing else gets them**: a form action through the Java method `ContextualFormAction#sensitiveFieldsConsumed(actionNode)`, which returns a closed type, `SensitiveFields.none()` by default or `SensitiveFields.all()`; a field action through `FieldAction#consumesSensitiveValues()`. The pipeline splits the values at step 9a and hands the sensitive map to no one else | It beat a mixin like `fmdbmix:readOnlyCompatibleAction`: a mixin is content-model data that any module's CND, or an override, can attach to someone else's action type, while the capability belongs to the code that handles the secret. `readOnlyCompatibleAction` is a mixin because step 5 decides before any handler is resolved; the sensitive decision is taken at dispatch, with the handler in hand. A closed type rather than a boolean or an open set: a per-field selection can be added as a factory of `SensitiveFields`, with no change to the method nor to the existing actions, and `actionNode` lets the action name what it points at. No module can forge a selection, since the class is final and its constructor private, and a field name that would select nothing cannot be written. Fail-closed by construction: a new action, enricher or log line never sees the value without doing anything |
+| 2026-11-03 | **D3. A form whose sensitive field no action consumes is flagged to its author at edit time, never per submission. Deferred: [formidable#447](https://github.com/Jahia/formidable/issues/447) flags nothing** | The value is dropped safely at step 9a, with no warning. A per-submission warning (plain or throttled) reaches an administrator's log after visitors typed passwords for nothing, and is noise on a busy form; refusing the submission would fail every visitor over an authoring mistake. The follow-up is a Page Builder alert modelled on the captcha one: the form view, in edit mode, looks for a field carrying `fmdbmix:sensitiveField` and for an action the engine says consumes it, and draws the alert line when there is none |
+| 2026-11-04 | **D4. A sensitive type is never a file field**: `fmdbmix:sensitiveField` and `fmdbmix:fileField` are a forbidden pair, like the pairs of D1. `scripts/check-field-markers.mjs` refuses the pair in this repository, and `FormFieldMetadataCollector` logs one warning per type that declares both. The pipeline drops the uploads of such a type before the dispatch, so no action receives them, not even one that opts in: sensitive wins, fail-closed | The marker is for a secret the visitor types (a password, a one-time code), and no type uploads one today. The other option, a split of the uploads that hands them to the actions that opt in, would add a sensitive-files accessor to `FormActionContext`, with its tests and documentation, for a case nobody asked for. Forbidding the pair keeps the marker's promise true for every type that may declare it; a sensitive upload, if one is ever needed, extends the split additively. Raised in the review of [formidable#478](https://github.com/Jahia/formidable/pull/478) |

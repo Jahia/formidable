@@ -15,6 +15,8 @@ import java.util.Set;
  *
  * @param name the system name, generated from the label
  * @param nodeType the Formidable type, {@code fmdb:inputText}
+ * @param required whether the source required an answer, false included, which the writer sets so that the
+ *                 default of the type never decides; null when the type has no required setting
  * @param properties single-valued properties by name: {@code rows}, {@code minLength}, {@code multiple}…
  * @param i18nProperties i18n properties by name, then by language: {@code placeholder}, {@code helpText}…
  * @param options the manual options per language, each a JSON {@code {"value","label","selected"}}
@@ -25,7 +27,7 @@ import java.util.Set;
  * @param sourceType the type of the field in the source system, {@code fcnt:inputDefinition}
  * @param report what the report says of this field: what was carried over worth knowing, what was not
  */
-public record ImportedField(String name, String nodeType, Map<String, String> titles, boolean required,
+public record ImportedField(String name, String nodeType, Map<String, String> titles, Boolean required,
                             Map<String, String> properties, Map<String, Map<String, String>> i18nProperties,
                             Map<String, List<String>> options, String optionsSourceKey, List<String> mixins,
                             String sourceId, String sourceName, String sourceType, List<ImportNote> report)
@@ -51,7 +53,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
         private final String nodeType;
         private final Set<String> accepted;
         private Map<String, String> titles = Map.of();
-        private boolean required;
+        private Boolean required;
         private final Map<String, String> properties = new LinkedHashMap<>();
         private final Map<String, Map<String, String>> i18nProperties = new LinkedHashMap<>();
         private Map<String, List<String>> options = Map.of();
@@ -66,6 +68,7 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
             this.name = name;
             this.nodeType = nodeType;
             this.accepted = accepted;
+            this.required = accepts(REQUIRED_PROPERTY) ? Boolean.FALSE : null;
         }
 
         public boolean accepts(String property) {
@@ -79,8 +82,10 @@ public record ImportedField(String name, String nodeType, Map<String, String> ti
 
         /** Marks the field required, or reports it when the type has no such setting. */
         public Builder required(boolean value) {
-            if (value && !accepts(REQUIRED_PROPERTY)) {
-                report(ImportNote.action(NOTE_SETTING, SETTING, REQUIRED_PROPERTY, TYPE, nodeType));
+            if (!accepts(REQUIRED_PROPERTY)) {
+                if (value) {
+                    report(ImportNote.action(NOTE_SETTING, SETTING, REQUIRED_PROPERTY, TYPE, nodeType));
+                }
                 return this;
             }
             required = value;

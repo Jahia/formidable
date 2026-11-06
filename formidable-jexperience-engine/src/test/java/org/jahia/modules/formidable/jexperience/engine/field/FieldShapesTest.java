@@ -128,6 +128,33 @@ class FieldShapesTest {
     }
 
     @Test
+    void aSensitiveFieldIsNeverMappableWhateverItsTypeAlsoClaims() throws Exception {
+        // Verifies "sensitive wins" with a type declaring the forbidden pair, as an extension module might: the field
+        // has no shape — so no mapping section lists a property, no rule maps it, no event carries it — through every
+        // entry point, and the type's conflict is reported, once per type however often it is asked.
+        assertTrue(shape(mappable("fmdbmix:sensitiveField", "fmdbmix:textField"), Set.of()).isEmpty());
+        JCRNodeWrapper secret = node(null, "fmdbmix:sensitiveField", "fmdbmix:profileMappableField", "fmdbmix:textField");
+        when(secret.getPrimaryNodeTypeName()).thenReturn("myext:mappableSecret");
+        NodeType secretType = mock(NodeType.class);
+        when(secretType.getName()).thenReturn("myext:mappableSecret");
+        when(secretType.isNodeType("fmdbmix:sensitiveField")).thenReturn(true);
+        when(secretType.isNodeType("fmdbmix:profileMappableField")).thenReturn(true);
+
+        assertTrue(FieldShapes.infer(secret, Optional.empty(), OptionalInt::empty).isEmpty());
+        assertTrue(FieldShapes.infer(secret, Optional.empty(), OptionalInt::empty).isEmpty());
+        assertTrue(FieldShapes.infer(secretType, false, OptionalInt::empty).isEmpty());
+        assertTrue(FieldShapes.isSensitive(secret));
+
+        // the one WARN is guarded by this set: a type enters it once, and only a sensitive type that claims the marker
+        assertTrue(FieldShapes.SENSITIVE_MAPPABLE_TYPES_REPORTED.contains("myext:mappableSecret"));
+        JCRNodeWrapper plainSecret = node(null, "fmdbmix:sensitiveField");
+        when(plainSecret.getPrimaryNodeTypeName()).thenReturn("myext:plainSecret");
+        assertTrue(FieldShapes.isSensitive(plainSecret));
+        assertFalse(FieldShapes.SENSITIVE_MAPPABLE_TYPES_REPORTED.contains("myext:plainSecret"));
+        assertFalse(FieldShapes.isSensitive(node(null, "fmdbmix:profileMappableField", "fmdbmix:textField")));
+    }
+
+    @Test
     void anExistingFieldIsReadFromItsNode() throws Exception {
         // Verifies the runtime entry point on an existing node: the kinds come from isNodeType, the
         // cardinality from the stored "multiple" property, and a node without the marker is not mappable.

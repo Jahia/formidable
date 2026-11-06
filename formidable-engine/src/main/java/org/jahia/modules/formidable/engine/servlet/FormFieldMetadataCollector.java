@@ -17,6 +17,7 @@ import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeName;
 import org.jahia.modules.formidable.engine.api.FmdbProperty;
@@ -40,26 +41,49 @@ class FormFieldMetadataCollector {
     // node; must stay aligned with FormidableOptionsSourceService.resolveForField.
     private static final String[] RESOLVED_OPTIONS_MIXINS =
             {FmdbMixin.SOURCED_OPTIONS, FmdbMixin.CATEGORY_OPTIONS, FmdbMixin.CONTENT_OPTIONS};
+    /** The sensitive field types already reported as also declaring a text value kind: said once per type. */
+    private static final Set<String> SENSITIVE_TEXT_TYPES_REPORTED = ConcurrentHashMap.newKeySet();
+    /** The sensitive field types already reported as also declaring the file marker: said once per type. */
+    private static final Set<String> SENSITIVE_FILE_TYPES_REPORTED = ConcurrentHashMap.newKeySet();
+    /** The rules already reported as sourced on a sensitive field: said once per rule, not on every submission. */
+    private static final Set<String> SENSITIVE_LOGIC_SOURCES_REPORTED = ConcurrentHashMap.newKeySet();
 
     /**
      * What one walk of the published form yields, read once per submission.
      *
-     * @param fieldActions the field actions declared under a field, by field name, in list order — only the
-     *                     fields that declare at least one (docs/architecture/field-actions.md)
+     * @param fieldActions    the field actions declared under a field, by field name, in list order — only the
+     *                        fields that declare at least one (docs/architecture/field-actions.md)
+     * @param sensitiveFields the names of the fields carrying {@code fmdbmix:sensitiveField}, a name one of whose
+     *                        fields carries it included: their values go to the actions that opt in and nowhere else
+     *                        (docs/architecture/form-submission-flow.md, "Sensitive fields")
      */
     record Result(
             Map<String, FormDataParser.FieldInfo> fieldInfos,
             Map<String, List<ConditionalLogicRule>> fieldLogicRules,
             Map<String, String> logicIdToFieldName,
             Map<String, Set<String>> fieldParentContainers,
-            Map<String, List<ResolvedFieldAction>> fieldActions
+            Map<String, List<ResolvedFieldAction>> fieldActions,
+            Set<String> sensitiveFields
     ) {
+        Result {
+            sensitiveFields = sensitiveFields == null ? Set.of() : Set.copyOf(sensitiveFields);
+        }
+
         /** A result without field actions — the shape every test wrote before the field actions existed. */
         Result(Map<String, FormDataParser.FieldInfo> fieldInfos,
                Map<String, List<ConditionalLogicRule>> fieldLogicRules,
                Map<String, String> logicIdToFieldName,
                Map<String, Set<String>> fieldParentContainers) {
             this(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, Map.of());
+        }
+
+        /** A result without sensitive fields — the shape every test wrote before the sensitive fields existed. */
+        Result(Map<String, FormDataParser.FieldInfo> fieldInfos,
+               Map<String, List<ConditionalLogicRule>> fieldLogicRules,
+               Map<String, String> logicIdToFieldName,
+               Map<String, Set<String>> fieldParentContainers,
+               Map<String, List<ResolvedFieldAction>> fieldActions) {
+            this(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions, Set.of());
         }
 
         FormDataParser.FieldMetadata toParserMetadata() {
@@ -124,13 +148,17 @@ class FormFieldMetadataCollector {
         var logicIdToFieldName = new HashMap<String, String>();
         var fieldParentContainers = new HashMap<String, Set<String>>();
         var fieldActions = new HashMap<String, List<ResolvedFieldAction>>();
+        var sensitiveFields = new HashSet<String>();
+        var duplicateFieldActions = new HashMap<String, List<ResolvedFieldAction>>();
 
-        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions, optionsResolver);
+        var ctx = new CollectorContext(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions,
+                sensitiveFields, duplicateFieldActions, optionsResolver);
 
         if (!formNode.hasNode(FIELDS_NODE)) {
             log.debug("[FormFieldMetadataCollector] No '{}' child on form node '{}'",
                     FIELDS_NODE, formNode.getPath());
-            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions);
+            return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions,
+                    sensitiveFields);
         }
 
         JCRNodeWrapper fieldList = formNode.getNode(FIELDS_NODE);
@@ -141,9 +169,19 @@ class FormFieldMetadataCollector {
                 traverseRecursively(w, null, ctx);
             }
         }
+        // A sensitive name takes the actions of its first field that has some, as the pre-check endpoint keeps them
+        // (FieldActionCollector), whatever the order of its fields; a name with no sensitive field keeps its first
+        // field's actions, or none.
+        for (String name : sensitiveFields) {
+            if (!fieldActions.containsKey(name) && duplicateFieldActions.containsKey(name)) {
+                fieldActions.put(name, duplicateFieldActions.get(name));
+            }
+            FieldActionCollector.markSensitive(fieldActions, name);
+        }
 
         log.debug("[FormFieldMetadataCollector] Allowed fields: {}", fieldInfos.keySet());
-        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions);
+        return new Result(fieldInfos, fieldLogicRules, logicIdToFieldName, fieldParentContainers, fieldActions,
+                sensitiveFields);
     }
 
     // --- Internal ---
@@ -154,6 +192,9 @@ class FormFieldMetadataCollector {
             Map<String, String> logicIdToFieldName,
             Map<String, Set<String>> fieldParentContainers,
             Map<String, List<ResolvedFieldAction>> fieldActions,
+            Set<String> sensitiveFields,
+            /** The actions of the first duplicate field of a name that has some, for a name that turns out sensitive. */
+            Map<String, List<ResolvedFieldAction>> duplicateFieldActions,
             SourcedOptionsResolver optionsResolver
     ) {}
 
@@ -233,6 +274,15 @@ class FormFieldMetadataCollector {
         if (ctx.fieldInfos.containsKey(name)) {
             log.debug("[FormFieldMetadataCollector] Duplicate field name '{}' — parent containers: {}",
                     name, ctx.fieldParentContainers.get(name));
+            // Both fields submit under the one name: if either is sensitive, the name is. Its actions are settled once
+            // the whole form is read (collectFromFormNode), since a later field may still make it sensitive.
+            if (isSensitive(node, nodeType)) {
+                ctx.sensitiveFields.add(name);
+            }
+            List<ResolvedFieldAction> actions = FieldActionCollector.read(node);
+            if (!actions.isEmpty()) {
+                ctx.duplicateFieldActions.putIfAbsent(name, actions);
+            }
             return;
         }
 
@@ -245,6 +295,9 @@ class FormFieldMetadataCollector {
         }
 
         ctx.fieldInfos.put(name, buildFieldInfo(node, nodeType, ctx.optionsResolver));
+        if (isSensitive(node, nodeType)) {
+            ctx.sensitiveFields.add(name);
+        }
         List<ResolvedFieldAction> actions = FieldActionCollector.read(node);
         if (!actions.isEmpty()) {
             ctx.fieldActions.put(name, actions);
@@ -264,7 +317,7 @@ class FormFieldMetadataCollector {
                 JCRNodeWrapper srcNode = logicsSrc.getNode(logicId);
                 try {
                     JCRNodeWrapper sourceField = (JCRNodeWrapper) srcNode.getProperty(FmdbProperty.LOGIC_NODE_SOURCE).getNode();
-                    ctx.logicIdToFieldName.put(logicId, sourceField.getName());
+                    bindLogicSource(logicId, sourceField, node, ctx);
                 } catch (Exception e) {
                     // No NODE_REMOVED listener cleans dangling rules yet: after the
                     // source field is deleted, the evaluator falls back to the stale
@@ -272,13 +325,55 @@ class FormFieldMetadataCollector {
                     // is silently skipped on the dependents. WARN (like the analogous
                     // unknown-operator case) is what makes that state discoverable in
                     // ops logs instead of at data-analysis time.
-                    log.warn("[FormFieldMetadataCollector] Broken logic source for logicId '{}' on '{}': "
-                            + "the rule's source field no longer exists — its dependents evaluate as "
-                            + "fail-safe hidden and their required validation is skipped. Re-point or "
-                            + "remove the rule in the editor. ({})", logicId, node.getPath(), e.getMessage());
+                    warnBrokenLogicSource(logicId, node, "the rule's source field no longer exists ("
+                            + e.getMessage() + ")");
                 }
             }
         }
+    }
+
+    private static void bindLogicSource(String logicId, JCRNodeWrapper sourceField, JCRNodeWrapper node,
+                                        CollectorContext ctx) throws RepositoryException {
+        if (sourceField.isNodeType(FmdbMixin.SENSITIVE_FIELD)) {
+            // A secret is never an operand: the rule is left unbound, and the evaluator, which is never
+            // handed a sensitive value, cannot bind it by name either. Said once per rule: the form is
+            // collected on every submission, and the rule stays as it is until an editor changes it.
+            if (SENSITIVE_LOGIC_SOURCES_REPORTED.add(logicId)) {
+                warnBrokenLogicSource(logicId, node, "the rule's source field '" + sourceField.getName()
+                        + "' is sensitive (fmdbmix:sensitiveField) and is never a conditional-logic source");
+            }
+        } else {
+            ctx.logicIdToFieldName.put(logicId, sourceField.getName());
+        }
+    }
+
+    private static void warnBrokenLogicSource(String logicId, JCRNodeWrapper node, String reason) {
+        log.warn("[FormFieldMetadataCollector] Broken logic source for logicId '{}' on '{}': {} — its dependents "
+                + "evaluate as fail-safe hidden and their required validation is skipped. Re-point or remove the "
+                + "rule in the editor.", logicId, node.getPath(), reason);
+    }
+
+    /**
+     * Whether the field is sensitive. A sensitive type that also declares the text value kind is told once per type
+     * that the engine ignores the kind on it: a CND cannot forbid the pair, a third-party one never meets this
+     * repository's checks. A sensitive type that also declares the file marker is told once per type too: the
+     * pipeline hands no action the uploads of a sensitive field.
+     */
+    private static boolean isSensitive(JCRNodeWrapper node, String nodeType) throws RepositoryException {
+        if (!node.isNodeType(FmdbMixin.SENSITIVE_FIELD)) {
+            return false;
+        }
+        if (node.isNodeType(FmdbMixin.TEXT_FIELD) && SENSITIVE_TEXT_TYPES_REPORTED.add(nodeType)) {
+            log.warn("[FormFieldMetadataCollector] Field type '{}' declares both {} and {}: a sensitive field is never "
+                    + "a conditional-logic source, and the rules sourced on it are treated as broken. Remove {} from "
+                    + "the type.", nodeType, FmdbMixin.SENSITIVE_FIELD, FmdbMixin.TEXT_FIELD, FmdbMixin.TEXT_FIELD);
+        }
+        if (node.isNodeType(FmdbMixin.FILE_FIELD) && SENSITIVE_FILE_TYPES_REPORTED.add(nodeType)) {
+            log.warn("[FormFieldMetadataCollector] Field type '{}' declares both {} and {}: a sensitive field is never "
+                    + "a file field, and its uploads reach no action. Remove {} from the type.",
+                    nodeType, FmdbMixin.SENSITIVE_FIELD, FmdbMixin.FILE_FIELD, FmdbMixin.FILE_FIELD);
+        }
+        return true;
     }
 
     private static boolean usesResolvedOptions(JCRNodeWrapper node) throws RepositoryException {

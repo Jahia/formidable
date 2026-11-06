@@ -15,4 +15,10 @@ import java.util.Locale;
  * @param locale    the visitor's locale, for a check whose answer depends on it (a postal address, a date)
  */
 public record FieldActionRequest(String formId, String fieldName, String value, Locale locale) {
+
+    /** What a log line may say: which field, never the value, which may be a secret. */
+    @Override
+    public String toString() {
+        return "FieldActionRequest[formId=" + formId + ", fieldName=" + fieldName + ", locale=" + locale + "]";
+    }
 }

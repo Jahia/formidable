@@ -68,6 +68,11 @@ public final class FmdbMixin {
     public static final String DATETIME_LOCAL_FIELD = "fmdbmix:datetimeLocalField";
     public static final String COLOR_FIELD = "fmdbmix:colorField";
 
+    // A field whose value is a secret (a password): only an action that opts in receives it. A sensitive type never
+    // also declares PROFILE_MAPPABLE_FIELD, TEXT_FIELD nor FILE_FIELD: the engine ignores the first two on it and hands
+    // its uploads to no action (decision D4). docs/architecture/form-submission-flow.md, "Sensitive fields"
+    public static final String SENSITIVE_FIELD = "fmdbmix:sensitiveField";
+
     // A field type claims a visitor-profile mapping by applying this one marker
     public static final String PROFILE_MAPPABLE_FIELD = "fmdbmix:profileMappableField";
 

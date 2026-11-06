@@ -21,6 +21,16 @@ const MATRIX = {
 	checkboxes: {name: 'extras', rows: ['delivery'], columns: ['fast', 'cheap']},
 	firstSubmission: '71d2f6a0-aaaa-4bbb-8ccc-000000000011'
 };
+/** A hand-written export: a sign-up form with an optional password, its confirmation and an optional accept-terms box, 2 submissions. */
+const PASSWORD_FIXTURE = 'imports/formFactory-password.zip';
+const PASSWORD = {
+	form: 'sign-up',
+	email: 'e-mail',
+	field: 'password',
+	confirmation: 'password-confirm',
+	terms: 'newsletter-terms',
+	firstSubmission: '93c4b8d2-aaaa-4bbb-8ccc-000000000021'
+};
 const NO_IDS_EXPORT = 'cypress/fixtures/imports/formFactory-no-ids.zip';
 const NOT_A_ZIP = 'cypress/fixtures/imports/conditional-logic-form.xml';
 /** The add-on: the test site is created without it, and the spec enables it there as an administrator would. */
@@ -709,7 +719,7 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 			expect(checkboxes?.view?.value).to.equal('matrix');
 			expect(checkboxes?.children.nodes.map(row => `${row.type.name}:${row.name}`)).to.deep.equal(['fmdb:checkbox:delivery']);
 			// at least one row answered, in Forms: Formidable has no such rule, the row is not required
-			expect(checkboxes?.children.nodes[0].required, 'delivery required').to.equal(null);
+			expect(checkboxes?.children.nodes[0].required?.value, 'delivery required').to.equal('false');
 		});
 
 		// the answers: the column keys of each row, under the field of that row, nothing under the matrix
@@ -732,6 +742,54 @@ describe('Actions - 76 Importing the forms and results of Jahia Forms', () => {
 		});
 		deleteNode(`${IMPORTED_FORMS_PATH}/${MATRIX.form}`);
 		deleteNode(`${RESULTS_ROOT_PATH}/${MATRIX.form}`, 'LIVE');
+	});
+
+	it('recreates a Forms password as a password field, optional as Forms had it, and imports no value for it', () => {
+		type Note = {code: string};
+		type Job = {report: {forms: Array<{sourceName: string; notes: Note[]; fields: Array<{name: string; type: string; notes: Note[]}>}>}};
+		openResultsPage();
+		uploadThroughApi(PASSWORD_FIXTURE).then(jobId => {
+			waitForJobState(jobId, 'review');
+			importApi('POST', `/jobs/${jobId}/import`, {choices: {[PASSWORD.form]: 'create'}}).its('status').should('eq', 200);
+			waitForJobState(jobId, 'done');
+			// the report: no imported action receives the password, the eye of Forms is not carried over, the confirmation is not recreated
+			importApi('GET', `/jobs/${jobId}`).then(response => {
+				const form = (response.body as Job).report.forms.find(entry => entry.sourceName === PASSWORD.form);
+				const password = form?.fields.find(field => field.name === PASSWORD.field);
+				expect(password?.type).to.equal('fmdbext:password');
+				expect(password?.notes.map(note => note.code)).to.include('field.passwordRecreated').and.to.include('field.showPasswordToggle');
+				expect(form?.notes.map(note => note.code)).to.include('form.passwordConfirmationDropped').and.not.to.include('form.passwordDropped');
+			});
+			importApi('DELETE', `/jobs/${jobId}`).its('status').should('eq', 200);
+		});
+
+		// the fields: the confirmation left out, required written as Forms had it, false included over the default of the type
+		type Field = {name: string; type: {name: string}; required: {value: string} | null; minLength: {value: string} | null; autocomplete: {value: string} | null};
+		graphql<{jcr: {nodeByPath: {children: {nodes: Field[]}}}}>(
+			`query Fields($path: String!) { jcr(workspace: EDIT) { nodeByPath(path: $path) { children { nodes {
+				name type: primaryNodeType { name } required: property(name: "required") { value }
+				minLength: property(name: "minLength") { value } autocomplete: property(name: "autocompleteMode") { value } } } } } }`,
+			{path: `${IMPORTED_FORMS_PATH}/${PASSWORD.form}/fields`}
+		).then(data => {
+			const fields = data.jcr.nodeByPath.children.nodes;
+			const field = (name: string) => fields.find(candidate => candidate.name === name);
+			expect(fields.map(candidate => candidate.name)).to.deep.equal([PASSWORD.email, PASSWORD.field, PASSWORD.terms]);
+			expect(field(PASSWORD.email)?.required?.value).to.equal('true');
+			expect(field(PASSWORD.field)?.type.name).to.equal('fmdbext:password');
+			expect(field(PASSWORD.field)?.required?.value, 'an optional Forms password').to.equal('false');
+			expect(field(PASSWORD.field)?.minLength?.value).to.equal('8');
+			expect(field(PASSWORD.field)?.autocomplete?.value).to.equal('new-password');
+			expect(field(PASSWORD.terms)?.type.name).to.equal('fmdbext:consent');
+			expect(field(PASSWORD.terms)?.required?.value, 'an optional Forms accept-terms box').to.equal('false');
+		});
+
+		// the answers: the e-mail and the consent, never a value for the password or its confirmation
+		importedSubmission(PASSWORD.firstSubmission).then(submission => {
+			expect(valueNames(submission)).to.include(PASSWORD.email).and.not.to.include(PASSWORD.field).and.not.to.include(PASSWORD.confirmation);
+			expect(submission.data.properties.flatMap(p => p.values ?? [p.value])).to.not.include('**********');
+		});
+		deleteNode(`${IMPORTED_FORMS_PATH}/${PASSWORD.form}`);
+		deleteNode(`${RESULTS_ROOT_PATH}/${PASSWORD.form}`, 'LIVE');
 	});
 
 	it('leaves out a form told not to import, and proposes it again on the next run', () => {

@@ -263,6 +263,48 @@ Three rules the samples follow:
 - an exception escaping `execute` counts as `unavailable` and is logged by its type only: catch what you can name,
   and never put the value in an exception message you let escape
 
+## On a sensitive field
+
+A field whose type declares `fmdbmix:sensitiveField` (the password input of `formidable-extended-inputs`) holds a
+secret, and a field action sends the value it judges somewhere. So on such a field the engine runs **only the
+actions whose Java type opts in**, whatever the field's action list holds — at the pre-check and at submission alike,
+and the page asks the engine only about those:
+
+```java
+@Component(service = FieldAction.class)
+public class PasswordPolicyFieldAction implements FieldAction {
+
+    @Override public String getNodeType() { return "myco:passwordPolicyAction"; }
+
+    /** Written for a password: it may judge the value of a sensitive field. */
+    @Override public boolean consumesSensitiveValues() { return true; }
+
+    @Override
+    public FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
+        String value = request.value() == null ? "" : request.value();
+        return value.chars().anyMatch(Character::isDigit) ? FieldActionResult.accept() : FieldActionResult.reject("no digit");
+    }
+}
+```
+
+- `consumesSensitiveValues()` is `false` by default: a generic check (blocked words, an email provider) never runs
+  on a password, and needs no change. Opt in only for a check written for that kind of secret: a password policy, a
+  breached-password range check.
+- A boolean, not a selection of fields as for a form action: a field action only ever sees the field it is attached
+  to.
+- The engine keeps the value out of what it holds itself: no verdict cache entry is keyed by it, so your action
+  runs at the pre-check and again at submission, and the logs name the field and never carry your `detail` nor an
+  exception message.
+- The contributor's rejection message renders `${value}` as the empty string on a sensitive field. The engine
+  writes that message from the contributor's text, so it never prints the password, whatever the contributor wrote.
+- An action that opts in is trusted with the value, and **takes on a duty the engine cannot enforce**: send the value
+  only where the check needs it, and never store or log it. Keep it out of the `detail` too: name the rule
+  (`"no digit"`), never the value. How the action calls its service, through the gateway or not, is its own.
+
+The samples' [`PasswordPolicyFieldAction`](../../jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/PasswordPolicyFieldAction.java)
+is this one; spec 86 drives it next to a blocked-words check that never runs. See [Field actions, on a sensitive
+field](../architecture/field-actions.md#on-a-sensitive-field).
+
 ## Step 7: Let contributors add it
 
 Nothing to register. Once the module is deployed **and enabled on the site** (jContent, the site's settings,
@@ -284,6 +326,8 @@ A field action is trusted server-side code reached from an endpoint anonymous vi
 - every call may be paid: prefer the `submit` trigger for a costly check, and remember the rate limit, the value
   length bound and the verdict cache are the only bounds on the pre-check
 - do not log the value; the dispatcher logs the action, the field and the verdict
+- opt in to sensitive values only for a check written for a secret, and then keep the value to yourself ([On a
+  sensitive field](#on-a-sensitive-field))
 
 ## Troubleshooting
 
@@ -316,6 +360,7 @@ not configured or that did not answer.
 - `jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/BlockedWordsFieldAction.java` — a check that calls nothing
 - `jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/EmailDomainFieldAction.java` — a check that asks the domain name system, no provider
 - `jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/ExperianEmailFieldAction.java`, `ZeroBounceEmailFieldAction.java` — mailbox checks behind a provider
+- `jahia-test-module/formidable-test-module-samples-java/src/main/java/org/jahia/test/modules/formidable/samples/actions/field/PasswordPolicyFieldAction.java` — a check that opts in to sensitive values, for a password
 
 ## What the Page Builder shows about your action
 

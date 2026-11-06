@@ -23,4 +23,19 @@ public interface FieldActionTypes {
      * @throws RepositoryException when the site or the types cannot be read
      */
     List<String> offeredUnder(JCRNodeWrapper actionList) throws RepositoryException;
+
+    /**
+     * Whether a field action of this type runs on a sensitive field ({@code fmdbmix:sensitiveField}): the Java
+     * {@link FieldAction} registered for the type opts in ({@link FieldAction#consumesSensitiveValues()}). The views
+     * ask it to decide which actions of a sensitive field the browser pre-checks. A type no deployed module registers
+     * answers {@code false}, so the browser does not send the password to a check that can only answer unavailable;
+     * the submission still judges it with the contributor's outage rule.
+     *
+     * @param fieldActionNodeType the field-action node type, for example {@code myco:passwordPolicyAction}
+     * @return {@code true} when the registered action opts in; {@code false} when it does not, or none is registered.
+     *         {@code false} by default, so an implementation that does not answer leaves the action out
+     */
+    default boolean consumesSensitiveValues(String fieldActionNodeType) {
+        return false;
+    }
 }

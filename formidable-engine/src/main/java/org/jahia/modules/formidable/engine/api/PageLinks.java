@@ -9,6 +9,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletRequestWrapper;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpServletResponseWrapper;
 import java.io.IOException;
@@ -33,7 +34,7 @@ public final class PageLinks {
     /** The outbound rewriting, a seam: the production one asks the platform's {@code UrlRewriteService}. */
     @FunctionalInterface
     public interface Rewriter {
-        /** @return the rewritten URL, possibly relative to the servlet context path; it throws what the platform's rewriting throws */
+        /** @return the rewritten URL, for a request that reports the platform's context path; it throws what the platform's rewriting throws */
         String rewrite(String url, HttpServletRequest request, HttpServletResponse response)
                 throws IOException, ServletException, InvocationTargetException;
     }
@@ -55,8 +56,8 @@ public final class PageLinks {
     public static Optional<String> urlOf(JCRNodeWrapper page, HttpServletRequest request, HttpServletResponse response,
                                          Rewriter rewriter, String platformContextPath) {
         try {
-            String rewritten = rewriter.rewrite(page.getUrl(), request, response == null ? null : new NoSessionIdInUrls(response));
-            String url = RedirectTargets.swapContextPath(rewritten, request.getContextPath(), platformContextPath);
+            String url = rewriter.rewrite(page.getUrl(), new OnPlatformContextPath(request, platformContextPath),
+                    response == null ? null : new NoSessionIdInUrls(response));
             Optional<String> target = RedirectTargets.sameOriginPath(url);
             if (target.isEmpty()) {
                 // an absolute URL on this server (a vanity URL of a site with its own server name) is reduced to its path
@@ -73,6 +74,29 @@ public final class PageLinks {
         } catch (IOException | ServletException | InvocationTargetException | RuntimeException e) {
             log.warn("[PageLinks] The URL of a page could not be rewritten: no redirect.", e);
             return Optional.empty();
+        }
+    }
+
+    /**
+     * The request the rewriting sees: its context path is the platform's, the one {@code node.getUrl()} starts with.
+     * The rewriting reads the context path from the request: it starts the rewritten URL with it, and a page of a site
+     * with another server name gets that server in front of it; it also looks a vanity URL up only when it equals the
+     * link's. Under
+     * the servlet's {@code <context>/modules}, a page of another site became {@code http://other/modules/...}, a 404,
+     * and a page with a vanity URL got its path.
+     */
+    static final class OnPlatformContextPath extends HttpServletRequestWrapper {
+
+        private final String contextPath;
+
+        OnPlatformContextPath(HttpServletRequest request, String platformContextPath) {
+            super(request);
+            this.contextPath = platformContextPath == null ? "" : platformContextPath;
+        }
+
+        @Override
+        public String getContextPath() {
+            return contextPath;
         }
     }
 

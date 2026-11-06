@@ -9,7 +9,9 @@ import type {LogicOperator, SourceFieldOption, SourceValueKind} from './Conditio
  * mixins (fmdbmix:choiceField, dateField, numberField, booleanField, textField),
  * which maps to a kind-default descriptor below. Types needing more than the default
  * (a different choice property, specialized operators) get an explicit per-type
- * override entry; third-party types only need the mixin in their CND.
+ * override entry; third-party types only need the mixin in their CND. A type carrying
+ * fmdbmix:sensitiveField is never a source, whatever else it declares: the source list
+ * (ConditionalLogic.utils.ts) drops it before a descriptor is looked up.
  */
 export interface LogicSourceDescriptor {
     valueKind: SourceValueKind;

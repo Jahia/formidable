@@ -8,7 +8,7 @@ Yarn monorepo + Maven multi-module. Root: `/formidable-modules/`.
 |---|---|
 | `formidable-elements/` | Jahia front-end module – form rendering (React SSR + client hydration) |
 | `formidable-engine/` | Jahia editor extension + Java/OSGi action pipeline |
-| `formidable-extended-inputs/` | Optional field types (card, consent, phone, switch, rating, scale) |
+| `formidable-extended-inputs/` | Optional field types (card, consent, phone, password, switch, rating, scale) |
 | `formidable-jexperience-engine/` | jExperience integration (Java): profile mapping of fields, the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; prefill to come — `docs/architecture/jexperience-integration.md` |
 | `formidable-forms-import/` | The import of the forms and results of Jahia Forms (Java + jContent app): Results page Import action, dry run and import jobs, converters; engine api only |
 | `packages/formidable/` | npm package `@jahia/formidable-library` — the rendering contract the views import (choice options under its `/server` entry point); `workspace:*` inside the monorepo (a version range would still resolve to the workspace, only `npm:` forces the registry), published at release |
@@ -91,7 +91,7 @@ Action engine types: `formidable-engine/src/main/resources/META-INF/definitions.
 
 ### Rules for a new field type
 
-1. Declare `[fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField` in its `definition.cnd` — the first marker says the field submits a value and offers the field-actions switch, the second lets the field be mapped to a jCustomer profile property (jExperience module); leave both out of a file field. Add the value-kind mixin matching what the field submits
+1. Declare `[fmdb:myField] > jnt:content, fmdbmix:element, fmdbmix:submittableField, fmdbmix:profileMappableField` in its `definition.cnd` — the first marker says the field submits a value and offers the field-actions switch, the second lets the field be mapped to a jCustomer profile property (jExperience module); leave both out of a file field. Add the value-kind mixin matching what the field submits. A field whose value is a secret (a password) declares `fmdbmix:sensitiveField` instead, and never `fmdbmix:profileMappableField`, `fmdbmix:textField` nor `fmdbmix:fileField` (see "Sensitive values" below)
 2. Create `default.server.tsx` with `jahiaComponent({ componentType: "view", nodeType: "fmdb:myField", name: "default" }, ...)`
 3. HTML `name` = `currentNode.getName()`; HTML `id` = `input-${currentNode.getIdentifier()}`
 
@@ -111,6 +111,10 @@ fmdbmix:submittableField (engine) ← marker: the field submits a value (not a f
                                    fmdbmix:fieldActions (engine, the field-actions switch) extends it
 fmdbmix:profileMappableField (engine) ← marker: the field can be mapped to a visitor profile property;
                                    fmdbmix:jExperienceProfileMapping (formidable-jexperience-engine) extends it
+fmdbmix:sensitiveField (engine) ← marker: the field's value is a secret (fmdbext:password); the
+                                   pipeline sets it apart at step 9a. Never with profileMappableField,
+                                   textField nor fileField: the runtime ignores the first two on it and
+                                   hands its uploads to no action, CI refuses each pair
 fmdbmix:component (elements)   ← makes a type visible/droppable in the editor
 ```
 
@@ -200,14 +204,44 @@ response carries the exception's HTTP status and an opaque `errorCode`; on succe
 `{"success": true}` plus whatever the `SubmissionResponseEnricher` services add to the body
 (see `docs/extension/how-to-enrich-the-submission-response.md`).
 
+### Sensitive values: step 9a and the two maps
+
+Right after parsing, which validates every value (a password included), step 9a
+`separateSensitiveValues` splits `parsed.parameters()` in two maps, by the fields carrying
+`fmdbmix:sensitiveField` (`FieldMetadata.sensitiveFields()`):
+
+- the **public map** (`publicParameters`): what every plain `FormAction`, the response enrichers
+  (`AcceptedSubmission`, hence the jExperience event), the field actions of the other fields and
+  the log lines read. After 9a, only the checks (steps 11 and 11b) read every value;
+- the **sensitive map**: handed only to a `ContextualFormAction` whose
+  `sensitiveFieldsConsumed(actionNode)` returns `SensitiveFields.all()`, in
+  `FormActionContext.sensitiveParameters()` / `sensitiveParameter(name)`, and judged only by the
+  field actions whose `FieldAction#consumesSensitiveValues()` is true. `SensitiveFields` is a
+  closed type: a final class with a private constructor, `none()` (the default) and `all()`; a
+  module reads a selection with `selectsAll()` and never builds one. Unconsumed, a sensitive value
+  is dropped, silently. The uploads of a sensitive field reach no action either.
+
+Code that does not opt in is never handed the sensitive map, so a new action, enricher or log
+line is safe by default. An opt-in carries a duty no code enforces: never store, mail, log nor
+return the value. On a sensitive field the field-action dispatcher skips the verdict cache,
+renders `${value}` in the contributor's rejection message as the empty string, and keeps the
+value out of its logs; how the action that opts in calls its service is its own. See
+`docs/architecture/form-submission-flow.md`, "Sensitive fields" and its decision log (D1 the
+type-level marker, D2 the Java opt-in, D3 the deferred edit-time alert, D4 never a file field).
+
 ### Java class layout
 
 ```
 org.jahia.modules.formidable.engine
 ├── api/                                 ← the EXPORTED SPI (Export-Package)
 │   ├── FormAction.java                  ← strategy interface (getNodeType + execute)
+│   ├── ContextualFormAction.java, FormActionContext.java, FormActionResult.java
+│   │                                    ← an action with the response, locale and site, answering a redirect or a message;
+│   │                                      sensitiveFieldsConsumed(actionNode), returning SensitiveFields: the opt-in to sensitive values
+│   ├── SensitiveFields.java             ← the closed type of that opt-in: none() (the default) or all()
 │   ├── FieldAction.java, FieldActionRequest.java, FieldActionResult.java, FieldActionGateway.java
-│   │                                    ← the field-action SPI: one field's value judged server-side (docs/architecture/field-actions.md)
+│   │                                    ← the field-action SPI: one field's value judged server-side (docs/architecture/field-actions.md);
+│   │                                      FieldAction#consumesSensitiveValues(): the opt-in to run on a sensitive field
 │   ├── ProviderFieldAction.java, EmailVerificationFieldAction.java, EmailAddress.java
 │   │                                    ← the shape of an action behind a provider, its email specialisation, the address parsing — the samples' checks are one method each
 │   ├── FormActionException.java         ← exception carrying an httpStatus
@@ -220,7 +254,7 @@ org.jahia.modules.formidable.engine
 │   └── SubmissionResponseEnricher.java  ← adds entries to the 200 of an accepted submission
 ├── servlet/                             ← the submission: its entry point, its pipeline, what reads the request
 │   ├── FormSubmitServlet.java           ← whiteboard entry point
-│   ├── FormSubmissionPipeline.java      ← the 12 steps, plus 11b (runFieldActions)
+│   ├── FormSubmissionPipeline.java      ← the 12 steps, plus 9a (separateSensitiveValues) and 11b (runFieldActions)
 │   └── FormDataParser.java, FieldValidator.java, FormFieldMetadataCollector.java
 ├── files/                              ← file types, from Apache Tika's registry only (docs/architecture/form-submission-flow.md)
 │   └── AllowedTypes (what a file field accepts, for its view and the parser), FileTypeService (extensions, labels)

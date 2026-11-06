@@ -338,6 +338,11 @@ export const mergeChoiceValues = (
 };
 
 const mapSourceField = (node: GraphNode): SourceFieldOption | null => {
+    // Sensitive wins: a rule never reads a secret, even from a type that also declares a value kind
+    if (node.isSensitiveField) {
+        return null;
+    }
+
     const type = getNodeType(node);
     const valueKind = getDeclaredValueKind(node);
     const descriptor = getSourceDescriptor(type, valueKind);

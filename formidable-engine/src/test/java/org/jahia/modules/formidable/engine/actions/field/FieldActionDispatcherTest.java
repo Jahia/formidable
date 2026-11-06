@@ -64,7 +64,7 @@ class FieldActionDispatcherTest {
     }
 
     private static ResolvedFieldAction action(String id, Trigger trigger, Severity severity, Unavailable unavailable) {
-        return new ResolvedFieldAction(id, TYPE, trigger, severity, unavailable);
+        return new ResolvedFieldAction(id, TYPE, trigger, severity, unavailable, false);
     }
 
     private static ResolvedFieldAction blocking(String id) {
@@ -128,7 +128,7 @@ class FieldActionDispatcherTest {
         };
         FieldActionDispatcher dispatcher = dispatcher(List.of(refusing, accepting), Duration.ofSeconds(300),
                 session(Map.of("a1", "<p>Unknown address <b>${value}</b></p>", "a2", "never")));
-        ResolvedFieldAction other = new ResolvedFieldAction("a2", "myco:other", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT);
+        ResolvedFieldAction other = new ResolvedFieldAction("a2", "myco:other", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT, false);
 
         FieldActionDispatcher.Outcome outcome = dispatcher.run(REQUEST, List.of(blocking("a1"), other),
                 EnumSet.allOf(Trigger.class), false);
@@ -273,8 +273,8 @@ class FieldActionDispatcherTest {
         // Verifies the guarantee, not the comment that states it: a failing action and an unavailable one both name
         // themselves in the log, and neither carries the value — an exception message quotes it by construction
         // (NumberFormatException: For input string: "…"), and an action's detail may too. Put either back on the INFO or
-        // the WARN line and this test fails. DEBUG is off in the tests, so what is captured is exactly what an
-        // operator sees at the default level.
+        // the WARN line and this test fails. The tests run this class at DEBUG (simplelogger.properties), so only the
+        // records at INFO and above are read: exactly what an operator sees at the default level.
         String secret = "ada@example.com";
         FieldActionRequest request = new FieldActionRequest("form-1", "email", secret, Locale.ENGLISH);
         FieldActionDispatcher throwing = dispatcher(List.of(javaAction(() -> {
@@ -293,10 +293,177 @@ class FieldActionDispatcherTest {
             System.setErr(previous);
         }
 
-        String logged = captured.toString(StandardCharsets.UTF_8);
+        String logged = atOperatorLevel(captured.toString(StandardCharsets.UTF_8));
         assertFalse(logged.contains(secret), logged);
         assertTrue(logged.contains("IllegalStateException"), "the operator still learns what failed: " + logged);
         assertTrue(logged.contains("could not run on field 'email'"), logged);
+    }
+
+    /**
+     * The records of a captured slf4j-simple output at INFO and above: a record starts with its thread in brackets,
+     * and the lines after it (a stack trace) belong to it.
+     */
+    private static String atOperatorLevel(String captured) {
+        StringBuilder kept = new StringBuilder();
+        boolean keeping = true;
+        for (String line : captured.split("\\R")) {
+            if (line.startsWith("[")) {
+                keeping = !line.matches("^\\[[^]]*] DEBUG .*");
+            }
+            if (keeping) {
+                kept.append(line).append('\n');
+            }
+        }
+        return kept.toString();
+    }
+
+    /** A Java action of the given type, opting in to sensitive values or not, answering the result and counting its calls. */
+    private static FieldAction typed(String type, boolean consumesSensitiveValues, Supplier<FieldActionResult> result,
+                                     AtomicInteger calls) {
+        return new FieldAction() {
+            @Override
+            public String getNodeType() {
+                return type;
+            }
+
+            @Override
+            public boolean consumesSensitiveValues() {
+                return consumesSensitiveValues;
+            }
+
+            @Override
+            public FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request) {
+                calls.incrementAndGet();
+                return result.get();
+            }
+        };
+    }
+
+    @Test
+    void onASensitiveFieldOnlyTheActionsThatOptInRun() throws Exception {
+        // Verifies the opt-in of a field action: on a password, a generic check (it does not opt in) never runs, while
+        // the policy check that opts in runs. The same actions on a field that is not sensitive all run. FieldActionTypes
+        // asks the same question of the dispatcher.
+        AtomicInteger generic = new AtomicInteger();
+        AtomicInteger policy = new AtomicInteger();
+        FieldActionDispatcher dispatcher = dispatcher(List.of(
+                        typed(TYPE, false, FieldActionResult::accept, generic),
+                        typed("myco:passwordPolicy", true, FieldActionResult::accept, policy)),
+                Duration.ofSeconds(300), session(Map.of("a1", "m", "a2", "m")));
+        ResolvedFieldAction genericCheck = new ResolvedFieldAction("a1", TYPE, Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT, true);
+        ResolvedFieldAction policyCheck = new ResolvedFieldAction("a2", "myco:passwordPolicy", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT, true);
+        FieldActionRequest password = new FieldActionRequest("form-1", "password", "S3cretPass!", Locale.ENGLISH);
+
+        FieldActionDispatcher.Outcome outcome = dispatcher.run(password, List.of(genericCheck, policyCheck),
+                EnumSet.allOf(Trigger.class), false);
+
+        assertFalse(outcome.blocked());
+        assertEquals(0, generic.get());
+        assertEquals(1, policy.get());
+        assertEquals(List.of(policyCheck), dispatcher.runnable(List.of(genericCheck, policyCheck)));
+        assertTrue(dispatcher.consumesSensitiveValues("myco:passwordPolicy"));
+        assertFalse(dispatcher.consumesSensitiveValues(TYPE));
+        assertFalse(dispatcher.consumesSensitiveValues("myco:notDeployed"));
+
+        List<ResolvedFieldAction> plain = List.of(new ResolvedFieldAction("a1", TYPE, Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT, false));
+        assertEquals(plain, dispatcher.runnable(plain));
+        dispatcher.run(REQUEST, plain, EnumSet.allOf(Trigger.class), false);
+        assertEquals(1, generic.get());
+    }
+
+    @Test
+    void onASensitiveFieldATypeNoModuleRegistersFollowsTheOutageRule() throws Exception {
+        // Verifies a password policy whose module is stopped: the action is an unavailable check, as on any field, so
+        // "refuse when unavailable" refuses the password and "accept when unavailable" accepts it. No code runs.
+        FieldActionDispatcher dispatcher = dispatcher(List.of(), Duration.ofSeconds(300), session(Map.of("a1", "Policy down")));
+        ResolvedFieldAction refusing = new ResolvedFieldAction("a1", "myco:notDeployed", Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT, true);
+        ResolvedFieldAction accepting = new ResolvedFieldAction("a1", "myco:notDeployed", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT, true);
+        FieldActionRequest password = new FieldActionRequest("form-1", "password", "S3cretPass!", Locale.ENGLISH);
+
+        assertEquals(List.of(refusing), dispatcher.runnable(List.of(refusing)));
+        assertTrue(dispatcher.run(password, List.of(refusing), EnumSet.allOf(Trigger.class), false).blocked());
+        assertFalse(dispatcher.run(password, List.of(accepting), EnumSet.allOf(Trigger.class), false).blocked());
+        assertFalse(dispatcher.consumesSensitiveValues("myco:notDeployed"));
+    }
+
+    @Test
+    void anActionRegisteredMeanwhileThatDoesNotOptInIsNeverHandedTheSensitiveValue() throws Exception {
+        // Verifies the second ask at execution: the registrations change between runnable() and execute() (a redeploy),
+        // and the action registered first then does not opt in. It is never called; the check is unavailable.
+        AtomicInteger optedIn = new AtomicInteger();
+        AtomicInteger notOptedIn = new AtomicInteger();
+        List<FieldAction> before = List.of(typed(TYPE, true, FieldActionResult::accept, optedIn));
+        List<FieldAction> after = List.of(typed(TYPE, false, FieldActionResult::accept, notOptedIn));
+        AtomicInteger reads = new AtomicInteger();
+        FieldActionDispatcher dispatcher = new FieldActionDispatcher(() -> reads.getAndIncrement() == 0 ? before : after,
+                new VerdictCache(), () -> Duration.ofSeconds(300), repository(session(Map.of("a1", "Unavailable"))));
+        ResolvedFieldAction onPassword = new ResolvedFieldAction("a1", TYPE, Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT, true);
+        FieldActionRequest password = new FieldActionRequest("form-1", "password", "S3cretPass!", Locale.ENGLISH);
+
+        FieldActionDispatcher.Outcome outcome = dispatcher.run(password, List.of(onPassword), EnumSet.allOf(Trigger.class), false);
+
+        assertTrue(outcome.blocked());
+        assertEquals(0, optedIn.get());
+        assertEquals(0, notOptedIn.get());
+    }
+
+    @Test
+    void aSensitiveValueIsNeverACacheKey() throws Exception {
+        // Verifies the engine keeps a sensitive value out of its verdict cache: the opted-in action runs on every ask,
+        // whatever the TTL, and no entry is keyed by the value. The rejection message is the engine's output: ${value}
+        // renders empty, so the message never carries the password.
+        AtomicInteger calls = new AtomicInteger();
+        VerdictCache cache = new VerdictCache();
+        FieldActionDispatcher dispatcher = new FieldActionDispatcher(
+                () -> List.of(typed("myco:passwordPolicy", true, () -> FieldActionResult.reject("weak"), calls)),
+                cache, () -> Duration.ofSeconds(300), repository(session(Map.of("a1", "Too weak: ${value}"))));
+        ResolvedFieldAction policy = new ResolvedFieldAction("a1", "myco:passwordPolicy", Trigger.BLUR, Severity.BLOCK, Unavailable.ACCEPT, true);
+        FieldActionRequest password = new FieldActionRequest("form-1", "password", "S3cretPass!", Locale.ENGLISH);
+
+        FieldActionDispatcher.Outcome first = dispatcher.run(password, List.of(policy), EnumSet.allOf(Trigger.class), false);
+        dispatcher.run(password, List.of(policy), EnumSet.allOf(Trigger.class), true);
+
+        assertTrue(first.blocked());
+        assertEquals("Too weak: ", first.messages().get(0).html());
+        assertFalse(first.messages().get(0).html().contains("S3cretPass!"));
+        assertEquals(2, calls.get());
+        assertEquals(0, cache.size());
+    }
+
+    @Test
+    void aSensitiveValueNeverReachesTheOperatorsLog() throws Exception {
+        // Verifies the logs of a sensitive field name the field only: a throwing action and an unavailable one that both
+        // quote the password leave the field's name and the exception's type in the log, never the value, not even at
+        // DEBUG, the level the tests run this class at (simplelogger.properties).
+        String secret = "S3cretPass!";
+        FieldActionRequest password = new FieldActionRequest("form-1", "password", secret, Locale.ENGLISH);
+        FieldActionDispatcher throwing = dispatcher(List.of(typed(TYPE, true, () -> {
+            throw new IllegalStateException("cannot parse " + secret);
+        }, new AtomicInteger())), Duration.ZERO, session(Map.of("a1", "No")));
+        FieldActionDispatcher unavailable = dispatcher(List.of(typed(TYPE, true, () -> FieldActionResult.unavailable("provider said " + secret),
+                new AtomicInteger())), Duration.ZERO, session(Map.of("a1", "No")));
+        ResolvedFieldAction onPassword = new ResolvedFieldAction("a1", TYPE, Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT, true);
+        // the control: the same detail on a plain field reaches the DEBUG line, so the run is at DEBUG and the
+        // assertion on the password below can fail
+        FieldActionDispatcher plain = dispatcher(List.of(typed(TYPE, false, () -> FieldActionResult.unavailable("provider said plain-detail"),
+                new AtomicInteger())), Duration.ZERO, session(Map.of("a1", "No")));
+        ResolvedFieldAction onEmail = new ResolvedFieldAction("a1", TYPE, Trigger.BLUR, Severity.BLOCK, Unavailable.REJECT, false);
+
+        PrintStream previous = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            throwing.run(password, List.of(onPassword), EnumSet.allOf(Trigger.class), false);
+            unavailable.run(password, List.of(onPassword), EnumSet.allOf(Trigger.class), false);
+            plain.run(REQUEST, List.of(onEmail), EnumSet.allOf(Trigger.class), false);
+        } finally {
+            System.setErr(previous);
+        }
+
+        String logged = captured.toString(StandardCharsets.UTF_8);
+        assertFalse(logged.contains(secret), logged);
+        assertTrue(logged.contains("'password'"), logged);
+        assertTrue(logged.contains("DEBUG") && logged.contains("provider said plain-detail"), logged);
     }
 
     @Test

@@ -42,7 +42,7 @@ class FormsFieldTypesCndTest {
         List<String> targets = List.of(FormsFieldTypes.INPUT_TEXT, FormsFieldTypes.INPUT_EMAIL, FormsFieldTypes.TEXTAREA,
                 FormsFieldTypes.INPUT_NUMBER, FormsFieldTypes.INPUT_HIDDEN, FormsFieldTypes.INPUT_DATE, FormsFieldTypes.INPUT_FILE,
                 FormsFieldTypes.SELECT, FormsFieldTypes.RADIO, FormsFieldTypes.CHECKBOX,
-                FormsFieldTypes.SWITCH, FormsFieldTypes.RATING, FormsFieldTypes.CONSENT);
+                FormsFieldTypes.SWITCH, FormsFieldTypes.RATING, FormsFieldTypes.CONSENT, FormsFieldTypes.PASSWORD);
         for (String type : targets) {
             assertTrue(types.containsKey(type), type + " is declared in no CND of the repository");
             Set<String> declared = propertiesOf(type, types, new HashSet<>());
@@ -51,6 +51,30 @@ class FormsFieldTypesCndTest {
             List<String> undeclared = accepted.stream().filter(p -> !declared.contains(p)).sorted().toList();
             assertEquals(List.of(), undeclared, type + " accepts settings its CND does not declare");
         }
+    }
+
+    @Test
+    void thePasswordFieldTakesNoProfileMapping() throws IOException {
+        // what keeps a Forms prefill off an imported password, with the sensitive marker the import reads too
+        Map<String, Declared> types = parseAll();
+        Declared password = types.get(FormsFieldTypes.PASSWORD);
+        assertTrue(password.supertypes().contains("fmdbmix:sensitiveField"), password.supertypes().toString());
+        assertFalse(password.supertypes().contains("fmdbmix:profileMappableField"), password.supertypes().toString());
+    }
+
+    @Test
+    void theRangesAndTheDefaultOfThePasswordFieldAreTheOnesItsCndDeclares() throws IOException {
+        String cnd = Files.readString(MODULES.get(1).resolve("src/components/Input/Password/definition.cnd"));
+        for (String property : List.of(FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH)) {
+            FormsFieldTypes.Range range = FormsFieldTypes.range(FormsFieldTypes.PASSWORD, property);
+            Matcher declared = Pattern.compile("^\\s*-\\s*" + property + "\\s*\\(long\\)[^\\n]*<\\s*'\\[(\\d+),(\\d+)\\]'", Pattern.MULTILINE).matcher(cnd);
+            assertTrue(declared.find(), property + " declares no range in the Password CND");
+            assertEquals(Long.parseLong(declared.group(1)), range.min(), property);
+            assertEquals(Long.parseLong(declared.group(2)), range.max(), property);
+        }
+        Matcher preset = Pattern.compile("^\\s*-\\s*" + FormsFieldTypes.MAX_LENGTH + "\\s*\\(long\\)\\s*=\\s*(\\d+)", Pattern.MULTILINE).matcher(cnd);
+        assertTrue(preset.find(), "maxLength declares no default in the Password CND");
+        assertEquals(Long.parseLong(preset.group(1)), FormsFieldTypes.defaultValue(FormsFieldTypes.PASSWORD, FormsFieldTypes.MAX_LENGTH));
     }
 
     @Test

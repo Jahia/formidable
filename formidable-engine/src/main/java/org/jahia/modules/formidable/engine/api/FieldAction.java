@@ -38,4 +38,19 @@ public interface FieldAction {
      * @return the verdict; never {@code null}
      */
     FieldActionResult execute(JCRNodeWrapper actionNode, FieldActionRequest request);
+
+    /**
+     * Whether this action may judge the value of a sensitive field ({@code fmdbmix:sensitiveField}, a password).
+     * {@code false} by default: on such a field the engine runs only the actions that answer {@code true}, at the
+     * pre-check endpoint and at submission alike, whatever the field's action list holds. A check written for the
+     * field's kind of secret opts in — a password policy, a breached-password range check —, a generic one never does.
+     *
+     * <p>An action that answers {@code true} is trusted with the value, and takes on a duty the engine cannot enforce:
+     * it sends the value only where its check needs it, and never stores or logs it. The engine keeps the value out of
+     * what it holds itself: no verdict cache entry is keyed by it, no log line carries it, and the rejection message
+     * renders {@code ${value}} empty.</p>
+     */
+    default boolean consumesSensitiveValues() {
+        return false;
+    }
 }

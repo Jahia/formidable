@@ -9,6 +9,7 @@ import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
 import org.jahia.modules.formidable.engine.config.fieldactions.FieldActionsConfigService;
 import org.jahia.modules.formidable.engine.config.uploads.UploadsConfigService;
 import org.jahia.modules.formidable.engine.options.FormidableOptionsSourceService;
+import org.jahia.modules.formidable.engine.logic.ConditionalLogicEvaluator;
 import org.jahia.modules.formidable.engine.logic.ConditionalLogicRule;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
@@ -974,7 +975,40 @@ class FormSubmissionPipelineTest {
         assertDoesNotThrow(() -> invokeValidateRequired(pipeline));
     }
 
+    @Test
+    void aRuleSourcedOnASensitiveFieldIsNeverEvaluatedOnItsValue() throws Exception {
+        // Verifies "sensitive wins" at the evaluator: the collector leaves a rule sourced on a sensitive field unbound,
+        // and the evaluator, handed the values without the sensitive ones, cannot bind it by name either — the rule is
+        // a broken source (fail-safe hidden, value kept), never a measurement read off the password. Hand the evaluator
+        // the whole parsed map and the rule binds by name, reads the secret and shows the field: this test fails.
+        FormDataParser.FieldInfo gated = new FormDataParser.FieldInfo("fmdb:inputText", false, false, false, false, false,
+                false, false, java.util.Set.of(), java.util.Set.of(), null);
+        FormDataParser.FieldInfo secret = new FormDataParser.FieldInfo("myext:secretText", false, false, false, false, false,
+                false, false, java.util.Set.of(), java.util.Set.of(), null);
+        ConditionalLogicRule onSecret = new ConditionalLogicRule("logic-s", "", "secretGate", "", "", null, "isNotEmpty", null, List.of());
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(new FormSubmissionPipeline.Themes(mock(UploadsConfigService.class), mock(CaptchaConfigService.class), mock(FieldActionsConfigService.class)), List.<FormAction>of(), mock(FormidableOptionsSourceService.class), () -> false);
+        FormFieldMetadataCollector.Result metadata = new FormFieldMetadataCollector.Result(
+                java.util.Map.of(GATED_FIELD, gated, "secretGate", secret),
+                java.util.Map.of(GATED_FIELD, List.of(onSecret)),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Map.of(),
+                java.util.Set.of("secretGate"));
+        setField(pipeline, "fieldMetadata", metadata);
+        setField(pipeline, "parsed", new FormDataParser.ParseResult(
+                java.util.Map.of("secretGate", List.of("S3cretPass!"), GATED_FIELD, List.of("kept")), List.of()));
+
+        assertDoesNotThrow(() -> invokeValidateLogicCoherence(pipeline, requestWithLogicState(null)));
+
+        ConditionalLogicEvaluator evaluator = (ConditionalLogicEvaluator) getField(pipeline, "logicEvaluator");
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, evaluator.visibility(GATED_FIELD));
+    }
+
+    /** Steps 9a and 10, in the order {@link FormSubmissionPipeline#run} calls them. */
     private static void invokeValidateLogicCoherence(FormSubmissionPipeline pipeline, HttpServletRequest req) throws Exception {
+        Method separate = FormSubmissionPipeline.class.getDeclaredMethod("separateSensitiveValues");
+        separate.setAccessible(true);
+        invokeSubmissionStep(separate, pipeline);
         Method method = FormSubmissionPipeline.class.getDeclaredMethod("validateLogicCoherence", HttpServletRequest.class);
         method.setAccessible(true);
         invokeSubmissionStep(method, pipeline, req);
@@ -1032,7 +1066,11 @@ class FormSubmissionPipelineTest {
         parameters.put("firstName", new ArrayList<>(List.of("Ada")));
         setField(pipeline, "formNode", formNode);
         setField(pipeline, "locale", Locale.FRENCH);
+        setField(pipeline, "fieldMetadata", emptyFieldMetadata());
         setField(pipeline, "parsed", new FormDataParser.ParseResult(parameters, List.of()));
+        Method separate = FormSubmissionPipeline.class.getDeclaredMethod("separateSensitiveValues");
+        separate.setAccessible(true);
+        invokeSubmissionStep(separate, pipeline);
 
         AcceptedSubmission accepted = pipeline.accepted();
         parameters.put("late", List.of("x"));

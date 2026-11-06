@@ -1,6 +1,7 @@
 package org.jahia.modules.formidable.jexperience.engine.render;
 
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.jexperience.engine.field.FieldShapes;
 import org.jahia.modules.formidable.jexperience.engine.field.MappedField;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpMixin;
 import org.jahia.modules.formidable.jexperience.engine.model.JxpProperty;
@@ -73,9 +74,12 @@ class PrefillMappings {
 
     /**
      * Why a mappable field is left out of the block, or null when it is in — the three conditions, in the
-     * order an author meets them.
+     * order an author meets them, after the one no author can lift: a sensitive field is never prefilled.
      */
     static String leftOut(JCRNodeWrapper field) throws RepositoryException {
+        if (FieldShapes.isSensitive(field)) {
+            return "the field is sensitive (" + FmdbMixin.SENSITIVE_FIELD + ") and never takes a profile value";
+        }
         if (!field.isNodeType(JxpMixin.MAPPING)) {
             return "the field is not mapped";
         }

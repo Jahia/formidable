@@ -1,5 +1,6 @@
 import {type FormEvent, type RefObject, useRef, useState} from 'react';
 import {fieldKindFromForm, interpolateMessage} from '~/utils/messageUtils';
+import {isSecretControl} from '~/utils/sensitiveFields';
 import {applyConditionalLogicVisibility, buildLogicStateHeader} from '~/utils/conditionalLogic';
 import {FORM_LOGIC_STATE_HEADER} from '~/utils/logicProviders';
 import {submitterTimeZone, TIME_ZONE_HEADER} from '~/utils/timeZone';
@@ -128,6 +129,20 @@ function changesFragmentOnly(target: string): boolean {
 		return next.href === here.href;
 	} catch {
 		return false;
+	}
+}
+
+/**
+ * Empties the secret controls: the secret typed in an attempt is not kept in the page for the next one. The visitor
+ * retypes it, and only it: every other answer stays. The native setter and a bubbling `input` reach a control that
+ * React drives (a third-party field): its onChange sees the empty value, and its next render does not write the
+ * secret back.
+ */
+function clearSecrets(form: HTMLFormElement) {
+	for (const control of Array.from(form.querySelectorAll('input, textarea')).filter(isSecretControl)) {
+		const prototype = control instanceof HTMLInputElement ? HTMLInputElement.prototype : HTMLTextAreaElement.prototype;
+		Object.getOwnPropertyDescriptor(prototype, 'value')?.set?.call(control, '');
+		control.dispatchEvent(new Event('input', {bubbles: true}));
 	}
 }
 
@@ -366,7 +381,7 @@ export function useFormSubmission({
 			if (isRedirectTarget(accepted?.redirect)) {
 				leaving = true;
 				await settleListeners(pending);
-				leaveFor(accepted.redirect, showSuccess);
+				leaveFor(form, accepted.redirect, showSuccess);
 				return;
 			}
 
@@ -390,9 +405,10 @@ export function useFormSubmission({
 	 * Otherwise, a navigation that leaves the page in place for REDIRECT_FALLBACK_MS (a target that answers with a
 	 * download) stops the spinner and shows the success message. The timer cannot tell that case from a next page
 	 * slow to answer, so the fallback leaves the form as it is: no reset, no `formidable:reset`, no return to the
-	 * first step, nothing that a page about to change would undo. A page that unloads never runs it.
+	 * first step, nothing that a page about to change would undo. Only the secrets are emptied: the page stays, and
+	 * the password must not stay in it. A page that unloads never runs it.
 	 */
-	const leaveFor = (target: string, showSuccess: (resetForm: boolean) => void) => {
+	const leaveFor = (form: HTMLFormElement, target: string, showSuccess: (resetForm: boolean) => void) => {
 		let ended = false;
 		const end = (resetForm: boolean) => {
 			if (ended) return;
@@ -412,12 +428,17 @@ export function useFormSubmission({
 		}, {once: true});
 		setTimeout(() => {
 			globalThis.location.assign(target);
-			setTimeout(() => end(false), REDIRECT_FALLBACK_MS);
+			setTimeout(() => {
+				if (ended) return;
+				clearSecrets(form);
+				end(false);
+			}, REDIRECT_FALLBACK_MS);
 		}, 0);
 	};
 
 	/** What the visitor sees of a rejection — or of a request that never got an answer. */
 	const showRejection = (form: HTMLFormElement, {errorCode, actionsProgress, messages}: Rejection, error: unknown) => {
+		clearSecrets(form);
 		if (errorCode === MAINTENANCE_ERROR_CODE) {
 			// Its own message type, not 'error': an error keeps the form on screen
 			// so the visitor can retry, but this rejection means the platform is

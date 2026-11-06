@@ -8,6 +8,7 @@ import {
 	UNREADABLE
 } from '~/utils/logicProviders';
 import {localToday} from '~/components/Input/Date/bounds';
+import {SENSITIVE_SELECTOR} from '~/utils/sensitiveFields';
 
 export type ConditionalLogicValueKind = 'choice' | 'date' | 'number' | 'boolean' | 'text';
 
@@ -729,6 +730,9 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 				: wrappersByName.get(rule.sourceFieldName ?? '');
 
 			if (!sourceWrapper) return false;
+			// A secret is never an operand: the server holds the rule a broken source and hides its target.
+			// The server render leaves the rule unbound, so the stored id or the name may still find the field.
+			if (sourceWrapper.matches(SENSITIVE_SELECTOR)) return false;
 			if (sourceWrapper.closest('[data-fmdb-logic-hidden="true"]')) return false;
 			return evaluateRule(rule, sourceWrapper);
 		});

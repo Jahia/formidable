@@ -1,5 +1,9 @@
 package org.jahia.modules.formidable.engine.servlet;
 
+import org.jahia.modules.formidable.engine.actions.field.FieldActionCollector;
+import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
+import org.jahia.modules.formidable.engine.api.FmdbMixin;
+import org.jahia.modules.formidable.engine.api.FmdbNodeName;
 import org.jahia.modules.formidable.engine.servlet.FormDataParser;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
@@ -280,6 +284,203 @@ class FormFieldMetadataCollectorTest {
         assertNull(off.pattern());
         assertEquals(20, off.maxLength());
         assertEquals("[0-9]+", result.fieldInfos().get("fax").constraints().pattern());
+    }
+
+    @Test
+    void readsTheSensitiveMarkerOfAFieldType() throws Exception {
+        // Verifies the type-level marker: a field whose type carries fmdbmix:sensitiveField is whitelisted like any
+        // other — its value must be parsed and validated — and named in sensitiveFields, which is what lets the
+        // pipeline keep its value from every action but the ones that opt in.
+        JCRNodeWrapper password = node("password", "fmdbext:password",
+                Set.of("fmdbmix:formElement", "fmdbmix:submittableField", "fmdbmix:sensitiveField"), Map.of(), List.of());
+        JCRNodeWrapper email = node("email", "fmdb:inputEmail",
+                Set.of("fmdbmix:formElement", "fmdbmix:submittableField"), Map.of(), List.of());
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(formNodeWithFields(email, password));
+
+        assertEquals(Set.of("email", "password"), result.fieldInfos().keySet());
+        assertEquals(Set.of("password"), result.sensitiveFields());
+    }
+
+    @Test
+    void aResultBuiltWithoutSensitiveFieldsHasNone() {
+        // Verifies the shapes every earlier caller uses: no sensitive field, never null.
+        FormFieldMetadataCollector.Result result = new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(), Map.of());
+        FormFieldMetadataCollector.Result withActions = new FormFieldMetadataCollector.Result(Map.of(), Map.of(), Map.of(),
+                Map.of(), Map.of());
+
+        assertTrue(result.sensitiveFields().isEmpty());
+        assertTrue(withActions.sensitiveFields().isEmpty());
+    }
+
+    @Test
+    void aSensitiveNameKeepsTheActionsThePreCheckKeeps() throws Exception {
+        // Verifies the two collectors agree on a shared sensitive name: a plain field without actions comes first, the
+        // password of its name with a policy action second, and the submission side keeps the policy action, marked
+        // sensitive, as the pre-check endpoint does. A name without a sensitive field keeps the first field's actions
+        // or none, as before.
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(plainThenPassword());
+        Map<String, List<ResolvedFieldAction>> preCheck = FieldActionCollector.collect(plainThenPassword());
+
+        List<ResolvedFieldAction> kept = result.fieldActions().get("secret");
+        assertEquals(List.of("myco:passwordPolicy"), kept.stream().map(ResolvedFieldAction::nodeType).toList());
+        assertTrue(kept.get(0).onSensitiveField());
+        assertEquals(preCheck.get("secret"), kept);
+        assertEquals(Set.of("secret"), result.sensitiveFields());
+        assertNull(result.fieldActions().get("other"));
+    }
+
+    @Test
+    void aNameThatTurnsSensitiveOnItsLastFieldKeepsTheActionsThePreCheckKeeps() throws Exception {
+        // Verifies the agreement does not depend on the order of the fields: a plain field without actions, a plain one
+        // with a policy action, and a password without actions last. The pre-check keeps the second field's actions,
+        // and so does the submission side, marked sensitive once the password makes the name sensitive.
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(plainCheckedThenPassword());
+        Map<String, List<ResolvedFieldAction>> preCheck = FieldActionCollector.collect(plainCheckedThenPassword());
+
+        List<ResolvedFieldAction> kept = result.fieldActions().get("secret");
+        assertEquals(List.of("myco:passwordPolicy"), kept.stream().map(ResolvedFieldAction::nodeType).toList());
+        assertTrue(kept.get(0).onSensitiveField());
+        assertEquals(preCheck.get("secret"), kept);
+    }
+
+    /** A form where 'secret' is a plain field without actions, a plain one with a policy action, then a password. */
+    private static JCRNodeWrapper plainCheckedThenPassword() throws Exception {
+        JCRNodeWrapper plain = node("secret", "fmdb:inputText", Set.of("fmdbmix:formElement"), Map.of(), List.of());
+        JCRNodeWrapper checked = withPolicyAction("secret", "fmdb:inputText", false);
+        JCRNodeWrapper password = node("secret", "fmdbext:password",
+                Set.of("fmdbmix:formElement", FmdbMixin.SENSITIVE_FIELD), Map.of(), List.of());
+        JCRNodeWrapper first = node("first", "fmdb:fieldset", Set.of("fmdbmix:nonSubmittable"), Map.of(), List.of(checked));
+        JCRNodeWrapper second = node("second", "fmdb:fieldset", Set.of("fmdbmix:nonSubmittable"), Map.of(), List.of(password));
+        return formNodeWithFields(plain, first, second);
+    }
+
+    /**
+     * A form where 'secret' is first a plain field without actions, then a password with a policy action, and where
+     * 'other' is the same pair without the sensitive marker.
+     */
+    private static JCRNodeWrapper plainThenPassword() throws Exception {
+        JCRNodeWrapper plain = node("secret", "fmdb:inputText", Set.of("fmdbmix:formElement"), Map.of(), List.of());
+        JCRNodeWrapper password = withPolicyAction("secret", "fmdbext:password", true);
+        JCRNodeWrapper otherPlain = node("other", "fmdb:inputText", Set.of("fmdbmix:formElement"), Map.of(), List.of());
+        JCRNodeWrapper otherChecked = withPolicyAction("other", "fmdb:inputText", false);
+        JCRNodeWrapper group = node("group", "fmdb:fieldset", Set.of("fmdbmix:nonSubmittable"), Map.of(),
+                List.of(password, otherChecked));
+        return formNodeWithFields(plain, otherPlain, group);
+    }
+
+    private static JCRNodeWrapper withPolicyAction(String name, String type, boolean sensitive) throws Exception {
+        JCRNodeWrapper policy = node("policy", "myco:passwordPolicy", Set.of(FmdbMixin.FIELD_ACTION), Map.of(), List.of());
+        JCRNodeWrapper actions = node(FmdbNodeName.ACTIONS, "fmdb:fieldActionList", Set.of(), Map.of(), List.of(policy));
+        Set<String> mixins = sensitive
+                ? Set.of("fmdbmix:formElement", FmdbMixin.FIELD_ACTIONS, FmdbMixin.SENSITIVE_FIELD)
+                : Set.of("fmdbmix:formElement", FmdbMixin.FIELD_ACTIONS);
+        return node(name, type, mixins, Map.of(), List.of(actions));
+    }
+
+    @Test
+    void aNameOneOfWhoseFieldsIsSensitiveIsSensitive() throws Exception {
+        // Verifies the fail-closed rule of a shared name: both fields submit under it, the first one's metadata is
+        // kept, and it becomes sensitive when the second carries the marker.
+        JCRNodeWrapper plain = node("secret", "fmdb:inputText", Set.of("fmdbmix:formElement"), Map.of(), List.of());
+        JCRNodeWrapper password = node("secret", "fmdbext:password",
+                Set.of("fmdbmix:formElement", "fmdbmix:sensitiveField"), Map.of(), List.of());
+        JCRNodeWrapper group = node("group", "fmdb:fieldset", Set.of("fmdbmix:nonSubmittable"), Map.of(), List.of(password));
+
+        FormFieldMetadataCollector.Result result = FormFieldMetadataCollector.collectFromFormNode(formNodeWithFields(plain, group));
+
+        assertEquals("fmdb:inputText", result.fieldInfos().get("secret").nodeType());
+        assertEquals(Set.of("secret"), result.sensitiveFields());
+    }
+
+    @Test
+    void aRuleSourcedOnASensitiveFieldIsABrokenSourceAndItsTypeIsReportedOnce() throws Exception {
+        // Verifies "sensitive wins" for conditional logic, with a type that declares the forbidden pair as an extension
+        // module might (sensitive + text): the rule on 'detail' is left unbound, the existing broken-source WARN says
+        // why once for the rule, and the type's conflict once, however many submissions collect the form.
+        JCRNodeWrapper secret = node("secretGate", "myext:secretText",
+                Set.of("fmdbmix:formElement", "fmdbmix:sensitiveField", "fmdbmix:textField"), Map.of(), List.of());
+        java.io.PrintStream previous = System.err;
+        java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
+        System.setErr(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
+        FormFieldMetadataCollector.Result result;
+        try {
+            result = FormFieldMetadataCollector.collectFromFormNode(formNodeWithFields(secret, detailRuledBy(secret)));
+            FormFieldMetadataCollector.collectFromFormNode(formNodeWithFields(secret, detailRuledBy(secret)));
+        } finally {
+            System.setErr(previous);
+        }
+
+        assertNull(result.logicIdToFieldName().get("rule-1"));
+        assertNotNull(result.fieldLogicRules().get("detail"));
+        String logged = captured.toString(java.nio.charset.StandardCharsets.UTF_8);
+        assertEquals(1, logged.split("Broken logic source for logicId 'rule-1'", -1).length - 1, logged);
+        assertTrue(logged.contains("is sensitive"), logged);
+        assertEquals(1, logged.split("Field type 'myext:secretText' declares both", -1).length - 1, logged);
+    }
+
+    @Test
+    void aSensitiveTypeThatDeclaresTheFileMarkerIsReportedOnce() throws Exception {
+        // Verifies decision D4 for a type that declares the forbidden pair as an extension module might (sensitive +
+        // file): the field stays sensitive, so the pipeline hands its uploads to no action, and the type's conflict is
+        // reported once however many forms are collected.
+        JCRNodeWrapper upload = node("secretUpload", "myext:secretUpload",
+                Set.of("fmdbmix:formElement", "fmdbmix:sensitiveField", "fmdbmix:fileField"), Map.of(), List.of());
+        java.io.PrintStream previous = System.err;
+        java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
+        System.setErr(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
+        FormFieldMetadataCollector.Result result;
+        try {
+            result = FormFieldMetadataCollector.collectFromFormNode(formNodeWithFields(upload));
+            FormFieldMetadataCollector.collectFromFormNode(formNodeWithFields(upload));
+        } finally {
+            System.setErr(previous);
+        }
+
+        assertEquals(Set.of("secretUpload"), result.sensitiveFields());
+        String logged = captured.toString(java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(logged.contains("a sensitive field is never a file field"), logged);
+        assertEquals(1, logged.split("Field type 'myext:secretUpload' declares both", -1).length - 1, logged);
+    }
+
+    @Test
+    void aRuleWhoseSourceFieldWasDeletedIsABrokenSource() throws Exception {
+        // Verifies the WARN that makes a dangling rule discoverable: the weak reference to the deleted source no longer
+        // resolves, so the rule is left unbound and the dependent keeps its rules (evaluated as fail-safe hidden).
+        JCRPropertyWrapper dangling = mock(JCRPropertyWrapper.class);
+        when(dangling.getNode()).thenThrow(new javax.jcr.ItemNotFoundException("gone"));
+        java.io.PrintStream previous = System.err;
+        java.io.ByteArrayOutputStream captured = new java.io.ByteArrayOutputStream();
+        System.setErr(new java.io.PrintStream(captured, true, java.nio.charset.StandardCharsets.UTF_8));
+        FormFieldMetadataCollector.Result result;
+        try {
+            result = FormFieldMetadataCollector.collectFromFormNode(formNodeWithFields(detailBoundThrough("removed", dangling)));
+        } finally {
+            System.setErr(previous);
+        }
+
+        assertNull(result.logicIdToFieldName().get("rule-1"));
+        assertNotNull(result.fieldLogicRules().get("detail"));
+        String logged = captured.toString(java.nio.charset.StandardCharsets.UTF_8);
+        assertTrue(logged.contains("Broken logic source for logicId 'rule-1'"), logged);
+        assertTrue(logged.contains("no longer exists (gone)"), logged);
+    }
+
+    /** A text field 'detail' shown when the given source is not empty, bound to it through logicsSrc as the editor binds it. */
+    static JCRNodeWrapper detailRuledBy(JCRNodeWrapper source) throws Exception {
+        JCRPropertyWrapper reference = mock(JCRPropertyWrapper.class);
+        when(reference.getNode()).thenReturn(source);
+        return detailBoundThrough(source.getName(), reference);
+    }
+
+    /** A text field 'detail' shown when the field named {@code sourceName} is not empty, bound through {@code reference}. */
+    static JCRNodeWrapper detailBoundThrough(String sourceName, JCRPropertyWrapper reference) throws Exception {
+        JCRPropertyWrapper logics = multiValueProperty(
+                "{\"logicId\":\"rule-1\",\"sourceFieldName\":\"" + sourceName + "\",\"operator\":\"isNotEmpty\"}");
+        JCRNodeWrapper binding = node("rule-1", "fmdb:logicSource", Set.of(), Map.of("logicNodeSource", reference), List.of());
+        JCRNodeWrapper logicsSrc = node("logicsSrc", "fmdb:logicsSrc", Set.of(), Map.of(), List.of(binding));
+        return node("detail", "fmdb:inputText", Set.of("fmdbmix:formElement", "fmdbmix:formLogicElement"),
+                Map.of("logics", logics), List.of(logicsSrc));
     }
 
     @Test

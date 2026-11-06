@@ -36,6 +36,8 @@ final class FormsFieldTypes {
     static final String SWITCH = "fmdbext:switch";
     static final String RATING = "fmdbext:rating";
     static final String CONSENT = "fmdbext:consent";
+    static final String PASSWORD = "fmdbext:password";
+    static final String KIND_PASSWORD = "password";
     private static final String TYPE = "type";
 
     // the properties the import may write, per type, as the CNDs of formidable-elements and
@@ -81,7 +83,22 @@ final class FormsFieldTypes {
             Map.entry(CHECKBOX, Set.of(HELP_TEXT, REQUIRED, MSG_VALUE_MISSING)),
             Map.entry(SWITCH, Set.of(HELP_TEXT, REQUIRED, ON_LABEL, OFF_LABEL, MSG_VALUE_MISSING)),
             Map.entry(RATING, Set.of(HELP_TEXT, REQUIRED, MAX_VALUE, MSG_VALUE_MISSING)),
-            Map.entry(CONSENT, Set.of(HELP_TEXT, REQUIRED, STATEMENT, MSG_VALUE_MISSING)));
+            Map.entry(CONSENT, Set.of(HELP_TEXT, REQUIRED, STATEMENT, MSG_VALUE_MISSING)),
+            // no pattern: a regular expression rule is reported
+            Map.entry(PASSWORD, union(Set.of(HELP_TEXT, REQUIRED, PLACEHOLDER, MIN_LENGTH, MAX_LENGTH), TEXT_MESSAGES)));
+
+    /** The values a property of a type may take, both ends included, as its CND declares them ({@code < '[1,1024]'}). */
+    record Range(long min, long max) {
+        long clamp(long value) {
+            return Math.max(min, Math.min(max, value));
+        }
+    }
+
+    private static final Map<String, Map<String, Range>> RANGES = Map.of(
+            PASSWORD, Map.of(MIN_LENGTH, new Range(0, 1024), MAX_LENGTH, new Range(1, 1024)));
+
+    /** The value a property takes when the import writes none, as its CND declares it ({@code = 128 autocreated}). */
+    private static final Map<String, Map<String, Long>> DEFAULTS = Map.of(PASSWORD, Map.of(MAX_LENGTH, 128L));
 
     /**
      * @param nodeType the type to create
@@ -140,9 +157,16 @@ final class FormsFieldTypes {
     private FormsFieldTypes() {
     }
 
-    /** Null when the field is not recreated at all: a password, a content display, the buttons and fieldset marks. */
+    /**
+     * Null when the field is not recreated at all: a content display, the buttons and fieldset marks, and a
+     * password without the password field of formidable-extended-inputs. A password has no elements fallback:
+     * a text field would store and mail it in clear.
+     */
     static Mapping of(FormsField field, Predicate<String> registered) {
         String kind = field.kind();
+        if (KIND_PASSWORD.equals(kind)) {
+            return registered.test(PASSWORD) ? new Mapping(PASSWORD, null) : null;
+        }
         if (!isRecreated(kind)) {
             return null;
         }
@@ -168,9 +192,19 @@ final class FormsFieldTypes {
         return ACCEPTED.getOrDefault(nodeType, Set.of());
     }
 
-    /** The kinds the import turns into something else than a field, or into nothing. */
+    /** The range a property of a type is constrained to, or null when its CND sets none. */
+    static Range range(String nodeType, String property) {
+        return RANGES.getOrDefault(nodeType, Map.of()).get(property);
+    }
+
+    /** The default value of a property of a type, or null when its CND sets none. */
+    static Long defaultValue(String nodeType, String property) {
+        return DEFAULTS.getOrDefault(nodeType, Map.of()).get(property);
+    }
+
+    /** The kinds the import turns into something else than a field, or into nothing; a password depends on the instance ({@link #of}). */
     static boolean isRecreated(String kind) {
-        return !isLayout(kind) && !"password".equals(kind) && !"contentDisplay".equals(kind);
+        return !isLayout(kind) && !"contentDisplay".equals(kind);
     }
 
     static boolean isLayout(String kind) {
