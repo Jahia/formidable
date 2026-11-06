@@ -2,6 +2,7 @@
 import {describe, expect, it, vi} from 'vitest';
 import {renderHook} from '~/utils/testSupport/reactRenderer';
 import {useMultiStep} from './useMultiStep';
+import {forgetRegisteredLogicProviders, installLogicSourceQueue} from '~/utils/logicProviders';
 
 /**
  * The step navigation once Next waits for an asynchronous validation — the field actions of the step.
@@ -142,5 +143,26 @@ describe('useMultiStep: Next waits for the validation of the step', () => {
 
 		// step 2 was the second visible step at the click and is the third now: Next goes to step 3, not back to 2
 		expect(moves).toEqual([2, 3]);
+	});
+});
+
+describe('useMultiStep: a logic source another module registers', () => {
+	it('subscribes to a source that registers after the form came up, once', async () => {
+		const rule = JSON.stringify({sourceType: 'acme:segment', segment: 'tier', operator: 'exists'});
+		document.body.innerHTML = `<form>${stepsMarkup(1)}<div data-fmdb-node-name="size" data-fmdb-logics='${JSON.stringify([rule])}'></div></form>`;
+		const form = document.querySelector('form')!;
+		const {flush} = renderHook(() => useMultiStep({formRef: {current: form}, stepIds: ids(1)}));
+		flush();
+		installLogicSourceQueue();
+		const subscribe = vi.fn(() => () => undefined);
+
+		globalThis.formidableLogicSources!.push({id: 'acme:segment', configKey: 'segment', read: () => 'gold', subscribe});
+		await Promise.resolve();
+		document.dispatchEvent(new Event('fmdb:logic-invalidate'));
+		await Promise.resolve();
+
+		expect(subscribe).toHaveBeenCalledTimes(1);
+		expect(subscribe).toHaveBeenCalledWith(['tier'], expect.any(Function));
+		forgetRegisteredLogicProviders();
 	});
 });

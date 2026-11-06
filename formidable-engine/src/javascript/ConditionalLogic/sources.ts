@@ -10,6 +10,8 @@ import type {GraphNode, SourceFieldOption} from './ConditionalLogic.types';
 export interface SourcesLoad {
     sources: SourceFieldOption[];
     logicIdToSource: Map<string, {name: string; uuid: string}>;
+    /** The modules of the field's site, its own and their dependencies: a provider may need some of them. */
+    installedModules: string[];
 }
 
 /** The coordinates of one load — also its sharing key: the same field, workspace and languages share one request. */
@@ -37,7 +39,7 @@ const contextPath = (): string =>
  * server answered in 20 to 35 ms. The editor reads the form once and keeps nothing in the client's
  * cache, so a direct request loses nothing and skips the wait.
  */
-export const postGraphQL: GraphQLPost = async (query, variables) => {
+export const postGraphQLRequest = async <T>(query: string, variables: object): Promise<T> => {
     const response = await fetch(`${contextPath()}/modules/graphql`, {
         method: 'POST',
         credentials: 'same-origin',
@@ -48,8 +50,10 @@ export const postGraphQL: GraphQLPost = async (query, variables) => {
         throw new Error(`GraphQL answered ${response.status}`);
     }
 
-    return response.json() as Promise<GraphQLResponse>;
+    return response.json() as Promise<T>;
 };
+
+export const postGraphQL: GraphQLPost = (query, variables) => postGraphQLRequest<GraphQLResponse>(query, variables);
 
 /** Reads the form around the field in one round trip and shapes it for the editor; fails when no form stands above the field. */
 export const fetchSources = async (input: SourcesInput, post: GraphQLPost = postGraphQL): Promise<SourcesLoad> => {
@@ -66,7 +70,8 @@ export const fetchSources = async (input: SourcesInput, post: GraphQLPost = post
 
     return {
         sources: buildSourceFieldOptions(field.path, form.descendants?.nodes ?? []),
-        logicIdToSource: buildLogicIdToSourceMap(field.descendant?.children?.nodes ?? [])
+        logicIdToSource: buildLogicIdToSourceMap(field.descendant?.children?.nodes ?? []),
+        installedModules: field.site?.installedModules ?? []
     };
 };
 
@@ -150,17 +155,18 @@ interface HeldLoad {
     key: string;
     sources: SourceFieldOption[];
     logicIdToSource: Map<string, {name: string; uuid: string}>;
+    installedModules: string[];
     failed: boolean;
 }
 
-export interface SharedSources extends Pick<HeldLoad, 'sources' | 'logicIdToSource'> {
+export interface SharedSources extends Pick<HeldLoad, 'sources' | 'logicIdToSource' | 'installedModules'> {
     /** True until the load this row holds has answered. */
     loading: boolean;
     /** The i18n key of what prevents a list: no field path to load for, or a failed request. */
     errorKey: 'conditionalLogic.unresolvedContext' | 'conditionalLogic.loadError' | null;
 }
 
-const NOTHING: Pick<HeldLoad, 'sources' | 'logicIdToSource'> = {sources: [], logicIdToSource: new Map()};
+const NOTHING: Pick<HeldLoad, 'sources' | 'logicIdToSource' | 'installedModules'> = {sources: [], logicIdToSource: new Map(), installedModules: []};
 
 /** What a row shows, from the load that answered last — pure, so the tests cover it without rendering. */
 export const sharedSourcesView = (input: SourcesInput | null, held: HeldLoad | null): SharedSources => {
@@ -175,6 +181,7 @@ export const sharedSourcesView = (input: SourcesInput | null, held: HeldLoad | n
     return {
         sources: held.sources,
         logicIdToSource: held.logicIdToSource,
+        installedModules: held.installedModules,
         loading: false,
         errorKey: held.failed ? 'conditionalLogic.loadError' : null
     };
@@ -205,7 +212,7 @@ export const useSharedSources = (
         acquireSources(input)
             .then(load => {
                 if (!cancelled) {
-                    setHeld({key, sources: load.sources, logicIdToSource: load.logicIdToSource, failed: false});
+                    setHeld({key, sources: load.sources, logicIdToSource: load.logicIdToSource, installedModules: load.installedModules, failed: false});
                 }
             })
             .catch((error: unknown) => {

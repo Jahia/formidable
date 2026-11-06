@@ -1,8 +1,14 @@
-import {getLogicProvider, type LogicSourceType, type ScalarLogicProvider} from '~/utils/logicProviders';
+import {SHARED_RULE_KEYS} from '@jahia/formidable-library/logic-sources';
+import {
+	getLogicProvider,
+	installLogicSourceQueue,
+	isLogicProviderAvailable,
+	readLogicProvider,
+	type ScalarLogicProvider,
+	UNREADABLE
+} from '~/utils/logicProviders';
 import {localToday} from '~/components/Input/Date/bounds';
 import {SENSITIVE_SELECTOR} from '~/utils/sensitiveFields';
-
-export type ConditionalLogicSourceType = LogicSourceType;
 
 export type ConditionalLogicValueKind = 'choice' | 'date' | 'number' | 'boolean' | 'text';
 
@@ -35,9 +41,9 @@ export type ConditionalLogicOperator =
 
 export interface ConditionalLogicRule {
 	logicId?: string;
-	// Absent on rules stored before jsVariable support; treated as 'field'. Wider than
-	// LogicSourceType on purpose: a stored rule may name a provider this runtime does not
-	// ship (authored against a newer module), and such a rule must be kept so it can fail
+	// Absent on rules stored before jsVariable support; treated as 'field'. A stored
+	// rule may name a provider no module registered on this page (authored against a newer
+	// module, or its module not deployed), and such a rule must be kept so it can fail
 	// closed instead of vanishing.
 	sourceType?: string;
 	sourceFieldName?: string;
@@ -47,13 +53,11 @@ export interface ConditionalLogicRule {
 	// Value kind of the source at authoring time; picks the comparison semantics
 	// where an operator is shared across kinds ('between': number vs date).
 	valueKind?: ConditionalLogicValueKind;
-	// Provider config: exactly one of these, named by the provider's configKey.
-	variable?: string;
-	param?: string;
-	cookie?: string;
 	operator: ConditionalLogicOperator;
 	value?: string;
 	values?: string[];
+	// Provider config: exactly one key, named by the provider's configKey.
+	[configKey: string]: string | string[] | undefined;
 }
 
 const VALUE_KINDS: ConditionalLogicValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
@@ -123,6 +127,15 @@ const ruleUnresolvedReason = (rule: ConditionalLogicRule): string | null => {
 
 const reportedUnresolvedReasons = new Set<string>();
 
+const SOURCE_REASON_PREFIX = 'source:';
+
+const warnUnresolvedRule = (reason: string) => {
+	console.warn(
+		`[formidable] Conditional logic rule cannot be evaluated (${reason}): its target `
+		+ 'field stays hidden. Check the stored rule, and that the module providing its source is installed.'
+	);
+};
+
 /**
  * Reports a rule this runtime cannot evaluate. Once per reason per page: the visibility
  * pass runs on every input event, and a silent unevaluable rule looks exactly like a
@@ -131,10 +144,18 @@ const reportedUnresolvedReasons = new Set<string>();
 const reportUnresolvedRule = (reason: string) => {
 	if (reportedUnresolvedReasons.has(reason)) return;
 	reportedUnresolvedReasons.add(reason);
-	console.warn(
-		`[formidable] Conditional logic rule cannot be evaluated (${reason}): its target `
-		+ 'field stays hidden. Check the stored rule or the module version.'
-	);
+
+	// The module's page script may register its source a moment after the form came up: it is
+	// missing only if it is still missing once the page has loaded.
+	if (reason.startsWith(SOURCE_REASON_PREFIX) && typeof document !== 'undefined' && document.readyState !== 'complete') {
+		const sourceType = reason.slice(SOURCE_REASON_PREFIX.length);
+		globalThis.addEventListener('load', () => {
+			if (!getLogicProvider(sourceType)) warnUnresolvedRule(reason);
+		}, {once: true});
+		return;
+	}
+
+	warnUnresolvedRule(reason);
 };
 
 /**
@@ -150,6 +171,18 @@ const providerRuleRef = (parsed: Partial<ConditionalLogicRule>): string | null =
 	return typeof ref === 'string' && ref.trim() !== '' ? ref.trim() : null;
 };
 
+/** The provider config of a stored rule: every string key that is no shared rule key, trimmed. */
+const providerConfigOf = (parsed: Record<string, unknown>): Record<string, string> => {
+	const config: Record<string, string> = {};
+	for (const [key, value] of Object.entries(parsed)) {
+		if (!SHARED_RULE_KEYS.includes(key) && typeof value === 'string') {
+			config[key] = value.trim();
+		}
+	}
+
+	return config;
+};
+
 export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRule | null => {
 	try {
 		const parsed = JSON.parse(rawValue) as Partial<ConditionalLogicRule>;
@@ -157,23 +190,15 @@ export const parseConditionalLogicRule = (rawValue: string): ConditionalLogicRul
 			return null;
 		}
 
-		const provider = getLogicProvider(parsed.sourceType);
-		const ref = providerRuleRef(parsed);
-		if (provider && ref) {
-			return {
-				logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
-				sourceType: provider.id,
-				[provider.configKey]: ref,
-				operator: parsed.operator as ConditionalLogicOperator,
-				value: typeof parsed.value === 'string' ? parsed.value : undefined
-			};
-		}
-
-		// A non-field rule that is not usable here — unknown provider, missing reference —
-		// is kept rather than dropped: the evaluator fails it closed and reports it, so the
-		// field stays hidden everywhere instead of client-visible but server-hidden.
+		// A non-field rule keeps its provider config whatever the provider: its key is the one
+		// string key that is no shared rule key, as the server reads it. Read from the provider
+		// instead, a rule parsed before its module's script registered would lose its reference.
+		// A rule that is not usable here — unknown provider, missing reference — is kept rather
+		// than dropped: the evaluator fails it closed and reports it, so the field stays hidden
+		// everywhere instead of client-visible but server-hidden.
 		if (isNonFieldRule(parsed)) {
 			return {
+				...providerConfigOf(parsed),
 				logicId: typeof parsed.logicId === 'string' ? parsed.logicId : undefined,
 				sourceType: parsed.sourceType,
 				operator: parsed.operator as ConditionalLogicOperator,
@@ -393,10 +418,16 @@ const hasTextContent = (values: string[]): boolean =>
 /**
  * Evaluates a provider rule (a JS variable, a URL parameter, a cookie…). The provider
  * reports one optional string, so the comparison is the same whichever provider it is.
+ * A source that cannot be read at all makes the rule false, whatever the operator: "the
+ * tracker is blocked" must not read as "the property does not exist".
  */
 const evaluateProviderRule = (rule: ConditionalLogicRule, provider: ScalarLogicProvider): boolean => {
-	const ref = rule[provider.configKey];
-	const actual = ref ? provider.read(ref) : undefined;
+	if (!isLogicProviderAvailable(provider)) return false;
+
+	const ref = providerRuleRef(rule);
+	const actual = ref ? readLogicProvider(provider, ref) : undefined;
+	if (actual === UNREADABLE) return false;
+
 	const defined = actual !== undefined;
 	const expected = rule.value ?? '';
 
@@ -433,7 +464,7 @@ const collectLogicStateNeeds = (
 			hasTodayRule = hasTodayRule || ruleReferencesToday(rule);
 
 			const provider = getLogicProvider(rule.sourceType);
-			const ref = provider ? rule[provider.configKey] : undefined;
+			const ref = provider ? providerRuleRef(rule) : null;
 			if (!provider || !ref) continue;
 
 			const refs = refsByProvider.get(provider.id) ?? new Set<string>();
@@ -482,11 +513,15 @@ export const buildLogicStateHeader = (form: HTMLFormElement): string | null => {
 
 	for (const [providerId, refs] of refsByProvider) {
 		const provider = getLogicProvider(providerId);
-		if (!provider) continue;
+		// An unavailable source is left undeclared rather than declared absent: the server
+		// then fails its rules closed, as this runtime does.
+		if (!provider || !isLogicProviderAvailable(provider)) continue;
 
 		const state: Record<string, string | null> = {};
 		for (const ref of refs) {
-			state[ref] = provider.read(ref) ?? null;
+			const value = readLogicProvider(provider, ref);
+			// a read that threw is left undeclared, as an unavailable source is
+			if (value !== UNREADABLE) state[ref] = value ?? null;
 		}
 
 		providers[providerId] = state;
@@ -635,6 +670,9 @@ export const applyConditionalLogicVisibility = (form: HTMLFormElement) => {
 	// Gated on the form itself so every caller is covered, including an integrator
 	// asking for a re-evaluation through FORM_LOGIC_INVALIDATE_EVENT.
 	if (form.dataset.fmdbEditMode === 'true') return;
+
+	// The sources other modules pushed before the form came up; a later push re-evaluates
+	installLogicSourceQueue();
 
 	const wrappers = Array.from(form.querySelectorAll<HTMLElement>('[data-fmdb-node-name]'));
 	const wrappersByNodeId = new Map(

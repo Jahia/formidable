@@ -172,4 +172,17 @@ class ProfilePropertyCatalogTest {
         when(failing.executeGetRequest(any(), any(), any(), any(), any())).thenThrow(new IOException("timeout"));
         assertThrows(ProfilePropertiesUnavailableException.class, () -> new ProfilePropertyCatalog(failing, () -> Instant.EPOCH).profileProperties("site"));
     }
+
+    @Test
+    void oneReadServesTheMappableAndTheReadableLists() throws Exception {
+        // Verifies that the rule editor's list comes from the same cached read as the mapping's, read-only
+        // properties included in it only.
+        PropertyType visits = type("nbOfVisits", "Visits", "integer");
+        visits.getMetadata().setReadOnly(true);
+        ContextServerService service = serviceAnswering(type("country", "Country", "string"), visits);
+        ProfilePropertyCatalog catalog = new ProfilePropertyCatalog(service, () -> Instant.EPOCH);
+        assertEquals(List.of("country"), catalog.profileProperties("site").stream().map(ProfilePropertyDescriptor::name).toList());
+        assertEquals(List.of("country", "nbOfVisits"), catalog.readableProfileProperties("site").stream().map(ProfilePropertyDescriptor::name).toList());
+        verify(service, times(1)).executeGetRequest(any(), any(), any(), any(), any());
+    }
 }

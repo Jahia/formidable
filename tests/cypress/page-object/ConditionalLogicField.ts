@@ -18,8 +18,11 @@ export class ConditionalLogicField extends BaseComponent {
 	// types the name of what it designates instead.
 	static readonly sourceTypeDropdownIndex = 0;
 	static readonly sourceDropdownIndex = 1;
-	// Provider rules skip the source dropdown, so their operator is at index 1.
+	// Provider rules skip the source dropdown, so their operator is at index 1 — or 2 for a provider
+	// that lists what it designates (the jExperience profile), whose reference is a dropdown at index 1.
 	static readonly providerOperatorDropdownIndex = 1;
+	static readonly providerRefDropdownIndex = 1;
+	static readonly listedProviderOperatorDropdownIndex = 2;
 	static readonly operatorDropdownIndex = 2;
 	static readonly valueDropdownIndex = 3;
 
@@ -85,6 +88,10 @@ export class ConditionalLogicField extends BaseComponent {
 	openDropdown(ruleIndex: number, dropdownIndex: number): this {
 		this.dismissOpenMenu();
 		this.getRule(ruleIndex).get().find('.moonstone-loader').should('have.length', 0);
+		// a dropdown waiting for its list (the profile properties) is disabled, and a click would open nothing
+		this.getDropdown(ruleIndex, dropdownIndex).should($dropdown => {
+			expect($dropdown.is('.moonstone-disabled') || $dropdown.find('.moonstone-disabled').length > 0).to.equal(false);
+		});
 		this.getDropdown(ruleIndex, dropdownIndex).scrollIntoView().click();
 		// eslint-disable-next-line cypress/no-unnecessary-waiting
 		cy.wait(500);
@@ -135,8 +142,20 @@ export class ConditionalLogicField extends BaseComponent {
 	}
 
 	// A provider rule has no source dropdown, so its operator sits one position earlier.
-	openProviderOperatorDropdown(ruleIndex: number): this {
-		return this.openDropdown(ruleIndex, ConditionalLogicField.providerOperatorDropdownIndex);
+	openProviderOperatorDropdown(ruleIndex: number, listedRef = false): this {
+		return this.openDropdown(ruleIndex, listedRef
+			? ConditionalLogicField.listedProviderOperatorDropdownIndex
+			: ConditionalLogicField.providerOperatorDropdownIndex);
+	}
+
+	openProviderRefDropdown(ruleIndex: number): this {
+		return this.openDropdown(ruleIndex, ConditionalLogicField.providerRefDropdownIndex);
+	}
+
+	selectProviderRef(ruleIndex: number, label: string): this {
+		this.openProviderRefDropdown(ruleIndex);
+		this.selectMenuItem(label);
+		return this;
 	}
 
 	selectSourceType(ruleIndex: number, label: string): this {
@@ -157,8 +176,8 @@ export class ConditionalLogicField extends BaseComponent {
 		return this;
 	}
 
-	selectProviderOperator(ruleIndex: number, label: string): this {
-		this.openProviderOperatorDropdown(ruleIndex);
+	selectProviderOperator(ruleIndex: number, label: string, listedRef = false): this {
+		this.openProviderOperatorDropdown(ruleIndex, listedRef);
 		this.selectMenuItem(label);
 		return this;
 	}

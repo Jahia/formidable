@@ -1,0 +1,4 @@
+# UI extensions
+src/main/resources/javascript/apps
+# A placeholder the Jahia parent build creates
+dummy-non-existing-folder

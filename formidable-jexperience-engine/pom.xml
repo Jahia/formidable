@@ -12,9 +12,10 @@
     <description>The jExperience integration of Formidable forms: profile mapping of the fields, the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker, and later the prefill (docs/architecture/jexperience-integration.md)</description>
     <properties>
         <!-- The marker mixin and the response SPI come from the engine, fmdb:form (the type the publication
-             listener and the render filter apply to) from the elements, ContextServerService from jExperience. -->
-        <jahia-depends>formidable-engine,formidable-elements,jexperience</jahia-depends>
-        <sonar.sources>src,pom.xml</sonar.sources>
+             listener and the render filter apply to) from the elements, ContextServerService from jExperience,
+             and the GraphQL API the rules editor lists the profile properties through from graphql-dxm-provider. -->
+        <jahia-depends>formidable-engine,formidable-elements,jexperience,graphql-dxm-provider</jahia-depends>
+        <sonar.sources>src,package.json,pom.xml</sonar.sources>
         <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
         <jahia-module-signature>MCwCFHFcXXCT2BRv4OOsdiiZP2IPmYRBAhRLiCPJDKNSuZkZBBM4e5D2unKnHw==</jahia-module-signature>
@@ -114,11 +115,38 @@
             <artifactId>osgi.annotation</artifactId>
             <scope>provided</scope>
         </dependency>
-        <!-- The golden-rule test parses the expected JSON with org.json, the engine's own JSON library. -->
+        <!-- org.json, which the platform ships and the engine imports too: the render filter reads the stored
+             conditional-logic rules with it, and the golden-rule test parses the expected JSON. -->
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
-            <scope>test</scope>
+            <scope>provided</scope>
+        </dependency>
+        <!-- The GraphQL API of the platform, for the field the conditional-logic editor lists the profile
+             properties through: the provider's extension point and the annotations it reads. Both ship with Jahia. -->
+        <dependency>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>graphql-dxm-provider</artifactId>
+            <version>3.2.0</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.github.graphql-java</groupId>
+            <artifactId>graphql-java-annotations</artifactId>
+            <version>${graphql-java-annotations.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -167,10 +195,70 @@
                             org.jahia.services.content.nodetypes,
                             org.jahia.services.content.nodetypes.initializers,
                             org.jahia.utils.i18n,
+                            org.json;version="0",
                             *
                         </Import-Package>
                     </instructions>
                 </configuration>
+            </plugin>
+            <!-- The jContent bundle (src/javascript): the editor half of the profile logic source. -->
+            <plugin>
+                <artifactId>maven-clean-plugin</artifactId>
+                <configuration>
+                    <filesets>
+                        <fileset>
+                            <directory>${project.basedir}/src/main/resources/javascript/apps/</directory>
+                            <includes>
+                                <include>*</include>
+                            </includes>
+                        </fileset>
+                    </filesets>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>install node and yarn - Formidable jExperience Engine</id>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>install</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>yarn lint - Formidable jExperience Engine</id>
+                        <phase>process-sources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>lint</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>yarn build - Formidable jExperience Engine</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>yarn</executable>
+                            <arguments>
+                                <argument>build</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -233,25 +321,6 @@
                     </snapshots>
                 </repository>
             </repositories>
-        </profile>
-        <!-- A Java bundle with no package.json: the sync-version execution inherited from the root's release-prepare
-             profile has no script and no file to sync here, so it is unbound. -->
-        <profile>
-            <id>release-prepare</id>
-            <build>
-                <plugins>
-                    <plugin>
-                        <groupId>org.codehaus.mojo</groupId>
-                        <artifactId>exec-maven-plugin</artifactId>
-                        <executions>
-                            <execution>
-                                <id>sync-version</id>
-                                <phase>none</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
         </profile>
     </profiles>
 </project>

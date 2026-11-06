@@ -51,13 +51,13 @@ when one is missing:
 | Key | Type | Written by | Present on | Meaning, and when it is absent |
 |---|---|---|---|---|
 | `logicId` | string, 8 characters | the editor at the rule's first edit; the save-time sync when empty | every rule | Identifies the rule: it is the name of the `logicsSrc/<logicId>` child node that holds the weak reference to the source. Absent → generated at save. |
-| `sourceType` | string | the editor | provider rules; absent or `field` on a field rule | What the rule designates: absent or `field`, another field of the form; `jsVariable`, `urlParam` or `cookie`, a provider ([Sources outside the form: providers](#sources-outside-the-form-providers)). A value this module version does not ship is kept verbatim and fails closed. |
+| `sourceType` | string | the editor | provider rules; absent or `field` on a field rule | What the rule designates: absent or `field`, another field of the form; `jsVariable`, `urlParam` or `cookie`, a built-in provider ([Sources outside the form: providers](#sources-outside-the-form-providers)); `<module>:<name>`, a source another module registers ([Sources another module registers](#sources-another-module-registers)). A value no installed module provides is kept verbatim and fails closed. |
 | `sourceFieldKey` | string, UUID | the editor when the source already has a `fieldKey`; backfilled by the sync from the resolved source | field rules | The **business reference** to the source field, its `fieldKey`: the primary resolution criterion, it survives rename, copy and import. Absent → the source is resolved from `sourceNodeId`, then `sourceFieldName`, and the key is written back. |
 | `sourceNodeId` | string, JCR UUID | the editor; rewritten by the sync to the resolved node | field rules | The technical identifier of the source: fast path and tie-breaker. It changes on import and copy, which the sync repairs. |
 | `sourceFieldName` | string | the editor | field rules, **required** | The system name of the source field: the last resolution fallback, and the name the server reads the submitted value by. A field rule without it is a targetless leftover — an **Add** never completed — skipped by both evaluators and removed at save. |
 | `sourceFieldType` | string | the editor | field rules | The primary type of the source (`fmdb:select`…), editor metadata: a per-type descriptor exists where a built-in type deviates from its kind (the select's `options` property, the checkbox's operators). The evaluators do not read it. |
 | `valueKind` | `choice`, `date`, `number`, `boolean`, `text` | the editor, from the value-kind mixin of the source | field rules | Picks the comparison semantics where an operator is shared across kinds: `between` compares numerically for `number` and as strings otherwise, and only `date` gives the `today` sentinel its meaning. Absent (a rule stored before it existed) → string comparison, `today` a literal. |
-| `variable`, `param`, `cookie` | string | the editor | provider rules: exactly one, the provider's config key | What the provider reads: a dotted `window` path, a query-string parameter name, a cookie name. The server does not know the providers: it takes the single string key outside the shared ones as the reference, and none or several is unevaluable (fail-safe). Blank, for a provider this version ships → leftover, removed at save. |
+| `variable`, `param`, `cookie`, or the config key of a registered source | string | the editor | provider rules: exactly one, the provider's config key | What the provider reads: a dotted `window` path, a query-string parameter name, a cookie name, or what the registered source names. The server does not know the providers: it takes the single string key outside the shared ones as the reference, and none or several is unevaluable (fail-safe). Blank → leftover, removed at save: for a built-in, its own config key; for any other source, a rule whose one key outside the shared ones holds a blank string. |
 | `operator` | string | the editor | every rule, **required** | The comparison, one of the table below. Absent → the rule is skipped by both evaluators; unknown → fails closed (`data-fmdb-logic-unresolved`, one console warning). |
 | `value` | string | the editor | the single-valued operators | The expected value. `today` on a `date` kind means the submission day. |
 | `values` | array of strings | the editor | the list operators, and `between` | The expected values of a list comparison, or the two bounds `[from, to]` of `between`. |
@@ -127,11 +127,46 @@ and the rule carries that provider's single config key instead of any source-fie
 Every provider state is a single optional string, so all of them offer the same operators:
 `exists`, `notExists`, `equals`, `notEquals`, `contains`.
 
-A rule that cannot be evaluated — a `sourceType` this module version does not ship, a
+A rule that cannot be evaluated — a `sourceType` no module provides on this page, a
 missing reference, an unknown operator — fails closed everywhere: the target field stays
 hidden, its wrapper carries `data-fmdb-logic-unresolved` naming the reason, and a console
 warning is emitted once per reason. An unevaluable rule therefore never silently behaves
 like an evaluated one.
+
+### Sources another module registers
+
+The table lists the built-in providers. Another module adds a source of its own, and the core
+modules never name it ([ADR 0001](../adr/0001-extension-modules-register-logic-sources.md)). The
+source's id is `<module>:<name>`, such as `jexperience:profile`: it is stored in every rule, so the
+module part keeps two modules from colliding and names the module a rule needs. Its config key is any
+key that is neither a shared rule key nor the key of a built-in.
+
+A source has two halves, registered apart because they run apart:
+
+- **The editor half** is an entry of the `@jahia/ui-extender` registry, type
+  `formidableLogicSource`, key the source's id, that the module's jContent bundle adds at
+  `jahiaApp-init`. The rule row merges it with the built-ins when it renders
+  (`formidable-engine/src/javascript/ConditionalLogic/README.md`).
+- **The page half** is pushed onto `window.formidableLogicSources` by the module's page script. The
+  form's script takes the array over when it first evaluates: what was pushed before it ran is
+  registered then, and a later push registers at once and dispatches `fmdb:logic-invalidate`, so the
+  order of the two scripts does not matter. A throw of the source's code counts as unavailable.
+
+Both halves follow `EditorLogicSource` and `PageLogicSource` of
+`@jahia/formidable-library/logic-sources`. An entry outside the contract is ignored with a warning,
+and the first registration of an id wins.
+
+The page parses a rule without its source: it keeps every string key that is no shared rule key, so a
+rule parsed before the module's page script ran keeps its reference. Once the source registers, the
+rule is evaluated again on the key the source declares: a rule stored under another key fails closed
+as a missing reference.
+
+A rule whose source no module registered — the module never deployed, or uninstalled with rules still
+stored — fails closed in the three places:
+
+- the page hides the field and flags its wrapper `source:<id>`;
+- the page declares nothing for the source at submit time, so the server hides the field too;
+- the editor shows the rule with the unknown-source message, and never writes it back from the row.
 
 ### Server-side consequence
 
@@ -337,9 +372,11 @@ The cleanup is deliberately narrow, everything else round-trips untouched:
 
 - a reference that is **filled but invalid** is kept — it carries intent, the
   editor shows it in error and the runtime fails closed;
-- a rule with an **unknown source type** (authored by a newer module version)
-  is never touched: this version cannot tell an empty configuration from one
-  it simply cannot read;
+- a rule of any **other source type** — a source another module registers, or
+  one authored by a newer module version — is removed only when its
+  configuration is one string key, the shape every source stores, and that
+  string is blank; any other shape is never touched, as the core cannot tell
+  it empty;
 - an unparseable entry is kept as stored rather than silently lost.
 
 ### After duplication, import, or session-save copy

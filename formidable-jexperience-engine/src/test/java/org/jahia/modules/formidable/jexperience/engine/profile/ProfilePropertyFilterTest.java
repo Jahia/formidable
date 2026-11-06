@@ -71,4 +71,31 @@ class ProfilePropertyFilterTest {
         assertTrue(ProfilePropertyFilter.describe(type("x", "X", " ", Set.of())).isEmpty());
         assertTrue(ProfilePropertyFilter.describe(null).isEmpty());
     }
+
+    @Test
+    void aRuleMayReadWhatNoFormWrites() {
+        // Verifies that the read-side filter keeps the read-only, protected and system properties a mapping
+        // refuses: a visit count or a score is what a rule tests and no field could hold.
+        PropertyType readOnly = type("nbOfVisits", "Visits", "integer", Set.of("systemProfileProperties"));
+        readOnly.getMetadata().setReadOnly(true);
+        PropertyType protekted = type("score", "Score", "integer", Set.of());
+        protekted.setProtected(true);
+        assertEquals("Visits (nbOfVisits)", ProfilePropertyFilter.describeReadable(readOnly).orElseThrow().label());
+        assertTrue(ProfilePropertyFilter.describeReadable(protekted).isPresent());
+        assertTrue(ProfilePropertyFilter.describeReadable(type("m", "No mapping", "string", Set.of("hiddenFromFormMappingProperties"))).isPresent());
+    }
+
+    @Test
+    void aRuleMayNotReadAHiddenPropertyAListOrASet() {
+        // Verifies what the read-side filter leaves out: what jCustomer hides, and what the page reads as absent.
+        PropertyType hidden = type("h", "Hidden", "string", Set.of());
+        hidden.getMetadata().setHidden(true);
+        PropertyType list = type("interests", "Interests", "string", Set.of());
+        list.setMultivalued(true);
+        assertTrue(ProfilePropertyFilter.describeReadable(hidden).isEmpty());
+        assertTrue(ProfilePropertyFilter.describeReadable(list).isEmpty());
+        assertTrue(ProfilePropertyFilter.describeReadable(type("address", "Address", "set", Set.of())).isEmpty());
+        assertTrue(ProfilePropertyFilter.describeReadable(type("", "", "string", Set.of())).isEmpty());
+        assertTrue(ProfilePropertyFilter.describeReadable(null).isEmpty());
+    }
 }

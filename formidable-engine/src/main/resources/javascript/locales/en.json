@@ -63,7 +63,7 @@
 		"betweenNoMatch": "This rule currently matches no date, so it is ignored when the form is submitted.",
 		"loadingSources": "Loading available fields...",
 		"noSources": "No supported source field is available before this field.",
-		"help": "Use fields placed before this one to show or hide it. Eligible fields are those declaring a value kind: choice (select, radio, checkbox), date, number and boolean — including fields contributed by other modules. \"No supported source field...\" means no compatible previous field was found. A condition can also read something outside the form: a datalayer value, a URL parameter or a cookie. Those are read in the browser only, so a required field shown by such a condition is not enforced when the form is submitted.",
+		"help": "Use fields placed before this one to show or hide it. Eligible fields are those declaring a value kind: choice (select, radio, checkbox), date, number and boolean — including fields contributed by other modules. \"No supported source field...\" means no compatible previous field was found. A condition can also read something outside the form: a datalayer value, a URL parameter, a cookie or what another installed module provides, such as a property of the visitor's profile (false while it cannot be read). Those are read in the browser only, so a required field shown by such a condition is not enforced when the form is submitted.",
 		"allSourcesUsed": "All available source fields are already used by rules above.",
 		"unresolvedContext": "Unable to resolve the edited field path.",
 		"formNotFound": "Unable to resolve the parent form.",
@@ -90,7 +90,7 @@
 		},
 		"providerRefMissing": "Required: a rule without a name cannot be evaluated and will be removed when saving.",
 		"providerRefInvalid": "This name is not in the expected format and cannot be read on the page.",
-		"unknownSourceType": "This condition uses a source (\"{{type}}\") that this module version does not provide — it was probably created with a newer version. The rule is kept unchanged and its field stays hidden.",
+		"unknownSourceType": "This condition uses a source (\"{{type}}\") that no installed module provides: the module that adds it is not installed or not loaded, or the rule was created with a newer version. The rule is kept unchanged and its field stays hidden.",
 		"operators": {
 			"in": "is one of",
 			"notIn": "is not one of",

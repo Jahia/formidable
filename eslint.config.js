@@ -56,6 +56,7 @@ export default defineConfig(
       // ~600 false positives when linted).
       "formidable-engine/src/main/resources/javascript/apps/**",
       "formidable-forms-import/src/main/resources/javascript/apps/**",
+      "formidable-jexperience-engine/src/main/resources/javascript/apps/**",
     ],
   },
 );

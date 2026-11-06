@@ -56,8 +56,8 @@ jahiaComponent(
           <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
           {/* aria-label fallback: without a title the fieldset has no legend, and the
               group would otherwise have no accessible name. radiogroup: the explicit role
-              a fieldset of radios needs to carry aria-readonly, which the jExperience
-              prefill sets when the author locks the field */}
+              a fieldset of radios needs to carry aria-readonly, which a prefill
+              script sets when the author locks the field */}
           <fieldset
             className="fmdb-form-group fmdbext-switch"
             role="radiogroup"

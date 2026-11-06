@@ -4,7 +4,7 @@ import java.util.OptionalInt;
 
 /**
  * The visitor profile properties a field can be mapped to, as the profile server of a site declares them:
- * offered by the jExperience integration, which owns the catalog of those properties and the rule of which
+ * offered by a visitor-profile integration, which owns the catalog of those properties and the rule of which
  * property fits which kind of field. The Forms import asks it before it carries a profile prefill over as
  * the mapping of a field (docs/architecture/forms-import.md, "The fields"), because a mapping to a property
  * the profile server does not declare is skipped, without a word, when the mapping rule of the form is built.

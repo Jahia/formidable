@@ -52,8 +52,8 @@ jahiaComponent(
     return (
       <>
         <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
-        {/* radiogroup: the explicit role a fieldset of radios needs to carry aria-readonly, which the
-            jExperience prefill sets when the author locks the field. data-fmdb-advance-on-change: one
+        {/* radiogroup: the explicit role a fieldset of radios needs to carry aria-readonly, which a
+            prefill script sets when the author locks the field. data-fmdb-advance-on-change: one
             answer is enough, so a form showing one field at a time may move on once a card is picked */}
         <fieldset
           className="fmdb-form-group fmdbext-card"
@@ -88,7 +88,7 @@ jahiaComponent(
                     required={required}
                     {...vAttrs}
                   />
-                  {/* The label is the card: the jExperience lock takes the pointer off labels and radios */}
+                  {/* The label is the card: the read-only lock of a prefill script takes the pointer off labels and radios */}
                   <label htmlFor={inputId} className="fmdbext-card-label">
                     {choice.label}
                   </label>

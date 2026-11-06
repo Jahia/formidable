@@ -1,7 +1,9 @@
 package org.jahia.modules.formidable.engine.logic;
 
+import org.json.JSONObject;
 import org.junit.jupiter.api.Test;
 
+import javax.jcr.Value;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -10,6 +12,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class ConditionalLogicEvaluatorTest {
 
@@ -650,6 +654,45 @@ class ConditionalLogicEvaluatorTest {
 
         assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluator.visibility("shownWhenAbsent"));
         assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluator.visibility("shownWhenPresent"));
+    }
+
+    /** A rule of a source an extension module registers, as the editor stores it, parsed the way the submission parses it. */
+    private static ConditionalLogicRule storedExtensionRule(String operator, String value) throws Exception {
+        Value stored = mock(Value.class);
+        when(stored.getString()).thenReturn(new JSONObject()
+                .put("logicId", "logic-acme").put("sourceType", "acme:segment").put("segment", "tier")
+                .put("operator", operator).put("value", value == null ? JSONObject.NULL : value).toString());
+        List<ConditionalLogicRule> rules = ConditionalLogicRule.parse(new Value[]{stored});
+        assertEquals(1, rules.size());
+        return rules.get(0);
+    }
+
+    @Test
+    void anExtensionRuleIsEvaluatedAgainstTheValueTheBrowserDeclared() throws Exception {
+        // The server never asks the extension's backend: the value the browser read is the one the rule is judged on
+        ConditionalLogicRule tierIsGold = storedExtensionRule("equals", "gold");
+        assertEquals("tier", tierIsGold.providerRef());
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluatorWithDeclaration(
+                Map.of("companySize", List.of(tierIsGold)), Map.of(),
+                "{\"v\":1,\"providers\":{\"acme:segment\":{\"tier\":\"gold\"}}}").visibility("companySize"));
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_MEASURED, evaluatorWithDeclaration(
+                Map.of("companySize", List.of(tierIsGold)), Map.of(),
+                "{\"v\":1,\"providers\":{\"acme:segment\":{\"tier\":\"silver\"}}}").visibility("companySize"));
+    }
+
+    @Test
+    void anExtensionRuleTheBrowserCouldNotReadStaysHiddenWhateverItsOperator() throws Exception {
+        // A blocked script or a refused consent: the browser declares nothing for the reference, and even
+        // "does not exist" must not show the field — the server reaches the browser's verdict
+        ConditionalLogicRule noTier = storedExtensionRule("notExists", null);
+
+        assertEquals(ConditionalLogicEvaluator.Visibility.HIDDEN_FAILSAFE, evaluatorWithDeclaration(
+                Map.of("companySize", List.of(noTier)), Map.of(), "{\"v\":1,\"providers\":{}}").visibility("companySize"));
+        // read and absent is another matter: the source holds no tier
+        assertEquals(ConditionalLogicEvaluator.Visibility.VISIBLE, evaluatorWithDeclaration(
+                Map.of("companySize", List.of(noTier)), Map.of(),
+                "{\"v\":1,\"providers\":{\"acme:segment\":{\"tier\":null}}}").visibility("companySize"));
     }
 
     @Test

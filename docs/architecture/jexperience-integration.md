@@ -128,6 +128,7 @@ is exported (`Export-Package: !*`): "public" there means "read across the module
 | `profile` | the visitor profile schema as jCustomer describes it: `ProfilePropertyCatalog`, `ProfilePropertyDescriptor`, `ProfilePropertyFilter`, `ProfilePropertiesUnavailableException` |
 | `field` | what a field is to a mapping: its shape (`FieldShape`, `FieldShapes`) and whether it names a profile property (`MappedField`) |
 | `choicelist` | the editor's dropdown: `ProfilePropertiesChoiceListInitializer` |
+| `graphql` | the rules editor's list of profile properties: `ProfilePropertiesQueryExtension`, its types and their registration |
 | `rule` | the mapping rule and its life in jCustomer: `MappingRule`, `FormMappingReader`, `MappingRuleSynchronizer`, `MappingRuleSyncListener` |
 | `render` | the page: `FormJExperienceRenderFilter` |
 | `submission` | the answer: `SubmissionEventEnricher` |
@@ -276,6 +277,68 @@ reset empties the fields, so nothing is prefilled any more: the wrapper comes ba
 the form's undo list, run on the native reset and again before any replay). Without it a required field
 hidden by the prefill would come back unanswered behind a `display: none` wrapper, blocking the submission
 over an error the visitor cannot see.
+
+### Conditional logic: the profile as a rule source
+
+An author can show or hide a field on a property of the visitor's profile — "Company size" only when
+`country` equals `FR`. The rule source is `jexperience:profile`, with the property under `property`
+and the five operators of every source outside the form (`equals`, `notEquals`, `contains`,
+`exists`, `notExists`). The rules editor offers it on a site that has `jexperience` among the
+modules enabled on the site itself, the first term of `JExperienceSite.tracked`; a rule already
+stored on it stays editable elsewhere, and fails closed. The property is one top-level name, read as
+a key of the context's `profileProperties`, so the editor refuses a dotted path.
+
+The source belongs to this module, and Formidable's core modules never name it: this module registers
+it as any module registers a logic source (`conditional-logic-field-resolution.md`, "Sources another
+module registers"; ADR 0001). Its two halves:
+
+- **The editor half** is `profileSource` (`src/javascript/profileSource.ts`) — the config key, the
+  labels in this module's i18n namespace, the check of the property name, the operators, the module
+  the site needs, and the dropdown's query. This module's jContent bundle (`src/javascript/init.ts`,
+  built by the module's yarn steps) adds it to the registry at `jahiaApp-init:21`.
+- **The page half** is `logicSource` in `formidable-jxp.js`, which the script pushes onto
+  `window.formidableLogicSources` when it loads, whether the form's script ran before it or not.
+
+`profileSource.test.ts` checks that the two halves agree, through the engine's and the elements'
+own registration code. Where this module is not deployed, the editor shows a stored profile rule as
+an unknown source and the page and the server hide its field.
+
+The author picks the property from a dropdown. The editor half asks this module through GraphQL: `formidableJExperienceProfileProperties(path)`
+(`ProfilePropertiesQueryExtension`) answers the properties of the site of the edited node, for a caller
+who may edit that node, from the same `ProfilePropertyCatalog` read as the mapping's dropdown. The list
+is not the mapping's: a rule only reads, so `ProfilePropertyFilter.describeReadable` keeps the read-only,
+protected and system properties a form never writes — a visit count, a score — and leaves out what jCustomer
+hides, a list and a nested set, which the page reads as absent. A stored property the list lacks stays
+as its own entry, so opening a rule never rewrites it. Where the list cannot be had — jCustomer cannot
+be asked (`available: false`), or this module is not installed and the field fails validation — the
+row keeps a text input, so a rule can still be written.
+
+```
+1  render filter                                  the block lists the properties the form's rules read: "logic": ["country"]
+2  formidable-jxp.js (head, defer)                adds them to the prefill properties, one digitalDataOverrides entry
+3  wem.js              ──►  jCustomer             the context request asks for them                   (as for the prefill)
+4  form island                                    evaluates its rules: the source is unavailable until the context is there
+5  formidable-jxp.js                              once wemLoaded: dispatches fmdb:logic-invalidate, the island evaluates again
+6  form island         ──►  Formidable            on submit, X-Formidable-Logic-State declares the value the browser read
+```
+
+The browser reads the value. The form island reads each rule on this source through the registered
+page half, which forwards to `window.formidableJxp.logicProvider` (`available()`, `read(property)`),
+the one object that reads the tracker's context, so the tracker's API stays in this script. **The source is unavailable, not
+absent, when the tracker gate is closed** — no tracker, a refused consent, a bot filter, a context
+still loading: every rule on it is false, `notExists` included, and the property is left out of the
+submit-time declaration. It is unavailable too when the properties could not be asked for — no
+`digitalDataOverrides` on the page, or a tracker that started before the script — because the context
+then holds none of them, whatever the profile does. A tracker that a consent tool adds to the page
+after the script ran is not supported: the script looks for the tracker once, so no
+`fmdb:logic-invalidate` follows its load, a rule on the profile is evaluated again only at the
+visitor's next input in the form, and nothing is prefilled. A property the loaded profile does not hold as
+its own key, or holds as a list or an object, is absent: `exists` is false and `notExists` true.
+
+The server never asks jCustomer. At submission it judges the rule on the value the browser declared,
+as for the `jsVariable`, `urlParam` and `cookie` sources (`ConditionalLogicEvaluator`): an undeclared
+property is a fail-safe "hidden", whose required check is skipped. The declaration is the browser's
+word, so this is coherence, not enforcement — the same trust as the prefill itself.
 
 ### Submitting: through the pipeline, then to the profile
 
@@ -440,9 +503,22 @@ from the context.
 </script>
 ```
 
-No inline script comes with it. The client script, once in the head, gathers the `prefill` properties
-of every block on the page and pushes them in one `digitalDataOverrides` entry before the tracker
-reads the array (see "Rendering and prefill"). The property names are exactly the mapped ones, no
+The `logic` list names the profile properties that the form's conditional-logic rules read, each
+once, in the form's order — `[]` when none does (see "Conditional logic"). It is read from the `logics`
+property of every element under the form that can carry rules, and each of those elements is a
+dependency of the fragment, so a rule added on the profile refreshes the block. The rules are parsed with
+`org.json`, which the platform provides.
+
+```html
+<script type="application/json" data-formidable-jxp="FORM-UUID">
+  {"formId": "FORM-UUID", "name": "Contact form", "path": "/sites/mysite/contents/contact",
+   "prefill": {}, "logic": ["country"]}
+</script>
+```
+
+No inline script comes with it. The client script, once in the head, gathers the `prefill` and `logic`
+properties of every block on the page and pushes them in one `digitalDataOverrides` entry before the
+tracker reads the array (see "Rendering and prefill"). The property names are exactly the mapped ones, no
 wildcard: the profile stays private to what the page's forms need.
 
 ### Submission request and response
@@ -898,6 +974,8 @@ writes the mapping and reports it to check ([Forms import](forms-import.md)). Th
 | 2026-09-21 | **An unanswered field is absent from the event, never empty** (issue #339): the response block drops blank values and leaves out a field with nothing left | Found on the playground: a visitor who submitted the complete form once without a country held `countryName: ""` for good — the select's empty option travelled as `fields.country: ""`, jCustomer's `setPropertyAction` wrote it (an empty string is a value), and `setIfMissing` then found the property present at every later answer; under `alwaysSet` every blank submission would erase the profile's value instead. Three sources fixed the rule. jCustomer (`PropertyHelper.setProperty`): a null value returns before any strategy, "nothing to update", so an absent field is the one shape neither strategy writes. Forms (`populateAndSubmitResults`): an input goes into the result data only when its value is defined and not empty — a number, a boolean or a valid date excepted — so Forms never sends a blank, and the bridge sends that data whole. The tracker's own `_extractFormData` (wem.min.js 4.2.1): an empty text input is left out, an unchecked radio too; its single select still sends the empty option's `""` and its checkbox group an empty array, the same leak this fix closes on Formidable's side. The block already left out an absent name and an empty list; it now applies the pipeline's own definition of an answered field — at least one non-blank value, the rule of its required-field and hidden-field checks — to what it sends: blanks dropped, the rest in order, nothing left means no entry. Fixed on the server, where the block is the contract and the values never come from the DOM |
 | 2026-10-02 | ~~**The sensitive flag moves to the engine's marker as `profileSensitive`; `fmdbmix:jExperienceSensitiveField` is retired**~~ — superseded 2026-10-05, the flag is removed (#365, option B chosen by HDU): the engine declares the property on `fmdbmix:profileMappableField` and hides it with an override of its own, this module's override of the same type shows it in the jExperience section with its labels, `ProfileSensitiveFlagMigration` (engine) moves the values and drops the mixin in both workspaces | The always-activated `extends` mixin made the editor add it to every mappable field on save, which a translator's role cannot do — the finding of #359, the same remedy as the field settings and the field-action feedback (a property of the type, nothing to add). The 2026-09-15 row "the flag lives in the jExperience module" keeps its point: the flag still says only what it does there — the engine stores it and acts on it nowhere, and without the module the box is not even shown. Measured on 8.2.4 along the way: a type keeps the supertypes it resolved at its own registration, so the migration defers a field until formidable-elements is redeployed and re-runs on that redeploy and on this module's |
 | 2026-10-05 | **The per-field sensitive flag is removed** (HDU): no "This field is sensitive" in the editor, no `profileSensitive` on the marker, no `ProfileSensitiveFlagMigration`; everything else stays as it is | Asked by HDU. The event keeps carrying every answered mappable field, as jExperience's own paths do (2026-09-15, "Back to every accepted value"), so no value can be held back from jCustomer any more: a field whose value must not reach it is better not made mappable, or not asked in a tracked form. The flag only ever existed in 0.5.0 development builds (0.4.0 has no jExperience module), so nothing is migrated. `fmdbmix:jExperienceSensitiveField` stays declared until 0.6, read by nothing, so that a node a build between #326 and #369 left carrying it still deploys (review of #379); and the guide to third-party fields says what the marker now sends |
+| 2026-11-02 | **A profile property is a conditional-logic source, `jexperience:profile`, that this module registers** through the public registry of logic sources (ADR 0001): the editor half in this module's jContent bundle, the page half pushed by `formidable-jxp.js`, the labels in this module's namespace (issue #422) | The value is read in the browser and declared at submission like the other sources outside the form, so the server never calls jCustomer. No core module names jExperience, so a site without this module runs none of its code. The page half only forwards to `window.formidableJxp.logicProvider`. A source that cannot be read is "unavailable", which makes its rules false whatever the operator — read as "absent", a blocked tracker would have shown a field gated on `notExists` |
+| 2026-11-03 | **The rule editor lists the profile properties in a strict dropdown**, from this module's GraphQL field `formidableJExperienceProfileProperties`; a text input only while the list cannot be had | Asked in the review of #473: a typed name is a typo waiting to fail closed. The list comes from the catalog the mapping already reads, cached a minute per site, so it costs jCustomer nothing more. Strict, because a property with no type in jCustomer's schema is one no author can find anyway; the page still reads any key, so a rule stored on one keeps working and keeps its entry. GraphQL rather than a choicelist: the rules are one JSON string property, which a choicelist cannot reach, and the editor already speaks GraphQL. It is the module's first GraphQL extension, so `graphql-dxm-provider` and the annotations become `provided` dependencies (dependency-decisions.md) |
 | 2026-11-03 | **A sensitive notion returns, at the type level and in the engine: `fmdbmix:sensitiveField`** ([formidable#447](https://github.com/Jahia/formidable/issues/447)) — recorded as D1 to D3 in the [decision log of the form submission flow](form-submission-flow.md#decision-log) | The 2026-10-05 decision stands: nothing an author ticks. A field *type* that is a secret by nature (a password) declares the marker, and the pipeline, not this module, keeps its value from everything but the code that opts in, the jExperience event included. The objection of 2026-09-15 to an engine-level flag (it would promise what nothing implements) is met: this one is implemented by the pipeline's split at step 9a, and tested. Here a sensitive field is never mapped, prefilled nor sent, even when its type also declares `fmdbmix:profileMappableField`: `FieldShapes`, `PrefillMappings` and `SubmissionEventEnricher` ask the sensitive marker first, and log one warning per such type |
 
 ## Open questions

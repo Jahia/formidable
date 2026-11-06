@@ -1,31 +1,44 @@
+import {
+	LOGIC_SOURCE_ID_PATTERN,
+	type PageLogicSource,
+	SHARED_RULE_KEYS
+} from '@jahia/formidable-library/logic-sources';
+
 /**
  * Conditional logic sources that are not another form field.
  *
  * A field source is read from the DOM and yields a list of values, so it stays in the
  * evaluator. Every other source designates one thing outside the form whose current state
  * is a single optional string: a JS variable (a datalayer entry), a URL parameter, a
- * cookie. They therefore share one shape, one operator set and one evaluation path — a new
- * provider is a `read` function and, when the value can change without a form event, a
- * `subscribe`.
+ * cookie, or what a source registered by another module reads. They therefore share one
+ * shape, one operator set and one evaluation path — a new provider is a `read` function and,
+ * when the value can change without a form event, a `subscribe`; one whose system may be
+ * missing from the page adds `available`.
  *
- * This list is internal: providers ship with Formidable, and nothing here is a public
- * extension point yet. The editor half lives in
+ * The built-in providers are below. Another module adds one by pushing its page half onto
+ * window.formidableLogicSources, PAGE_LOGIC_SOURCES_GLOBAL of the library (docs/adr/0001-extension-modules-register-logic-sources.md);
+ * this module never names it. The editor half of the built-ins lives in
  * formidable-engine/src/javascript/ConditionalLogic/providers.ts and must declare the same
- * ids and config keys — nothing checks that today.
+ * ids and config keys; formidable-engine's providers.test.ts checks it.
  */
-
-/** Config keys a provider rule may carry in its stored JSON, one per provider. */
-export type LogicProviderConfigKey = 'variable' | 'param' | 'cookie';
-
-/** What a rule designates: another form field, or one of the providers below. */
-export type LogicSourceType = 'field' | 'jsVariable' | 'urlParam' | 'cookie';
 
 export interface ScalarLogicProvider {
 	/** Persisted verbatim as the rule's `sourceType`. */
-	id: Exclude<LogicSourceType, 'field'>;
-	/** The rule property holding what this provider designates. */
-	configKey: LogicProviderConfigKey;
-	/** Current value of the designated thing, or undefined when it does not exist. */
+	id: string;
+	/** The rule property a rule on this provider keeps its reference under. */
+	configKey: string;
+	/**
+	 * Whether the source can be read at all right now. False when the system behind it is
+	 * not on the page, was blocked (no consent, a bot filter) or has not loaded yet: the rule
+	 * is then false whatever its operator, `notExists` included, and the reference is left out
+	 * of the submit-time declaration, so the server fails closed too. Providers whose state is
+	 * always readable omit it.
+	 */
+	available?(): boolean;
+	/**
+	 * Current value of the designated thing, or undefined when it does not exist. Throws when the
+	 * source cannot be read after all; callers read through readLogicProvider, which tells the two apart.
+	 */
 	read(ref: string): string | undefined;
 	/**
 	 * Notifies when any of the designated things may have changed, for state that moves
@@ -159,19 +172,181 @@ const cookieProvider: ScalarLogicProvider = {
 	}
 };
 
-const PROVIDERS: ScalarLogicProvider[] = [jsVariableProvider, urlParamProvider, cookieProvider];
+const BUILT_IN_PROVIDERS: ScalarLogicProvider[] = [jsVariableProvider, urlParamProvider, cookieProvider];
 
-const PROVIDERS_BY_ID = new Map<string, ScalarLogicProvider>(
-	PROVIDERS.map(provider => [provider.id, provider])
-);
+/** The built-in providers alone, which the editor and the server know as well. */
+export const builtInLogicProviders = (): ScalarLogicProvider[] => BUILT_IN_PROVIDERS;
 
-export const getLogicProvider = (sourceType?: string): ScalarLogicProvider | undefined =>
-	sourceType === undefined || sourceType === '' || sourceType === 'field'
-		? undefined
-		: PROVIDERS_BY_ID.get(sourceType);
+type LogicSourceQueue = PageLogicSource[] | {push: (...sources: PageLogicSource[]) => number};
 
-export const logicProviderConfigKeys = (): LogicProviderConfigKey[] =>
-	PROVIDERS.map(provider => provider.configKey);
+declare global {
+	/** The page halves other modules push, before or after this script runs (installLogicSourceQueue). */
+	var formidableLogicSources: LogicSourceQueue | undefined;
+}
+
+const registered = new Map<string, ScalarLogicProvider>();
+const registrationListeners = new Set<() => void>();
+let notificationPending = false;
+
+/**
+ * A source another module's script registers, wrapped so that a throw of its code never
+ * reaches the evaluator: it then counts as unavailable, and its rules fail closed. The first
+ * throw of a source is logged, so a broken script is told apart from a condition that is false.
+ */
+const guarded = (source: PageLogicSource): ScalarLogicProvider => {
+	let reported = false;
+	const report = (what: string, error: unknown) => {
+		if (reported) return;
+		reported = true;
+		console.warn(`[formidable] The logic source "${source.id}" threw in ${what}: its rules fail closed.`, error);
+	};
+
+	return {
+		id: source.id,
+		configKey: source.configKey,
+		available: () => {
+			try {
+				return typeof source.available !== 'function' || source.available() === true;
+			} catch (error) {
+				report('available()', error);
+				return false;
+			}
+		},
+		// The throw passes on: readLogicProvider counts it as unavailable, never as absent
+		read: ref => {
+			let value: unknown;
+			try {
+				value = source.read(ref);
+			} catch (error) {
+				report('read()', error);
+				throw error;
+			}
+
+			return typeof value === 'string' ? value : undefined;
+		},
+		subscribe: (refs, onChange) => {
+			let unsubscribe: unknown;
+			try {
+				unsubscribe = source.subscribe?.(refs, onChange);
+			} catch (error) {
+				report('subscribe()', error);
+				return () => undefined;
+			}
+
+			return () => {
+				try {
+					if (typeof unsubscribe === 'function') unsubscribe();
+				} catch (error) {
+					report('its unsubscribe function', error);
+				}
+			};
+		}
+	};
+};
+
+/**
+ * Tells the forms, once per batch of registrations and after the code that registered has run,
+ * that sources were added: their rules are evaluated again, and a source that watches its state
+ * is subscribed to (onLogicProviderRegistered).
+ */
+const notifyRegistration = () => {
+	if (notificationPending) return;
+	notificationPending = true;
+	queueMicrotask(() => {
+		notificationPending = false;
+		registrationListeners.forEach(listener => listener());
+		if (typeof document !== 'undefined') {
+			document.dispatchEvent(new Event(FORM_LOGIC_INVALIDATE_EVENT));
+		}
+	});
+};
+
+/** Calls the listener after each batch of registrations. Returns a function that stops it. */
+export const onLogicProviderRegistered = (listener: () => void): (() => void) => {
+	registrationListeners.add(listener);
+	return () => registrationListeners.delete(listener);
+};
+
+const isUsableSource = (source: PageLogicSource | undefined): source is PageLogicSource => {
+	if (!source || typeof source.read !== 'function') return false;
+	if (typeof source.id !== 'string' || !LOGIC_SOURCE_ID_PATTERN.test(source.id)) return false;
+	return typeof source.configKey === 'string'
+		&& source.configKey !== ''
+		&& !SHARED_RULE_KEYS.includes(source.configKey)
+		&& !BUILT_IN_PROVIDERS.some(provider => provider.configKey === source.configKey);
+};
+
+/**
+ * Registers the page half of a source another module adds, and has the forms evaluate their
+ * rules again. The first registration of an id wins; an entry outside the contract is
+ * ignored. Another module's script reaches it by pushing onto
+ * window.formidableLogicSources.
+ */
+export const registerLogicProvider = (source: PageLogicSource): void => {
+	if (!isUsableSource(source)) {
+		console.warn('[Formidable] ignored a logic source that does not follow the contract:', (source as {id?: unknown} | undefined)?.id);
+		return;
+	}
+
+	if (registered.has(source.id)) {
+		return;
+	}
+
+	registered.set(source.id, guarded(source));
+	notifyRegistration();
+};
+
+/**
+ * Takes over the queue other modules push onto: what was pushed before this script ran is
+ * registered now, and a later push registers at once. Idempotent.
+ */
+export const installLogicSourceQueue = (): void => {
+	if (globalThis.window === undefined) return;
+
+	const queue = globalThis.formidableLogicSources;
+	if (queue && !Array.isArray(queue)) return;
+
+	globalThis.formidableLogicSources = {
+		push: (...sources: PageLogicSource[]) => {
+			sources.forEach(registerLogicProvider);
+			return registered.size;
+		}
+	};
+	(queue ?? []).forEach(registerLogicProvider);
+};
+
+/** Test seam: forgets the registered sources, their listeners and the installed queue. */
+export const forgetRegisteredLogicProviders = (): void => {
+	registered.clear();
+	registrationListeners.clear();
+	globalThis.formidableLogicSources = undefined;
+};
+
+export const getLogicProvider = (sourceType?: string): ScalarLogicProvider | undefined => {
+	if (sourceType === undefined || sourceType === '' || sourceType === 'field') return undefined;
+
+	return BUILT_IN_PROVIDERS.find(provider => provider.id === sourceType) ?? registered.get(sourceType);
+};
+
+/** Whether a provider's source can be read now; see ScalarLogicProvider.available. */
+export const isLogicProviderAvailable = (provider: ScalarLogicProvider): boolean =>
+	typeof provider.available !== 'function' || provider.available();
+
+/** What a read that threw returns: the source could not be read, so its rules fail closed. */
+export const UNREADABLE: unique symbol = Symbol('unreadable');
+
+/**
+ * Reads a provider's reference: its value, undefined when the thing does not exist, or
+ * UNREADABLE when the read threw — a source that is unavailable after all. Read as "absent",
+ * a broken script would show a field gated on `notExists`, and declare it absent to the server.
+ */
+export const readLogicProvider = (provider: ScalarLogicProvider, ref: string): string | undefined | typeof UNREADABLE => {
+	try {
+		return provider.read(ref);
+	} catch {
+		return UNREADABLE;
+	}
+};
 
 /**
  * Event any integrator can dispatch to have conditional logic re-evaluated — after pushing

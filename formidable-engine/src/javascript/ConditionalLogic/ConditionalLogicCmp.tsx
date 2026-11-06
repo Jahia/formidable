@@ -13,14 +13,16 @@ import {
     localIsoDay,
     normalizeStoredRule,
     parseRule,
+    providerRef,
     sanitizeProviderOperator,
     sanitizeOperator,
     TODAY_SENTINEL,
     withStoredValues
 } from './ConditionalLogic.utils';
 import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
-import {getLogicProvider, listLogicProviders, type LogicProviderDescriptor, PROVIDER_OPERATORS} from './providers';
+import {getLogicProvider, type LogicProviderDescriptor, offeredLogicProviders, PROVIDER_OPERATORS} from './providers';
 import {useSharedSources} from './sources';
+import {refChoiceOptions, useRefChoices} from './refChoices';
 import {
     allRuleValuesOf,
     describeRuleView,
@@ -31,7 +33,7 @@ import {
     ruleSourceTypeOf,
     translated
 } from './ruleRow';
-import type {ConditionalLogicRule, LogicOperator, RuleSourceType, SelectorProps} from './ConditionalLogic.types';
+import type {ConditionalLogicRule, LogicOperator, SelectorProps} from './ConditionalLogic.types';
 import './conditionalLogic.css';
 
 
@@ -220,9 +222,12 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     const defaultLanguage = extractDefaultLanguage(props, language);
     // One load of the form per field being edited, shared by every rule row (sources.ts): the editor
     // mounts a row per rule and remounts them all when one is added, each needing the same form.
-    const {sources, logicIdToSource, loading, errorKey} = useSharedSources(currentNodePath, {workspace, language, defaultLanguage});
+    const {sources, logicIdToSource, installedModules, loading, errorKey} = useSharedSources(currentNodePath, {workspace, language, defaultLanguage});
     const error = translated(t, errorKey);
     const rule = useMemo(() => parseRule(value), [value]);
+    // A provider that lists its references (refChoices.ts) shows a dropdown, and the text input only
+    // while the list is unavailable.
+    const refChoices = useRefChoices(getLogicProvider(rule.sourceType), currentNodePath);
     // Whether the provider-reference input was visited: its error only shows after
     // that (a rule opened with a stored reference is validated right away). Declared
     // with the other hooks — the component has early returns further down.
@@ -233,7 +238,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
             return false;
         }
 
-        return (initialRule[provider.configKey] ?? '').trim() !== ''
+        return providerRef(initialRule, provider.configKey).trim() !== ''
             || (Boolean(initialRule.logicId) && touchedProviderRefs.has(initialRule.logicId!));
     });
 
@@ -423,10 +428,10 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
     // against a newer version: it gets its own rendering below, never the field-rule UI,
     // and keeps its raw sourceType so nothing rewrites the stored rule.
     const {isUnknownSourceType, ruleSourceType} = ruleSourceTypeOf(rule, selectedProvider);
-    const providerOperator = sanitizeProviderOperator(rule.operator);
+    const providerOperator = sanitizeProviderOperator(rule.operator, selectedProvider);
 
     const handleSourceTypeChange = (_event: React.MouseEvent, item: {value?: string}) => {
-        const nextType = (item.value ?? 'field') as RuleSourceType;
+        const nextType = item.value ?? 'field';
         if (nextType === ruleSourceType) {
             return;
         }
@@ -444,7 +449,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                 logicId: rule.logicId || generateLogicId(),
                 sourceType: nextProvider.id,
                 [nextProvider.configKey]: '',
-                operator: PROVIDER_OPERATORS[0],
+                operator: nextProvider.operators[0],
                 value: ''
             })));
             return;
@@ -462,11 +467,15 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         })));
     };
 
+    // A provider the site lacks the modules of is not offered, except to the rule already on it
+    const offeredProviders = offeredLogicProviders(installedModules);
     const sourceTypeOptions = [
         {label: t('conditionalLogic.sourceTypes.field'), value: 'field'},
-        ...listLogicProviders().map(provider => ({label: t(provider.labelKey), value: provider.id}))
+        ...offeredProviders
+            .concat(selectedProvider && !offeredProviders.includes(selectedProvider) ? [selectedProvider] : [])
+            .map(provider => ({label: t(provider.labelKey), value: provider.id}))
     ];
-    const providerOperatorOptions = PROVIDER_OPERATORS.map(operator => ({
+    const providerOperatorOptions = (selectedProvider?.operators ?? PROVIDER_OPERATORS).map(operator => ({
         label: t(`conditionalLogic.operators.${operator}`),
         value: operator
     }));
@@ -601,32 +610,68 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
         isLastRuleOfList(id, allRuleValuesOf(props.form, field.name))
     );
 
+    const markRefTouched = () => {
+        setProviderRefTouched(true);
+        if (rule.logicId) {
+            touchedProviderRefs.add(rule.logicId);
+        }
+    };
+
+    const renderProviderRef = (provider: LogicProviderDescriptor) => {
+        if (refChoices.status !== 'none') {
+            // while the list loads, the stored reference alone, so that the row does not flash its placeholder
+            const refOptions = refChoiceOptions(
+                refChoices.status === 'ready' ? refChoices.choices : [],
+                providerRef(rule, provider.configKey),
+                provider.isValidRef
+            );
+            return (
+                <Dropdown
+                    variant="outlined"
+                    data={refOptions}
+                    hasSearch={refOptions.length >= 5}
+                    value={providerRef(rule, provider.configKey) || undefined}
+                    placeholder={t(provider.configLabelKey)}
+                    isDisabled={field.readOnly}
+                    isLoading={refChoices.status === 'loading'}
+                    className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
+                    aria-label={t(provider.configLabelKey)}
+                    onChange={(_event, item) => {
+                        markRefTouched();
+                        if (item.value) {
+                            updateProviderRule({[provider.configKey]: item.value});
+                        }
+                    }}
+                />
+            );
+        }
+
+        return (
+            <Input
+                id={`${id}-provider-ref`}
+                isReadOnly={field.readOnly}
+                placeholder={t(provider.configPlaceholderKey)}
+                // A reference easily outgrows its cell: hovering reveals it in full.
+                title={providerRef(rule, provider.configKey) || undefined}
+                aria-label={t(provider.configLabelKey)}
+                aria-invalid={showProviderRefError ? true : undefined}
+                aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
+                value={providerRef(rule, provider.configKey)}
+                size="big"
+                className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
+                onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
+                onBlur={markRefTouched}
+            />
+        );
+    };
+
     // One shape for every provider: the name of the thing designated, an operator, and a
     // value when the operator compares against one. Adding a provider adds no markup here.
     const renderProviderRule = (provider: LogicProviderDescriptor) => {
         return (
         <>
             <div>
-                <Input
-                    id={`${id}-provider-ref`}
-                    isReadOnly={field.readOnly}
-                    placeholder={t(provider.configPlaceholderKey)}
-                    // A reference easily outgrows its cell: hovering reveals it in full.
-                    title={(rule[provider.configKey] ?? '') || undefined}
-                    aria-label={t(provider.configLabelKey)}
-                    aria-invalid={showProviderRefError ? true : undefined}
-                    aria-describedby={showProviderRefError ? `${id}-provider-ref-error` : undefined}
-                    value={rule[provider.configKey] ?? ''}
-                    size="big"
-                    className={showProviderRefError ? 'fmdbProviderRefError' : undefined}
-                    onChange={event => updateProviderRule({[provider.configKey]: event.target.value})}
-                    onBlur={() => {
-                        setProviderRefTouched(true);
-                        if (rule.logicId) {
-                            touchedProviderRefs.add(rule.logicId);
-                        }
-                    }}
-                />
+                {renderProviderRef(provider)}
             </div>
             <div>
                 <Dropdown

@@ -1,6 +1,6 @@
 import {type RefObject, useCallback, useEffect, useRef, useState} from 'react';
 import {applyConditionalLogicVisibility, collectProviderRefs} from '~/utils/conditionalLogic';
-import {FORM_LOGIC_INVALIDATE_EVENT, getLogicProvider} from '~/utils/logicProviders';
+import {FORM_LOGIC_INVALIDATE_EVENT, getLogicProvider, onLogicProviderRegistered} from '~/utils/logicProviders';
 
 interface UseMultiStepOptions {
 	formRef: RefObject<HTMLFormElement | null>;
@@ -128,16 +128,26 @@ export function useMultiStep({formRef, stepIds, disabled = false}: UseMultiStepO
 		// Sources outside the form (a JS variable such as a datalayer entry, a cookie) change
 		// without any form event, so each provider that needs to is given the references it
 		// must watch and reports back when their state may have moved.
-		const unsubscribes = Array.from(collectProviderRefs(form), ([providerId, refs]) => {
-			const provider = getLogicProvider(providerId);
-			return provider?.subscribe?.(refs, syncVisibility);
-		}).filter((unsubscribe): unsubscribe is () => void => typeof unsubscribe === 'function');
+		// A source another module registers after the form came up is subscribed to then.
+		const unsubscribes = new Map<string, () => void>();
+		const subscribeProviders = () => {
+			for (const [providerId, refs] of collectProviderRefs(form)) {
+				const provider = getLogicProvider(providerId);
+				if (!provider || unsubscribes.has(providerId)) continue;
+
+				const unsubscribe = provider.subscribe?.(refs, syncVisibility);
+				unsubscribes.set(providerId, typeof unsubscribe === 'function' ? unsubscribe : () => undefined);
+			}
+		};
+		subscribeProviders();
+		const stopListening = onLogicProviderRegistered(subscribeProviders);
 
 		return () => {
 			form.removeEventListener('input', syncVisibility);
 			form.removeEventListener('change', syncVisibility);
 			form.removeEventListener('reset', handleReset);
 			document.removeEventListener(FORM_LOGIC_INVALIDATE_EVENT, syncVisibility);
+			stopListening();
 			unsubscribes.forEach(unsubscribe => unsubscribe());
 
 			if (resetVisibilityTimeoutRef.current !== null) {

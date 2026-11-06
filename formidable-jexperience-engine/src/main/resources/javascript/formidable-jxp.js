@@ -1,7 +1,7 @@
 /*
  * Formidable, jExperience integration: the client half.
  *
- * Two jobs, both driven by the JSON block the render filter writes before each form:
+ * Three jobs, all driven by the JSON block the render filter writes before each form:
  *
  * 1. Sends the `form` event of an accepted submission through jExperience's tracker, after the
  *    server answered 200 and with the values the server accepted, never the DOM fields. The form
@@ -11,9 +11,12 @@
  *    every block's `prefill` properties is pushed once into `digitalDataOverrides`, so that the one
  *    context request the tracker makes anyway returns them; once the context is loaded AND the form
  *    island has taken the form over (`formidable:ready`), the values are written into the fields.
+ * 3. Serves the profile to conditional logic. The block's `logic` properties join the same request;
+ *    the source `jexperience:profile` is registered with Formidable's conditional logic, which reads
+ *    them through it and is asked to evaluate its rules again once the context is loaded.
  *
  * Design and gates: docs/architecture/jexperience-integration.md ("Rendering and prefill",
- * "Submitting", "The send condition").
+ * "Submitting", "The send condition", "Conditional logic").
  *
  * One instance per page whatever the number of forms: every form declares the same static asset and
  * core keeps one of them in the head. The guard below is the belt to that braces — a page built
@@ -106,6 +109,54 @@
   };
 
   // ---------------------------------------------------------------------------------------------
+  // Conditional logic: the profile as a rule source
+
+  /** Dispatched on the document to have the forms evaluate their rules again (FORM_LOGIC_INVALIDATE_EVENT). */
+  const LOGIC_INVALIDATE_EVENT = "fmdb:logic-invalidate";
+
+  /**
+   * The page half of the logic source `jexperience:profile`: what Formidable's conditional logic
+   * reads its rules through, once registered below. Readable once the tracker gate opens, and only
+   * then: a blocked tracker, a refused consent or a context still loading makes every such rule false,
+   * never "the property is absent". A value is read as a string, as every logic source is; a property
+   * the profile does not hold, or holds as a list or an object, is absent.
+   *
+   * The context holds only the properties the tracker was asked for before it started: when they could
+   * not be asked for (logicRequested below), a missing one says nothing about the profile, so the source
+   * is unavailable rather than every property absent.
+   */
+  let logicRequested = false;
+  api.logicProvider = {
+    available: () => logicRequested && api.trackerReady(),
+    read: (property) => {
+      if (!api.logicProvider.available()) {
+        return undefined;
+      }
+      const properties = window.wem.getLoadedContext().profileProperties || {};
+      // own keys only: a name such as "toString" is no property of the profile
+      const value = Object.prototype.hasOwnProperty.call(properties, property) ? properties[property] : undefined;
+      return value === undefined || value === null || typeof value === "object"
+        ? undefined
+        : String(value);
+    },
+  };
+
+  /**
+   * Registers the source with Formidable's conditional logic: a push onto the queue Formidable's
+   * own script takes over, whichever of the two runs first (PageLogicSource in
+   * @jahia/formidable-library/logic-sources). The id and the config key are the editor half's
+   * (src/javascript/profileSource.ts); profileSource.test.ts checks it.
+   */
+  api.logicSource = {
+    id: "jexperience:profile",
+    configKey: "property",
+    available: () => api.logicProvider.available(),
+    read: (property) => api.logicProvider.read(property),
+  };
+  window.formidableLogicSources = window.formidableLogicSources || [];
+  window.formidableLogicSources.push(api.logicSource);
+
+  // ---------------------------------------------------------------------------------------------
   // Sending
 
   /**
@@ -147,7 +198,7 @@
   });
 
   // ---------------------------------------------------------------------------------------------
-  // Prefill, part one: ask the tracker for the properties, once for the whole page.
+  // Prefill, part one, and conditional logic: ask the tracker for the properties, once for the whole page.
   //
   // jExperience creates `window.digitalDataOverrides` in the head and hands the array to the tracker
   // at `wem.init()`; the tracker merges its entries at DOMContentLoaded, concatenating arrays. This
@@ -168,17 +219,44 @@
     return names;
   };
 
+  /** The profile properties the page's conditional logic reads, each once. */
+  api.logicProperties = () => {
+    const names = [];
+    api.configs().forEach((config) => {
+      (Array.isArray(config.logic) ? config.logic : []).forEach((property) => {
+        if (typeof property === "string" && property && names.indexOf(property) === -1) {
+          names.push(property);
+        }
+      });
+    });
+    return names;
+  };
+
+  const logicProperties = api.logicProperties();
   const required = api.prefillProperties();
+  logicProperties.forEach((property) => {
+    if (required.indexOf(property) === -1) {
+      required.push(property);
+    }
+  });
   if (required.length > 0) {
-    if (Array.isArray(window.digitalDataOverrides)) {
+    if (window.wemLoaded === true) {
+      // the tracker started before this script: its context was requested without these properties
+      console.warn(
+        "[Formidable] jExperience's tracker started before the form script: the profile properties " +
+          required.join(", ") +
+          " were not requested: nothing will be prefilled and the conditions on the profile stay false",
+      );
+    } else if (Array.isArray(window.digitalDataOverrides)) {
       window.digitalDataOverrides.push({ wemInitConfig: { requiredProfileProperties: required } });
+      logicRequested = true;
     } else {
       // the block is written for a tracked site only, so the array should be there: said once, or a page
       // that never prefills would have nothing to show for it
       console.warn(
         "[Formidable] jExperience's digitalDataOverrides is not on the page: the profile properties " +
           required.join(", ") +
-          " cannot be requested and nothing will be prefilled",
+          " cannot be requested: nothing will be prefilled and the conditions on the profile stay false",
       );
     }
   }
@@ -622,17 +700,23 @@
     if (window.wemLoaded === true) {
       callback();
     } else if (window.wem && typeof window.wem._registerCallback === "function") {
-      window.wem._registerCallback(callback, "Formidable prefill", 100);
+      window.wem._registerCallback(callback, "Formidable profile", 100);
     } else {
       // a consent tool or a bot filter that kept the tracker off the page decides for this script too;
       // said once, so that a page that never prefills can be read
       console.warn(
-        "[Formidable] no jExperience tracker on the page when the form script ran: the mapped fields are not prefilled",
+        "[Formidable] no jExperience tracker on the page when the form script ran: the mapped fields are not prefilled and the conditions on the profile stay false",
       );
     }
   };
   if (required.length > 0) {
-    onTrackerReady(attemptAll);
+    onTrackerReady(() => {
+      attemptAll();
+      // the island may have evaluated its rules before the context was there: they read it now
+      if (logicProperties.length > 0) {
+        document.dispatchEvent(new Event(LOGIC_INVALIDATE_EVENT));
+      }
+    });
     attemptAll();
   }
 })();

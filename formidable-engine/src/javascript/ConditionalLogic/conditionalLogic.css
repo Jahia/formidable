@@ -2,9 +2,12 @@
  * Error state of the provider reference input. Moonstone draws the input border
  * on its wrapper (.moonstone-baseInput) — the inner element is borderless — so
  * the error class is handed to the Input's className, which lands on that
- * wrapper. !important outweighs moonstone's hover border shorthand.
+ * wrapper. A Dropdown takes its className on its container and draws its border
+ * on the child .moonstone-dropdown. !important outweighs moonstone's hover
+ * border shorthand.
  */
-.fmdbProviderRefError.moonstone-baseInput {
+.fmdbProviderRefError.moonstone-baseInput,
+.fmdbProviderRefError > .moonstone-dropdown {
     border-color: var(--color-danger) !important;
 }
 

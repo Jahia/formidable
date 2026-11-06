@@ -180,7 +180,7 @@ class FormSubmitServletTest {
         servlet.setUploadsConfig(mock(UploadsConfigService.class));
         servlet.setCaptchaConfig(mock(CaptchaConfigService.class));
         servlet.setFieldActionsConfig(mock(FieldActionsConfigService.class));
-        servlet.bindResponseEnricher(submission -> Map.of("jexperience", Map.of("formId", "f-1", "fields", submission.parameters())));
+        servlet.bindResponseEnricher(submission -> Map.of("acme", Map.of("formId", "f-1", "fields", submission.parameters())));
 
         servlet.doPost(request, response);
 
@@ -188,8 +188,8 @@ class FormSubmitServletTest {
         verify(response).setStatus(HttpServletResponse.SC_OK);
         JSONObject json = new JSONObject(body.toString());
         assertTrue(json.getBoolean("success"));
-        assertEquals("f-1", json.getJSONObject("jexperience").getString("formId"));
-        assertEquals("Ada", json.getJSONObject("jexperience").getJSONObject("fields").getJSONArray("firstName").getString(0));
+        assertEquals("f-1", json.getJSONObject("acme").getString("formId"));
+        assertEquals("Ada", json.getJSONObject("acme").getJSONObject("fields").getJSONArray("firstName").getString(0));
     }
 
     @Test
@@ -217,7 +217,7 @@ class FormSubmitServletTest {
             entries.put("success", false);
             entries.put(null, "no key");
             entries.put("notJson", Double.NaN);
-            entries.put("notJsonNested", Map.of("jexperience", Map.of("fields", Map.of("score", Double.NaN))));
+            entries.put("notJsonNested", Map.of("acme", Map.of("fields", Map.of("score", Double.NaN))));
             entries.put("extra", "kept");
             return entries;
         });
@@ -251,14 +251,14 @@ class FormSubmitServletTest {
         AtomicBoolean called = new AtomicBoolean();
         servlet.bindResponseEnricher(submission -> {
             called.set(true);
-            return Map.of("jexperience", "never");
+            return Map.of("acme", "never");
         });
 
         servlet.doPost(request, response);
 
         // Expected outcome: the rejection is answered as before, the enricher was not called.
         assertFalse(called.get());
-        assertFalse(body.toString().contains("jexperience"));
+        assertFalse(body.toString().contains("acme"));
         assertFalse(new JSONObject(body.toString()).getBoolean("success"));
     }
 

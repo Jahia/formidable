@@ -25,6 +25,10 @@
 		"./server": {
 			"types": "./src/server.ts",
 			"default": "./src/server.ts"
+		},
+		"./logic-sources": {
+			"types": "./src/logicSources.ts",
+			"default": "./src/logicSources.ts"
 		}
 	},
 	"files": [
@@ -42,6 +46,14 @@
 	"peerDependencies": {
 		"@jahia/javascript-modules-library": "^1.2.0",
 		"react": "^19.1.0"
+	},
+	"peerDependenciesMeta": {
+		"@jahia/javascript-modules-library": {
+			"optional": true
+		},
+		"react": {
+			"optional": true
+		}
 	},
 	"devDependencies": {
 		"@jahia/javascript-modules-library": "^1.2.0",
@@ -68,6 +80,10 @@
 			"./server": {
 				"types": "./dist/server.d.ts",
 				"default": "./dist/server.js"
+			},
+			"./logic-sources": {
+				"types": "./dist/logicSources.d.ts",
+				"default": "./dist/logicSources.js"
 			}
 		}
 	}

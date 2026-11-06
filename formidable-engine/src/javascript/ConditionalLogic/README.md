@@ -73,6 +73,38 @@ This separation matters because the selector has two different concerns:
 
 Keeping them together made the main component harder to read and harder to evolve.
 
+### `providers.ts`
+
+The sources of a rule that are not another form field. Three are built in: a datalayer value
+(`jsVariable`), a URL parameter (`urlParam`) and a cookie (`cookie`). Another module adds a source by
+registering its editor half under the registry type `formidableLogicSource` of `@jahia/ui-extender`,
+the key being the source's id (`<module>:<name>`). `listLogicProviders` merges the built-ins with the
+registered entries at each call, so a rule row sees every source of the modules loaded in jContent,
+and the engine names none of them. The contract of an entry is `EditorLogicSource` in
+`@jahia/formidable-library/logic-sources`; an entry outside it (an id without its module, a shared rule
+key or a built-in's key as config key, an operator no provider has) is ignored with a warning.
+
+Each entry is the whole description of its source: the rule key that holds its reference
+(`configKey`), its labels (i18n keys with the namespace of the module that ships them), a check of the
+reference, the operators a rule may test, and the modules the site must have for the source to be
+offered (`requiredModules`). The query of `graphql/queries.ts` reads the modules enabled on the site
+itself (`installedModules`, not their dependencies), the list the page's own gate reads.
+
+A source that can list its references declares where (`refChoices`: a GraphQL document and how to read
+its answer). The row then offers a dropdown instead of the text input, and `refChoices.ts` loads the
+list once for every row of the field. A stored reference the list lacks stays as its own entry, and the
+row keeps the text input while the list cannot be had: the module that serves it is not installed, its
+service cannot be asked, or the request failed.
+
+A rule stays readable whatever its source: `parseRule` keeps every string key that is no shared rule
+key, so the reference of a source no module registers survives a parse. Such a rule shows the
+`conditionalLogic.unknownSourceType` message and is never written back from the row.
+
+The built-ins are declared three times, and the three lists must stay in step: this one, the runtime one
+in `formidable-elements/src/utils/logicProviders.ts`, and `SHIPPED_PROVIDER_CONFIG_KEYS` of the server's
+`FormLogicRuleCleanup`. `providers.test.ts` and `FormLogicRuleCleanupTest` check it. A registered
+source is checked by its own module, editor half against page half.
+
 ## Data flow
 
 1. The editor opens on a field with the `logics` property.

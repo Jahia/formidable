@@ -73,7 +73,7 @@ public final class FmdbMixin {
     // its uploads to no action (decision D4). docs/architecture/form-submission-flow.md, "Sensitive fields"
     public static final String SENSITIVE_FIELD = "fmdbmix:sensitiveField";
 
-    // A field type claims a jExperience profile mapping by applying this one marker
+    // A field type claims a visitor-profile mapping by applying this one marker
     public static final String PROFILE_MAPPABLE_FIELD = "fmdbmix:profileMappableField";
 
     // Date bounds, and the same contract for a date-and-time field

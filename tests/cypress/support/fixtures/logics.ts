@@ -72,6 +72,7 @@ export interface ConditionalLogicRule {
 	variable?: string;
 	param?: string;
 	cookie?: string;
+	property?: string;
 	operator: string;
 	value?: string;
 	values?: string[];

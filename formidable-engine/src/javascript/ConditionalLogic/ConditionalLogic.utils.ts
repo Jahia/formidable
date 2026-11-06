@@ -10,9 +10,26 @@ import type {
     SourceValueKind
 } from './ConditionalLogic.types';
 import {getSourceDescriptor, operatorNeedsValue} from './sourceDescriptors';
-import {getLogicProvider, PROVIDER_OPERATORS, providerConfigKeys} from './providers';
+import {SHARED_RULE_KEYS} from '@jahia/formidable-library/logic-sources';
+import {getLogicProvider, type LogicProviderDescriptor, PROVIDER_OPERATORS, providerConfigKeys} from './providers';
 
 const VALUE_KINDS: SourceValueKind[] = ['choice', 'date', 'number', 'boolean', 'text'];
+
+/** What a provider rule designates, under the provider's config key; '' when it has none. */
+export const providerRef = (rule: ConditionalLogicRule, configKey: string): string => {
+    const ref = rule[configKey];
+    return typeof ref === 'string' ? ref : '';
+};
+
+/**
+ * The provider config a stored rule carries: every string key that is no shared rule key. Read
+ * this way rather than from the provider list, so the reference of a source no module registers
+ * here stays in the parsed rule.
+ */
+const providerConfigOf = (parsed: Record<string, unknown>): Record<string, string> =>
+    Object.fromEntries(Object.entries(parsed).filter(
+        (entry): entry is [string, string] => !SHARED_RULE_KEYS.includes(entry[0]) && typeof entry[1] === 'string'
+    ));
 
 /**
  * Sentinel a date rule may carry instead of a fixed date: the submission day, resolved by
@@ -89,9 +106,9 @@ export const parseRule = (value?: string): ConditionalLogicRule => {
             sourceFieldName: parsed.sourceFieldName ?? '',
             sourceFieldType: parsed.sourceFieldType ?? '',
             valueKind: VALUE_KINDS.includes(parsed.valueKind as SourceValueKind) ? parsed.valueKind : undefined,
-            variable: typeof parsed.variable === 'string' ? parsed.variable : undefined,
-            param: typeof parsed.param === 'string' ? parsed.param : undefined,
-            cookie: typeof parsed.cookie === 'string' ? parsed.cookie : undefined,
+            // The reference of any provider: a key named here by hand would drop the reference of a
+            // provider added later, at every keystroke of its input
+            ...providerConfigOf(parsed),
             operator: (parsed.operator as LogicOperator) ?? 'in',
             value: typeof parsed.value === 'string' ? parsed.value : undefined,
             values: Array.isArray(parsed.values) ? parsed.values.filter(value => typeof value === 'string') : []
@@ -115,8 +132,10 @@ export const sanitizeOperator = (source: SourceFieldOption | undefined, operator
     return operators.includes(operator) ? operator : operators[0];
 };
 
-export const sanitizeProviderOperator = (operator: LogicOperator): LogicOperator =>
-    PROVIDER_OPERATORS.includes(operator) ? operator : PROVIDER_OPERATORS[0];
+export const sanitizeProviderOperator = (operator: LogicOperator, provider?: LogicProviderDescriptor): LogicOperator => {
+    const operators = provider?.operators ?? PROVIDER_OPERATORS;
+    return operators.includes(operator) ? operator : operators[0];
+};
 
 /**
  * Serializes a provider rule to its stored shape: the provider's own config key and
@@ -129,11 +148,11 @@ export const normalizeStoredProviderRule = (rule: ConditionalLogicRule): Conditi
         return parseRule(undefined);
     }
 
-    const operator = sanitizeProviderOperator(rule.operator);
+    const operator = sanitizeProviderOperator(rule.operator, provider);
     const normalized: ConditionalLogicRule = {
         logicId: rule.logicId,
         sourceType: provider.id,
-        [provider.configKey]: (rule[provider.configKey] ?? '').trim(),
+        [provider.configKey]: providerRef(rule, provider.configKey).trim(),
         operator
     };
 

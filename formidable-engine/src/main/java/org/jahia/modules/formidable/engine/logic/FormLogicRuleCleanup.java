@@ -6,25 +6,30 @@ import java.util.Map;
 
 /**
  * Save-time cleanup of logic rules that cannot do anything but hide their field:
- * rules whose target was never chosen (the leftovers of an "Add" click). A field
- * rule without a source field, or a rule of one of the providers this module
- * version ships whose reference is empty, is removed when the logics property is
- * synchronised.
+ * rules whose target was never chosen (the leftovers of an "Add" click). Removed
+ * when the logics property is synchronised:
+ * <ul>
+ *   <li>a field rule without a source field;</li>
+ *   <li>a rule of a built-in source of the core whose reference is empty;</li>
+ *   <li>a rule of any other source (one an extension module registers) whose
+ *       configuration is one string key, the shape every source stores, and that
+ *       string is blank.</li>
+ * </ul>
  *
- * Deliberately narrow: a rule with an unknown source type — authored by a newer
- * module version, whose configuration this version cannot read — is never
- * touched, and a reference that is filled but invalid is kept as well: it
- * carries intent, the editor shows it in error and the runtime fails closed.
+ * Deliberately narrow: a rule of another source whose configuration is not one
+ * string (a newer module version may store another shape) is never touched, as
+ * this version cannot tell it empty. A reference that is filled but invalid is
+ * kept as well: it carries intent, the editor shows it in error and the runtime
+ * fails closed.
  */
 final class FormLogicRuleCleanup {
 
     /**
-     * The config key of each provider shipped with this module version (mirrors
-     * the editor-side provider registry). Only these are cleanup candidates: for
-     * any other source type this version cannot tell an empty configuration from
-     * one it simply cannot read.
+     * The config key of each built-in source of the core. It mirrors the built-in
+     * providers of the editor, and FormLogicRuleCleanupTest checks this. A rule of
+     * one of these is a leftover whenever its own key is blank, missing included.
      */
-    private static final Map<String, String> SHIPPED_PROVIDER_CONFIG_KEYS = Map.of(
+    static final Map<String, String> SHIPPED_PROVIDER_CONFIG_KEYS = Map.of(
             "jsVariable", "variable",
             "urlParam", "param",
             "cookie", "cookie");
@@ -39,6 +44,23 @@ final class FormLogicRuleCleanup {
         }
 
         String configKey = SHIPPED_PROVIDER_CONFIG_KEYS.get(sourceType);
-        return configKey != null && rule.optString(configKey, "").isBlank();
+        if (configKey != null) {
+            return rule.optString(configKey, "").isBlank();
+        }
+
+        return hasOneBlankStringConfig(rule);
+    }
+
+    private static boolean hasOneBlankStringConfig(JSONObject rule) {
+        Object config = null;
+        int keys = 0;
+        for (String key : rule.keySet()) {
+            if (!ConditionalLogicRule.SHARED_RULE_KEYS.contains(key)) {
+                keys++;
+                config = rule.opt(key);
+            }
+        }
+
+        return keys == 1 && config instanceof String reference && reference.isBlank();
     }
 }

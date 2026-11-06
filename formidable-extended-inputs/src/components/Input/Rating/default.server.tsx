@@ -59,8 +59,8 @@ jahiaComponent(
     return (
       <>
         <AddResources type="css" resources={buildModuleFileUrl("dist/assets/style.css")} />
-        {/* radiogroup: the explicit role a fieldset of radios needs to carry aria-readonly, which the
-            jExperience prefill sets when the author locks the field. data-fmdb-advance-on-change: one pick is
+        {/* radiogroup: the explicit role a fieldset of radios needs to carry aria-readonly, which a
+            prefill script sets when the author locks the field. data-fmdb-advance-on-change: one pick is
             the whole answer, so a form showing one field at a time moves on with it */}
         <fieldset className="fmdb-form-group fmdbext-rating" role="radiogroup" aria-describedby={helpId} data-fmdb-advance-on-change="true">
           {label && (

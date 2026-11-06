@@ -106,4 +106,29 @@ export const probe = {resolve};
 execFileSync(process.execPath, [tsc, "--noEmit", "--strict", "--skipLibCheck", "--module", "esnext", "--moduleResolution", "bundler", "--target", "es2022", "--jsx", "react-jsx", serverProbe], {stdio: "inherit"});
 console.log("smoke: the server entry of the packed tarball type-checks for a bundler consumer");
 
+// The logic-source contract, imported by a page script under Node ESM and type-checked for a nodenext
+// consumer: an entry of constants and types that a jContent bundle and a page script both read.
+const logicProbe = join(scratch, "logic-probe.mjs");
+writeFileSync(logicProbe, `
+import {LOGIC_SOURCE_REGISTRY_TYPE, PAGE_LOGIC_SOURCES_GLOBAL, LOGIC_SOURCE_ID_PATTERN, SHARED_RULE_KEYS} from "${name}/logic-sources";
+
+const ok = LOGIC_SOURCE_REGISTRY_TYPE === "formidableLogicSource" && PAGE_LOGIC_SOURCES_GLOBAL === "formidableLogicSources"
+	&& LOGIC_SOURCE_ID_PATTERN.test("acme:segment") && !LOGIC_SOURCE_ID_PATTERN.test("segment") && SHARED_RULE_KEYS.includes("sourceType");
+if (!ok) {
+	console.error("smoke: the logic-sources entry does not hold its contract");
+	process.exit(1);
+}
+`);
+execFileSync(process.execPath, [logicProbe], {stdio: "inherit"});
+const logicTypeProbe = join(scratch, "logic-probe.ts");
+writeFileSync(logicTypeProbe, `
+import type {EditorLogicSource, PageLogicSource} from "${name}/logic-sources";
+
+const editor: EditorLogicSource = {configKey: "segment", labelKey: "acme:l", configLabelKey: "acme:c", configPlaceholderKey: "acme:p", operators: ["equals"]};
+const page: PageLogicSource = {id: "acme:segment", configKey: "segment", read: () => undefined};
+export const probe = {editor, page};
+`);
+execFileSync(process.execPath, [tsc, "--noEmit", "--strict", "--skipLibCheck", "false", "--module", "nodenext", "--moduleResolution", "nodenext", "--target", "es2022", logicTypeProbe], {stdio: "inherit"});
+console.log("smoke: the logic-sources entry of the packed tarball imports and type-checks");
+
 rmSync(scratch, {recursive: true, force: true});

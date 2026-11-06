@@ -99,6 +99,8 @@ class FormJExperienceRenderFilterTest {
         private boolean unchecked;
         private Map<String, PrefillMappings.Entry> prefill = Map.of();
         private List<String> prefillDependencies = List.of();
+        private List<String> logic = List.of();
+        private List<String> logicDependencies = List.of();
         private String openedWorkspace;
         private Locale openedLocale;
 
@@ -110,6 +112,11 @@ class FormJExperienceRenderFilterTest {
         @Override
         PrefillMappings.Prefill prefillOf(JCRSessionWrapper session, JCRNodeWrapper form) {
             return new PrefillMappings.Prefill(prefill, prefillDependencies);
+        }
+
+        @Override
+        LogicProperties.Logic logicOf(JCRSessionWrapper session, JCRNodeWrapper form) {
+            return new LogicProperties.Logic(logic, logicDependencies);
         }
 
         @Override
@@ -148,7 +155,7 @@ class FormJExperienceRenderFilterTest {
     @Test
     void writesTheConfigurationBlockAndTheScriptBeforeTheForm() throws Exception {
         // Verifies the whole contribution: the identifier the event is keyed on, the title and path the
-        // dashboards read, the prefill pairs (none here) — then the script, declared as a static asset so
+        // dashboards read, the prefill pairs and the logic properties (none here) — then the script, declared as a static asset so
         // that core hoists it into the head and keeps one for the whole page. What the form maps for
         // sending is not in it: the send decision reads the tracker's watch list.
         JCRNodeWrapper form = form("Contact us");
@@ -156,7 +163,7 @@ class FormJExperienceRenderFilterTest {
                 .prepend("<form></form>", site(true), rendered(form, false), "", new HashSet<>());
 
         assertEquals("<script type=\"application/json\" data-formidable-jxp=\"" + FORM_UUID + "\">"
-                + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\",\"prefill\":{}}</script>\n"
+                + "{\"formId\":\"" + FORM_UUID + "\",\"name\":\"Contact us\",\"path\":\"/sites/mysite/contents/contact\",\"prefill\":{},\"logic\":[]}</script>\n"
                 + "<jahia:resource type=\"javascript\" path=\"" + FormJExperienceRenderFilter.scriptUrl("")
                 + "\" insert=\"false\" key=\"\" defer=\"true\" />\n"
                 + "<form></form>", out);
@@ -202,10 +209,27 @@ class FormJExperienceRenderFilterTest {
         String out = filter.prepend("<form></form>", site(true), rendered(form, false), "", dependencies);
 
         assertTrue(out.contains("\"prefill\":{\"firstName\":{\"property\":\"firstName\"},"
-                + "\"email\":{\"property\":\"email\",\"then\":\"readOnly\"}}}</script>"), out);
+                + "\"email\":{\"property\":\"email\",\"then\":\"readOnly\"}},\"logic\":[]}</script>"), out);
         assertEquals(-1, out.indexOf("<script>"), "no inline script: the hoisted one pushes for the whole page");
         // every mappable field, mentioned or not: mapping one later, or switching its prefill on, must refresh the cached block
         assertEquals(Set.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/message"), dependencies);
+    }
+
+    @Test
+    void theProfilePropertiesTheLogicReadsTravelInTheBlockAsNamesOnly() throws Exception {
+        // Verifies that the block lists the profile properties the form's conditional logic reads, so the client
+        // script asks the tracker for them, and that every element able to carry a rule is a dependency.
+        JCRNodeWrapper form = form("Contact us");
+        FilterUnderTest filter = filter(configured("mysite"), ownSessionOver(form), true);
+        filter.logic = List.of("country", "company");
+        filter.logicDependencies = List.of("/sites/mysite/contents/contact/fields/companySize");
+        filter.prefillDependencies = List.of("/sites/mysite/contents/contact/fields/firstName");
+        Set<String> dependencies = new HashSet<>();
+
+        String out = filter.prepend("<form></form>", site(true), rendered(form, false), "", dependencies);
+
+        assertTrue(out.contains("\"prefill\":{},\"logic\":[\"country\",\"company\"]}</script>"), out);
+        assertEquals(Set.of("/sites/mysite/contents/contact/fields/firstName", "/sites/mysite/contents/contact/fields/companySize"), dependencies);
     }
 
     @Test
