@@ -275,20 +275,17 @@ jExperience and orange to jContent's warnings.
 ### Page Builder frame of a standalone form
 
 A form opened in the Page Builder from its content folder is rendered in an otherwise empty
-page, the content template of the `default` module. From default 8.11.0, that frame renders the
-form's `hidden.visualEdit` view, so the module gives it a column and a heading: `.fmdb-visual-edit`
-wraps the form, `.fmdb-visual-edit-title` carries the form's title. Both exist in that frame
-only — never in a page, in preview or in live — so a business stylesheet can ignore them; a
-template set that wants a different authoring width sets the variables on `.fmdb-visual-edit`.
+page, the content template of the `default` module. There the form's `hidden.visualEdit` view
+wraps it in `.fmdb-visual-edit`, a readable column. [Class hooks](class-hooks.md#the-page-builder-frame-of-a-standalone-form)
+states the versions this needs and the one template where the column can show outside that frame.
+A business stylesheet can ignore it; a template set that wants a different authoring width sets
+the variables on `.fmdb-visual-edit`.
 
 | Variable | Default | Description |
 |---|---|---|
 | `--fmdb-visual-edit-max-width` | `60rem` | Width of the authoring column |
 | `--fmdb-visual-edit-margin` | `0 auto` | Placement of the column (centred) |
 | `--fmdb-visual-edit-padding` | `1.5rem 1rem 3rem` | Inner spacing of the column |
-| `--fmdb-visual-edit-title-margin` | `0 0 1.5rem` | Spacing under the heading |
-| `--fmdb-visual-edit-title-size` | `1.5rem` | Font size of the heading |
-| `--fmdb-visual-edit-title-weight` | `600` | Font weight of the heading |
 
 ## Spinner
 

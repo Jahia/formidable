@@ -38,6 +38,7 @@ client, under the same names. Where each one sits in the rendered tree is drawn 
 | `fmdb-spinner` | The submission overlay |
 | `fmdb-form-fields` | The field list — in edit mode only, where the authoring spacing below pads it |
 | `fmdb-form-reference-empty` | A form reference with no form selected — in edit mode only |
+| `fmdb-visual-edit` | The column around a form in the Page Builder frame of a form opened from its content folder (see [below](#the-page-builder-frame-of-a-standalone-form)); the form inside keeps its edit-mode hooks |
 
 Every element wrapper also exposes `data-fmdb-node-name`, `data-fmdb-node-id` and
 `data-fmdb-node-type`, for rules that target one field by name:
@@ -73,11 +74,12 @@ a pick there, and the island adds the id of a hidden sentence saying so to the e
 puts it on one of its elements when the field shows nothing, and a One-at-a-time form gives the field
 no screen.
 
-## Surfaces: live, edit mode, inspection previews
+## Surfaces: live, edit mode, inspection previews, standalone frame
 
-The same hooks render on three surfaces, told apart by an attribute on the `fmdb-form` element:
-none in live, `data-fmdb-edit-mode="true"` in the Page Builder, `data-fmdb-cm-view="true"` in
-jContent's inspection previews.
+The same hooks render on four surfaces. Three are told apart by an attribute on the `fmdb-form`
+element: none in live, `data-fmdb-edit-mode="true"` in the Page Builder, `data-fmdb-cm-view="true"`
+in jContent's inspection previews. The fourth is the Page Builder of a form with no page of its
+own, told apart by the column around the form ([below](#the-page-builder-frame-of-a-standalone-form)).
 
 jContent's scriptless preview surfaces (the preview drawer, the Content Editor preview)
 render the `cm` view: an inspection of the form's content — every step stacked under its
@@ -93,6 +95,33 @@ in `fmdb-form-fields` (so it can be clicked around its steps), a form reference 
 selected renders `fmdb-form-reference-empty`, and the form actions zone below is drawn after the
 form. The spacing that comes with it is set by variables, in
 [CSS variables](css-variables.md#authoring-spacing).
+
+### The Page Builder frame of a standalone form
+
+A form opened in the Page Builder from its content folder has no page of its own: jContent renders
+it as the main resource of the content template of the `default` module, an otherwise empty page.
+In that frame the form's `hidden.visualEdit` view wraps the form in `div.fmdb-visual-edit`, a
+centred column, and includes the form's default view in it, so the form inside carries
+`data-fmdb-edit-mode="true"` and every edit-mode hook above. jContent's header already names the
+form, so the frame adds no title. The width and the spacing of the column are
+[variables](css-variables.md#page-builder-frame-of-a-standalone-form).
+
+The column needs three things:
+
+- a jContent that opens a form from its content folder in the Page Builder: 3.9.1 or later
+  ([Jahia/jcontent#2766](https://github.com/Jahia/jcontent/pull/2766));
+- default 8.11.0 or later, which picks the `hidden.visualEdit` view in the edit frame
+  ([Jahia/default#164](https://github.com/Jahia/default/pull/164)). With an older default the frame
+  renders the form's default view, with no column;
+- a template set that does not override the `content-template` of `default`. An override renders
+  the form its own way, and may not pick this view.
+
+The column never shows in preview or live, nor around a form placed in a page, through a form
+reference or in an area. default picks `hidden.visualEdit` for the main resource of an edit-mode
+render, whatever its template. So a template set that gives `fmdb:form` a template of its own shows
+the column in that template too, in edit mode; there,
+`--fmdb-visual-edit-max-width: none`, `--fmdb-visual-edit-margin: 0` and `--fmdb-visual-edit-padding: 0`
+on `.fmdb-visual-edit` undo it.
 
 ## Conditional logic
 
