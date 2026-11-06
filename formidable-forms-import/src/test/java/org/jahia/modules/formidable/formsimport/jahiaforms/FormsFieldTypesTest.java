@@ -48,8 +48,16 @@ class FormsFieldTypesTest {
     }
 
     @Test
-    void passwordsContentDisplaysButtonsAndFieldsetMarksAreNoFields() {
-        assertNull(FormsFieldTypes.of(of("password"), t -> true));
+    void aPasswordIsAPasswordFieldWhenRegisteredAndNothingElse() {
+        FormsFieldTypes.Mapping password = FormsFieldTypes.of(of("password"), t -> true);
+        assertEquals(FormsFieldTypes.PASSWORD, password.nodeType());
+        assertNull(password.note());
+        // no elements fallback: a text field would store and mail it in clear
+        assertNull(FormsFieldTypes.of(of("password"), t -> !t.equals(FormsFieldTypes.PASSWORD)));
+    }
+
+    @Test
+    void contentDisplaysButtonsAndFieldsetMarksAreNoFields() {
         assertNull(FormsFieldTypes.of(of("contentDisplay"), t -> true));
         assertNull(FormsFieldTypes.of(of("buttonTriple"), t -> true));
         assertNull(FormsFieldTypes.of(of("fieldsetStart"), t -> true));

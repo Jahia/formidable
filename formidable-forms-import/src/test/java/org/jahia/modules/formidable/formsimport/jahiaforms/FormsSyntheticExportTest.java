@@ -175,18 +175,40 @@ class FormsSyntheticExportTest {
         FormsExport export = reader().readStructure();
         FormsForm source = export.forms().get("survey");
         FormsResults results = export.results().get("survey");
-        ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, results);
+        ImportedForm form = new FormsFormConverter(t -> !t.equals(FormsFieldTypes.PASSWORD), s -> true).convert(source, results);
         assertEquals(List.of("your-e-mail", "colours", "nickname", "delivery", "city", "age", "the-price", "the-service", "speed", "comment", "zip", "notes", "town"),
                 form.fields().map(ImportedField::name).toList());
+
+        ImportedSubmission converted = firstSubmissionOf(form, source, results);
+        assertPasswordDropped(converted, "password_0_1");
+    }
+
+    @Test
+    void aPasswordAnswerIsDroppedWhenItsFieldIsRecreated() throws Exception {
+        FormsExport export = reader().readStructure();
+        FormsForm source = export.forms().get("survey");
+        FormsResults results = export.results().get("survey");
+        ImportedForm form = new FormsFormConverter(t -> true, s -> true).convert(source, results);
+        ImportedField password = form.fieldBySourceName("password_0_1");
+        assertEquals(FormsFieldTypes.PASSWORD, password.nodeType());
+
+        // the kind of the answer comes from the Forms type of the field, never from the type created for it
+        ImportedSubmission converted = firstSubmissionOf(form, source, results);
+        assertPasswordDropped(converted, password.name());
+    }
+
+    private static ImportedSubmission firstSubmissionOf(ImportedForm form, FormsForm source, FormsResults results) throws Exception {
         List<FormsSubmission> submissions = new ArrayList<>();
         reader().readSubmissions(submissions::add);
+        return new FormsSubmissionConverter(form, source, results).convert(submissions.get(0));
+    }
 
-        ImportedSubmission converted = new FormsSubmissionConverter(form, source, results).convert(submissions.get(0));
-        assertFalse(converted.values().containsKey("password_0_1"));
+    private static void assertPasswordDropped(ImportedSubmission converted, String fieldName) {
+        assertFalse(converted.values().containsKey(fieldName));
         assertTrue(converted.values().values().stream().flatMap(List::stream).noneMatch(FormsValues.PASSWORD_PLACEHOLDER::equals));
-        assertEquals(1, converted.report().size());
+        assertEquals(1, converted.report().size(), converted.report().toString());
         assertEquals("submission.passwordDropped", converted.report().get(0).code());
-        // no field was created for it: the note names it by the title of its Forms definition
+        // the note names the field by its title, the one of the field created, else the one of its Forms definition
         assertEquals("Password", converted.report().get(0).param("field"));
         assertEquals(ImportNote.Level.ACTION, converted.report().get(0).level());
     }
@@ -207,7 +229,7 @@ class FormsSyntheticExportTest {
         // radios matrix alone is not written. A fieldset start while one is open ends it, as Forms does: the fieldset
         // opened inside the first one stands beside its second half, not under it. A fieldset whose matrix the
         // start of the next one ends is not written either, and the matrix takes the name it gave back.
-        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "more", "satisfaction", "ratings", "last-words", "contact"),
+        assertEquals(List.of("your-e-mail", "colours", "about-you", "extras", "about-you-1", "more", "satisfaction", "ratings", "last-words", "contact", "password"),
                 form.elements().stream().map(ImportedElement::name).toList());
         // a matrix that falls back on its text area is a field like another: the fieldset around it is not split
         ImportedContainer contact = fieldsetsOf(form).get(fieldsetsOf(form).size() - 1);

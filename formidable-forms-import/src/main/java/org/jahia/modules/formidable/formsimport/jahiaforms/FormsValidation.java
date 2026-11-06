@@ -17,6 +17,8 @@ record FormsValidation(String name, String type, Map<String, FormsOption> option
     static final String REGEX = "fcnt:regexValidation";
     static final String FILE = "fcnt:fileValidation";
     static final String FILE_NUMBER = "fcnt:fileNumberValidation";
+    /** The value repeats the one of another field of the form, {@code equaltofieldid}: a confirmation. */
+    static final String EQUAL_TO = "fcnt:equalToValidation";
     /** A matrix answered on at least one row ({@code matrixRequired.rule.jsp}): the only "required" a matrix knows besides the next one. */
     static final String MATRIX_REQUIRED = "fcnt:matrixRequiredValidation";
     /** A matrix answered on every row ({@code matrixRequiredRows.rule.jsp}, {@code number-of-rows} = all the rows). */

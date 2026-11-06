@@ -24,6 +24,8 @@ class FormsFormConverterTest {
     private static final String EMAIL_PROPERTY = "email";
     private static final String CHOICES = "choices";
     private static final String INTERESTS = "interests";
+    private static final String PASSWORD_NAME = "password_0_1";
+    private static final String PASSWORD_TYPE = "fcnt:passwordDefinition";
     private static final FormsFormConverter EVERYTHING = new FormsFormConverter(type -> true, source -> true);
     private static final FormsFormConverter ELEMENTS_ONLY = new FormsFormConverter(type -> !type.startsWith("fmdbext:"), source -> false);
 
@@ -161,7 +163,7 @@ class FormsFormConverterTest {
             assertFalse(accepted.isEmpty(), field.nodeType());
             assertTrue(accepted.containsAll(field.properties().keySet()), field.name() + " " + field.properties().keySet());
             assertTrue(accepted.containsAll(field.i18nProperties().keySet()), field.name() + " " + field.i18nProperties().keySet());
-            assertTrue(!field.required() || accepted.contains(ImportedField.REQUIRED_PROPERTY), field.name());
+            assertEquals(accepted.contains(ImportedField.REQUIRED_PROPERTY), field.required() != null, field.name());
         }
     }
 
@@ -184,7 +186,7 @@ class FormsFormConverterTest {
         assertEquals(Map.of("en", "Pick one"), fields.get(0).i18nProperties().get(FormsFieldTypes.OPTIONS_EMPTY_LABEL));
         assertNull(fields.get(0).i18nProperties().get(FormsFieldTypes.PLACEHOLDER));
         // a hidden field has no required flag
-        assertFalse(fields.get(1).required());
+        assertNull(fields.get(1).required());
         assertTrue(has(fields.get(1).report(), ImportedField.NOTE_SETTING, "setting", "required"), fields.get(1).report().toString());
         // a textarea has no pattern
         assertNull(fields.get(2).properties().get(FormsFieldTypes.PATTERN));
@@ -204,7 +206,7 @@ class FormsFormConverterTest {
     @Test
     void theRulesCarryTheirBoundsAndMessages() {
         FormsValidation length = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
-                "min", new FormsOption("min", "2", Map.of()), "max", new FormsOption("max", "40", Map.of()),
+                "rangelengthmin", new FormsOption("rangelengthmin", "2", Map.of()), "rangelengthmax", new FormsOption("rangelengthmax", "40", Map.of()),
                 "message", new FormsOption("message", null, Map.of("en", "Between 2 and 40"))));
         FormsValidation email = new FormsValidation("email", FormsValidation.EMAIL, Map.of());
         FormsField text = new FormsField("text_0_1", "u1", "fcnt:inputDefinition", Map.of("en", "Name"),
@@ -465,10 +467,187 @@ class FormsFormConverterTest {
     }
 
     @Test
-    void aPasswordIsNotRecreatedAndTheReportSaysWhy() {
-        ImportedForm form = EVERYTHING.convert(formOf(field("password_0_1", "fcnt:passwordDefinition", "Password")), null);
+    void aPasswordIsNotRecreatedWithoutThePasswordFieldAndTheReportSaysWhy() {
+        ImportedForm form = ELEMENTS_ONLY.convert(formOf(field(PASSWORD_NAME, PASSWORD_TYPE, "Password")), null);
         assertEquals(0, form.fields().count());
         assertTrue(form.report().stream().anyMatch(note -> note.code().equals("form.passwordDropped") && note.level() == ImportNote.Level.ACTION), form.report().toString());
+    }
+
+    @Test
+    void aPasswordBecomesThePasswordFieldWithItsSettingsAndTheRulesItCanHold() {
+        FormsValidation required = new FormsValidation("required", FormsValidation.REQUIRED, Map.of(
+                "message", new FormsOption("message", null, Map.of("en", "Enter a password"))));
+        FormsValidation length = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "rangelengthmin", new FormsOption("rangelengthmin", "8", Map.of()), "rangelengthmax", new FormsOption("rangelengthmax", "256", Map.of()),
+                "message", new FormsOption("message", null, Map.of("en", "8 to 256 characters"))));
+        FormsValidation regex = new FormsValidation("regex", FormsValidation.REGEX, Map.of(
+                "regex", new FormsOption("regex", "^\\S+$", Map.of())));
+        FormsField definition = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null, Map.of(
+                FormsOptionNames.PLACEHOLDER, new FormsOption(FormsOptionNames.PLACEHOLDER, null, Map.of("en", "Your password")),
+                FormsOptionNames.HELP_TEXT, new FormsOption(FormsOptionNames.HELP_TEXT, null, Map.of("en", "At least 8 characters")),
+                FormsOptionNames.SHOW_PASSWORD, new FormsOption(FormsOptionNames.SHOW_PASSWORD, "show", Map.of())),
+                List.of(required, length, regex), List.of(), false);
+
+        ImportedField password = EVERYTHING.convert(formOf(definition), null).fields().toList().get(0);
+
+        assertEquals(FormsFieldTypes.PASSWORD, password.nodeType());
+        assertEquals(PASSWORD_TYPE, password.sourceType());
+        assertEquals(Map.of("en", "Your password"), password.i18nProperties().get(FormsFieldTypes.PLACEHOLDER));
+        assertEquals(Map.of("en", "At least 8 characters"), password.i18nProperties().get(FormsFieldTypes.HELP_TEXT));
+        assertEquals(Boolean.TRUE, password.required());
+        assertEquals(Map.of("en", "Enter a password"), password.i18nProperties().get(FormsFieldTypes.MSG_VALUE_MISSING));
+        // a Forms maximum above the default of the type is written as it is
+        assertEquals("8", password.properties().get(FormsFieldTypes.MIN_LENGTH));
+        assertEquals("256", password.properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertEquals(Map.of("en", "8 to 256 characters"), password.i18nProperties().get(FormsFieldTypes.MSG_TOO_SHORT));
+        assertEquals(Map.of("en", "8 to 256 characters"), password.i18nProperties().get(FormsFieldTypes.MSG_TOO_LONG));
+        // the password field has no pattern
+        assertNull(password.properties().get(FormsFieldTypes.PATTERN));
+        assertTrue(has(password.report(), "field.rule", "rule", FormsValidation.REGEX, "type", FormsFieldTypes.PASSWORD), password.report().toString());
+        assertTrue(password.report().stream().anyMatch(note -> note.code().equals("field.passwordRecreated") && note.level() == ImportNote.Level.ACTION),
+                password.report().toString());
+        assertTrue(password.report().stream().anyMatch(note -> note.code().equals("field.showPasswordToggle") && note.level() == ImportNote.Level.INFO),
+                password.report().toString());
+    }
+
+    @Test
+    void aPasswordLengthOutsideTheRangeOfTheFieldIsBroughtWithinItAndReported() {
+        FormsValidation wide = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "rangelengthmin", new FormsOption("rangelengthmin", "2000", Map.of()), "rangelengthmax", new FormsOption("rangelengthmax", "5000", Map.of())));
+        FormsValidation zero = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "rangelengthmax", new FormsOption("rangelengthmax", "0", Map.of())));
+        FormsField first = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null, Map.of(), List.of(wide), List.of(), false);
+        FormsField second = new FormsField("pin_0_2", "u2", PASSWORD_TYPE, Map.of("en", "PIN"), null, Map.of(), List.of(zero), List.of(), false);
+
+        List<ImportedField> fields = EVERYTHING.convert(formOf(first, second), null).fields().toList();
+
+        // the writer cannot set a value outside the range of the CND, so the import never hands it one
+        assertEquals("1024", fields.get(0).properties().get(FormsFieldTypes.MIN_LENGTH));
+        assertEquals("1024", fields.get(0).properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertTrue(has(fields.get(0).report(), "field.boundClamped", "setting", FormsFieldTypes.MIN_LENGTH, "value", "2000", "kept", "1024"),
+                fields.get(0).report().toString());
+        assertTrue(has(fields.get(0).report(), "field.boundClamped", "setting", FormsFieldTypes.MAX_LENGTH, "value", "5000", "kept", "1024"),
+                fields.get(0).report().toString());
+        assertEquals("1", fields.get(1).properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertTrue(has(fields.get(1).report(), "field.boundClamped", "setting", FormsFieldTypes.MAX_LENGTH, "value", "0", "kept", "1"),
+                fields.get(1).report().toString());
+    }
+
+    @Test
+    void aMinimumAboveTheDefaultMaximumRaisesTheMaximumToIt() {
+        FormsValidation above = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "rangelengthmin", new FormsOption("rangelengthmin", "200", Map.of())));
+        FormsValidation below = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
+                "rangelengthmin", new FormsOption("rangelengthmin", "12", Map.of())));
+        FormsField first = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null, Map.of(), List.of(above), List.of(), false);
+        FormsField second = new FormsField("pin_0_2", "u2", PASSWORD_TYPE, Map.of("en", "PIN"), null, Map.of(), List.of(below), List.of(), false);
+
+        List<ImportedField> fields = EVERYTHING.convert(formOf(first, second), null).fields().toList();
+
+        // the default maxLength of 128 would leave no value that passes both bounds
+        assertEquals("200", fields.get(0).properties().get(FormsFieldTypes.MIN_LENGTH));
+        assertEquals("200", fields.get(0).properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertTrue(has(fields.get(0).report(), "field.defaultBoundRaised", "setting", FormsFieldTypes.MAX_LENGTH, "value", "128", "kept", "200"),
+                fields.get(0).report().toString());
+        // below the default, the type keeps it
+        assertNull(fields.get(1).properties().get(FormsFieldTypes.MAX_LENGTH));
+        assertFalse(has(fields.get(1).report(), "field.defaultBoundRaised"), fields.get(1).report().toString());
+    }
+
+    @Test
+    void anOptionalPasswordStaysOptionalAndAHiddenOneShowsNoToggle() {
+        FormsField definition = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null,
+                Map.of(FormsOptionNames.SHOW_PASSWORD, new FormsOption(FormsOptionNames.SHOW_PASSWORD, "hide", Map.of())),
+                List.of(), List.of(), false);
+
+        ImportedForm form = EVERYTHING.convert(formOf(definition), null);
+        ImportedField password = form.fields().toList().get(0);
+
+        // required by default on the type: the import writes false so that it stays as Forms had it
+        assertEquals(Boolean.FALSE, password.required());
+        assertTrue(has(password.report(), "field.passwordRecreated"), password.report().toString());
+        assertFalse(has(password.report(), "field.showPasswordToggle"), password.report().toString());
+        assertFalse(has(form.report(), "form.passwordDropped"), form.report().toString());
+    }
+
+    @Test
+    void theConfirmationOfAPasswordIsNotRecreated() {
+        FormsField first = field(PASSWORD_NAME, PASSWORD_TYPE, "Password");
+        FormsField confirmation = new FormsField("password_0_2", "u2", PASSWORD_TYPE, Map.of("en", "Repeat"), null, Map.of(),
+                List.of(equalTo(PASSWORD_NAME)), List.of(), false);
+        FormsField email = field("email_0_3", "fcnt:emailDefinition", "E-mail");
+        // an equal-to rule that names any other field than an earlier password is a rule like any other
+        FormsField other = new FormsField("password_0_4", "u4", PASSWORD_TYPE, Map.of("en", "Secret"), null, Map.of(),
+                List.of(equalTo("email_0_3")), List.of(), false);
+
+        ImportedForm form = EVERYTHING.convert(formOf(first, confirmation, email, other), null);
+
+        assertEquals(List.of(PASSWORD_NAME, "email_0_3", "password_0_4"), form.fields().map(ImportedField::sourceName).toList());
+        assertTrue(form.report().stream().anyMatch(note -> note.code().equals("form.passwordConfirmationDropped")
+                && note.level() == ImportNote.Level.INFO && "password_0_2".equals(note.param("field"))
+                && PASSWORD_NAME.equals(note.param("password"))), form.report().toString());
+        ImportedField secret = form.fields().toList().get(2);
+        assertTrue(has(secret.report(), "field.rule", "rule", FormsValidation.EQUAL_TO), secret.report().toString());
+    }
+
+    @Test
+    void aPasswordWhoseEqualToRuleNamesAPasswordOfAnotherStepIsRecreated() {
+        // Forms looks the target of the rule up in the current step only, and passes when it is not there: a field
+        // moved to another step keeps its rules, and the visitor still fills it
+        FormsField first = field(PASSWORD_NAME, PASSWORD_TYPE, "Password");
+        FormsField moved = new FormsField("password_0_2", "u2", PASSWORD_TYPE, Map.of("en", "Repeat"), null, Map.of(),
+                List.of(equalTo(PASSWORD_NAME)), List.of(), false);
+        FormsStep step1 = new FormsStep("step-1", 1, Map.of("en", "Step 1"), List.of(first));
+        FormsStep step2 = new FormsStep("step-2", 2, Map.of("en", "Step 2"), List.of(moved));
+        FormsForm source = new FormsForm("f", "uf", "formFactory/forms/f", "en", Map.of("en", "F"), Map.of(), FormsForm.Settings.NONE,
+                List.of(step1, step2), List.of());
+
+        ImportedForm form = EVERYTHING.convert(source, null);
+
+        assertEquals(List.of(PASSWORD_NAME, "password_0_2"), form.fields().map(ImportedField::sourceName).toList());
+        assertFalse(has(form.report(), "form.passwordConfirmationDropped"), form.report().toString());
+        ImportedField repeat = form.fields().toList().get(1);
+        assertTrue(has(repeat.report(), "field.rule", "rule", FormsValidation.EQUAL_TO), repeat.report().toString());
+    }
+
+    @Test
+    void aPasswordIsNeverMappedToTheVisitorProfile() {
+        // the instance reports a sensitive type as not mappable (ImportJobs.isProfileMappable)
+        FormsFormConverter mapping = new FormsFormConverter(new ImportEnvironment(type -> true, s -> true,
+                type -> !type.equals(FormsFieldTypes.PASSWORD), ImportEnvironment.ANY_PROPERTY, false));
+        FormsField definition = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null, Map.of(), List.of(),
+                List.of(new FormsPrefill(FormsPrefill.PROFILE_PREFILL_TYPE, "password", false, false)), false);
+
+        ImportedField password = mapping.convert(formOf(definition), null).fields().toList().get(0);
+
+        assertTrue(password.mixins().isEmpty());
+        assertNull(password.properties().get(FormsFormConverter.PROFILE_PROPERTY));
+        assertTrue(has(password.report(), "field.prefillNotMappable", PROPERTY, "password", "type", FormsFieldTypes.PASSWORD), password.report().toString());
+    }
+
+    @Test
+    void requiredMirrorsTheSourceOnEveryTypeThatHasTheSetting() {
+        FormsValidation required = new FormsValidation("required", FormsValidation.REQUIRED, Map.of());
+        FormsField optionalTerms = field("terms_0_1", "fcnt:acceptTermCheckboxDefinition", "I agree");
+        FormsField requiredTerms = new FormsField("terms_0_2", "u2", "fcnt:acceptTermCheckboxDefinition", Map.of("en", "I agree"), null,
+                Map.of(), List.of(required), List.of(), false);
+        FormsField text = field("text_0_3", "fcnt:inputDefinition", "Name");
+        FormsField hidden = field("hidden_0_4", "fcnt:hiddenDefinition", "Hidden");
+
+        List<ImportedField> fields = EVERYTHING.convert(formOf(optionalTerms, requiredTerms, text, hidden), null).fields().toList();
+
+        // a consent is required by default on its type: an optional accept-terms box stays optional
+        assertEquals(FormsFieldTypes.CONSENT, fields.get(0).nodeType());
+        assertEquals(Boolean.FALSE, fields.get(0).required());
+        assertEquals(Boolean.TRUE, fields.get(1).required());
+        assertEquals(Boolean.FALSE, fields.get(2).required());
+        // no required setting on the type: nothing to write
+        assertNull(fields.get(3).required());
+    }
+
+    private static FormsValidation equalTo(String fieldName) {
+        return new FormsValidation("equal-to", FormsValidation.EQUAL_TO, Map.of(
+                FormsOptionNames.EQUAL_TO_FIELD, new FormsOption(FormsOptionNames.EQUAL_TO_FIELD, fieldName, Map.of())));
     }
 
     private static FormsField field(String name, String type, String title) {
