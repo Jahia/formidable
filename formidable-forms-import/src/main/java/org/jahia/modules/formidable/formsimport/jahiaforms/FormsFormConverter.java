@@ -606,14 +606,16 @@ public final class FormsFormConverter {
                 if (!field.accepts(FormsFieldTypes.MIN_LENGTH)) {
                     return false;
                 }
-                bounds(field, rule, mapping, FormsFieldTypes.MIN_LENGTH, FormsFieldTypes.MAX_LENGTH);
+                bounds(field, rule, mapping, FormsFieldTypes.MIN_LENGTH, FormsOptionNames.RANGE_LENGTH_MIN,
+                        FormsFieldTypes.MAX_LENGTH, FormsOptionNames.RANGE_LENGTH_MAX);
                 message(field, rule, FormsFieldTypes.MSG_TOO_SHORT, FormsFieldTypes.MSG_TOO_LONG);
             }
             case FormsValidation.RANGE -> {
                 if (!field.accepts(FormsFieldTypes.MIN_VALUE)) {
                     return false;
                 }
-                bounds(field, rule, mapping, FormsFieldTypes.MIN_VALUE, FormsFieldTypes.MAX_VALUE);
+                bounds(field, rule, mapping, FormsFieldTypes.MIN_VALUE, FormsOptionNames.MIN,
+                        FormsFieldTypes.MAX_VALUE, FormsOptionNames.MAX);
                 message(field, rule, FormsFieldTypes.MSG_RANGE_UNDERFLOW, FormsFieldTypes.MSG_RANGE_OVERFLOW);
             }
             case FormsValidation.REGEX -> {
@@ -645,9 +647,9 @@ public final class FormsFormConverter {
     }
 
     private static void bounds(ImportedField.Builder field, FormsValidation rule, FormsFieldTypes.Mapping mapping,
-                               String minProperty, String maxProperty) {
-        String min = within(field, mapping, minProperty, plain(rule, FormsOptionNames.MIN));
-        String max = within(field, mapping, maxProperty, plain(rule, FormsOptionNames.MAX));
+                               String minProperty, String minOption, String maxProperty, String maxOption) {
+        String min = within(field, mapping, minProperty, plain(rule, minOption));
+        String max = within(field, mapping, maxProperty, plain(rule, maxOption));
         field.property(minProperty, min);
         field.property(maxProperty, max == null || max.isBlank() ? aboveDefault(field, mapping, maxProperty, min) : max);
     }

@@ -206,7 +206,7 @@ class FormsFormConverterTest {
     @Test
     void theRulesCarryTheirBoundsAndMessages() {
         FormsValidation length = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
-                "min", new FormsOption("min", "2", Map.of()), "max", new FormsOption("max", "40", Map.of()),
+                "rangelengthmin", new FormsOption("rangelengthmin", "2", Map.of()), "rangelengthmax", new FormsOption("rangelengthmax", "40", Map.of()),
                 "message", new FormsOption("message", null, Map.of("en", "Between 2 and 40"))));
         FormsValidation email = new FormsValidation("email", FormsValidation.EMAIL, Map.of());
         FormsField text = new FormsField("text_0_1", "u1", "fcnt:inputDefinition", Map.of("en", "Name"),
@@ -478,7 +478,7 @@ class FormsFormConverterTest {
         FormsValidation required = new FormsValidation("required", FormsValidation.REQUIRED, Map.of(
                 "message", new FormsOption("message", null, Map.of("en", "Enter a password"))));
         FormsValidation length = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
-                "min", new FormsOption("min", "8", Map.of()), "max", new FormsOption("max", "256", Map.of()),
+                "rangelengthmin", new FormsOption("rangelengthmin", "8", Map.of()), "rangelengthmax", new FormsOption("rangelengthmax", "256", Map.of()),
                 "message", new FormsOption("message", null, Map.of("en", "8 to 256 characters"))));
         FormsValidation regex = new FormsValidation("regex", FormsValidation.REGEX, Map.of(
                 "regex", new FormsOption("regex", "^\\S+$", Map.of())));
@@ -513,9 +513,9 @@ class FormsFormConverterTest {
     @Test
     void aPasswordLengthOutsideTheRangeOfTheFieldIsBroughtWithinItAndReported() {
         FormsValidation wide = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
-                "min", new FormsOption("min", "2000", Map.of()), "max", new FormsOption("max", "5000", Map.of())));
+                "rangelengthmin", new FormsOption("rangelengthmin", "2000", Map.of()), "rangelengthmax", new FormsOption("rangelengthmax", "5000", Map.of())));
         FormsValidation zero = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
-                "max", new FormsOption("max", "0", Map.of())));
+                "rangelengthmax", new FormsOption("rangelengthmax", "0", Map.of())));
         FormsField first = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null, Map.of(), List.of(wide), List.of(), false);
         FormsField second = new FormsField("pin_0_2", "u2", PASSWORD_TYPE, Map.of("en", "PIN"), null, Map.of(), List.of(zero), List.of(), false);
 
@@ -536,9 +536,9 @@ class FormsFormConverterTest {
     @Test
     void aMinimumAboveTheDefaultMaximumRaisesTheMaximumToIt() {
         FormsValidation above = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
-                "min", new FormsOption("min", "200", Map.of())));
+                "rangelengthmin", new FormsOption("rangelengthmin", "200", Map.of())));
         FormsValidation below = new FormsValidation("length", FormsValidation.RANGE_LENGTH, Map.of(
-                "min", new FormsOption("min", "12", Map.of())));
+                "rangelengthmin", new FormsOption("rangelengthmin", "12", Map.of())));
         FormsField first = new FormsField(PASSWORD_NAME, "u1", PASSWORD_TYPE, Map.of("en", "Password"), null, Map.of(), List.of(above), List.of(), false);
         FormsField second = new FormsField("pin_0_2", "u2", PASSWORD_TYPE, Map.of("en", "PIN"), null, Map.of(), List.of(below), List.of(), false);
 

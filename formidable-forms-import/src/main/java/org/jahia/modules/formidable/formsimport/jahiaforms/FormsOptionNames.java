@@ -33,6 +33,9 @@ final class FormsOptionNames {
     static final String SHOW_PASSWORD = "showpassword";
 
     // validation rules (the option names are the designView keys of forms-core_en.properties)
+    /** The bounds of a {@code fcnt:rangeLengthValidation} ({@code rangeLengthValidation.wzd}). */
+    static final String RANGE_LENGTH_MIN = "rangelengthmin";
+    static final String RANGE_LENGTH_MAX = "rangelengthmax";
     static final String REGEX = "regex";
     /** The file types a {@code fcnt:fileValidation} allows: a JSON list of {@code {key, value, selected}}. */
     static final String FILE_TYPE = "filetype";
