@@ -35,8 +35,19 @@ the multi-step navigation, the submission messages, the selected-files list and 
 messages are drawn by the client under the same names. Read each line as *class on element*,
 indented by nesting; `[…]` are attributes; the note on the right says when the branch exists.
 
+The Page Builder frame of a standalone form adds a column around this structure, and no other
+surface has the column. The island of the form sits between the column and the tree below, so
+`.fmdb-visual-edit > .fmdb-form` matches nothing. A rule that reaches the form from the column uses
+the descendant combinator, as in `.fmdb-visual-edit .fmdb-form`. `jsm-island` is no class hook,
+because the JavaScript modules library of Jahia names that element and can rename it. Under
+read-only maintenance the form renders no island, so the message sits directly in the column.
+
 ```text
-div.fmdb-visual-edit                                    the Page Builder frame of a standalone form only: the column that holds all of the below
+div.fmdb-visual-edit                                    the Page Builder frame of a standalone form only: the column
+└─ jsm-island                                           the island of the form, which holds the tree below
+```
+
+```text
 div.fmdb-spinner                                        while a submission is in flight
 div.fmdb-message.fmdb-message-{success|error|maintenance}
 │                                                       after a submission (client) or under read-only maintenance (server)
