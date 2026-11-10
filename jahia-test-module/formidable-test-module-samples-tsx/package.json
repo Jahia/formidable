@@ -46,7 +46,7 @@
 		"yarn": ">=4.0.0"
 	},
 	"jahia": {
-		"snapshot": true,
+		"snapshot": false,
 		"module-dependencies": "default,formidable-elements",
 		"module-type": "module",
 		"server": "dist/server/index.js",
