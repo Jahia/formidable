@@ -21,7 +21,7 @@
         <sonar.sources>src,package.json,pom.xml</sonar.sources>
         <!-- The module signature, computed from the pom by the keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->
-        <jahia-module-signature>MCwCFFmtGT8DurM5HEAnVPojGdcHJFHGAhRvzV71L8uXlE42s/1hwpkyxyX4qQ==</jahia-module-signature>
+        <jahia-module-signature>MC0CFQCL2IielzLBTJKbYqRrbfToE8QqNwIUfdy92J8ZI9vZS+IQURZdM4SfRsk=</jahia-module-signature>
     </properties>
 
     <dependencies>
