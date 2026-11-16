@@ -263,7 +263,8 @@
 				"hint": "Submissions that left the field empty, as a share of the submissions it was shown in: a field hidden by its conditional display is not counted. The least filled first.",
 				"empty": "Empty",
 				"shown": "Shown",
-				"shownIn": "Conditional display: shown in {{shown}} of {{total}} submissions"
+				"shownIn": "Conditional display: shown in {{shown}} of {{total}} submissions",
+				"removed": "No longer in the form: answered in {{shown}} of {{total}} submissions"
 			},
 			"answers": {
 				"title": "Answers",

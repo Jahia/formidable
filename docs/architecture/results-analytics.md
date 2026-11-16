@@ -23,7 +23,7 @@ without the header is counted under **Unknown**.
 **The fields** are those the form declares that submit a value (`fmdbmix:submittableField`) or a file
 (`fmdbmix:fileField`), in the form's order, without the sensitive ones (`fmdbmix:sensitiveField`). A name the
 submissions hold and the form no longer declares (a field since removed, a form since deleted) is reported too,
-under its stored name.
+under its stored name, and never as left empty: only the submissions that answered it are known to have seen it.
 
 **A field hidden by its conditional display was not left empty.** For each submission the page reads the form's
 conditional logic back (`analytics.logic.ts`), as the engine judges it at submission

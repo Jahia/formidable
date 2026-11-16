@@ -165,8 +165,10 @@ describe('buildAnalytics', () => {
 
     it('lists the fields the least filled first, a field only the submissions know included', () => {
         expect(analytics.completion.map(item => [item.name, item.empty])).toEqual([
-            ['consent', 3], ['receipt', 3], ['removed', 3], ['sessions', 2], ['rating', 2], ['email', 1], ['channel', 0]
+            ['consent', 3], ['receipt', 3], ['sessions', 2], ['rating', 2], ['email', 1], ['channel', 0], ['removed', 0]
         ]);
+        // A field the form no longer declares is known only where it was answered: never "left empty".
+        expect(analytics.completion.find(item => item.name === 'removed')).toMatchObject({removed: true, shown: 1, filled: 1, emptyShare: 0});
         expect(analytics.completion[0].emptyShare).toEqual(0.75);
     });
 

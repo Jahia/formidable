@@ -263,7 +263,8 @@
 				"hint": "Soumissions qui ont laissé le champ vide, en part des soumissions où il était affiché : un champ masqué par son affichage conditionnel n'est pas compté. Les moins remplis d'abord.",
 				"empty": "Vide",
 				"shown": "Affiché",
-				"shownIn": "Affichage conditionnel : affiché dans {{shown}} soumissions sur {{total}}"
+				"shownIn": "Affichage conditionnel : affiché dans {{shown}} soumissions sur {{total}}",
+				"removed": "N'est plus dans le formulaire : renseigné dans {{shown}} soumissions sur {{total}}"
 			},
 			"answers": {
 				"title": "Réponses",

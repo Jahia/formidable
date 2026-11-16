@@ -339,6 +339,11 @@ export interface FieldCompletion {
     shown: number;
     /** The field, or a container above it, carries conditional logic. */
     conditional: boolean;
+    /**
+     * The form no longer declares the field (removed, renamed, or the form is gone): only the submissions that
+     * hold a value are known to have seen it, so it is never counted as left empty.
+     */
+    removed: boolean;
     /** Share of the submissions the field was shown in that left it empty, 0 to 1. */
     emptyShare: number;
 }
@@ -394,14 +399,14 @@ function isFilled(submission: AnalyticsSubmission, field: AnalyticsField): boole
 }
 
 /** The fields to report on: the form's, then those only the submissions know (a field since removed, a form since deleted). */
-function reportedFields(submissions: AnalyticsSubmission[], form: AnalyticsFields): AnalyticsField[] {
+function reportedFields(submissions: AnalyticsSubmission[], form: AnalyticsFields): Array<AnalyticsField & {removed?: boolean}> {
     const known = new Set(form.fields.map(field => field.name));
-    const extra: AnalyticsField[] = [];
+    const extra: Array<AnalyticsField & {removed: boolean}> = [];
     for (const submission of submissions) {
         for (const name of [...submission.values.keys(), ...submission.fileFields]) {
             if (!known.has(name)) {
                 known.add(name);
-                extra.push({name, label: form.labels.get(name) ?? name, kind: 'other', options: []});
+                extra.push({name, label: form.labels.get(name) ?? name, kind: 'other', options: [], removed: true});
             }
         }
     }
@@ -507,12 +512,21 @@ export function buildAnalytics(submissions: AnalyticsSubmission[], form: Analyti
         submissions.forEach((submission, index) => {
             if (isFilled(submission, field)) {
                 filled++;
-            } else if (shownIn[index](field.name) === 'shown') {
+            } else if (!field.removed && shownIn[index](field.name) === 'shown') {
                 empty++;
             }
         });
         const shown = filled + empty;
-        return {name: field.name, label: field.label, filled, empty, shown, conditional: logic.isConditional(field.name), emptyShare: shown === 0 ? 0 : empty / shown};
+        return {
+            name: field.name,
+            label: field.label,
+            filled,
+            empty,
+            shown,
+            conditional: logic.isConditional(field.name),
+            removed: field.removed === true,
+            emptyShare: shown === 0 ? 0 : empty / shown
+        };
     });
 
     return {

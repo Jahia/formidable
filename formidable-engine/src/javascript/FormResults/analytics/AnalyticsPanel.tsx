@@ -15,6 +15,7 @@ import {
     toDateValue,
     type AnalyticsPeriod,
     type AnalyticsSubmission,
+    type FieldCompletion,
     type FieldDistribution
 } from './analytics.utils';
 import {buildAnalyticsCsv, buildAnalyticsJson, type AnalyticsExportMeta} from './analytics.export';
@@ -199,6 +200,16 @@ export const AnalyticsPanel = ({formResults, siteKey, fieldLabelsData, onRegiste
         </div>
     );
 
+    /** What a row of "Fields left empty" is counted on, when it is not every submission. */
+    const completionNote = (field: FieldCompletion): string | undefined => {
+        const counts = {shown: formatCount(field.shown), total: formatCount(analytics?.total ?? 0)};
+        if (field.removed) {
+            return t('formResults.analytics.completion.removed', counts);
+        }
+
+        return field.conditional ? t('formResults.analytics.completion.shownIn', counts) : undefined;
+    };
+
     const renderDistribution = (distribution: FieldDistribution) => {
         const pie = isPie(distribution);
         const yesNo = (value: string): string => t(value === 'true' ? 'formResults.analytics.answers.yes' : 'formResults.analytics.answers.no');
@@ -301,9 +312,7 @@ export const AnalyticsPanel = ({formResults, siteKey, fieldLabelsData, onRegiste
                                 label: field.label,
                                 count: field.empty,
                                 share: field.emptyShare,
-                                note: field.conditional
-                                    ? t('formResults.analytics.completion.shownIn', {shown: formatCount(field.shown), total: formatCount(analytics.total)})
-                                    : undefined
+                                note: completionNote(field)
                             }))}
                         />
                     </div>
