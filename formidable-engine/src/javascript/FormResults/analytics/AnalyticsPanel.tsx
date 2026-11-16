@@ -320,7 +320,7 @@ export const AnalyticsPanel = ({formResults, siteKey, fieldLabelsData, onRegiste
     return (
         <div
             data-sel-role="results-analytics"
-            style={{height: '100%', overflowY: 'auto', boxSizing: 'border-box', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0}}
+            style={{height: '100%', overflowY: 'auto', boxSizing: 'border-box', padding: '16px', display: 'flex', flexDirection: 'column', gap: '16px', minWidth: 0, backgroundColor: 'var(--color-light)'}}
         >
             {toolbar}
             {state.status === 'error' ? <Typography color="danger">{state.message}</Typography> : body}

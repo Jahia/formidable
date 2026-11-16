@@ -319,7 +319,9 @@ export const FormResultsApp = () => {
                                 />
                             </Tab>
                         )}
-                        <div style={{display: 'flex', flex: '1 1 0', minHeight: 0, minWidth: 0, gap: '1px', overflow: 'hidden', backgroundColor: 'var(--color-gray_light40)'}}>
+                        {/* The grey is the 1px line between the table and the detail panel. The analytics have no such
+                            line, and are white like the table. */}
+                        <div style={{display: 'flex', flex: '1 1 0', minHeight: 0, minWidth: 0, gap: '1px', overflow: 'hidden', backgroundColor: view === 'analytics' ? undefined : 'var(--color-gray_light40)'}}>
                             {selectedForm && view === 'analytics' && (
                                 <div style={{flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
                                     <AnalyticsPanel
