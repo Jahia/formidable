@@ -1,9 +1,10 @@
 import React, {useCallback, useEffect, useRef, useState, useMemo} from 'react';
 import {useQuery} from '@apollo/client';
-import {Button, DeletePermanently, Download, Loader, Reload, Typography} from '@jahia/moonstone';
+import {Button, DeletePermanently, Download, Loader, Reload, Tab, TabItem, Typography} from '@jahia/moonstone';
 import {DisplayActions} from '@jahia/ui-extender';
 import {useTranslation} from 'react-i18next';
 import {GET_FORM_RESULTS_LIST, GET_FORM_FIELD_LABELS, GET_FORMS_IN_EDIT} from './graphql';
+import {AnalyticsPanel} from './analytics';
 import {DeleteResultsDialog} from './delete';
 import {ExportResultsDialog} from './export';
 import {FormResultsList, FormStatusChip, SubmissionDetailPanel, SubmissionsTable, ToolbarButton} from './components';
@@ -30,6 +31,8 @@ export const FormResultsApp = () => {
 
     const [selectedFormResultsId, setSelectedFormResultsId] = useState<string | null>(null);
     const [selectedSubmission, setSelectedSubmission] = useState<SubmissionRow | null>(null);
+    // What the selected form shows: its submissions, or the analytics computed on them.
+    const [view, setView] = useState<'submissions' | 'analytics'>('submissions');
     const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -296,33 +299,66 @@ export const FormResultsApp = () => {
                         onSelect={id => setSelectedFormResultsId(current => (current === id ? null : id))}
                         onMoveRight={focusTable}
                     />
-                    <div role="main" style={{display: 'flex', flex: '1 1 0', minWidth: 0, gap: '1px', overflow: 'hidden', backgroundColor: 'var(--color-gray_light40)'}}>
-                        {selectedForm ? (
-                            <div style={{flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
-                                <SubmissionsTable
-                                    formResults={selectedForm}
-                                    fieldOrder={formFields.order}
-                                    selectedSubmission={selectedSubmission}
-                                    onSelectSubmission={setSelectedSubmission}
-                                    onRegisterRefresh={handleRegisterRefresh}
-                                    onMoveLeft={focusList}
-                                    onRegisterEnter={handleRegisterEnter}
+                    <div role="main" style={{display: 'flex', flexDirection: 'column', flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
+                        {selectedForm && (
+                            <Tab style={{flex: '0 0 auto', padding: '0 16px', backgroundColor: 'var(--color-light)', borderBottom: '1px solid var(--color-gray_light40)'}}>
+                                <TabItem
+                                    label={t('formResults.views.submissions')}
+                                    data-sel-role="results-view-submissions"
+                                    isSelected={view === 'submissions'}
+                                    onClick={() => setView('submissions')}
                                 />
-                            </div>
-                        ) : (
-                            <div style={{flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-light)'}}>
-                                <Typography variant="heading">
-                                    {t('formResults.empty.selectForm')}
-                                </Typography>
-                            </div>
+                                <TabItem
+                                    label={t('formResults.views.analytics')}
+                                    data-sel-role="results-view-analytics"
+                                    isSelected={view === 'analytics'}
+                                    onClick={() => {
+                                        setSelectedSubmission(null);
+                                        setView('analytics');
+                                    }}
+                                />
+                            </Tab>
                         )}
-                        {selectedSubmission && (
-                            <SubmissionDetailPanel
-                                submission={selectedSubmission}
-                                formFields={formFields}
-                                onClose={() => setSelectedSubmission(null)}
-                            />
-                        )}
+                        <div style={{display: 'flex', flex: '1 1 0', minHeight: 0, minWidth: 0, gap: '1px', overflow: 'hidden', backgroundColor: 'var(--color-gray_light40)'}}>
+                            {selectedForm && view === 'analytics' && (
+                                <div style={{flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
+                                    <AnalyticsPanel
+                                        key={selectedForm.uuid}
+                                        formResults={selectedForm}
+                                        siteKey={siteKey}
+                                        fieldLabelsData={formUuid ? fieldLabelsData : undefined}
+                                        onRegisterRefresh={handleRegisterRefresh}
+                                    />
+                                </div>
+                            )}
+                            {selectedForm && view === 'submissions' && (
+                                <div style={{flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
+                                    <SubmissionsTable
+                                        formResults={selectedForm}
+                                        fieldOrder={formFields.order}
+                                        selectedSubmission={selectedSubmission}
+                                        onSelectSubmission={setSelectedSubmission}
+                                        onRegisterRefresh={handleRegisterRefresh}
+                                        onMoveLeft={focusList}
+                                        onRegisterEnter={handleRegisterEnter}
+                                    />
+                                </div>
+                            )}
+                            {!selectedForm && (
+                                <div style={{flex: '1 1 0', minWidth: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--color-light)'}}>
+                                    <Typography variant="heading">
+                                        {t('formResults.empty.selectForm')}
+                                    </Typography>
+                                </div>
+                            )}
+                            {selectedSubmission && view === 'submissions' && (
+                                <SubmissionDetailPanel
+                                    submission={selectedSubmission}
+                                    formFields={formFields}
+                                    onClose={() => setSelectedSubmission(null)}
+                                />
+                            )}
+                        </div>
                     </div>
                 </div>
             )}

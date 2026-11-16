@@ -110,6 +110,65 @@ export const GET_SUBMISSIONS = gql`
     }
 `;
 
+/**
+ * The submissions as the analytics read them: the date, the language, the page and the values, and for the
+ * files only the fields that hold one. Lighter than GET_SUBMISSIONS, since every submission of a period is read.
+ */
+export const GET_SUBMISSIONS_FOR_ANALYTICS = gql`
+    ${JCR_NODE_IDENTITY}
+    query GetSubmissionsForAnalytics(
+        $submissionsQuery: String!
+        $limit: Int!
+        $offset: Int!
+        $workspace: Workspace = LIVE
+    ) {
+        jcr(workspace: $workspace) {
+            nodesByQuery(
+                query: $submissionsQuery
+                queryLanguage: SQL2
+                limit: $limit
+                offset: $offset
+            ) {
+                pageInfo {
+                    totalCount
+                }
+                nodes {
+                    ...JcrNodeIdentity
+                    created: property(name: "jcr:created") {
+                        value
+                    }
+                    locale: property(name: "locale") {
+                        value
+                    }
+                    referer: property(name: "referer") {
+                        value
+                    }
+                    data: children(names: ["data"]) {
+                        nodes {
+                            ...JcrNodeIdentity
+                            properties {
+                                name
+                                value
+                                values
+                            }
+                        }
+                    }
+                    files: children(names: ["files"]) {
+                        nodes {
+                            ...JcrNodeIdentity
+                            children {
+                                nodes {
+                                    ...JcrNodeIdentity
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+`;
+
 export const GET_SUBMISSION_COUNT = gql`
     query GetSubmissionCount($countQuery: String!, $workspace: Workspace = LIVE) {
         jcr(workspace: $workspace) {
@@ -189,7 +248,24 @@ export const GET_FORM_FIELD_LABELS = gql`
                                 isDate: isNodeType(type: {types: ["fmdbmix:dateField"]})
                                 isDatetime: isNodeType(type: {types: ["fmdbmix:datetimeLocalField"]})
                                 nonSubmittable: isNodeType(type: {types: ["fmdbmix:nonSubmittable"]})
+                                isSubmittable: isNodeType(type: {types: ["fmdbmix:submittableField"]})
+                                isSensitive: isNodeType(type: {types: ["fmdbmix:sensitiveField"]})
+                                isChoice: isNodeType(type: {types: ["fmdbmix:choiceField"]})
+                                isBoolean: isNodeType(type: {types: ["fmdbmix:booleanField"]})
+                                isNumber: isNodeType(type: {types: ["fmdbmix:numberField"]})
+                                isFile: isNodeType(type: {types: ["fmdbmix:fileField"]})
                                 options: property(name: "options", language: $optionsLanguage) {
+                                    values
+                                }
+                            }
+                        }
+                        logicElements: descendants(typesFilter: {types: ["fmdbmix:formLogicElement"]}) {
+                            nodes {
+                                ...JcrNodeIdentity
+                                fieldKey: property(name: "fieldKey") {
+                                    value
+                                }
+                                logics: property(name: "logics") {
                                     values
                                 }
                             }

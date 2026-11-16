@@ -123,6 +123,10 @@
 		"nav": {
 			"title": "Form Results"
 		},
+		"views": {
+			"submissions": "Submissions",
+			"analytics": "Analytics"
+		},
 		"sidebar": {
 			"title": "Forms with results",
 			"formDeleted": "Form deleted",
@@ -218,6 +222,66 @@
 				"noResults": "No submissions match the selected range.",
 				"confirmationMismatch": "Type the expected form name to confirm deletion.",
 				"unexpectedError": "Deletion failed."
+			}
+		},
+		"analytics": {
+			"unknown": "Unknown",
+			"loading": "Reading the submissions: {{loaded}} of {{total}}",
+			"capped": "The period holds {{total}} submissions: the figures cover the {{analysed}} most recent.",
+			"period": {
+				"label": "Period",
+				"7d": "Last 7 days",
+				"30d": "Last 30 days",
+				"90d": "Last 90 days",
+				"12m": "Last 12 months",
+				"all": "All submissions"
+			},
+			"empty": {
+				"title": "No submissions in this period",
+				"description": "Choose a longer period to see the analytics of this form."
+			},
+			"kpi": {
+				"submissions": "Submissions",
+				"dailyAverage": "Per day, on average",
+				"pages": "Pages the form was submitted from",
+				"last": "Last submission"
+			},
+			"timeline": {
+				"title": "Submissions over time",
+				"day": "Per day",
+				"month": "Per month"
+			},
+			"pages": {
+				"title": "Submissions per page",
+				"hint": "The page the form was submitted from, all languages together."
+			},
+			"languages": {
+				"title": "Submissions per language"
+			},
+			"completion": {
+				"title": "Fields left empty",
+				"hint": "Submissions that left the field empty, as a share of the submissions it was shown in: a field hidden by its conditional display is not counted. The least filled first.",
+				"empty": "Empty",
+				"shown": "Shown",
+				"shownIn": "Conditional display: shown in {{shown}} of {{total}} submissions"
+			},
+			"answers": {
+				"title": "Answers",
+				"yes": "Yes",
+				"no": "No",
+				"answered": "{{answered}} of {{total}} submissions answered",
+				"multiple": "several answers allowed, so the shares add up to more than 100%",
+				"average": "average {{average}}",
+				"averageLabel": "Average"
+			},
+			"export": {
+				"csv": "Export CSV",
+				"json": "Export JSON",
+				"section": "Section",
+				"field": "Field",
+				"item": "Item",
+				"count": "Count",
+				"share": "Share (%)"
 			}
 		}
 	},
