@@ -73,7 +73,8 @@ export const PieChart = ({items, label}: {items: BarItem[]; label: string}) => {
     const total = slices.reduce((sum, item) => sum + item.count, 0);
     let offset = 0;
     return (
-        <svg role="img" aria-label={label} width={PIE_SIZE} height={PIE_SIZE} viewBox={`0 0 ${PIE_SIZE} ${PIE_SIZE}`} style={{flex: '0 0 auto'}}>
+        <svg aria-label={label} width={PIE_SIZE} height={PIE_SIZE} viewBox={`0 0 ${PIE_SIZE} ${PIE_SIZE}`} style={{flex: '0 0 auto'}}>
+            <title>{label}</title>
             <g transform={`rotate(-90 ${PIE_SIZE / 2} ${PIE_SIZE / 2})`}>
                 {slices.map(item => {
                     const length = (item.count / total) * PIE_CIRCUMFERENCE;
@@ -114,7 +115,7 @@ export const TimelineChart = ({timeline, label}: {timeline: Timeline; label: str
     const last = timeline.buckets.length - 1;
     const ticks = Array.from(new Set([0, Math.floor(last / 2), last]));
     return (
-        <div role="img" aria-label={label}>
+        <figure aria-label={label} style={{margin: 0}}>
             <div style={{display: 'flex', alignItems: 'flex-end', gap: '2px', height: '120px', borderBottom: `1px solid ${TRACK_COLOR}`}}>
                 {timeline.buckets.map((bucket, index) => (
                     <div
@@ -138,6 +139,6 @@ export const TimelineChart = ({timeline, label}: {timeline: Timeline; label: str
                     <Typography key={index} variant="caption" style={{color: MUTED}}>{bucketLabel(timeline, index)}</Typography>
                 ))}
             </div>
-        </div>
+        </figure>
     );
 };

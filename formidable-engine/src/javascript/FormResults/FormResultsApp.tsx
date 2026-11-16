@@ -299,7 +299,7 @@ export const FormResultsApp = () => {
                         onSelect={id => setSelectedFormResultsId(current => (current === id ? null : id))}
                         onMoveRight={focusTable}
                     />
-                    <div role="main" style={{display: 'flex', flexDirection: 'column', flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
+                    <main style={{display: 'flex', flexDirection: 'column', flex: '1 1 0', minWidth: 0, overflow: 'hidden'}}>
                         {selectedForm && (
                             <Tab style={{flex: '0 0 auto', padding: '0 16px', backgroundColor: 'var(--color-light)', borderBottom: '1px solid var(--color-gray_light40)'}}>
                                 <TabItem
@@ -361,7 +361,7 @@ export const FormResultsApp = () => {
                                 />
                             )}
                         </div>
-                    </div>
+                    </main>
                 </div>
             )}
             {selectedForm && isExportDialogOpen && (

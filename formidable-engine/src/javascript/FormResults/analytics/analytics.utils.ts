@@ -230,7 +230,14 @@ export function pageOfReferer(referer: string | null, locale: string | null, con
     path = path.replace(RENDER_PREFIX, '');
     stripPrefix(locale ? `/${locale}` : undefined);
     stripPrefix(context.siteKey ? `/sites/${context.siteKey}` : undefined);
-    path = path.replace(/\.html$/, '').replace(/\/+$/, '');
+    if (path.endsWith('.html')) {
+        path = path.slice(0, -'.html'.length);
+    }
+
+    while (path.endsWith('/')) {
+        path = path.slice(0, -1);
+    }
+
     return path || '/';
 }
 
@@ -447,6 +454,7 @@ function distributionOf(field: AnalyticsField, submissions: AnalyticsSubmission[
             .filter(item => Number.isFinite(item.number));
         const sum = numbers.reduce((total, item) => total + (item.number * item.count), 0);
         const answers = numbers.reduce((total, item) => total + item.count, 0);
+        numbers.sort((a, b) => a.number - b.number);
         return {
             name: field.name,
             label: field.label,
@@ -454,7 +462,7 @@ function distributionOf(field: AnalyticsField, submissions: AnalyticsSubmission[
             answered,
             multiple: false,
             entries: numbers.every(item => Number.isInteger(item.number) && item.number >= 0 && item.number <= MAX_SCALE_VALUE)
-                ? numbers.sort((a, b) => a.number - b.number).map(item => entry(item.value, item.value))
+                ? numbers.map(item => entry(item.value, item.value))
                 : [],
             average: answers === 0 ? undefined : sum / answers
         };

@@ -44,20 +44,28 @@ const SHARED_RULE_KEYS = new Set([
 const isFieldSource = (sourceType: string): boolean => sourceType === '' || sourceType === 'field';
 
 export function parseLogicRule(json: unknown): LogicRule | null {
-    let raw: Record<string, unknown>;
+    let parsed: unknown;
     try {
-        raw = JSON.parse(String(json)) as Record<string, unknown>;
+        parsed = JSON.parse(String(json));
     } catch {
         return null;
     }
 
-    const text = (key: string): string => (typeof raw?.[key] === 'string' ? raw[key] as string : '');
-    const sourceType = text('sourceType').trim();
-    if (!raw || typeof raw !== 'object' || !text('operator') || (isFieldSource(sourceType) && !text('sourceFieldName'))) {
+    if (!parsed || typeof parsed !== 'object') {
         return null;
     }
 
-    const refs = Object.keys(raw).filter(key => !SHARED_RULE_KEYS.has(key) && typeof raw[key] === 'string' && (raw[key] as string).trim() !== '');
+    const raw = parsed as Record<string, unknown>;
+    const text = (key: string): string => {
+        const value = raw[key];
+        return typeof value === 'string' ? value : '';
+    };
+    const sourceType = text('sourceType').trim();
+    if (!text('operator') || (isFieldSource(sourceType) && !text('sourceFieldName'))) {
+        return null;
+    }
+
+    const refs = Object.keys(raw).filter(key => !SHARED_RULE_KEYS.has(key) && text(key).trim() !== '');
     return {
         sourceType,
         sourceFieldKey: text('sourceFieldKey'),
@@ -67,7 +75,7 @@ export function parseLogicRule(json: unknown): LogicRule | null {
         value: typeof raw.value === 'string' ? raw.value : null,
         values: Array.isArray(raw.values) ? raw.values.map(String) : [],
         // Two candidates is an ambiguity the engine does not interpret either.
-        providerRef: !isFieldSource(sourceType) && refs.length === 1 ? (raw[refs[0]] as string).trim() : null
+        providerRef: !isFieldSource(sourceType) && refs.length === 1 ? text(refs[0]).trim() : null
     };
 }
 
@@ -246,12 +254,12 @@ export function buildFormLogic(elements: LogicElement[]): FormLogic {
             }
 
             // One rule that provably fails hides the element, whatever the others say.
-            const verdicts = element.rules.map(judge);
-            if (verdicts.includes('hidden')) {
+            const verdicts = new Set(element.rules.map(judge));
+            if (verdicts.has('hidden')) {
                 return 'hidden';
             }
 
-            return verdicts.includes('unknown') ? 'unknown' : 'shown';
+            return verdicts.has('unknown') ? 'unknown' : 'shown';
         };
 
         function shown(name: string): Shown {

@@ -201,9 +201,10 @@ export const AnalyticsPanel = ({formResults, siteKey, fieldLabelsData, onRegiste
 
     const renderDistribution = (distribution: FieldDistribution) => {
         const pie = isPie(distribution);
+        const yesNo = (value: string): string => t(value === 'true' ? 'formResults.analytics.answers.yes' : 'formResults.analytics.answers.no');
         const items: BarItem[] = distribution.entries.map(entry => ({
             key: entry.value,
-            label: distribution.kind === 'boolean' ? t(`formResults.analytics.answers.${entry.value === 'true' ? 'yes' : 'no'}`) : entry.label,
+            label: distribution.kind === 'boolean' ? yesNo(entry.value) : entry.label,
             count: entry.count,
             share: entry.share
         }));
