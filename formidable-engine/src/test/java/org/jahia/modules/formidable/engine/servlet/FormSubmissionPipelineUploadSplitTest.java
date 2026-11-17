@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -318,6 +319,24 @@ class FormSubmissionPipelineUploadSplitTest {
 
         assertEquals(ErrorCode.FMDB_012, error.errorCode);
         assertNull(mail.receivedFiles.get());
+        assertNull(quarantine.receivedFiles.get());
+    }
+
+    @Test
+    void aSessionThatFailsBeforeAnyActionIsAskedBlamesNoAction() throws Exception {
+        // Verifies a failure of the session itself is not reported as the failure of an action: no action was asked,
+        // so the exception leaves as it is, and no action ran.
+        // doThrow, not when: stubbing again through when would run the answer of setUp on the matchers
+        doThrow(new IllegalStateException("the repository is stopping"))
+                .when(template).doExecuteWithSystemSessionAsUser(any(), any(), any(), any());
+        Contextual quarantine = new Contextual("t:quarantine", true);
+        FormSubmissionPipeline pipeline = pipeline(List.of(quarantine), List.of("t:quarantine"),
+                List.of(file("cv", "cv.pdf")), Set.of());
+
+        IllegalStateException error = assertThrows(IllegalStateException.class, () -> dispatch(pipeline));
+
+        assertEquals("the repository is stopping", error.getMessage());
+        assertEquals(0, quarantine.asked.get());
         assertNull(quarantine.receivedFiles.get());
     }
 
