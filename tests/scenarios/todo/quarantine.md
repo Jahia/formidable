@@ -21,8 +21,8 @@ Each milestone is one pull request, and delivers the specs of its scenarios.
 | Milestone | Delivers | Scenarios |
 |---|---|---|
 | M1 | The split of the uploads in the engine, and a sample quarantining action | Q06, Q07, Q08, Q14, Q15 |
-| M2 | The quarantine module: the action "Save with quarantine" and the intake | Q01, Q10, Q11, Q12, Q16 |
-| M3 | The qualifiers, the qualification job, the release policy | Q02, Q03, Q04, Q05, Q09, Q13 |
+| M2 | The quarantine module: the action "Save with quarantine" and the intake | Q01, Q10, Q11, Q16 |
+| M3 | The qualifiers, the qualification job, the release policy | Q02, Q03, Q04, Q05, Q09, Q12, Q13 |
 | M4 | The Results page | Q19, Q20 |
 | M5 | A qualifier for a real sandbox | none: its client is tested against a recorded double, and once against the real service in a lab |
 | M6 | Retention and integrity | Q17, Q18 |
@@ -42,6 +42,11 @@ Each milestone is one pull request, and delivers the specs of its scenarios.
   the qualifiers that a release requires, what happens to a file of a type that
   a qualifier does not support (withheld by default), and the delay after which
   a pending submission is flagged to an administrator.
+- **Manager**: a user that may retry, release or reject a submission by hand.
+  No such role exists before M4, which delivers it with the Results page:
+  `docs/administration/results-permissions.md` records the open choice of a
+  results manager role. Until M4, a spec acts through the administration
+  mutations of M3, as a server administrator.
 
 ## Common setup
 
@@ -62,8 +67,11 @@ No scenario calls a real engine. The samples module registers a stub qualifier
 | `VERDICT:CLEAN` | clean |
 | `VERDICT:MALICIOUS` | malicious |
 | `PENDING:<n>` | pending for `<n>` polls, then clean |
-| `DOWN` | a failure that can be retried, at every call |
+| `DOWN` | a failure that can be retried, at every call, until a spec lifts the outage; then clean |
 | `UNSUPPORTED` | unsupported type |
+
+A spec lifts the outage, and sets it again, through a request to the stub. The
+bytes of an item never change for that: Q09 shows what a change of bytes does.
 
 - The repository holds no malware and no EICAR file: the antivirus of a
   developer's machine deletes it. A scenario that needs the EICAR string builds
@@ -191,24 +199,6 @@ outside this scenario.
 - No `j:extractedText` property
 - No thumbnail node
 
-### Q12 — The visitor learns nothing of the verdict
-
-The stub qualifier of M3 completes this scenario: steps 2 to 4 need a verdict.
-
-**Steps:**
-1. Submit the form with a `VERDICT:CLEAN` file, then with a `VERDICT:MALICIOUS`
-   file.
-2. Run the job, so that one file is released and the other rejected.
-3. Submit the same two files again.
-4. As a guest, request the form page, and the quarantine and results paths of
-   both submissions.
-
-**Expected:**
-- The four response bodies of the submissions are the same, but for what
-  differs between two submissions of one file
-- The file already rejected is accepted again, with HTTP 200
-- No response to the guest carries a state or a verdict
-
 ### Q16 — Read-only maintenance
 
 **Steps:**
@@ -262,7 +252,8 @@ The stub qualifier of M3 completes this scenario: steps 2 to 4 need a verdict.
 **Steps:**
 1. Submit the form with a `DOWN` file.
 2. Run the job until the attempts are exhausted.
-3. Make the stub answer clean, retry the submission as a manager, run the job.
+3. Lift the outage of the stub, retry the submission through the
+   administration mutation, and run the job.
 
 **Expected:**
 - The state is `error` after step 2
@@ -279,6 +270,22 @@ The stub qualifier of M3 completes this scenario: steps 2 to 4 need a verdict.
 - No file exists under `files/` of the submission
 - The state is `error`
 - An audit record names the difference of hash
+
+### Q12 — The visitor learns nothing of the verdict
+
+**Steps:**
+1. Submit the form with a `VERDICT:CLEAN` file, then with a `VERDICT:MALICIOUS`
+   file.
+2. Run the job, so that one file is released and the other rejected.
+3. Submit the same two files again.
+4. As a guest, request the form page, and the quarantine and results paths of
+   both submissions.
+
+**Expected:**
+- The four response bodies of the submissions are the same, but for what
+  differs between two submissions of one file
+- The file already rejected is accepted again, with HTTP 200
+- No response to the guest carries a state or a verdict
 
 ### Q13 — A type the engine does not support
 
@@ -312,7 +319,7 @@ The stub qualifier of M3 completes this scenario: steps 2 to 4 need a verdict.
 
 **Steps:**
 1. As the results reader, try to release, then to reject, a pending submission.
-2. Do the same as a user that holds the manager role.
+2. Do the same as a user that holds the manager role on the form.
 
 **Expected:**
 - Each attempt of the reader is refused
@@ -325,13 +332,24 @@ The stub qualifier of M3 completes this scenario: steps 2 to 4 need a verdict.
 
 ### Q17 — Deleting results deletes the items
 
-**Steps:**
-1. Submit the form several times, with pending files.
-2. Delete the results of a date range, then "Delete all results".
+**Steps, by date range:**
+1. Submit the form twice, with pending files, and date one of the two
+   submissions a month earlier (Groovy).
+2. Delete the results of a range that holds the earlier submission alone.
 3. Run the content-integrity scan.
 
 **Expected:**
-- The items of each deleted submission are gone
+- The item of the earlier submission is gone
+- The other submission and its item are still there
+- The scan reports no orphan item
+
+**Steps, "Delete all results":**
+1. On another form, submit twice, with pending files.
+2. Run "Delete all results" on that form.
+3. Run the content-integrity scan.
+
+**Expected:**
+- No item of that form is left
 - The scan reports no orphan item
 
 ### Q18 — Retention
@@ -358,7 +376,7 @@ The stub qualifier of M3 completes this scenario: steps 2 to 4 need a verdict.
 | Q09 | M3 | a file whose bytes changed after intake is never released |
 | Q10 | M2 | no reader opens a file before its verdict |
 | Q11 | M2 | no parser of the platform reads a quarantined file |
-| Q12 | M2 | the form is no test bench for a malware author |
+| Q12 | M3 | the form is no test bench for a malware author |
 | Q13 | M3 | an unsupported type is not released by default |
 | Q14 | M1 | no regression on a form with no quarantine |
 | Q16 | M2 | read-only maintenance |
