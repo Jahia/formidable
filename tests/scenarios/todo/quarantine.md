@@ -65,6 +65,7 @@ No scenario calls a real engine. The samples module registers a stub qualifier
 | Marker | The stub answers |
 |---|---|
 | `VERDICT:CLEAN` | clean |
+| no marker, such as a PDF or an image | clean |
 | `VERDICT:MALICIOUS` | malicious |
 | `PENDING:<n>` | pending for `<n>` polls, then clean |
 | `DOWN` | a failure that can be retried, at every call, until a spec lifts the outage; then clean |
@@ -295,8 +296,11 @@ outside this scenario.
    run the job.
 
 **Expected:**
-- The first file is withheld
-- The second file is released
+- The first file is withheld: no node exists under `files/` of its submission,
+  the verdict `unsupported` is recorded on the submission, and the state is not
+  `released`
+- The second file is released: it exists under `files/`, and the state is
+  `released`
 
 ---
 
@@ -305,15 +309,19 @@ outside this scenario.
 ### Q19 — What an analyst sees
 
 **Steps:**
-1. Submit the form three times: a pending file, a rejected file, a released PDF.
-2. Open the Results page as the results reader.
+1. Submit the form three times: a `PENDING:<n>` file, a `VERDICT:MALICIOUS`
+   file, and a PDF that the stub answers clean.
+2. Run the job once: the first submission stays `pending`, the second is
+   `rejected`, the third is `released`.
+3. On a form with Save to JCR and no quarantining action, submit a PDF.
+4. Open the Results page of each form as the results reader.
 
 **Expected:**
 - Each submission shows its state, and the list filters on it
 - The field values of the pending submission are visible
 - The pending file and the rejected file are listed by name, with no link
 - The released PDF opens as a download, and never in an `<iframe>`
-- A file of a form with no quarantine keeps its preview
+- The PDF of the form with no quarantine keeps its preview
 
 ### Q20 — Manager actions
 
