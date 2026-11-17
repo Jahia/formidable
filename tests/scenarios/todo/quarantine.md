@@ -6,9 +6,26 @@ quarantine tree of the JCR until third-party engines qualify them.
 Decision: [ADR 0002](../../../docs/adr/0002-uploads-awaiting-qualification-reach-only-a-quarantining-action.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-Nothing here is automated yet. Each scenario names the milestone of the tracking
-issue that delivers it. A scenario moves to `tests/scenarios/quarantine.md` with
-the spec that covers it, under `tests/cypress/e2e/quarantine/`.
+Nothing here is automated yet. A scenario moves to
+`tests/scenarios/quarantine.md` with the spec that covers it, under
+`tests/cypress/e2e/quarantine/`.
+
+A scenario keeps its identifier, `Q01` to `Q20`, wherever it moves: a spec, a
+pull request and the coverage map name it by that identifier. The sections
+follow the milestones, so the identifiers are not in order.
+
+## Milestones
+
+Each milestone is one pull request, and delivers the specs of its scenarios.
+
+| Milestone | Delivers | Scenarios |
+|---|---|---|
+| M1 | The split of the uploads in the engine, and a sample quarantining action | Q06, Q07, Q08, Q14, Q15 |
+| M2 | The quarantine module: the action "Save with quarantine" and the intake | Q01, Q10, Q11, Q12, Q16 |
+| M3 | The qualifiers, the qualification job, the release policy | Q02, Q03, Q04, Q05, Q09, Q13 |
+| M4 | The Results page | Q19, Q20 |
+| M5 | A qualifier for a real sandbox | none: its client is tested against a recorded double, and once against the real service in a lab |
+| M6 | Retention and integrity | Q17, Q18 |
 
 ---
 
@@ -21,6 +38,10 @@ the spec that covers it, under `tests/cypress/e2e/quarantine/`.
 - **Item**: one upload held in the quarantine tree, with its SHA-256.
 - **State** of a submission: `pending`, `released`, `rejected` or `error`.
 - **Qualifier**: an engine that gives a verdict on an item.
+- **Policy** of a form: the settings of its quarantining action (M3). They name
+  the qualifiers that a release requires, what happens to a file of a type that
+  a qualifier does not support (withheld by default), and the delay after which
+  a pending submission is flagged to an administrator.
 
 ## Common setup
 
@@ -53,8 +74,19 @@ No scenario calls a real engine. The samples module registers a stub qualifier
 ## Control runs
 
 A security scenario proves nothing if it also passes without the change. Each
-scenario marked **control** runs once against a build without the change it
-proves, and must fail there by assertion.
+scenario marked **control** runs once against a control build, and must fail
+there by assertion, never by an error of its setup.
+
+The control build keeps the API, the node types and the test modules of the
+change, so the setup of the scenario still runs. It removes the one guard that
+the scenario proves:
+
+| Scenario | The control build |
+|---|---|
+| Q06, Q07, Q08 | hands the uploads to every action, whatever an action declares |
+| Q15 | ignores `uploadsRequireQuarantine` |
+| Q10 | leaves the ACL inheritance of the quarantine root in place |
+| Q09 | releases without computing the hash again |
 
 ---
 
@@ -103,9 +135,14 @@ proves, and must fail there by assertion.
 
 ### Q15 — The quarantine is mandatory, and the form has none — control
 
+`uploadsRequireQuarantine` is an operator setting of the engine, in
+`org.jahia.modules.formidable.uploads.cfg`. It applies to every form of the
+platform, and it is `false` by default: Q14 runs with the default.
+
 **Steps:**
-1. Set `uploadsRequireQuarantine=true` in the uploads configuration.
-2. Use the form of Q14.
+1. Set `uploadsRequireQuarantine=true`.
+2. Use the form of Q14: Save to JCR, an e-mail content action, and no
+   quarantining action.
 3. Submit the form with a file.
 
 **Expected:**
@@ -130,6 +167,11 @@ proves, and must fail there by assertion.
 
 ### Q10 — No reader role reads the quarantine tree — control
 
+The quarantine root cuts the ACL inheritance and holds no access control entry,
+so a role granted on the site, the site administrator included, gives nothing
+on it. A system session, and a user that bypasses the ACLs such as `root`, are
+outside this scenario.
+
 **Steps:**
 1. Submit the form with a file.
 2. As the results reader, then the editor, then the site administrator, read the
@@ -151,12 +193,21 @@ proves, and must fail there by assertion.
 
 ### Q12 — The visitor learns nothing of the verdict
 
+The stub qualifier of M3 completes this scenario: steps 2 to 4 need a verdict.
+
 **Steps:**
 1. Submit the form with a `VERDICT:CLEAN` file, then with a `VERDICT:MALICIOUS`
    file.
+2. Run the job, so that one file is released and the other rejected.
+3. Submit the same two files again.
+4. As a guest, request the form page, and the quarantine and results paths of
+   both submissions.
 
 **Expected:**
-- The two response bodies are the same
+- The four response bodies of the submissions are the same, but for what
+  differs between two submissions of one file
+- The file already rejected is accepted again, with HTTP 200
+- No response to the guest carries a state or a verdict
 
 ### Q16 — Read-only maintenance
 
@@ -199,12 +250,12 @@ proves, and must fail there by assertion.
 **Steps:**
 1. Submit the form with a `DOWN` file.
 2. Run the job several times.
+3. Age the item past the delay of the form's policy (Groovy), and run the job.
 
 **Expected:**
 - The submission was accepted with HTTP 200
 - The state stays `pending` after each run
-- Past the delay of the form's policy, the submission is flagged to an
-  administrator
+- After step 3, the submission is flagged to an administrator
 
 ### Q05 — Attempts exhausted, then a manual retry
 
@@ -304,7 +355,7 @@ proves, and must fail there by assertion.
 | Q03 | M3 | a malicious file never reaches an analyst |
 | Q04, Q05 | M3 | an engine outage loses no claim |
 | Q06, Q07, Q08, Q15 | M1 | no file leaves through another action |
-| Q09 | M3 | the bytes released are the bytes qualified |
+| Q09 | M3 | a file whose bytes changed after intake is never released |
 | Q10 | M2 | no reader opens a file before its verdict |
 | Q11 | M2 | no parser of the platform reads a quarantined file |
 | Q12 | M2 | the form is no test bench for a malware author |
