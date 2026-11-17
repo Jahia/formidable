@@ -309,7 +309,7 @@ outside this scenario.
 ### Q19 — What an analyst sees
 
 **Steps:**
-1. Submit the form three times: a `PENDING:<n>` file, a `VERDICT:MALICIOUS`
+1. Submit the form three times: a `PENDING:3` file, a `VERDICT:MALICIOUS`
    file, and a PDF that the stub answers clean.
 2. Run the job once: the first submission stays `pending`, the second is
    `rejected`, the third is `released`.
@@ -326,13 +326,15 @@ outside this scenario.
 ### Q20 — Manager actions
 
 **Steps:**
-1. As the results reader, try to release, then to reject, a pending submission.
-2. Do the same as a user that holds the manager role on the form.
+1. Submit the form twice, with `PENDING:3` files: two submissions are `pending`.
+2. As the results reader, try to release the first and to reject the second.
+3. As a user that holds the manager role on the form, release the first and
+   reject the second.
 
 **Expected:**
-- Each attempt of the reader is refused
-- Each action of the manager succeeds, and leaves an audit record that names
-  the user
+- Each attempt of the reader is refused, and both submissions stay `pending`
+- The first submission is `released` and the second `rejected`
+- Each action of the manager leaves an audit record that names the user
 
 ---
 
@@ -363,7 +365,9 @@ outside this scenario.
 ### Q18 — Retention
 
 **Steps:**
-1. Reject a file, and age its item past the retention limit (Groovy).
+1. Submit the form with a `VERDICT:MALICIOUS` file and run the qualification
+   job, so that the file is rejected. Age its item past the retention limit
+   (Groovy).
 2. Run the retention job.
 
 **Expected:**

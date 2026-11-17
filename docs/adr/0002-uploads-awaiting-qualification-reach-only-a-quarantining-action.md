@@ -42,4 +42,4 @@ Chosen option: "An action declares in Java that it quarantines uploads: the pipe
 
 ### Confirmation
 
-The unit tests of the pipeline assert which actions receive the uploads, with and without a quarantining action and under the operator setting. The end-to-end scenarios assert that an e-mail and a forward action of a quarantined form carry no file, and that no reader role reads the quarantine tree. Each of these scenarios runs once against a build without the change, and fails there.
+The unit tests of the pipeline assert which actions receive the uploads, with and without a quarantining action and under the operator setting. The end-to-end scenarios assert that an e-mail and a forward action of a quarantined form carry no file, and that no reader role reads the quarantine tree. Each of these scenarios runs once against a build that lacks the one guard it proves, and fails there by assertion.
