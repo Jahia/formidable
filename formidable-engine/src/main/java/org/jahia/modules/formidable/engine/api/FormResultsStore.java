@@ -4,7 +4,10 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 
 import javax.jcr.RepositoryException;
+import javax.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
 /**
  * The results of the forms of a site, as the engine keeps them in live under the results root of the site
@@ -33,6 +36,21 @@ public interface FormResultsStore {
 
     /** The name of a submission node for the moment it was submitted. */
     String submissionNodeName(Instant submittedAt);
+
+    /**
+     * Stores one submission of a form the way the Save to JCR action does: under the results entry of the form,
+     * created with its own ACL when the form has none yet, in the day split, in live and in a system session of its
+     * own. The values and the files are written apart: a caller that keeps the files elsewhere, such as an action
+     * that quarantines them, passes an empty list, and the submission holds the values alone.
+     *
+     * @param formNode the form the submission answers
+     * @param request  the submission request, read for the language, the referer and the time zone of the submitter
+     * @param values   the accepted values, by field name; a blank value is not written
+     * @param files    the uploads to store as files of the submission; empty to store none
+     * @return the identifier of the submission node
+     */
+    String storeSubmission(JCRNodeWrapper formNode, HttpServletRequest request, Map<String, List<String>> values,
+                           List<SubmittedFile> files) throws RepositoryException;
 
     /**
      * Hands the entry the readers of its form: the results-reader grants of the form, synced onto the entry.
