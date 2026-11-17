@@ -26,7 +26,7 @@ stands, never completed: it ships whole with the import, a module of its own (`f
 | Theme | PID and file (`karaf/etc/<PID>.cfg`) | Settings | Read by |
 |---|---|---|---|
 | CAPTCHA | `org.jahia.modules.formidable.captcha` | `captchaSiteKey`, `captchaSecretKey`, `captchaScriptUrl`, `captchaWidgetVar`, `captchaTokenField`, `captchaVerifyUrl`, `captchaHttpConnectTimeoutSeconds`, `captchaHttpRequestTimeoutSeconds` | the widget in the page, the verification at submission — [CAPTCHA server-side validation](captcha-server-side-validation.md) |
-| Uploads | `org.jahia.modules.formidable.uploads` | `uploadMaxFileSizeBytes`, `uploadMaxRequestSizeBytes`, `uploadMaxFileCount`, `uploadAllowedTypes` | the multipart parser, the early size guard, the e-mail action's attachment bound, the file field and its `accept` choicelist — [Allowed file types](#allowed-file-types) |
+| Uploads | `org.jahia.modules.formidable.uploads` | `uploadMaxFileSizeBytes`, `uploadMaxRequestSizeBytes`, `uploadMaxFileCount`, `uploadAllowedTypes`, `uploadsRequireQuarantine` | the multipart parser, the early size guard, the e-mail action's attachment bound, the file field and its `accept` choicelist — [Allowed file types](#allowed-file-types); the dispatch of the uploads to the actions — [A mandatory quarantine](#a-mandatory-quarantine) |
 | Choice options | `org.jahia.modules.formidable.choiceOptions` | `optionsSourcesCacheTtlSeconds`, `optionsQueryMaxResults`; the sources, one file each (below) | the options sources a choice field may pick — [Choice field options sources](../architecture/choice-field-options-sources.md#declaring-sources-administrator) |
 | Form actions | `org.jahia.modules.formidable.formActions` | `enableDevForwardTargets`, `forwardHttpConnectTimeoutSeconds`, `forwardHttpRequestTimeoutSeconds`; the forward targets, one file each (below) | the forward action and its target picker |
 | Field actions | `org.jahia.modules.formidable.fieldActions` | `enableDevFieldActionEndpoints`, `fieldActionHttpConnectTimeoutSeconds`, `fieldActionHttpRequestTimeoutSeconds`, `fieldActionVerdictCacheTtlSeconds`, `fieldActionRateLimitPerMinute`, `fieldActionMaxValueLength`, `fieldActionMaxValuesPerField` | the calls of the field actions (and whether a development endpoint may be called) and the pre-check endpoint; the service a check calls is in its own module's configuration — [Field actions: services and limits](field-actions.md) |
@@ -118,6 +118,25 @@ registry (`application/*`, `audio/*`, `chemical/*`, `image/*`, `message/*`, `mod
 only — `application/*` takes a PDF as well as an archive or an executable —: to let contributors restrict a field
 to PDFs or to Word documents, list those types next to `*/*` (`*/*,pdf,docx`), and the setting offers them too. An administrator cannot give a type of their own a translated label; a developer adds
 the key `fmdb_inputFile.accept.<mime/type>` to the module's resource bundle.
+
+## A mandatory quarantine
+
+A form can hold its uploads in quarantine until third-party engines qualify them: one of its actions then
+receives the files, and no other action does ([The split of the
+uploads](../architecture/form-submission-flow.md#the-split-of-the-uploads)). `uploadsRequireQuarantine` makes that
+quarantine mandatory for every form of the platform.
+
+| `uploadsRequireQuarantine` | A form with a quarantining action | A form with no quarantining action |
+|---|---|---|
+| `false`, the default | The quarantining action receives the files. | Every action receives the files. |
+| `true` | The quarantining action receives the files. | No action receives the files. |
+
+With `true`, a form with no quarantining action still accepts a submission. The storage action stores the values
+with no file, and an e-mail or a forward action sends the values with no file. The visitor is not told. The engine
+logs one warning for each such submission, which names the form.
+
+The server applies a change at once. Set `true` only when a module that ships a quarantining action is deployed,
+and its action is on every form that takes a file.
 
 ## The lists: one file per entry
 
