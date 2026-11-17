@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -93,6 +94,14 @@ class UploadsConfigServiceTest {
         String logged = captured.toString(StandardCharsets.UTF_8);
         assertTrue(logged.contains("uploadAllowedMimeTypes is no longer read: the setting is uploadAllowedTypes"), logged);
         assertEquals(17, service.getUploadAllowedTypes().size());
+    }
+
+    @Test
+    void theQuarantineIsNotMandatoryUnlessTheOperatorSaysSo() {
+        // Verifies the operator switch of the split of the uploads: off by default, so that a platform that does not
+        // set it keeps its behaviour, and read as it is written.
+        assertFalse(activated(Map.of()).isUploadsRequireQuarantine());
+        assertTrue(activated(Map.of("uploadsRequireQuarantine", true)).isUploadsRequireQuarantine());
     }
 
     @Test
