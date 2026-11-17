@@ -64,10 +64,19 @@ class UploadSampleFormActionsTest {
     void theForwardSinkTellsAFilePartFromAValuePartByItsFileName() {
         // Verifies the reading of a forwarded submission, on the body the forward action writes: a part with a file
         // name is a file, any other a value, and the content of a part is never taken for a part.
-        String body = "--b\r\nContent-Disposition: form-data; name=\"fullName\"\r\n\r\nAda\r\n"
-                + "--b\r\nContent-Disposition: form-data; name=\"cv\"; filename=\"cv.pdf\"; filename*=UTF-8''cv.pdf\r\n"
-                + "Content-Type: application/pdf\r\n\r\n%PDF\r\n"
-                + "--b--\r\n";
+        // each line ends on \r, which the line break of the text block follows: the CRLF of a multipart body
+        String body = """
+                --b\r
+                Content-Disposition: form-data; name="fullName"\r
+                \r
+                Ada\r
+                --b\r
+                Content-Disposition: form-data; name="cv"; filename="cv.pdf"; filename*=UTF-8''cv.pdf\r
+                Content-Type: application/pdf\r
+                \r
+                %PDF\r
+                --b--\r
+                """;
 
         ForwardSinkServlet.Received received = ForwardSinkServlet.parts(body, 3);
 

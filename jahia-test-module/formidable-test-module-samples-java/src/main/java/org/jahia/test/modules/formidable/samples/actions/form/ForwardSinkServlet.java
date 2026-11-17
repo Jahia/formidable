@@ -14,6 +14,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,7 +47,9 @@ public class ForwardSinkServlet extends ProviderStubServlet {
     /** What one forwarded submission carried. */
     record Received(int count, List<String> fields, List<String> files) {}
 
-    private transient volatile Received last = new Received(0, List.of(), List.of());
+    private static final Received NOTHING = new Received(0, List.of(), List.of());
+
+    private final transient AtomicReference<Received> last = new AtomicReference<>(NOTHING);
 
     @Override
     protected String alias() {
@@ -55,24 +58,21 @@ public class ForwardSinkServlet extends ProviderStubServlet {
 
     @Override
     protected void post(HttpServletRequest req, HttpServletResponse resp, String operation) throws IOException {
-        boolean reset = RESET_OPERATION.equals(operation);
-        String body = reset ? "" : body(req.getInputStream());
         Received received;
-        synchronized (this) {
+        if (RESET_OPERATION.equals(operation)) {
+            received = NOTHING;
+            last.set(NOTHING);
+        } else {
+            String body = body(req.getInputStream());
             // two forwards at once each count: the read of the count and its write are one step
-            if (reset) {
-                last = new Received(0, List.of(), List.of());
-            } else {
-                last = parts(body, last.count() + 1);
-            }
-            received = last;
+            received = last.updateAndGet(previous -> parts(body, previous.count() + 1));
         }
         answer(resp, HttpServletResponse.SC_OK, json(received));
     }
 
     @Override
     protected void get(HttpServletRequest req, HttpServletResponse resp, String operation) throws IOException {
-        answer(resp, HttpServletResponse.SC_OK, json(last));
+        answer(resp, HttpServletResponse.SC_OK, json(last.get()));
     }
 
     /** The body of a forwarded submission, capped, one char per byte so that a file's bytes cannot break the reading. */
