@@ -13,7 +13,7 @@ import java.util.Map;
  * The results of the forms of a site, as the engine keeps them in live under the results root of the site
  * ({@value #RESULTS_ROOT_NAME}): one entry per form, its submissions split by day under it, its readers synced
  * from the form. What another module that writes results — an import from another form system — needs to
- * write them the way the engine does, and nothing of how the engine's own submissions get there.
+ * write them the way the engine does, and the storage of one submission as the Save to JCR action stores it.
  * <p>
  * An OSGi service of the engine: the engine alone implements it, and a module calls it. The caller is trusted, as
  * any code of the platform that opens a system session is: no method checks who calls it, nor what it is given.

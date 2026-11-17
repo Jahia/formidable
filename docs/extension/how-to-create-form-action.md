@@ -341,15 +341,11 @@ public class HoldUploadsFormAction implements ContextualFormAction {
 }
 ```
 
-| The form holds | `files` of an action that opts in | `files` of every other action |
-|---|---|---|
-| An action that opts in | the uploads | empty |
-| No action that opts in | not applicable | the uploads, or none when `uploadsRequireQuarantine=true` |
+[The split of the uploads](../architecture/form-submission-flow.md#the-split-of-the-uploads) states which action
+receives the files in each case.
 
 - The pipeline asks every contextual action of the form before it runs the first one, and only for a submission
   that carries a file. Keep `quarantinesUploads` a pure answer, with no side effect.
-- The place of the action in the list does not matter.
-- No mixin of the action type declares the opt-in, as for the sensitive values.
 - An action that opts in **takes on a duty the engine cannot enforce**. Until a file is qualified, the action keeps
   the bytes where no reader, no parser and no other action reaches them, and sends them nowhere. A `jnt:file`
   node does not qualify: the platform extracts its text when the node is written, and serves it to its readers.
