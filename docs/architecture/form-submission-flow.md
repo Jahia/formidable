@@ -70,7 +70,8 @@ Browser
                                           the shared verdict cache;
                                           the first refusal → FMDB-015 with messages[] anchored on the
                                           field (see field-actions.md)
-         Step 12  dispatchActions         execute fmdb:actionList nodes in order
+         Step 12  dispatchActions         decide once which actions receive the uploads (see "The split of
+                                          the uploads" below), then execute fmdb:actionList nodes in order
                    ├─ fmdb:save2jcrAction:
                    │    - stores the submission under the site's formidable-results
                    │      (system session — see save-to-jcr.md)
@@ -137,6 +138,38 @@ edit time.
 Two duties stay out of reach of the code, and the guides state them: an extension type that holds a secret must
 declare the marker ([third-party fields](../extension/how-to-extend-views-and-elements-from-third-party-module.md)),
 and an action or a field action that opts in must keep the value to itself.
+
+### The split of the uploads
+
+A form can hold its uploads in quarantine until third-party engines qualify them
+([ADR 0002](../adr/0002-uploads-awaiting-qualification-reach-only-a-quarantining-action.md)). An action declares in
+Java that it quarantines uploads: `ContextualFormAction#quarantinesUploads(actionNode)` returns `true`. The default
+is `false`, and a plain `FormAction` cannot opt in. No mixin declares the opt-in, for the reason of decision D2.
+
+Step 12 decides which actions receive the uploads before it runs the first action. It resolves the handler of each
+action, and asks each contextual handler `quarantinesUploads` with the node of its action, in one system session.
+The place of a quarantining action in the list therefore does not matter: an e-mail action placed first receives
+no file.
+
+| The form | The actions that receive the uploads |
+|---|---|
+| One action or more quarantines uploads | The quarantining actions alone. Every other action receives an empty list of files. |
+| No action quarantines uploads, and `uploadsRequireQuarantine=false` (the default) | Every action, as before. |
+| No action quarantines uploads, and `uploadsRequireQuarantine=true` | No action. The pipeline logs one warning for the submission. |
+| An action of the list has no registered handler | No action. The action with no handler may be the quarantining one, its module stopped. The submission then fails with FMDB-008 at the place of that action, as before. |
+
+- `uploadsRequireQuarantine` is a setting of `org.jahia.modules.formidable.uploads.cfg`, for every form of the
+  platform ([Configuration files](../administration/configuration.md#a-mandatory-quarantine)).
+- The uploads of a sensitive field still reach no action, a quarantining action included (decision D4).
+- A submission that carries no file asks no action, and costs no session.
+- The values of the fields are not split: every action receives the public map.
+- An action that opts in keeps the bytes where no reader, no parser and no other action reaches them until a file
+  is qualified. The engine cannot enforce that duty
+  ([How to create a form action](../extension/how-to-create-form-action.md#step-6d-quarantine-the-uploads)).
+
+`FormResultsStore#storeSubmission` stores a submission the way Save to JCR does, and Save to JCR calls the same
+code. The values and the files are written apart, so a quarantining action passes an empty list of files and
+keeps the uploads in a tree of its own.
 
 ### Response enrichers
 
@@ -698,6 +731,8 @@ the same-origin `formidable-submit` Security Filter is the CSRF control for this
 | `formidable-engine/.../actions/form/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
 | `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
 | `formidable-engine/.../api/ContextualFormAction.java` | An action with the context and a result; `sensitiveFieldsConsumed(actionNode)`, which returns a `SensitiveFields`, is its opt-in to sensitive values |
+| `formidable-engine/.../api/ContextualFormAction.java` | `quarantinesUploads(actionNode)` is the opt-in of an action to the uploads of a quarantined form |
+| `formidable-engine/.../api/FormResultsStore.java` | `storeSubmission` stores a submission the way Save to JCR does, with or without its files |
 | `formidable-engine/.../api/SensitiveFields.java` | The sensitive fields an action reads: `none()`, the default, or `all()`. A final class with a private constructor, so no module builds a selection of its own |
 | `formidable-engine/.../config/formactions/FormActionsConfigService.java` | Reads the form actions theme; resolves forward targets by ID (CAPTCHA verification is `CaptchaConfigService.verifyCaptcha`)
 

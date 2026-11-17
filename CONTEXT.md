@@ -229,6 +229,21 @@ value out of its logs; how the action that opts in calls its service is its own.
 `docs/architecture/form-submission-flow.md`, "Sensitive fields" and its decision log (D1 the
 type-level marker, D2 the Java opt-in, D3 the deferred edit-time alert, D4 never a file field).
 
+### The split of the uploads: who receives the files
+
+Step 12 decides once, before the first action runs, which actions receive the uploads:
+
+- when an action of the form answers `true` to `ContextualFormAction#quarantinesUploads(actionNode)`,
+  the quarantining actions alone receive the uploads, and every other action receives an empty list;
+- when no action does, every action receives them, unless `uploadsRequireQuarantine=true` in
+  `org.jahia.modules.formidable.uploads.cfg`: then none does;
+- when an action of the list has no registered handler, none does: the split fails closed.
+
+The opt-in is a Java method, never a mixin, and a plain `FormAction` cannot opt in.
+`FormResultsStore#storeSubmission` stores a submission the way Save to JCR does, with or without
+its files, for an action that keeps the files in a tree of its own. See
+`docs/architecture/form-submission-flow.md`, "The split of the uploads", and ADR 0002.
+
 ### Java class layout
 
 ```
