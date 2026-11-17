@@ -5,3 +5,4 @@ Each record states one decision of architecture, in the [MADR 4.0.0](https://git
 | ADR | Decision | Status |
 |---|---|---|
 | [0001](0001-extension-modules-register-logic-sources.md) | Extension modules register their conditional-logic sources | proposed |
+| [0002](0002-uploads-awaiting-qualification-reach-only-a-quarantining-action.md) | Uploads awaiting qualification reach only a quarantining action | proposed |
