@@ -18,8 +18,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * The receiver of the samples' forward target ({@code org.jahia.modules.formidable.formActions.target-samplesink.cfg}),
- * for the test suite to read what a forward action sent: a {@code POST} on the alias is a forwarded submission, and a
+ * The receiver of a forward target that a spec declares on this alias, for the test suite to read what a forward
+ * action sent: a {@code POST} on the alias is a forwarded submission, and a
  * {@code GET} answers what the last one carried, as the number of submissions received since the last reset, the names
  * of the value parts and the names of the file parts. Names only, never a value and never a byte of a file. A
  * {@code POST} on {@code /reset} forgets everything.
