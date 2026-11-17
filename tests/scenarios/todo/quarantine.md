@@ -10,6 +10,10 @@ Nothing here is automated yet. A scenario moves to
 `tests/scenarios/quarantine.md` with the spec that covers it, under
 `tests/cypress/e2e/quarantine/`.
 
+The scenarios of M1 are final. Those of a later milestone are the acceptance
+list that its pull request starts from: that pull request completes their steps
+against the design it delivers, and states each change it makes to them.
+
 A scenario keeps its identifier, `Q01` to `Q20`, wherever it moves: a spec, a
 pull request and the coverage map name it by that identifier. The sections
 follow the milestones, so the identifiers are not in order.
@@ -178,8 +182,16 @@ platform, and it is `false` by default: Q14 runs with the default.
 
 The quarantine root cuts the ACL inheritance and holds no access control entry,
 so a role granted on the site, the site administrator included, gives nothing
-on it. A system session, and a user that bypasses the ACLs such as `root`, are
-outside this scenario.
+on it. A system session, and a member of the server `administrators` group such
+as `root`, are outside this scenario: the Jahia core grants them every
+permission, whatever the ACL says.
+
+`docs/administration/results-permissions.md` says that site administrators read
+the results of a form, whose entry cuts the inheritance too. The core, as read
+in its access manager and not run, gives a site administrator no such bypass.
+This scenario is the check of that case on a live Jahia: if the site
+administrator reads the item, the quarantine root needs another guard, and M2
+does not ship without it.
 
 **Steps:**
 1. Submit the form with a file.
@@ -193,9 +205,14 @@ outside this scenario.
 
 **Steps:**
 1. Submit the form with a PDF and with an image.
-2. Read the quarantine tree with a system session (Groovy).
+2. Submit the same PDF to a form with Save to JCR and no quarantining action.
+   Poll its file node until it carries `j:extractedText` (Groovy): the
+   extraction of the core has then run. A platform that extracts no text fails
+   this step, and the scenario says that it proved nothing there.
+3. Read the quarantine tree with a system session (Groovy).
 
 **Expected:**
+- Two items exist, one for each upload, and each holds its binary
 - No `jnt:resource` node
 - No `j:extractedText` property
 - No thumbnail node
@@ -218,10 +235,12 @@ outside this scenario.
 
 **Steps:**
 1. Submit the form with a `VERDICT:CLEAN` file.
-2. Run the job.
+2. Read the SHA-256 that the item records (Groovy).
+3. Run the job.
 
 **Expected:**
-- The file exists under `files/` of the submission, with the SHA-256 of the item
+- The file exists under `files/` of the submission, and the SHA-256 of its
+  bytes is the one that step 2 read
 - The item is gone
 - The state is `released`
 
@@ -240,8 +259,11 @@ outside this scenario.
 
 **Steps:**
 1. Submit the form with a `DOWN` file.
-2. Run the job several times.
+2. Run the job twice.
 3. Age the item past the delay of the form's policy (Groovy), and run the job.
+
+The policy of the form allows more attempts than the three runs of this
+scenario. Q05 covers the exhaustion of the attempts.
 
 **Expected:**
 - The submission was accepted with HTTP 200
@@ -291,16 +313,17 @@ outside this scenario.
 ### Q13 — A type the engine does not support
 
 **Steps:**
-1. Submit the form with an `UNSUPPORTED` file, and run the job.
-2. Set the policy of the form to release an unsupported file, submit again, and
-   run the job.
+1. Submit the form, which has the default policy, with an `UNSUPPORTED` file.
+2. On a second form, whose policy releases an unsupported file, submit an
+   `UNSUPPORTED` file.
+3. Run the job.
 
 **Expected:**
-- The first file is withheld: no node exists under `files/` of its submission,
-  the verdict `unsupported` is recorded on the submission, and the state is not
-  `released`
-- The second file is released: it exists under `files/`, and the state is
-  `released`
+- The file of the first form is withheld: no node exists under `files/` of its
+  submission, the verdict `unsupported` is recorded on the submission, and the
+  state is not `released`
+- The file of the second form is released: it exists under `files/`, and the
+  state is `released`
 
 ---
 
