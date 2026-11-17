@@ -28,6 +28,18 @@ export function getEmailNotificationActionNode(data: EmailNotificationActionData
 	};
 }
 
+/** The e-mail content action (fmdb:emailContentAction): the values of the submission, and its files when asked. */
+export function getEmailContentActionNode(data: {name?: string; to: string; attachFiles?: boolean}): JahiaNode {
+	return {
+		name: data.name || 'emailContent',
+		primaryNodeType: 'fmdb:emailContentAction',
+		properties: [
+			{name: 'to', value: data.to},
+			{name: 'attachFiles', value: String(data.attachFiles ?? false), type: 'BOOLEAN'}
+		]
+	};
+}
+
 export function getSaveToJcrActionNode(name: string = 'storeSubmission'): JahiaNode {
 	return {
 		name,
