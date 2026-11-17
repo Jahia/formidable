@@ -41,6 +41,24 @@ const editConfiguration = (pid: string, properties: Record<string, string>): Cyp
 const setDevelopmentForwardTargets = (enabled: boolean): Cypress.Chainable =>
 	editConfiguration('org.jahia.modules.formidable.formActions', {enableDevForwardTargets: String(enabled)});
 
+/**
+ * Declares the forward targets of the instance, the sink alone or none. The targets are instance-global and another
+ * spec replaces them all, so this spec declares the one it needs and leaves none behind.
+ */
+const setForwardTargets = (targets: Array<Record<string, string>>): Cypress.Chainable =>
+	cy.executeGroovy('groovy/replaceFactoryConfigurations.groovy', {
+		__FACTORY_PID__: 'org.jahia.modules.formidable.formActions.target',
+		__ENTRIES__: JSON.stringify(targets)
+	});
+
+/** The sink as a forward target: plain HTTP on the instance itself, hence a development target. */
+const FORWARD_SINK_TARGET = {
+	id: FORWARD_SINK_TARGET_ID,
+	label: 'Samples forward sink',
+	url: `http://localhost:8080${FORWARD_SINK_PATH}`,
+	development: 'true'
+};
+
 /** The operator setting that makes the quarantine mandatory, for every form of the instance. */
 const setUploadsRequireQuarantine = (required: boolean): Cypress.Chainable =>
 	editConfiguration('org.jahia.modules.formidable.uploads', {uploadsRequireQuarantine: String(required)});
@@ -88,6 +106,7 @@ describe('Quarantine - 95 The uploads of a form reach its quarantining action al
 	useFormidableSite();
 
 	before(() => {
+		setForwardTargets([FORWARD_SINK_TARGET]);
 		setDevelopmentForwardTargets(true);
 		setUploadsRequireQuarantine(false);
 	});
@@ -99,6 +118,7 @@ describe('Quarantine - 95 The uploads of a form reach its quarantining action al
 	after(() => {
 		setUploadsRequireQuarantine(false);
 		setDevelopmentForwardTargets(false);
+		setForwardTargets([]);
 	});
 
 	it('Q07, Q08: on a quarantined form, the forward and the action that did not opt in receive no file', () => {

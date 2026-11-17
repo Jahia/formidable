@@ -19,9 +19,9 @@ their specs exist. A scenario keeps its identifier wherever it moves.
 - **Quarantined form**: a form whose `actions` list holds a quarantining action.
 - **Observer**: `fmdbsample:uploadObserverAction` of the samples module, an
   action that does not opt in.
-- **Forward sink**: the receiver of the forward target `samplesink` of the
-  samples module. It answers the names of the parts that the last forward
-  carried.
+- **Forward sink**: a receiver of the samples module, which the spec declares
+  as the forward target `samplesink`. It answers the names of the parts that
+  the last forward carried.
 
 ## Common setup
 

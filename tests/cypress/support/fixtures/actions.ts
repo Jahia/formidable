@@ -100,7 +100,7 @@ export const UPLOAD_SPLIT_HEADERS = {
 	observer: 'x-fmdb-sample-observer-files'
 } as const;
 
-/** The forward target the samples module ships for the suite: its own receiver, FORWARD_SINK_PATH. */
+/** The forward target a spec declares on the samples module's receiver, FORWARD_SINK_PATH. */
 export const FORWARD_SINK_TARGET_ID = 'samplesink';
 
 /**
