@@ -115,11 +115,17 @@ public class SaveToJcrFormAction implements FormAction {
             submission = systemSession.getNodeByIdentifier(submissionId);
 
             systemSession.checkout(submission);
-            writeValues(submission, parameters);
-            persistSubmittedFiles(submission, files, systemSession);
+            writeContent(submission, parameters, files, systemSession);
             systemSession.save();
             return submissionId;
         });
+    }
+
+    /** The content of a submission node: its values, then its files, which are no part of it when the list is empty. */
+    static void writeContent(JCRNodeWrapper submission, Map<String, List<String>> parameters, List<SubmittedFile> files,
+                             JCRSessionWrapper session) throws RepositoryException {
+        writeValues(submission, parameters);
+        persistSubmittedFiles(submission, files, session);
     }
 
     private static JCRNodeWrapper resolveFormNode(JCRNodeWrapper actionNode) throws FormActionException {

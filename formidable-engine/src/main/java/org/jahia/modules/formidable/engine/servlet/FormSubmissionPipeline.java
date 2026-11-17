@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -775,8 +776,8 @@ class FormSubmissionPipeline {
     private Set<String> uploadRecipients(List<ResolvedAction> actions, List<FormAction> handlers)
             throws SubmissionException {
         if (handlers.contains(null)) {
-            log.warn("[FormSubmissionPipeline] An action of form {} has no handler: its uploads are handed to no action.",
-                    formId);
+            log.warn("[FormSubmissionPipeline] An action of form {} has no handler, and it may be the quarantining one: "
+                    + "the uploads of the form are handed to no action.", formId);
             return Set.of();
         }
         Set<String> quarantining = quarantiningActions(actions, handlers);
@@ -795,14 +796,23 @@ class FormSubmissionPipeline {
         return everyAction;
     }
 
-    /** The identifiers of the actions of the list that quarantine uploads, each one asked with its own node. */
+    /**
+     * The identifiers of the actions of the list that quarantine uploads, each one asked with its own node. A form
+     * with no contextual action has nobody to ask. An action that fails to answer fails as an action does, before the
+     * first one runs.
+     */
     private Set<String> quarantiningActions(List<ResolvedAction> actions, List<FormAction> handlers)
             throws SubmissionException {
+        if (handlers.stream().noneMatch(ContextualFormAction.class::isInstance)) {
+            return Set.of();
+        }
         Set<String> quarantining = new LinkedHashSet<>();
+        AtomicReference<String> asked = new AtomicReference<>();
         try {
             jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                 for (int i = 0; i < actions.size(); i++) {
                     String actionId = actions.get(i).id();
+                    asked.set(actions.get(i).nodeType());
                     if (handlers.get(i) instanceof ContextualFormAction contextual
                             && contextual.quarantinesUploads(systemSession.getNodeByIdentifier(actionId))) {
                         quarantining.add(actionId);
@@ -812,6 +822,8 @@ class FormSubmissionPipeline {
             });
         } catch (RepositoryException e) {
             throw new SubmissionException(ErrorCode.FMDB_012, "Could not read action list for form: " + formId, e);
+        } catch (RuntimeException e) {
+            throw actionFailure(asked.get(), 0, actions.size(), e);
         }
         return quarantining;
     }

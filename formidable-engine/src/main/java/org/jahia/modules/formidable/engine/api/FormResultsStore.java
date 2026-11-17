@@ -15,7 +15,8 @@ import java.util.Map;
  * from the form. What another module that writes results — an import from another form system — needs to
  * write them the way the engine does, and nothing of how the engine's own submissions get there.
  * <p>
- * An OSGi service of the engine.
+ * An OSGi service of the engine: the engine alone implements it, and a module calls it. The caller is trusted, as
+ * any code of the platform that opens a system session is: no method checks who calls it, nor what it is given.
  */
 public interface FormResultsStore {
 
@@ -41,7 +42,8 @@ public interface FormResultsStore {
      * Stores one submission of a form the way the Save to JCR action does: under the results entry of the form,
      * created with its own ACL when the form has none yet, in the day split, in live and in a system session of its
      * own. The values and the files are written apart: a caller that keeps the files elsewhere, such as an action
-     * that quarantines them, passes an empty list, and the submission holds the values alone.
+     * that quarantines them, passes an empty list, and the submission holds the values alone. Nothing of the
+     * submission pipeline runs here: the caller hands over values and files that the pipeline already accepted.
      *
      * @param formNode the form the submission answers
      * @param request  the submission request, read for the language, the referer and the time zone of the submitter
