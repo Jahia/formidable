@@ -823,6 +823,10 @@ class FormSubmissionPipeline {
         } catch (RepositoryException e) {
             throw new SubmissionException(ErrorCode.FMDB_012, "Could not read action list for form: " + formId, e);
         } catch (RuntimeException e) {
+            if (asked.get() == null) {
+                // the session failed before any action was asked: no action failed
+                throw e;
+            }
             throw actionFailure(asked.get(), 0, actions.size(), e);
         }
         return quarantining;
