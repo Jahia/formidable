@@ -777,7 +777,7 @@ class FormSubmissionPipeline {
             throws SubmissionException {
         if (handlers.contains(null)) {
             log.warn("[FormSubmissionPipeline] An action of form {} has no handler, and it may be the quarantining one: "
-                    + "the uploads of the form are handed to no action.", formId);
+                    + "the uploads of the form are handed to no action.", formNode.getPath());
             return Set.of();
         }
         Set<String> quarantining = quarantiningActions(actions, handlers);
@@ -786,7 +786,7 @@ class FormSubmissionPipeline {
         }
         if (uploads.isUploadsRequireQuarantine()) {
             log.warn("[FormSubmissionPipeline] uploadsRequireQuarantine is set and form {} has no quarantining action: "
-                    + "its uploads are handed to no action.", formId);
+                    + "its uploads are handed to no action.", formNode.getPath());
             return Set.of();
         }
         Set<String> everyAction = new LinkedHashSet<>();
