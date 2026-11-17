@@ -8,12 +8,11 @@ Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
 No scenario of this document is automated yet. A scenario moves to
 [`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
-it, under `tests/cypress/e2e/quarantine/`. Q07 and Q08 moved there, and so did
-Q14 and Q15, whose e-mail assertions stay here until the suite has a mail sink.
+it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1 moved there.
 
-The scenarios of M1 are final. Those of a later milestone are the acceptance
-list that its pull request starts from: that pull request completes their steps
-against the design it delivers, and states each change it makes to them.
+The scenarios of a milestone are the acceptance list that its pull request
+starts from: that pull request completes their steps against the design it
+delivers, and states each change it makes to them.
 
 A scenario keeps its identifier, `Q01` to `Q20`, wherever it moves: a spec, a
 pull request and the coverage map name it by that identifier. The sections
@@ -25,7 +24,7 @@ Each milestone is one pull request, and delivers the specs of its scenarios.
 
 | Milestone | Delivers | Scenarios |
 |---|---|---|
-| M1 | The split of the uploads in the engine, and a sample quarantining action | Q06, Q07, Q08, Q14, Q15 |
+| M1 | The split of the uploads in the engine, and a sample quarantining action | Q06, Q07, Q08, Q14, Q15, which moved to [`quarantine.md`](../quarantine.md) |
 | M2 | The quarantine module: the action "Save with quarantine" and the intake | Q01, Q10, Q11, Q16 |
 | M3 | The qualifiers, the qualification job, the release policy | Q02, Q03, Q04, Q05, Q09, Q12, Q13 |
 | M4 | The Results page | Q19, Q20 |
@@ -97,52 +96,8 @@ the scenario proves:
 
 | Scenario | The control build |
 |---|---|
-| Q06 | hands the uploads to every action, whatever an action declares |
-| Q15 | ignores `uploadsRequireQuarantine` |
 | Q10 | leaves the ACL inheritance of the quarantine root in place |
 | Q09 | releases without computing the hash again |
-
----
-
-## 1. The split of the uploads (M1)
-
-### Q06 — An e-mail action sends no file — control
-
-**Steps:**
-1. Add an e-mail content action with attachments after the quarantining action.
-2. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The mail in Mailpit carries the field values and no attachment
-
-### Q14 — A form with no quarantining action is unchanged: the e-mail
-
-The other assertions of Q14 are in
-[`tests/scenarios/quarantine.md`](../quarantine.md).
-
-**Steps:**
-1. Use a form with Save to JCR, an e-mail content action and no quarantining
-   action.
-2. Submit the form with a file.
-
-**Expected:**
-- The mail carries the attachment, as before
-
-### Q15 — The quarantine is mandatory, and the form has none: the e-mail — control
-
-The other assertions of Q15 are in
-[`tests/scenarios/quarantine.md`](../quarantine.md).
-
-**Steps:**
-1. Set `uploadsRequireQuarantine=true`.
-2. Use the form of Q14: Save to JCR, an e-mail content action, and no
-   quarantining action.
-3. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The mail carries no attachment
 
 ---
 
@@ -388,13 +343,11 @@ scenario. Q05 covers the exhaustion of the attempts.
 | Q02 | M3 | the bytes released are the bytes qualified |
 | Q03 | M3 | a malicious file never reaches an analyst |
 | Q04, Q05 | M3 | an engine outage loses no claim |
-| Q06, Q15 (e-mail) | M1 | no file leaves through an e-mail action |
 | Q09 | M3 | a file whose bytes changed after intake is never released |
 | Q10 | M2 | no reader opens a file before its verdict |
 | Q11 | M2 | no parser of the platform reads a quarantined file |
 | Q12 | M3 | the form is no test bench for a malware author |
 | Q13 | M3 | an unsupported type is not released by default |
-| Q14 (e-mail) | M1 | no regression on the e-mail of a form with no quarantine |
 | Q16 | M2 | read-only maintenance |
 | Q17, Q18 | M6 | no malicious file is kept forever |
 | Q19 | M4 | no active content in the analyst's browser |

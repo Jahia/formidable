@@ -4,8 +4,6 @@ import {
 	UPLOAD_SPLIT_HEADERS,
 	createPublishedLiveFormPage,
 	getForwardActionNode,
-	getInputFileNode,
-	getInputTextNode,
 	getLatestLiveFormSubmission,
 	getLatestLiveSubmissionValues,
 	getSaveToJcrActionNode,
@@ -14,32 +12,14 @@ import {
 } from '../../support/fixtures';
 import {SAME_ORIGIN, postDirectMultipartSubmission, withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
-
-const BOUNDARY = '----FormidableCypressBoundary';
-const FILE_FIELD = 'supportingDocument';
-const FILE_NAME = 'claim-note.txt';
-
-/** A submission of the text field and one small text file, as a browser posts it. */
-const submissionWithAFile = (fullName: string): string =>
-	`--${BOUNDARY}\r\n`
-	+ 'Content-Disposition: form-data; name="fullName"\r\n\r\n'
-	+ `${fullName}\r\n`
-	+ `--${BOUNDARY}\r\n`
-	+ `Content-Disposition: form-data; name="${FILE_FIELD}"; filename="${FILE_NAME}"\r\n`
-	+ 'Content-Type: text/plain\r\n\r\n'
-	+ 'A note attached to the claim.\r\n'
-	+ `--${BOUNDARY}--\r\n`;
-
-const editConfiguration = (pid: string, properties: Record<string, string>): Cypress.Chainable => cy.runProvisioningScript({
-	script: {
-		fileContent: JSON.stringify([{editConfiguration: pid, properties}]),
-		type: 'application/json'
-	}
-});
-
-/** The administrator's gate on development forward targets: the sink is plain HTTP on this instance. */
-const setDevelopmentForwardTargets = (enabled: boolean): Cypress.Chainable =>
-	editConfiguration('org.jahia.modules.formidable.formActions', {enableDevForwardTargets: String(enabled)});
+import {
+	FILE_FIELD,
+	FILE_NAME,
+	fields,
+	setDevelopmentForwardTargets,
+	setUploadsRequireQuarantine,
+	submissionWithAFile
+} from './support';
 
 /**
  * Declares the forward targets of the instance, the sink alone or none. The targets are instance-global and another
@@ -58,10 +38,6 @@ const FORWARD_SINK_TARGET = {
 	url: `http://localhost:8080${FORWARD_SINK_PATH}`,
 	development: 'true'
 };
-
-/** The operator setting that makes the quarantine mandatory, for every form of the instance. */
-const setUploadsRequireQuarantine = (required: boolean): Cypress.Chainable =>
-	editConfiguration('org.jahia.modules.formidable.uploads', {uploadsRequireQuarantine: String(required)});
 
 interface ForwardSinkState {
 	count: number;
@@ -90,11 +66,6 @@ const storedFileNames = (formName: string): Cypress.Chainable<string[]> =>
 		const nodes = response.body.data.jcr.nodeByPath.descendants.nodes as Array<{name: string}>;
 		return nodes.map(node => node.name);
 	});
-
-const fields = () => [
-	getInputTextNode({name: 'fullName', title: 'Full name'}),
-	getInputFileNode({name: FILE_FIELD, title: 'Supporting document'})
-];
 
 /**
  * The split of the uploads (docs/adr/0002, tests/scenarios/quarantine.md): a form whose action list holds a

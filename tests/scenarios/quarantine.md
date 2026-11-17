@@ -22,6 +22,8 @@ their specs exist. A scenario keeps its identifier wherever it moves.
 - **Forward sink**: a receiver of the samples module, which the spec declares
   as the forward target `samplesink`. It answers the names of the parts that
   the last forward carried.
+- **Mailbox**: Mailpit, the `smtp-server` service of `tests/docker-compose.yml`.
+  The provisioning of `@jahia/cypress` points the mail service of Jahia at it.
 
 ## Common setup
 
@@ -42,12 +44,25 @@ change. It removes the one guard that the scenario proves:
 
 | Scenario | The control build |
 |---|---|
-| Q07, Q08 | hands the uploads to every action, whatever an action declares |
+| Q06, Q07, Q08 | hands the uploads to every action, whatever an action declares |
 | Q15 | ignores `uploadsRequireQuarantine` |
 
 ## 1. The split of the uploads
 
-Spec: `tests/cypress/e2e/quarantine/95-uploads-split.cy.ts`.
+Specs: `tests/cypress/e2e/quarantine/95-uploads-split.cy.ts`, and
+`96-uploads-split-email.cy.ts` for the e-mail of Q06, Q14 and Q15.
+
+### Q06 — An e-mail action sends no file — control
+
+**Steps:**
+1. Use a form with an e-mail content action that attaches the files, then the
+   quarantining action.
+2. Submit the form with a file.
+
+**Expected:**
+- HTTP 200
+- The mail in the mailbox carries the values and no attachment
+- The quarantining action reports one file
 
 ### Q07 — A forward action sends no file — control
 
@@ -82,6 +97,8 @@ Spec: `tests/cypress/e2e/quarantine/95-uploads-split.cy.ts`.
 - The file is stored under the submission, as before
 - The forward sink received the file part, as before
 - The observer reports one file
+- On a form with Save to JCR and an e-mail content action that attaches the
+  files, the mail carries the attachment, as before
 
 ### Q15 — The quarantine is mandatory, and the form has none — control
 
@@ -99,15 +116,15 @@ platform, and it is `false` by default: Q14 runs with the default.
 - The submission is stored with its values and no file
 - The forward sink received the values and no file part
 - The observer reports zero files
+- On a form with Save to JCR and an e-mail content action that attaches the
+  files, the mail carries the values and no attachment
 
 ## Coverage map
 
 | Scenario | Spec | Unit test |
 |---|---|---|
+| Q06 | `quarantine/96-uploads-split-email.cy.ts` | `FormSubmissionPipelineUploadSplitTest` |
 | Q07 | `quarantine/95-uploads-split.cy.ts` | `FormSubmissionPipelineUploadSplitTest` |
 | Q08 | `quarantine/95-uploads-split.cy.ts` | `FormSubmissionPipelineUploadSplitTest` |
-| Q14 | `quarantine/95-uploads-split.cy.ts` | `FormSubmissionPipelineUploadSplitTest` |
-| Q15 | `quarantine/95-uploads-split.cy.ts` | `FormSubmissionPipelineUploadSplitTest` |
-
-The e-mail scenario Q06, and the mail assertions of Q14 and Q15, stay in
-`todo/quarantine.md`: the suite has no mail sink yet.
+| Q14 | `quarantine/95-uploads-split.cy.ts`, `quarantine/96-uploads-split-email.cy.ts` | `FormSubmissionPipelineUploadSplitTest` |
+| Q15 | `quarantine/95-uploads-split.cy.ts`, `quarantine/96-uploads-split-email.cy.ts` | `FormSubmissionPipelineUploadSplitTest` |
