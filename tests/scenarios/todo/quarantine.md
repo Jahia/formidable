@@ -6,9 +6,10 @@ quarantine tree of the JCR until third-party engines qualify them.
 Decision: [ADR 0002](../../../docs/adr/0002-uploads-awaiting-qualification-reach-only-a-quarantining-action.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-Nothing here is automated yet. A scenario moves to
-`tests/scenarios/quarantine.md` with the spec that covers it, under
-`tests/cypress/e2e/quarantine/`.
+No scenario of this document is automated yet. A scenario moves to
+[`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
+it, under `tests/cypress/e2e/quarantine/`. Q07 and Q08 moved there, and so did
+Q14 and Q15, whose e-mail assertions stay here until the suite has a mail sink.
 
 The scenarios of M1 are final. Those of a later milestone are the acceptance
 list that its pull request starts from: that pull request completes their steps
@@ -96,7 +97,7 @@ the scenario proves:
 
 | Scenario | The control build |
 |---|---|
-| Q06, Q07, Q08 | hands the uploads to every action, whatever an action declares |
+| Q06 | hands the uploads to every action, whatever an action declares |
 | Q15 | ignores `uploadsRequireQuarantine` |
 | Q10 | leaves the ACL inheritance of the quarantine root in place |
 | Q09 | releases without computing the hash again |
@@ -115,27 +116,10 @@ the scenario proves:
 - HTTP 200
 - The mail in Mailpit carries the field values and no attachment
 
-### Q07 — A forward action sends no file — control
+### Q14 — A form with no quarantining action is unchanged: the e-mail
 
-**Steps:**
-1. Add a forward action after the quarantining action.
-2. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The target receives the values and no file part
-
-### Q08 — An action that did not opt in receives no file — control
-
-**Steps:**
-1. Add a third-party action of the samples module that does not opt in.
-2. Submit the form with a file.
-
-**Expected:**
-- The action reports zero files
-- The quarantining action reports one file
-
-### Q14 — A form with no quarantining action is unchanged
+The other assertions of Q14 are in
+[`tests/scenarios/quarantine.md`](../quarantine.md).
 
 **Steps:**
 1. Use a form with Save to JCR, an e-mail content action and no quarantining
@@ -143,14 +127,12 @@ the scenario proves:
 2. Submit the form with a file.
 
 **Expected:**
-- The file is stored under the submission, as before
 - The mail carries the attachment, as before
 
-### Q15 — The quarantine is mandatory, and the form has none — control
+### Q15 — The quarantine is mandatory, and the form has none: the e-mail — control
 
-`uploadsRequireQuarantine` is an operator setting of the engine, in
-`org.jahia.modules.formidable.uploads.cfg`. It applies to every form of the
-platform, and it is `false` by default: Q14 runs with the default.
+The other assertions of Q15 are in
+[`tests/scenarios/quarantine.md`](../quarantine.md).
 
 **Steps:**
 1. Set `uploadsRequireQuarantine=true`.
@@ -160,7 +142,6 @@ platform, and it is `false` by default: Q14 runs with the default.
 
 **Expected:**
 - HTTP 200
-- The submission is stored with its values and no file
 - The mail carries no attachment
 
 ---
@@ -407,13 +388,13 @@ scenario. Q05 covers the exhaustion of the attempts.
 | Q02 | M3 | the bytes released are the bytes qualified |
 | Q03 | M3 | a malicious file never reaches an analyst |
 | Q04, Q05 | M3 | an engine outage loses no claim |
-| Q06, Q07, Q08, Q15 | M1 | no file leaves through another action |
+| Q06, Q15 (e-mail) | M1 | no file leaves through an e-mail action |
 | Q09 | M3 | a file whose bytes changed after intake is never released |
 | Q10 | M2 | no reader opens a file before its verdict |
 | Q11 | M2 | no parser of the platform reads a quarantined file |
 | Q12 | M3 | the form is no test bench for a malware author |
 | Q13 | M3 | an unsupported type is not released by default |
-| Q14 | M1 | no regression on a form with no quarantine |
+| Q14 (e-mail) | M1 | no regression on the e-mail of a form with no quarantine |
 | Q16 | M2 | read-only maintenance |
 | Q17, Q18 | M6 | no malicious file is kept forever |
 | Q19 | M4 | no active content in the analyst's browser |

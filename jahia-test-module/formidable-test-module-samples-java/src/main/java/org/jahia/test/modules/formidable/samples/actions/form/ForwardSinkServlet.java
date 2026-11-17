@@ -55,12 +55,14 @@ public class ForwardSinkServlet extends ProviderStubServlet {
 
     @Override
     protected void post(HttpServletRequest req, HttpServletResponse resp, String operation) throws IOException {
-        if (RESET_OPERATION.equals(operation)) {
-            last = new Received(0, List.of(), List.of());
-        } else {
-            last = parts(body(req.getInputStream()), last.count() + 1);
+        String body = RESET_OPERATION.equals(operation) ? null : body(req.getInputStream());
+        Received received;
+        synchronized (this) {
+            // two forwards at once each count: the read of the count and its write are one step
+            last = body == null ? new Received(0, List.of(), List.of()) : parts(body, last.count() + 1);
+            received = last;
         }
-        answer(resp, HttpServletResponse.SC_OK, json(last));
+        answer(resp, HttpServletResponse.SC_OK, json(received));
     }
 
     @Override

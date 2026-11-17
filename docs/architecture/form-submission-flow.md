@@ -730,8 +730,7 @@ the same-origin `formidable-submit` Security Filter is the CSRF control for this
 | `formidable-engine/.../actions/form/email/SendEmailNotificationFormAction.java` | Sends notification email; headers normalized with `headerSafe()`; HTML body escapes values with `html()` |
 | `formidable-engine/.../actions/form/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
 | `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
-| `formidable-engine/.../api/ContextualFormAction.java` | An action with the context and a result; `sensitiveFieldsConsumed(actionNode)`, which returns a `SensitiveFields`, is its opt-in to sensitive values |
-| `formidable-engine/.../api/ContextualFormAction.java` | `quarantinesUploads(actionNode)` is the opt-in of an action to the uploads of a quarantined form |
+| `formidable-engine/.../api/ContextualFormAction.java` | An action with the context and a result; `sensitiveFieldsConsumed(actionNode)`, which returns a `SensitiveFields`, is its opt-in to sensitive values; `quarantinesUploads(actionNode)` is its opt-in to the uploads of a quarantined form |
 | `formidable-engine/.../api/FormResultsStore.java` | `storeSubmission` stores a submission the way Save to JCR does, with or without its files |
 | `formidable-engine/.../api/SensitiveFields.java` | The sensitive fields an action reads: `none()`, the default, or `all()`. A final class with a private constructor, so no module builds a selection of its own |
 | `formidable-engine/.../config/formactions/FormActionsConfigService.java` | Reads the form actions theme; resolves forward targets by ID (CAPTCHA verification is `CaptchaConfigService.verifyCaptcha`)

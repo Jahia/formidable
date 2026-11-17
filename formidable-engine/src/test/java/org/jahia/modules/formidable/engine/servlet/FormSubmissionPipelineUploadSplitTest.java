@@ -17,6 +17,7 @@ import org.jahia.services.content.decorator.JCRSiteNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.jcr.ItemNotFoundException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.lang.reflect.Field;
@@ -36,6 +37,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -51,10 +54,11 @@ class FormSubmissionPipelineUploadSplitTest {
     private JCRNodeWrapper userFormNode;
     private HttpServletRequest request;
     private JCRTemplate template;
+    private JCRSessionWrapper systemSession;
 
     @BeforeEach
     void setUp() throws Exception {
-        JCRSessionWrapper systemSession = mock(JCRSessionWrapper.class);
+        systemSession = mock(JCRSessionWrapper.class);
         JCRNodeWrapper anyNode = mock(JCRNodeWrapper.class);
         when(systemSession.getNodeByIdentifier(any())).thenReturn(anyNode);
         template = mock(JCRTemplate.class);
@@ -80,7 +84,7 @@ class FormSubmissionPipelineUploadSplitTest {
     }
 
     /** A contextual action that quarantines the uploads or not, as the test decided; it records the files it is handed. */
-    private static final class Contextual implements ContextualFormAction {
+    private static class Contextual implements ContextualFormAction {
         final String type;
         final boolean quarantines;
         final AtomicInteger asked = new AtomicInteger();
@@ -260,6 +264,76 @@ class FormSubmissionPipelineUploadSplitTest {
         assertEquals(1, passive.asked.get());
         assertEquals(1, quarantine.asked.get());
         assertNull(never.receivedFiles.get());
+    }
+
+    @Test
+    void anActionWithNoHandlerWithholdsTheUploadsFromAQuarantiningActionToo() throws Exception {
+        // Verifies the split fails closed on a quarantined form as well: with an action whose handler is not
+        // registered, neither the plain action nor the quarantining one receives the file, and the failure is FMDB-008.
+        PlainAction mail = new PlainAction("t:mail");
+        Contextual quarantine = new Contextual("t:quarantine", true);
+        FormSubmissionPipeline pipeline = pipeline(List.of(mail, quarantine), List.of("t:mail", "t:quarantine", "t:stopped"),
+                List.of(file("cv", "cv.pdf")), Set.of());
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> dispatch(pipeline));
+
+        assertEquals(ErrorCode.FMDB_008, error.errorCode);
+        assertEquals(2, error.actionsCompleted);
+        assertEquals(List.of(), names(mail.receivedFiles));
+        assertEquals(List.of(), names(quarantine.receivedFiles));
+    }
+
+    @Test
+    void anActionThatFailsToAnswerRefusesTheSubmissionBeforeAnyActionRuns() throws Exception {
+        // Verifies an action whose quarantinesUploads throws fails as an action does: FMDB-008 with no action
+        // completed, and the action before it in the list never ran, so no file left through it.
+        PlainAction mail = new PlainAction("t:mail");
+        Contextual broken = new Contextual("t:broken", true) {
+            @Override public boolean quarantinesUploads(JCRNodeWrapper actionNode) {
+                throw new IllegalStateException("no such property");
+            }
+        };
+        FormSubmissionPipeline pipeline = pipeline(List.of(mail, broken), List.of("t:mail", "t:broken"),
+                List.of(file("cv", "cv.pdf")), Set.of());
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> dispatch(pipeline));
+
+        assertEquals(ErrorCode.FMDB_008, error.errorCode);
+        assertEquals(0, error.actionsCompleted);
+        assertEquals(2, error.actionsTotal);
+        assertNull(mail.receivedFiles.get());
+    }
+
+    @Test
+    void anActionNodeThatCannotBeReadRefusesTheSubmissionBeforeAnyActionRuns() throws Exception {
+        // Verifies a repository failure of the ask never opens the uploads to every action: the submission is refused
+        // with FMDB-012, and no action ran.
+        when(systemSession.getNodeByIdentifier(any())).thenThrow(new ItemNotFoundException("action-2"));
+        PlainAction mail = new PlainAction("t:mail");
+        Contextual quarantine = new Contextual("t:quarantine", true);
+        FormSubmissionPipeline pipeline = pipeline(List.of(mail, quarantine), List.of("t:mail", "t:quarantine"),
+                List.of(file("cv", "cv.pdf")), Set.of());
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> dispatch(pipeline));
+
+        assertEquals(ErrorCode.FMDB_012, error.errorCode);
+        assertNull(mail.receivedFiles.get());
+        assertNull(quarantine.receivedFiles.get());
+    }
+
+    @Test
+    void aFormOfPlainActionsOpensNoSessionToAskThem() throws Exception {
+        // Verifies the ask costs nothing to a form that holds no contextual action: the pipeline opens one system
+        // session for each action it runs, and none to ask.
+        PlainAction mail = new PlainAction("t:mail");
+        PlainAction forward = new PlainAction("t:forward");
+        FormSubmissionPipeline pipeline = pipeline(List.of(mail, forward), List.of("t:mail", "t:forward"),
+                List.of(file("cv", "cv.pdf")), Set.of());
+
+        dispatch(pipeline);
+
+        verify(template, times(2)).doExecuteWithSystemSessionAsUser(any(), any(), any(), any());
+        assertEquals(List.of("cv.pdf"), names(mail.receivedFiles));
     }
 
     /** Steps 9a and 12, in the order {@link FormSubmissionPipeline#run} calls them. */
