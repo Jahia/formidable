@@ -55,4 +55,13 @@ public @interface UploadsConfig {
             type = AttributeType.STRING
     )
     String uploadAllowedTypes() default "jpg,png,gif,webp,pdf,doc,docx,xls,xlsx,odt,ods,txt,csv,mp4,webm,ogv,mkv";
+
+    @AttributeDefinition(
+            name = "Uploads require a quarantine",
+            description = "When true, a form hands its uploads to no action unless one of its actions quarantines " +
+                    "them: a form with no quarantining action keeps its values and drops its files. Applies to " +
+                    "every form of the platform. Default: false.",
+            type = AttributeType.BOOLEAN
+    )
+    boolean uploadsRequireQuarantine() default false;
 }
