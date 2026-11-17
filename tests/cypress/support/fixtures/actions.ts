@@ -78,6 +78,32 @@ export const SENSITIVE_NON_CONSUMER_HEADERS = {
 } as const;
 
 /**
+ * The test module's contextual action that declares it quarantines the uploads of the form
+ * (fmdbsample:uploadQuarantiningAction): it opts in from its Java class, and reports the number of files it received in
+ * the response header UPLOAD_SPLIT_HEADERS.quarantining names. A test double: it keeps no file.
+ */
+export function getUploadQuarantiningActionNode(name: string = 'uploadQuarantining'): JahiaNode {
+	return {name, primaryNodeType: 'fmdbsample:uploadQuarantiningAction', properties: []};
+}
+
+/**
+ * The test module's contextual action that does not opt in (fmdbsample:uploadObserverAction): it reports the number of
+ * files it received in the response header UPLOAD_SPLIT_HEADERS.observer names.
+ */
+export function getUploadObserverActionNode(name: string = 'uploadObserver'): JahiaNode {
+	return {name, primaryNodeType: 'fmdbsample:uploadObserverAction', properties: []};
+}
+
+/** The response headers of the two upload samples, lower-cased as Cypress exposes them. Counts only. */
+export const UPLOAD_SPLIT_HEADERS = {
+	quarantining: 'x-fmdb-sample-quarantining-files',
+	observer: 'x-fmdb-sample-observer-files'
+} as const;
+
+/** The forward target the samples module ships for the suite: its own receiver, FORWARD_SINK_PATH. */
+export const FORWARD_SINK_TARGET_ID = 'samplesink';
+
+/**
  * A forward action pointing at a configured forward target (fmdb:forwardAction, targetId is a
  * choicelist fed by the forward target files).
  */
