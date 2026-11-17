@@ -1,13 +1,17 @@
 package org.jahia.modules.formidable.engine.actions.form.storage;
 
 import org.jahia.modules.formidable.engine.api.FormResultsStore;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.permissions.FormResultsAclSyncService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.osgi.service.component.annotations.Component;
 
 import javax.jcr.RepositoryException;
+import javax.servlet.http.HttpServletRequest;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE;
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.ACL_NODE_TYPE;
@@ -39,6 +43,12 @@ public class FormResultsStoreService implements FormResultsStore {
     @Override
     public String submissionNodeName(Instant submittedAt) {
         return SaveToJcrFormAction.submissionNodeName(submittedAt);
+    }
+
+    @Override
+    public String storeSubmission(JCRNodeWrapper formNode, HttpServletRequest request,
+                                  Map<String, List<String>> values, List<SubmittedFile> files) throws RepositoryException {
+        return SaveToJcrFormAction.storeSubmission(formNode.getIdentifier(), request, values, files);
     }
 
     @Override
