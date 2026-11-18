@@ -65,9 +65,10 @@
 
 [fmdbsample:sensitiveNonConsumerAction] > jnt:content, fmdbmix:formAction, mix:title
 
-// A contextual form action that reports the number of files it was handed in a response header, for the test suite
-// to read which actions of a form receive its uploads.
-[fmdbsample:uploadObserverAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+// A contextual form action that records the number of files it was handed, for the test suite to read which actions
+// of a form receive its uploads (UploadObservationsServlet). Deferrable: it reads nothing of the request and writes
+// nothing to the response, so the "Actions after release" list of a form accepts it.
+[fmdbsample:uploadObserverAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, fmdbmix:deferrableAction, mix:title
 
 // A field action that opts in to sensitive values from its Java class (consumesSensitiveValues): the only kind the
 // engine runs on a sensitive field, such as the password input. A password policy, refusing a value without a digit.
