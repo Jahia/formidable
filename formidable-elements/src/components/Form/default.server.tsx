@@ -127,6 +127,8 @@ jahiaComponent(
 		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_form"});
 		const fieldListNode = currentNode.getNode("fields");
 		const actionListNode = currentNode.hasNode("actions") ? currentNode.getNode("actions") : null;
+		// present while the switch "Hold uploads in quarantine" of the form is on (fmdbmix:quarantine)
+		const deferredActionListNode = currentNode.hasNode("deferredActions") ? currentNode.getNode("deferredActions") : null;
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		// The form's UUID is its one identity: the DOM id and name, what a visitor-profile integration calls the form
 		// (goals, mapping rules, the submission event) and the value of its data-form-id opt-out.
@@ -292,6 +294,11 @@ jahiaComponent(
 				    authoring.css. Nothing of it exists in live or preview. */}
 				{isEditMode && actionListNode && (
 					<Render node={actionListNode} view="hidden.authoring"/>
+				)}
+				{/* The actions that receive the released files of a form that holds its uploads:
+				    a second zone, after the first, in the order the two lists run. */}
+				{isEditMode && deferredActionListNode && (
+					<Render node={deferredActionListNode} view="hidden.authoring"/>
 				)}
 				</Island>
 			</>

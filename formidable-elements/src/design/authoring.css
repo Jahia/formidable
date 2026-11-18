@@ -246,6 +246,12 @@
 	padding: var(--fmdb-zone-field-actions-padding, 0.5rem 0.625rem);
 }
 
+/* Actions after release zone (edit mode only): the second zone of a form that holds its uploads in
+   quarantine, under the form's actions zone. Same chrome; the space above tells the two lists apart. */
+.fmdb-authoring-deferred-actions {
+	margin-top: var(--fmdb-zone-actions-margin, 1rem);
+}
+
 /* Hidden field (edit mode only): the visitor never sees it, so without a drawn line its Page
    Builder box has no height and cannot be clicked. One dashed line, the zones' chrome and
    variables: the eye crossed out, "Hidden field", the field's title, and the value it sends.
