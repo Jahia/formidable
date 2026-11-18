@@ -121,22 +121,25 @@ the key `fmdb_inputFile.accept.<mime/type>` to the module's resource bundle.
 
 ## A mandatory quarantine
 
-A form can hold its uploads in quarantine until third-party engines qualify them: one of its actions then
-receives the files, and no other action does ([The split of the
-uploads](../architecture/form-submission-flow.md#the-split-of-the-uploads)). `uploadsRequireQuarantine` makes that
+A form can hold its uploads in quarantine until checks qualify them: the contributor turns on the option **Hold
+uploads in quarantine** of the form ([The hold of the
+uploads](../architecture/form-submission-flow.md#the-hold-of-the-uploads)). `uploadsRequireQuarantine` makes that
 quarantine mandatory for every form of the platform.
 
-| `uploadsRequireQuarantine` | A form with a quarantining action | A form with no quarantining action |
+| `uploadsRequireQuarantine` | A form with the option on | A form with the option off |
 |---|---|---|
-| `false`, the default | The quarantining action receives the files. | Every action receives the files. |
-| `true` | The quarantining action receives the files. | No action receives the files. |
+| `false`, the default | The form holds its files, and its actions after release receive them. | Every action receives the files. |
+| `true` | The form holds its files, and its actions after release receive them. | No action receives the files. |
 
-With `true`, a form with no quarantining action still accepts a submission. The storage action stores the values
-with no file, and an e-mail or a forward action sends the values with no file. The visitor is not told. The engine
-logs one warning for each such submission, which names the form.
+With `true`, a form with the option off still accepts a submission. The storage action stores the values with no
+file, and an e-mail or a forward action sends the values with no file. The visitor is not told. The engine logs
+one warning for each such submission, which names the form.
 
-The server applies a change at once. Set `true` only when a module that ships a quarantining action is deployed,
-and its action is on every form that takes a file.
+The server applies a change at once. Set `true` only when a module that holds the uploads is deployed, and the
+option is on for every form that takes a file.
+
+A form with the option on needs a module that holds the uploads. Without one, the form refuses each submission
+that carries a file, with [FMDB-018](error-codes.md).
 
 ## The lists: one file per entry
 

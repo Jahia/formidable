@@ -188,9 +188,9 @@ file field, and the pipeline drops the uploads of a type that declares both befo
 action that opts in to sensitive values ([Sensitive
 fields](../architecture/form-submission-flow.md#sensitive-fields)).
 
-`files` is empty for your action when another action of the form quarantines the uploads, and when the operator
-made the quarantine mandatory on a form that has none ([Step 6d](#step-6d-quarantine-the-uploads)). Treat an empty
-list as a submission with no file.
+`files` is empty for an action on submission of a form that holds its uploads in quarantine, and when the operator
+made the quarantine mandatory on a form whose switch is off ([Step 6d](#step-6d-run-after-the-release-of-held-uploads)).
+Treat an empty list as a submission with no file.
 
 ## Step 6: Fail correctly with `FormActionException`
 
@@ -316,47 +316,46 @@ public class SignUpFormAction implements ContextualFormAction {
 `SensitiveConsumerFormAction` opts in, `SensitiveNonConsumerFormAction` keeps the default. They report counts and
 lengths in response headers for the test suite, which a real action never does.
 
-## Step 6d: Quarantine the uploads
+## Step 6d: Run after the release of held uploads
 
-A form can hold its uploads until third-party engines qualify them ([The split of the
-uploads](../architecture/form-submission-flow.md#the-split-of-the-uploads)). An action that holds them says so
-from its Java code, by overriding `quarantinesUploads(actionNode)`:
+A form can hold its uploads in quarantine until checks qualify them ([The hold of the
+uploads](../architecture/form-submission-flow.md#the-hold-of-the-uploads)). Such a form has two lists of actions.
+The actions on submission run in the request and receive no file. The actions after release run once the uploads
+are released, and receive the released files.
 
-```java
-@Component(service = FormAction.class)
-public class HoldUploadsFormAction implements ContextualFormAction {
+The second list accepts only an action type that declares `fmdbmix:deferrableAction`. Declare the marker on your
+type when your action runs with no HTTP request:
 
-    @Override public String getNodeType() { return "mymod:holdUploadsAction"; }
-
-    @Override
-    public boolean quarantinesUploads(JCRNodeWrapper actionNode) {
-        return true;
-    }
-
-    @Override
-    public FormActionResult execute(FormActionContext context) throws FormActionException {
-        hold(context.files());            // the uploads of the form, which no other action received
-        return FormActionResult.none();
-    }
-}
+```cnd
+[mymod:archiveAction] > jnt:content, fmdbmix:formAction, fmdbmix:deferrableAction, mix:title
 ```
 
-[The split of the uploads](../architecture/form-submission-flow.md#the-split-of-the-uploads) states which action
-receives the files in each case.
+An action that runs after release receives what it receives in a request, with three differences:
 
-- The pipeline asks every contextual action of the form before it runs the first one, and only for a submission
-  that carries a file. Keep `quarantinesUploads` a pure answer, with no side effect.
-- An action that opts in **takes on a duty the engine cannot enforce**. Until a file is qualified, the action keeps
-  the bytes where no reader, no parser and no other action reaches them, and sends them nowhere. A `jnt:file`
-  node does not qualify: the platform extracts its text when the node is written, and serves it to its readers.
-- To store the values of the submission the way Save to JCR does, call `FormResultsStore#storeSubmission` with an
-  empty list of files. The method returns the identifier of the submission node.
-- A form that holds the action and Save to JCR stores each submission twice. Use the action in place of Save to
-  JCR.
+- The request is a stand-in. It answers `getParameter("lang")`, `getHeader("Referer")` and
+  `getHeader("X-Formidable-Time-Zone")`. Any other call throws `DetachedRequestException`, and the run stops at
+  your action.
+- The response is a stand-in too, and every call on it throws `DetachedRequestException`. Set no header and no
+  cookie.
+- The session of the visitor is `null`. Read the repository through the session of `actionNode`.
 
-`formidable-test-module-samples-java` holds two samples: `UploadQuarantiningFormAction` opts in, and
-`UploadObserverFormAction` keeps the default. Each reports the number of files it received in a response header
-for the test suite. The first one is a test double that keeps no file.
+The engine drops the redirect or the message that a contextual action returns after release, because no browser
+waits for the result.
+
+- Declare the marker only when you tested the action with the stand-in. The engine hands the same stand-in to the
+  second list when that list runs in a request, which happens for a submission with no upload.
+- An action after release may run again when a manager resumes a run that failed at it. Fail before the action has
+  an effect, or make the effect safe to repeat.
+- The marker does not replace `fmdbmix:readOnlyCompatibleAction`: declare both on an action that never writes to
+  the repository.
+
+`formidable-test-module-samples-java` holds a sample of each side. `UploadObserverFormAction` is a deferrable
+action that records the number of files it received. `SampleSubmissionHold` is a test double of a hold: it
+releases every submission at once, inside the request, and checks nothing.
+
+A module that holds the uploads registers a `SubmissionHold` service, and releases a submission through the
+`DeferredActions` service. [The hold of the uploads](../architecture/form-submission-flow.md#the-hold-of-the-uploads)
+states the contract of both.
 
 ## Step 7: Add authoring support
 

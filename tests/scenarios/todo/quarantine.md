@@ -7,9 +7,9 @@ its actions after release.
 Decision: [ADR 0002](../../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-Nothing here is automated yet. A scenario moves to
-`tests/scenarios/quarantine.md` with the spec that covers it, under
-`tests/cypress/e2e/quarantine/`.
+No scenario of this document is automated yet. A scenario moves to
+[`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
+it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1 moved there.
 
 The scenarios of M1 are final. Those of a later milestone are the acceptance
 list that its pull request starts from: that pull request completes their steps
@@ -116,100 +116,8 @@ the scenario proves:
 
 ## 1. The hold and the actions after release (M1)
 
-The scenarios of this section use the sample hold, which releases a submission
-inside the request: when the response arrives, the actions after release have
-run, and a spec reads their effects with no wait.
-
-### Q06 — An e-mail action on submission sends no file — control
-
-**Steps:**
-1. Add an e-mail content action that attaches the files (`attachFiles` set,
-   which is not its default) to "Actions on submission",
-   and a second one, with the same setting and another recipient, to "Actions
-   after release".
-2. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The mail of the action on submission carries the field values and no
-  attachment
-- The mail of the action after release carries the attachment
-
-### Q07 — A forward action on submission sends no file — control
-
-**Steps:**
-1. Declare a forward target that points at the forward sink of the samples
-   module (M1), and add a forward action on that target to "Actions on
-   submission".
-2. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The target receives the values and no file part
-
-### Q08 — A third-party action on submission receives no file — control
-
-**Steps:**
-1. Add the observer action of the samples module to "Actions on submission".
-2. Submit the form with a file.
-
-**Expected:**
-- The action reports zero files
-- The sample hold reports one file
-
-### Q14 — A form with the switch off is unchanged
-
-**Steps:**
-1. Use a form with the switch off, Save to JCR and an e-mail content action
-   that attaches the files (`attachFiles` set).
-2. Submit the form with a file.
-
-**Expected:**
-- The file is stored under the submission, as before
-- The mail carries the attachment, as before
-- The sample hold reports no call
-
-### Q15 — The quarantine is mandatory, and the switch is off — control
-
-`uploadsRequireQuarantine` is an operator setting of the engine, in
-`org.jahia.modules.formidable.uploads.cfg`. It applies to every form of the
-platform, and it is `false` by default: Q14 runs with the default.
-
-**Steps:**
-1. Set `uploadsRequireQuarantine=true`.
-2. Use the form of Q14: the switch off, Save to JCR and an e-mail content
-   action that attaches the files.
-3. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The submission is stored with its values and no file
-- The mail carries no attachment
-
-### Q25 — The switch is on, and the submission has no file
-
-**Steps:**
-1. Add Save to JCR and the observer action to "Actions after release".
-2. Submit the form with a value and no file.
-
-**Expected:**
-- HTTP 200
-- When the response arrives, the submission is stored and the observer action
-  has reported its call
-- The sample hold reports no call
-
-### Q26 — A type that is not deferrable stays out of the actions after release
-
-**Steps:**
-1. Open the form in the editor, and list the types that "Actions after
-   release" offers.
-2. Create a redirect action under `deferredActions` through a GraphQL
-   mutation.
-
-**Expected:**
-- The list of step 1 holds Save to JCR, the two e-mail actions and the forward
-  action, and no redirect action
-- The mutation of step 2 is refused, and the list holds no redirect action
+The specs of M1 cover the scenarios Q06, Q07, Q08, Q14, Q15, Q25 and Q26. These
+scenarios moved to [`../quarantine.md`](../quarantine.md).
 
 ---
 
