@@ -123,8 +123,10 @@ run, and a spec reads their effects with no wait.
 ### Q06 — An e-mail action on submission sends no file — control
 
 **Steps:**
-1. Add an e-mail content action with attachments to "Actions on submission",
-   and a second one, with another recipient, to "Actions after release".
+1. Add an e-mail content action that attaches the files (`attachFiles` set,
+   which is not its default) to "Actions on submission",
+   and a second one, with the same setting and another recipient, to "Actions
+   after release".
 2. Submit the form with a file.
 
 **Expected:**
@@ -136,7 +138,9 @@ run, and a spec reads their effects with no wait.
 ### Q07 — A forward action on submission sends no file — control
 
 **Steps:**
-1. Add a forward action to "Actions on submission".
+1. Declare a forward target that points at the forward sink of the samples
+   module (M1), and add a forward action on that target to "Actions on
+   submission".
 2. Submit the form with a file.
 
 **Expected:**
@@ -156,7 +160,8 @@ run, and a spec reads their effects with no wait.
 ### Q14 — A form with the switch off is unchanged
 
 **Steps:**
-1. Use a form with the switch off, Save to JCR and an e-mail content action.
+1. Use a form with the switch off, Save to JCR and an e-mail content action
+   that attaches the files (`attachFiles` set).
 2. Submit the form with a file.
 
 **Expected:**
@@ -173,7 +178,7 @@ platform, and it is `false` by default: Q14 runs with the default.
 **Steps:**
 1. Set `uploadsRequireQuarantine=true`.
 2. Use the form of Q14: the switch off, Save to JCR and an e-mail content
-   action.
+   action that attaches the files.
 3. Submit the form with a file.
 
 **Expected:**
@@ -520,26 +525,26 @@ the bytes inside Jahia.
 
 ## Coverage map
 
-| Scenario | Milestone | Proves |
-|---|---|---|
-| Q01 | M2 | the intake always succeeds, and nothing runs after it before a release |
-| Q02 | M3 | the bytes released are the bytes checked |
-| Q03 | M3 | a file that failed a check never reaches an analyst |
-| Q04, Q05 | M3 | an outage of a check loses no claim |
-| Q06, Q07, Q08, Q15 | M1 | no file leaves through an action of the request |
-| Q09 | M3 | a file whose bytes changed after intake is never released |
-| Q10 | M2 | no reader opens a file before its release |
-| Q11 | M2 | no parser of the platform reads a held file |
-| Q12 | M3 | the form is no test bench for a malware author |
-| Q13 | M3 | a file that no check applied to is not released by default |
-| Q14 | M1 | no regression on a form with the switch off |
-| Q16 | M2 | read-only maintenance |
-| Q17, Q18 | M6 | no rejected file is kept forever |
-| Q19 | M4 | no active content in the analyst's browser |
-| Q20 | M4 | a release is the act of a named manager |
-| Q21 | M3 | a later check never reads a file that an earlier check failed |
-| Q22 | M3 | the actions after release run once, in order |
-| Q23 | M3 | no in-process check parses a file that no remote check passed |
-| Q24 | M3 | a failure after release sends no mail twice and stores nothing twice |
-| Q25 | M1 | a submission with no file waits for nothing |
-| Q26 | M1 | no action that cannot run after release enters that list |
+| Scenario | Proves |
+|---|---|
+| Q01 | the intake always succeeds, and nothing runs after it before a release |
+| Q02 | the bytes released are the bytes checked |
+| Q03 | a file that failed a check never reaches an analyst |
+| Q04, Q05 | an outage of a check loses no claim |
+| Q06, Q07, Q08, Q15 | no file leaves through an action of the request |
+| Q09 | a file whose bytes changed after intake is never released |
+| Q10 | no reader opens a file before its release |
+| Q11 | no parser of the platform reads a held file |
+| Q12 | the form is no test bench for a malware author |
+| Q13 | a file that no check applied to is not released by default |
+| Q14 | no regression on a form with the switch off |
+| Q16 | read-only maintenance |
+| Q17, Q18 | no rejected file is kept forever |
+| Q19 | no active content in the analyst's browser |
+| Q20 | a release is the act of a named manager |
+| Q21 | a later check never reads a file that an earlier check failed |
+| Q22 | the actions after release run once, in order |
+| Q23 | no in-process check parses a file that no remote check passed |
+| Q24 | a failure after release sends no mail twice and stores nothing twice |
+| Q25 | a submission with no file waits for nothing |
+| Q26 | no action that cannot run after release enters that list |
