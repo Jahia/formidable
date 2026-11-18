@@ -30,12 +30,12 @@ const mailSentTo = (address: string): Cypress.Chainable<{attachments: string[]; 
 };
 
 /**
- * The uploads of a form with the switch off, as an e-mail action sees them (docs/adr/0002,
- * tests/scenarios/quarantine.md). The e-mail
- * content action is asked to attach the files in every test: what it attaches is what the pipeline handed it. Mailpit
- * is the mailbox, and the provisioning of @jahia/cypress points the mail service of Jahia at it.
+ * The hold of the uploads, as an e-mail action sees it (tests/scenarios/quarantine.md). The e-mail content action is
+ * asked to attach the files in every test: what it attaches is what the engine handed it. Mailpit is the mailbox, and
+ * the provisioning of @jahia/cypress points the mail service of Jahia at it. The sample hold of the samples module
+ * releases a held submission inside the request.
  */
-describe('Quarantine - 96 The e-mail of a form with the switch off', () => {
+describe('Quarantine - 96 The e-mail of a form carries its uploads only after release', () => {
 	useFormidableSite();
 
 	before(() => {
@@ -46,6 +46,27 @@ describe('Quarantine - 96 The e-mail of a form with the switch off', () => {
 
 	after(() => {
 		setUploadsRequireQuarantine(false);
+	});
+
+	it('Q06: with the switch on, the e-mail on submission carries no attachment, and the e-mail after release carries it', () => {
+		const onSubmission = recipient('q06-on-submission');
+		const afterRelease = recipient('q06-after-release');
+		createPublishedLiveFormPage('held-mail-form', 'Held mail form', fields(), undefined, undefined, {
+			actions: [getEmailContentActionNode({name: 'mailOnSubmission', to: onSubmission, attachFiles: true})],
+			deferredActions: [getEmailContentActionNode({name: 'mailAfterRelease', to: afterRelease, attachFiles: true})]
+		}).then(({formId}) => {
+			cy.logout();
+			postDirectMultipartSubmission({formId, body: submissionWithAFile('Ada'), headers: withSameOriginHeaders()})
+				.its('status').should('eq', 200);
+		});
+
+		mailSentTo(onSubmission).then(mail => {
+			expect(mail.text, 'values in the mail on submission').to.include('Ada');
+			expect(mail.attachments, 'attachments of the mail on submission').to.deep.equal([]);
+		});
+		mailSentTo(afterRelease).then(mail => {
+			expect(mail.attachments, 'attachments of the mail after release').to.deep.equal([FILE_NAME]);
+		});
 	});
 
 	it('Q14: a form with the switch off still attaches its file to the e-mail', () => {

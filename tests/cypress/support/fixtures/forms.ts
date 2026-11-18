@@ -11,6 +11,11 @@ interface CreateFormNodeOptions {
 	fieldListProperties?: NodeProperty[];
 	/** Properties of the 'actions' list node; only created when actions are given. */
 	actionListProperties?: NodeProperty[];
+	/**
+	 * Turns the switch "Hold uploads in quarantine" of the form on (fmdbmix:quarantine), with these nodes in its
+	 * "Actions after release" list; an empty array turns the switch on with an empty list.
+	 */
+	deferredActions?: JahiaNode[];
 	mixins?: string[];
 	/** Parent of the form node; the site's contents folder by default. */
 	parentPath?: string;
@@ -68,7 +73,8 @@ const buildFormChildren = (
 	formElements: JahiaNode[],
 	actions: JahiaNode[] = [],
 	fieldListProperties: NodeProperty[] = [],
-	actionListProperties: NodeProperty[] = []
+	actionListProperties: NodeProperty[] = [],
+	deferredActions?: JahiaNode[]
 ): JahiaNode[] => ([
 	{
 		name: 'fields',
@@ -83,6 +89,14 @@ const buildFormChildren = (
 			properties: actionListProperties,
 			children: actions
 		}]
+		: []),
+	...(deferredActions
+		? [{
+			name: 'deferredActions',
+			primaryNodeType: 'fmdb:deferredActionList',
+			properties: [],
+			children: deferredActions
+		}]
 		: [])
 ]);
 
@@ -96,12 +110,13 @@ export const createFormNode = (
 		parentPathOrId: options.parentPath ?? CONTENT_PATH,
 		name: formName,
 		primaryNodeType: 'fmdb:form',
-		mixins: options.mixins || [],
+		mixins: [...(options.mixins || []), ...(options.deferredActions ? ['fmdbmix:quarantine'] : [])],
 		properties: [
 			{name: 'jcr:title', value: formTitle, language: 'en'},
 			...(options.properties || [])
 		],
-		children: buildFormChildren(formElements, options.actions, options.fieldListProperties, options.actionListProperties)
+		children: buildFormChildren(formElements, options.actions, options.fieldListProperties, options.actionListProperties,
+			options.deferredActions)
 	});
 };
 

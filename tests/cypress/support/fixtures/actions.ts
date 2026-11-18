@@ -90,15 +90,13 @@ export const SENSITIVE_NON_CONSUMER_HEADERS = {
 } as const;
 
 /**
- * The test module's contextual action that reports the number of files it received
- * (fmdbsample:uploadObserverAction), in the response header UPLOAD_OBSERVER_HEADER.
+ * The test module's contextual action that records the number of files it received (fmdbsample:uploadObserverAction).
+ * A spec reads its calls from the samples module, through readUploadObservations: the action may run after release,
+ * where it has no response to write a header on.
  */
 export function getUploadObserverActionNode(name: string = 'uploadObserver'): JahiaNode {
 	return {name, primaryNodeType: 'fmdbsample:uploadObserverAction', properties: []};
 }
-
-/** The response header of the upload observer, lower-cased as Cypress exposes it. A count only. */
-export const UPLOAD_OBSERVER_HEADER = 'x-fmdb-sample-observer-files';
 
 /** The forward target a spec declares on the samples module's receiver, FORWARD_SINK_PATH. */
 export const FORWARD_SINK_TARGET_ID = 'samplesink';
