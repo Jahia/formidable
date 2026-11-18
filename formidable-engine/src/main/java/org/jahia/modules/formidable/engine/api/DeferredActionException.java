@@ -28,7 +28,7 @@ public class DeferredActionException extends Exception {
         return failedAction;
     }
 
-    /** The number of actions of the list, or {@link #NO_ACTION} when the list could not be read. */
+    /** The number of actions of the list, or {@link #NO_ACTION} when the list was refused before any action ran. */
     public int total() {
         return total;
     }

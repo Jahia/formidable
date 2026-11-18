@@ -27,7 +27,7 @@ public final class FmdbNodeType {
     /** The ordered list of a field's actions, the child named {@link FmdbNodeName#ACTIONS} of a field carrying {@link FmdbMixin#FIELD_ACTIONS}. */
     public static final String FIELD_ACTION_LIST = "fmdb:fieldActionList";
 
-    /** The ordered checks of a form that holds its uploads, the child named {@link FmdbNodeName#QUALIFIERS}. */
+    /** The ordered checks of a form that holds its uploads, its child named {@code qualifiers}. */
     public static final String QUALIFIER_LIST = "fmdb:qualifierList";
     /** The ordered actions after release of such a form, the child named {@link FmdbNodeName#DEFERRED_ACTIONS}. */
     public static final String DEFERRED_ACTION_LIST = "fmdb:deferredActionList";

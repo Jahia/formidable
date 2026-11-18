@@ -17,9 +17,15 @@ import java.util.function.IntConsumer;
  * </ul>
  *
  * <p>The service reads the list as it stands when the run starts, and refuses the whole run, before the first
- * action, in two cases: a node of the list has a type that does not declare {@code fmdbmix:deferrableAction}, or
- * the form has no list any more, because its quarantine switch was turned off since the submission was held. A run
- * that returns normally ran every action from {@code from} to the end of the list.</p>
+ * action, in four cases:</p>
+ * <ul>
+ *   <li>the list cannot be read;</li>
+ *   <li>a node of the list has a type that does not declare {@code fmdbmix:deferrableAction};</li>
+ *   <li>the form has no list any more, because its quarantine switch was turned off since the submission was
+ *       held;</li>
+ *   <li>{@code from} is outside the list.</li>
+ * </ul>
+ * <p>A run that returns normally ran every action from {@code from} to the end of the list.</p>
  *
  * <p>An index names a place in the list of the run. A hold that resumes a run on a list that a contributor
  * reordered since the failure resumes at that place, whatever action now stands there.</p>

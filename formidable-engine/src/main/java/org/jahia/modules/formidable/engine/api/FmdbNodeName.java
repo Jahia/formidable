@@ -26,10 +26,7 @@ public final class FmdbNodeName {
     /** The ordered list of actions: under a form ({@code fmdb:actionList}) and under a field ({@code fmdb:fieldActionList}), the same word. */
     public static final String ACTIONS = "actions";
 
-    /** Under a form that holds its uploads ({@link FmdbMixin#QUARANTINE}), the ordered list of its checks. */
-    public static final String QUALIFIERS = "qualifiers";
-
-    /** Under such a form, the ordered list of the actions that run after release. */
+    /** Under a form that holds its uploads ({@link FmdbMixin#QUARANTINE}), the ordered list of the actions that run after release. */
     public static final String DEFERRED_ACTIONS = "deferredActions";
 
     private FmdbNodeName() {

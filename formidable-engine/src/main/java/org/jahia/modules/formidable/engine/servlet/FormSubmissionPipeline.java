@@ -877,7 +877,7 @@ class FormSubmissionPipeline {
             } catch (RepositoryException e) {
                 throw actionFailure(nodeType, executed, total, e, held.get());
             } catch (RuntimeException e) {
-                throw runtimeActionFailure(nodeType, executed, total, e, held.get() ? Held.YES : Held.NO, channel.detached());
+                throw runtimeActionFailure(nodeType, executed, total, e, held.get(), channel.detached());
             }
             checkpoint(progress, index, nodeType);
         }
@@ -940,8 +940,7 @@ class FormSubmissionPipeline {
      * other is rethrown as it is, unless the action held sensitive values.
      */
     private SubmissionException runtimeActionFailure(String nodeType, int executed, int total, RuntimeException e,
-                                                     Held heldValues, boolean detached) {
-        boolean held = heldValues == Held.YES;
+                                                     boolean held, boolean detached) {
         if (detached || isReadOnlyRejection(e)) {
             return actionFailure(nodeType, executed, total, e, held);
         }
@@ -1220,9 +1219,6 @@ class FormSubmissionPipeline {
     // --- Internal types ---
 
     record ResolvedAction(String id, String path, String nodeType, boolean readOnlyCompatible) {}
-
-    /** Whether an action was handed sensitive values, so that two flags of a call are not taken for one another. */
-    private enum Held { YES, NO }
 
     /** The checkpoint of a run that nobody resumes. */
     private static final IntConsumer NOT_RECORDED = index -> { };
