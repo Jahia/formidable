@@ -12,9 +12,12 @@ import {FILE_NAME, fields, setUploadsRequireQuarantine, submissionWithAFile} fro
 /** How long a mail may take from the action to the mailbox: the mail service queues it. */
 const MAIL_DELAY = {timeout: 30000, interval: 500};
 
+/** An address that no earlier attempt wrote to: the mailbox keeps the mails of an earlier run, and of a retry. */
+const recipient = (name: string): string => `${name}-${Date.now()}@formidable.test`;
+
 /**
- * The names of the attachments of the one mail sent to the address, and its text. Each test sends to an address of
- * its own, so the mail of another test or of another spec never answers for it.
+ * The names of the attachments of the one mail sent to the address, and its text. Each attempt of a test sends to an
+ * address of its own, so the mail of another test, of another spec or of an earlier run never answers for it.
  */
 const mailSentTo = (address: string): Cypress.Chainable<{attachments: string[]; text: string}> => {
 	const query = `to:${address}`;
@@ -47,7 +50,7 @@ describe('Quarantine - 96 The e-mail of a form carries its uploads only when no 
 	});
 
 	it('Q06: on a quarantined form, the e-mail carries the values and no attachment', () => {
-		const to = 'q06-quarantined@formidable.test';
+		const to = recipient('q06-quarantined');
 		// The e-mail action runs first: the pipeline has not met the quarantining action yet, and still hands it no file.
 		createPublishedLiveFormPage('quarantined-mail-form', 'Quarantined mail form', fields(), undefined, undefined, {
 			actions: [
@@ -69,7 +72,7 @@ describe('Quarantine - 96 The e-mail of a form carries its uploads only when no 
 	});
 
 	it('Q14: a form with no quarantining action still attaches its file to the e-mail', () => {
-		const to = 'q14-plain@formidable.test';
+		const to = recipient('q14-plain');
 		createPublishedLiveFormPage('plain-mail-form', 'Plain mail form', fields(), undefined, undefined, {
 			actions: [
 				getSaveToJcrActionNode(),
@@ -88,7 +91,7 @@ describe('Quarantine - 96 The e-mail of a form carries its uploads only when no 
 	});
 
 	it('Q15: with a mandatory quarantine, the e-mail of a form with no quarantining action carries no attachment', () => {
-		const to = 'q15-mandatory@formidable.test';
+		const to = recipient('q15-mandatory');
 		setUploadsRequireQuarantine(true);
 		createPublishedLiveFormPage('mandatory-mail-form', 'Mandatory mail form', fields(), undefined, undefined, {
 			actions: [
