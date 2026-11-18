@@ -7,10 +7,8 @@ import org.jahia.modules.formidable.engine.api.FormActionResult;
 import org.osgi.service.component.annotations.Component;
 
 /**
- * A contextual action that does not opt in to the uploads of a quarantined form: it keeps the default
- * {@link #quarantinesUploads}, {@code false}. It reports the number of files it was handed in a response header: every
- * upload of a form with no quarantining action, and none on a quarantined form. A test-only observable, for the suite
- * to put it next to {@link UploadQuarantiningFormAction}.
+ * A contextual action that reports the number of files it was handed in a response header. A test-only observable,
+ * for the suite to read which actions of a form receive its uploads.
  */
 @Component(service = FormAction.class)
 public class UploadObserverFormAction implements ContextualFormAction {

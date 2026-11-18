@@ -17,7 +17,6 @@ import org.jahia.services.content.decorator.JCRSiteNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import javax.jcr.ItemNotFoundException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.lang.reflect.Field;
@@ -29,22 +28,17 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * The split of the uploads at the dispatch of step 12 (ADR 0002): which actions of a form receive its files, with and
- * without a quarantining action, and under the operator setting {@code uploadsRequireQuarantine}.
+ * The uploads at the dispatch of step 12 (ADR 0002): which actions of a form receive its files, by default and under
+ * the operator setting {@code uploadsRequireQuarantine}.
  */
 class FormSubmissionPipelineUploadSplitTest {
 
@@ -84,18 +78,12 @@ class FormSubmissionPipelineUploadSplitTest {
                                       Map<String, List<String>> p, List<SubmittedFile> f) { receivedFiles.set(f); }
     }
 
-    /** A contextual action that quarantines the uploads or not, as the test decided; it records the files it is handed. */
-    private static class Contextual implements ContextualFormAction {
+    /** A contextual action that opts in to the sensitive values; it records the files it is handed. */
+    private static final class Contextual implements ContextualFormAction {
         final String type;
-        final boolean quarantines;
-        final AtomicInteger asked = new AtomicInteger();
         final AtomicReference<List<SubmittedFile>> receivedFiles = new AtomicReference<>();
-        Contextual(String type, boolean quarantines) { this.type = type; this.quarantines = quarantines; }
+        Contextual(String type) { this.type = type; }
         @Override public String getNodeType() { return type; }
-        @Override public boolean quarantinesUploads(JCRNodeWrapper actionNode) {
-            asked.incrementAndGet();
-            return quarantines;
-        }
         @Override public SensitiveFields sensitiveFieldsConsumed(JCRNodeWrapper actionNode) { return SensitiveFields.all(); }
         @Override public FormActionResult execute(FormActionContext context) {
             receivedFiles.set(context.files());
@@ -144,89 +132,52 @@ class FormSubmissionPipelineUploadSplitTest {
     }
 
     @Test
-    void aFormWithNoQuarantiningActionHandsItsUploadsToEveryAction() throws Exception {
-        // Verifies a form with no quarantine keeps its behaviour: a plain action and a contextual one that does not opt
-        // in both receive the file.
+    void aFormHandsItsUploadsToEveryAction() throws Exception {
+        // Verifies a form keeps its behaviour by default: a plain action and a contextual one both receive the file.
         PlainAction mail = new PlainAction("t:mail");
-        Contextual passive = new Contextual("t:passive", false);
-        FormSubmissionPipeline pipeline = pipeline(List.of(mail, passive), List.of("t:mail", "t:passive"),
+        Contextual observer = new Contextual("t:observer");
+        FormSubmissionPipeline pipeline = pipeline(List.of(mail, observer), List.of("t:mail", "t:observer"),
                 List.of(file("cv", "cv.pdf")), Set.of());
 
         dispatch(pipeline);
 
         assertEquals(List.of("cv.pdf"), names(mail.receivedFiles));
-        assertEquals(List.of("cv.pdf"), names(passive.receivedFiles));
+        assertEquals(List.of("cv.pdf"), names(observer.receivedFiles));
     }
 
     @Test
-    void theUploadsOfAQuarantinedFormReachOnlyItsQuarantiningActions() throws Exception {
-        // Verifies the split, whatever the order of the list: the plain action runs first, before the pipeline meets a
-        // quarantining action, and still receives no file. The contextual action that does not opt in receives none
-        // either, and each quarantining action receives the file.
-        PlainAction mail = new PlainAction("t:mail");
-        Contextual passive = new Contextual("t:passive", false);
-        Contextual quarantine = new Contextual("t:quarantine", true);
-        Contextual secondQuarantine = new Contextual("t:quarantine2", true);
-        FormSubmissionPipeline pipeline = pipeline(List.of(mail, passive, quarantine, secondQuarantine),
-                List.of("t:mail", "t:passive", "t:quarantine", "t:quarantine2"), List.of(file("cv", "cv.pdf")), Set.of());
-
-        dispatch(pipeline);
-
-        assertEquals(List.of(), names(mail.receivedFiles));
-        assertEquals(List.of(), names(passive.receivedFiles));
-        assertEquals(List.of("cv.pdf"), names(quarantine.receivedFiles));
-        assertEquals(List.of("cv.pdf"), names(secondQuarantine.receivedFiles));
-    }
-
-    @Test
-    void theUploadOfASensitiveFieldReachesNoQuarantiningActionEither() throws Exception {
-        // Verifies the sensitive marker still wins on a quarantined form: the quarantining action, which also opts in
-        // to the sensitive values, receives the upload of the plain file field and not the one of the sensitive field.
-        Contextual quarantine = new Contextual("t:quarantine", true);
-        FormSubmissionPipeline pipeline = pipeline(List.of(quarantine), List.of("t:quarantine"),
+    void theUploadOfASensitiveFieldReachesNoAction() throws Exception {
+        // Verifies the sensitive marker wins: an action that opts in to the sensitive values receives the upload of the
+        // plain file field and not the one of the sensitive field.
+        Contextual observer = new Contextual("t:observer");
+        FormSubmissionPipeline pipeline = pipeline(List.of(observer), List.of("t:observer"),
                 List.of(file("password", "secret.txt"), file("cv", "cv.pdf")), Set.of("password"));
 
         dispatch(pipeline);
 
-        assertEquals(List.of("cv.pdf"), names(quarantine.receivedFiles));
+        assertEquals(List.of("cv.pdf"), names(observer.receivedFiles));
     }
 
     @Test
-    void aMandatoryQuarantineHandsTheUploadsOfAFormWithoutOneToNoAction() throws Exception {
-        // Verifies the operator setting: with uploadsRequireQuarantine, a form with no quarantining action still runs
-        // its actions, and none of them receives a file.
+    void aMandatoryQuarantineHandsTheUploadsToNoAction() throws Exception {
+        // Verifies the operator setting: with uploadsRequireQuarantine, a form still runs its actions, and none of
+        // them receives a file.
         when(uploads.isUploadsRequireQuarantine()).thenReturn(true);
         PlainAction mail = new PlainAction("t:mail");
-        Contextual passive = new Contextual("t:passive", false);
-        FormSubmissionPipeline pipeline = pipeline(List.of(mail, passive), List.of("t:mail", "t:passive"),
+        Contextual observer = new Contextual("t:observer");
+        FormSubmissionPipeline pipeline = pipeline(List.of(mail, observer), List.of("t:mail", "t:observer"),
                 List.of(file("cv", "cv.pdf")), Set.of());
 
         dispatch(pipeline);
 
         assertEquals(List.of(), names(mail.receivedFiles));
-        assertEquals(List.of(), names(passive.receivedFiles));
+        assertEquals(List.of(), names(observer.receivedFiles));
     }
 
     @Test
-    void aMandatoryQuarantineChangesNothingForAQuarantinedForm() throws Exception {
-        // Verifies the setting only bears on a form with no quarantining action: a quarantined form splits as before.
-        when(uploads.isUploadsRequireQuarantine()).thenReturn(true);
-        PlainAction mail = new PlainAction("t:mail");
-        Contextual quarantine = new Contextual("t:quarantine", true);
-        FormSubmissionPipeline pipeline = pipeline(List.of(mail, quarantine), List.of("t:mail", "t:quarantine"),
-                List.of(file("cv", "cv.pdf")), Set.of());
-
-        dispatch(pipeline);
-
-        assertEquals(List.of(), names(mail.receivedFiles));
-        assertEquals(List.of("cv.pdf"), names(quarantine.receivedFiles));
-    }
-
-    @Test
-    void anActionWithNoHandlerWithholdsTheUploadsFromTheActionsBeforeIt() throws Exception {
-        // Verifies the split fails closed: an action whose handler is not registered may be the quarantining one of the
-        // form (its module is stopped), so the action that runs before the failure receives no file. The failure itself
-        // is unchanged: FMDB-008 at the place of the action, with the progress of the list.
+    void anActionWithNoHandlerFailsAtItsPlace() throws Exception {
+        // Verifies the failure of an action whose handler is not registered: FMDB-008 at the place of the action, with
+        // the progress of the list.
         PlainAction mail = new PlainAction("t:mail");
         FormSubmissionPipeline pipeline = pipeline(List.of(mail), List.of("t:mail", "t:stopped"),
                 List.of(file("cv", "cv.pdf")), Set.of());
@@ -235,124 +186,6 @@ class FormSubmissionPipelineUploadSplitTest {
 
         assertEquals(ErrorCode.FMDB_008, error.errorCode);
         assertEquals(1, error.actionsCompleted);
-        assertEquals(List.of(), names(mail.receivedFiles));
-    }
-
-    @Test
-    void aSubmissionWithNoUploadAsksNoAction() throws Exception {
-        // Verifies the split costs nothing to a submission that carries no file: no action is asked whether it
-        // quarantines uploads, and each one runs with an empty list.
-        Contextual quarantine = new Contextual("t:quarantine", true);
-        FormSubmissionPipeline pipeline = pipeline(List.of(quarantine), List.of("t:quarantine"), List.of(), Set.of());
-
-        dispatch(pipeline);
-
-        assertEquals(0, quarantine.asked.get());
-        assertEquals(List.of(), names(quarantine.receivedFiles));
-    }
-
-    @Test
-    void anActionIsAskedOnceForASubmission() throws Exception {
-        // Verifies the split is decided once, before the first action runs: each contextual action is asked one time.
-        Contextual passive = new Contextual("t:passive", false);
-        Contextual quarantine = new Contextual("t:quarantine", true);
-        PlainAction never = new PlainAction("t:unused");
-        FormSubmissionPipeline pipeline = pipeline(List.of(passive, quarantine, never), List.of("t:passive", "t:quarantine"),
-                List.of(file("cv", "cv.pdf")), Set.of());
-
-        dispatch(pipeline);
-
-        assertEquals(1, passive.asked.get());
-        assertEquals(1, quarantine.asked.get());
-        assertNull(never.receivedFiles.get());
-    }
-
-    @Test
-    void anActionWithNoHandlerWithholdsTheUploadsFromAQuarantiningActionToo() throws Exception {
-        // Verifies the split fails closed on a quarantined form as well: with an action whose handler is not
-        // registered, neither the plain action nor the quarantining one receives the file, and the failure is FMDB-008.
-        PlainAction mail = new PlainAction("t:mail");
-        Contextual quarantine = new Contextual("t:quarantine", true);
-        FormSubmissionPipeline pipeline = pipeline(List.of(mail, quarantine), List.of("t:mail", "t:quarantine", "t:stopped"),
-                List.of(file("cv", "cv.pdf")), Set.of());
-
-        SubmissionException error = assertThrows(SubmissionException.class, () -> dispatch(pipeline));
-
-        assertEquals(ErrorCode.FMDB_008, error.errorCode);
-        assertEquals(2, error.actionsCompleted);
-        assertEquals(List.of(), names(mail.receivedFiles));
-        assertEquals(List.of(), names(quarantine.receivedFiles));
-    }
-
-    @Test
-    void anActionThatFailsToAnswerRefusesTheSubmissionBeforeAnyActionRuns() throws Exception {
-        // Verifies an action whose quarantinesUploads throws fails as an action does: FMDB-008 with no action
-        // completed, and the action before it in the list never ran, so no file left through it.
-        PlainAction mail = new PlainAction("t:mail");
-        Contextual broken = new Contextual("t:broken", true) {
-            @Override public boolean quarantinesUploads(JCRNodeWrapper actionNode) {
-                throw new IllegalStateException("no such property");
-            }
-        };
-        FormSubmissionPipeline pipeline = pipeline(List.of(mail, broken), List.of("t:mail", "t:broken"),
-                List.of(file("cv", "cv.pdf")), Set.of());
-
-        SubmissionException error = assertThrows(SubmissionException.class, () -> dispatch(pipeline));
-
-        assertEquals(ErrorCode.FMDB_008, error.errorCode);
-        assertEquals(0, error.actionsCompleted);
-        assertEquals(2, error.actionsTotal);
-        assertNull(mail.receivedFiles.get());
-    }
-
-    @Test
-    void anActionNodeThatCannotBeReadRefusesTheSubmissionBeforeAnyActionRuns() throws Exception {
-        // Verifies a repository failure of the ask never opens the uploads to every action: the submission is refused
-        // with FMDB-012, and no action ran.
-        when(systemSession.getNodeByIdentifier(any())).thenThrow(new ItemNotFoundException("action-2"));
-        PlainAction mail = new PlainAction("t:mail");
-        Contextual quarantine = new Contextual("t:quarantine", true);
-        FormSubmissionPipeline pipeline = pipeline(List.of(mail, quarantine), List.of("t:mail", "t:quarantine"),
-                List.of(file("cv", "cv.pdf")), Set.of());
-
-        SubmissionException error = assertThrows(SubmissionException.class, () -> dispatch(pipeline));
-
-        assertEquals(ErrorCode.FMDB_012, error.errorCode);
-        assertNull(mail.receivedFiles.get());
-        assertNull(quarantine.receivedFiles.get());
-    }
-
-    @Test
-    void aSessionThatFailsBeforeAnyActionIsAskedBlamesNoAction() throws Exception {
-        // Verifies a failure of the session itself is not reported as the failure of an action: no action was asked,
-        // so the exception leaves as it is, and no action ran.
-        // doThrow, not when: stubbing again through when would run the answer of setUp on the matchers
-        doThrow(new IllegalStateException("the repository is stopping"))
-                .when(template).doExecuteWithSystemSessionAsUser(any(), any(), any(), any());
-        Contextual quarantine = new Contextual("t:quarantine", true);
-        FormSubmissionPipeline pipeline = pipeline(List.of(quarantine), List.of("t:quarantine"),
-                List.of(file("cv", "cv.pdf")), Set.of());
-
-        IllegalStateException error = assertThrows(IllegalStateException.class, () -> dispatch(pipeline));
-
-        assertEquals("the repository is stopping", error.getMessage());
-        assertEquals(0, quarantine.asked.get());
-        assertNull(quarantine.receivedFiles.get());
-    }
-
-    @Test
-    void aFormOfPlainActionsOpensNoSessionToAskThem() throws Exception {
-        // Verifies the ask costs nothing to a form that holds no contextual action: the pipeline opens one system
-        // session for each action it runs, and none to ask.
-        PlainAction mail = new PlainAction("t:mail");
-        PlainAction forward = new PlainAction("t:forward");
-        FormSubmissionPipeline pipeline = pipeline(List.of(mail, forward), List.of("t:mail", "t:forward"),
-                List.of(file("cv", "cv.pdf")), Set.of());
-
-        dispatch(pipeline);
-
-        verify(template, times(2)).doExecuteWithSystemSessionAsUser(any(), any(), any(), any());
-        assertEquals(List.of("cv.pdf"), names(mail.receivedFiles));
     }
 
     /** Steps 9a and 12, in the order {@link FormSubmissionPipeline#run} calls them. */

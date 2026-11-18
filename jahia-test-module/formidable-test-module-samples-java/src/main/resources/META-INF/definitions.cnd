@@ -65,12 +65,8 @@
 
 [fmdbsample:sensitiveNonConsumerAction] > jnt:content, fmdbmix:formAction, mix:title
 
-// Two contextual form actions on either side of the split of the uploads (docs/architecture/form-submission-flow.md,
-// "The split of the uploads"). The quarantining action opts in from its Java class, with quarantinesUploads, and the
-// observer keeps the default. Each reports the number of files it was handed in a response header. The quarantining
-// action is a test double: it keeps no byte. No mixin declares the opt-in, as for the sensitive values.
-[fmdbsample:uploadQuarantiningAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
-
+// A contextual form action that reports the number of files it was handed in a response header, for the test suite
+// to read which actions of a form receive its uploads.
 [fmdbsample:uploadObserverAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
 
 // A field action that opts in to sensitive values from its Java class (consumesSensitiveValues): the only kind the

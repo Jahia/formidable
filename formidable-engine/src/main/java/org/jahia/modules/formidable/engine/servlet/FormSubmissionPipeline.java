@@ -49,7 +49,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -720,18 +719,14 @@ class FormSubmissionPipeline {
 
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
         List<ResolvedAction> actions = actions();
-        List<SubmittedFile> publicUploads = toSubmittedFiles(publicFiles());
+        List<SubmittedFile> submittedFiles = uploadsOfTheActions(toSubmittedFiles(publicFiles()));
         int total = actions.size();
         int executed = 0;
         String siteKey = siteKeyOrNull();
-        List<FormAction> handlers = actions.stream().map(action -> handlerOf(action.nodeType())).toList();
-        Set<String> recipients = publicUploads.isEmpty() ? Set.of() : uploadRecipients(actions, handlers);
 
-        for (int i = 0; i < total; i++) {
-            ResolvedAction action = actions.get(i);
+        for (ResolvedAction action : actions) {
             String nodeType = action.nodeType();
-            FormAction handler = handlers.get(i);
-            List<SubmittedFile> submittedFiles = recipients.contains(action.id()) ? publicUploads : List.of();
+            FormAction handler = handlerOf(nodeType);
             if (handler == null) {
                 throw new SubmissionException(
                         ErrorCode.FMDB_008,
@@ -766,70 +761,16 @@ class FormSubmissionPipeline {
     }
 
     /**
-     * The identifiers of the actions that receive the uploads of this submission, decided once, before the first action
-     * runs, so that the place of a quarantining action in the list does not matter. When an action of the form
-     * quarantines uploads ({@link ContextualFormAction#quarantinesUploads}), those actions alone receive them.
-     * Otherwise every action does, unless the operator made the quarantine mandatory
-     * ({@code uploadsRequireQuarantine}): then none does. An action with no handler may be the quarantining one of the
-     * form, its module stopped, so the uploads reach no action of a form that holds one.
+     * The uploads the actions of the request receive, decided once, before the first action runs: every public upload,
+     * or none when the operator made the quarantine mandatory ({@code uploadsRequireQuarantine}).
      */
-    private Set<String> uploadRecipients(List<ResolvedAction> actions, List<FormAction> handlers)
-            throws SubmissionException {
-        if (handlers.contains(null)) {
-            log.warn("[FormSubmissionPipeline] An action of form {} has no handler, and it may be the quarantining one: "
-                    + "the uploads of the form are handed to no action.", formNode.getPath());
-            return Set.of();
+    private List<SubmittedFile> uploadsOfTheActions(List<SubmittedFile> publicUploads) {
+        if (publicUploads.isEmpty() || !uploads.isUploadsRequireQuarantine()) {
+            return publicUploads;
         }
-        Set<String> quarantining = quarantiningActions(actions, handlers);
-        if (!quarantining.isEmpty()) {
-            return quarantining;
-        }
-        if (uploads.isUploadsRequireQuarantine()) {
-            log.warn("[FormSubmissionPipeline] uploadsRequireQuarantine is set and form {} has no quarantining action: "
-                    + "its uploads are handed to no action.", formNode.getPath());
-            return Set.of();
-        }
-        Set<String> everyAction = new LinkedHashSet<>();
-        for (ResolvedAction action : actions) {
-            everyAction.add(action.id());
-        }
-        return everyAction;
-    }
-
-    /**
-     * The identifiers of the actions of the list that quarantine uploads, each one asked with its own node. A form
-     * with no contextual action has nobody to ask. An action that fails to answer fails as an action does, before the
-     * first one runs.
-     */
-    private Set<String> quarantiningActions(List<ResolvedAction> actions, List<FormAction> handlers)
-            throws SubmissionException {
-        if (handlers.stream().noneMatch(ContextualFormAction.class::isInstance)) {
-            return Set.of();
-        }
-        Set<String> quarantining = new LinkedHashSet<>();
-        AtomicReference<String> asked = new AtomicReference<>();
-        try {
-            jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
-                for (int i = 0; i < actions.size(); i++) {
-                    String actionId = actions.get(i).id();
-                    asked.set(actions.get(i).nodeType());
-                    if (handlers.get(i) instanceof ContextualFormAction contextual
-                            && contextual.quarantinesUploads(systemSession.getNodeByIdentifier(actionId))) {
-                        quarantining.add(actionId);
-                    }
-                }
-                return null;
-            });
-        } catch (RepositoryException e) {
-            throw new SubmissionException(ErrorCode.FMDB_012, "Could not read action list for form: " + formId, e);
-        } catch (RuntimeException e) {
-            if (asked.get() == null) {
-                // the session failed before any action was asked: no action failed
-                throw e;
-            }
-            throw actionFailure(asked.get(), 0, actions.size(), e);
-        }
-        return quarantining;
+        log.warn("[FormSubmissionPipeline] uploadsRequireQuarantine is set and form {} holds no upload in quarantine: "
+                + "its uploads are handed to no action.", formNode.getPath());
+        return List.of();
     }
 
     /** The failure of an action, redacted when it held sensitive values ({@link #redactedActionFailure}). */
@@ -1016,7 +957,7 @@ class FormSubmissionPipeline {
     }
 
     /**
-     * The uploads an action may receive, before the split of {@link #uploadRecipients} says which action does: every
+     * The uploads an action may receive, before {@link #uploadsOfTheActions} says whether the actions do: every
      * parsed file but those of a sensitive field. A sensitive type is never a
      * file field, and the collector warns about a type that declares both. Should such a field still send a file, the
      * sensitive marker wins: the upload reaches no action, not even one that opts in to the sensitive values.

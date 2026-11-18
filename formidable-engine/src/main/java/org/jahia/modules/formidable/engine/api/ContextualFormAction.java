@@ -52,26 +52,6 @@ public interface ContextualFormAction extends FormAction {
         return SensitiveFields.none();
     }
 
-    /**
-     * Whether this action holds the uploads of the form in quarantine until they are qualified. {@code false} by
-     * default, and a plain {@link FormAction} cannot opt in.
-     *
-     * <p>When one action of a form answers {@code true}, the form is quarantined: the pipeline hands the uploads to
-     * the actions that answer {@code true}, and every other action of the form receives an empty list of files. The
-     * pipeline asks every contextual action of the form before it runs the first one, so the place of the action in
-     * the list does not matter.</p>
-     *
-     * <p>An action that opts in takes on a duty the engine cannot enforce: until a file is qualified, it keeps the
-     * bytes where no reader, no parser and no other action reaches them, and it sends them nowhere. Review of its
-     * code is the only guarantee.</p>
-     *
-     * @param actionNode the action's configuration node, for an answer that depends on how the action is configured
-     * @return {@code true} when the action quarantines the uploads it receives
-     */
-    default boolean quarantinesUploads(JCRNodeWrapper actionNode) {
-        return false;
-    }
-
     /** Never called by the pipeline, which dispatches {@link #execute(FormActionContext)}. */
     @Override
     default void execute(JCRNodeWrapper actionNode, HttpServletRequest req, JCRSessionWrapper session,

@@ -84,48 +84,28 @@ public class SaveToJcrFormAction implements FormAction {
         }
 
         try {
-            storeSubmission(formNodeId, req, parameters, files);
+            JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, systemSession -> {
+                JCRNodeWrapper sysFormNode = systemSession.getNodeByIdentifier(formNodeId);
+                JCRNodeWrapper formResults = resolveOrCreateFormResults(sysFormNode, systemSession);
+                JCRNodeWrapper submissions = formResults.getNode(FmdbNodeName.SUBMISSIONS);
+                ensureAutoSplit(submissions);
+
+                JCRNodeWrapper submission = createSubmissionNode(submissions, req, systemSession);
+                String submissionId = submission.getIdentifier();
+                systemSession.save();
+
+                JCRAutoSplitUtils.applyAutoSplitRules(submission, submissions);
+                systemSession.save();
+
+                submission = systemSession.getNodeByIdentifier(submissionId);
+
+                populateSubmissionData(submission, parameters, files, systemSession);
+                systemSession.save();
+                return null;
+            });
         } catch (RepositoryException e) {
             throw new FormActionException("Failed to save form data in JCR: " + e.getMessage(), 500, e);
         }
-    }
-
-    /**
-     * Stores one submission of the form under its results entry, in a system session of its own: the submission
-     * node, its place in the day split, then its values and its files. {@link FormResultsStoreService} offers it to
-     * the modules that store a submission of their own.
-     *
-     * @return the identifier of the submission node
-     */
-    static String storeSubmission(String formNodeId, HttpServletRequest req, Map<String, List<String>> parameters,
-                                  List<SubmittedFile> files) throws RepositoryException {
-        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, null, systemSession -> {
-            JCRNodeWrapper sysFormNode = systemSession.getNodeByIdentifier(formNodeId);
-            JCRNodeWrapper formResults = resolveOrCreateFormResults(sysFormNode, systemSession);
-            JCRNodeWrapper submissions = formResults.getNode(FmdbNodeName.SUBMISSIONS);
-            ensureAutoSplit(submissions);
-
-            JCRNodeWrapper submission = createSubmissionNode(submissions, req, systemSession);
-            String submissionId = submission.getIdentifier();
-            systemSession.save();
-
-            JCRAutoSplitUtils.applyAutoSplitRules(submission, submissions);
-            systemSession.save();
-
-            submission = systemSession.getNodeByIdentifier(submissionId);
-
-            systemSession.checkout(submission);
-            writeContent(submission, parameters, files, systemSession);
-            systemSession.save();
-            return submissionId;
-        });
-    }
-
-    /** The content of a submission node: its values, then its files, which are no part of it when the list is empty. */
-    static void writeContent(JCRNodeWrapper submission, Map<String, List<String>> parameters, List<SubmittedFile> files,
-                             JCRSessionWrapper session) throws RepositoryException {
-        writeValues(submission, parameters);
-        persistSubmittedFiles(submission, files, session);
     }
 
     private static JCRNodeWrapper resolveFormNode(JCRNodeWrapper actionNode) throws FormActionException {
@@ -303,13 +283,19 @@ public class SaveToJcrFormAction implements FormAction {
         return "submission-" + timestamp + "-" + shortUuid;
     }
 
-    /** Writes the values of the fields on the data node of the submission; the files are written apart. */
-    private static void writeValues(JCRNodeWrapper submission, Map<String, List<String>> parameters)
-            throws RepositoryException {
+    private static void populateSubmissionData(
+            JCRNodeWrapper submission,
+            Map<String, List<String>> parameters,
+            List<SubmittedFile> files,
+            JCRSessionWrapper session
+    ) throws RepositoryException {
+        session.checkout(submission);
         JCRNodeWrapper dataNode = submission.getNode(FmdbNodeName.DATA);
         for (Map.Entry<String, List<String>> entry : parameters.entrySet()) {
             writeParameterValue(dataNode, entry.getKey(), entry.getValue());
         }
+
+        persistSubmittedFiles(submission, files, session);
     }
 
     private static void writeParameterValue(JCRNodeWrapper dataNode, String fieldName, List<String> values)

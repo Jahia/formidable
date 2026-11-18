@@ -1,14 +1,13 @@
 import {FORWARD_SINK_PATH} from '../../support/constants';
 import {
 	FORWARD_SINK_TARGET_ID,
-	UPLOAD_SPLIT_HEADERS,
+	UPLOAD_OBSERVER_HEADER,
 	createPublishedLiveFormPage,
 	getForwardActionNode,
 	getLatestLiveFormSubmission,
 	getLatestLiveSubmissionValues,
 	getSaveToJcrActionNode,
-	getUploadObserverActionNode,
-	getUploadQuarantiningActionNode
+	getUploadObserverActionNode
 } from '../../support/fixtures';
 import {SAME_ORIGIN, postDirectMultipartSubmission, withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
@@ -68,12 +67,11 @@ const storedFileNames = (formName: string): Cypress.Chainable<string[]> =>
 	});
 
 /**
- * The split of the uploads (docs/adr/0002, tests/scenarios/quarantine.md): a form whose action list holds a
- * quarantining action hands its uploads to that action alone. The samples module ships the three observables: a
- * quarantining action and an observer, which each report the number of files they received in a response header, and
- * the receiver of a forward target, which answers the names of the parts the last forward carried.
+ * The uploads of a form with the quarantine switch off (docs/adr/0002, tests/scenarios/quarantine.md). The samples
+ * module ships the two observables: an observer, which reports the number of files it received in a response header,
+ * and the receiver of a forward target, which answers the names of the parts the last forward carried.
  */
-describe('Quarantine - 95 The uploads of a form reach its quarantining action alone', () => {
+describe('Quarantine - 95 The uploads of a form with the switch off', () => {
 	useFormidableSite();
 
 	before(() => {
@@ -92,38 +90,7 @@ describe('Quarantine - 95 The uploads of a form reach its quarantining action al
 		setForwardTargets([]);
 	});
 
-	it('Q07, Q08: on a quarantined form, the forward and the action that did not opt in receive no file', () => {
-		// The quarantining action is the last of the list: the three actions before it run first, and still get no file.
-		const formName = 'quarantined-form';
-		createPublishedLiveFormPage(formName, 'Quarantined form', fields(), undefined, undefined, {
-			actions: [
-				getSaveToJcrActionNode(),
-				getForwardActionNode({targetId: FORWARD_SINK_TARGET_ID}),
-				getUploadObserverActionNode(),
-				getUploadQuarantiningActionNode()
-			]
-		}).then(({formId}) => {
-			cy.logout();
-			postDirectMultipartSubmission({formId, body: submissionWithAFile('Ada'), headers: withSameOriginHeaders()}).then(response => {
-				expect(response.status).to.eq(200);
-				expect(response.headers[UPLOAD_SPLIT_HEADERS.quarantining], 'files of the quarantining action').to.eq('1');
-				expect(response.headers[UPLOAD_SPLIT_HEADERS.observer], 'files of the action that did not opt in').to.eq('0');
-			});
-		});
-
-		readForwardSink().then(forwarded => {
-			expect(forwarded.count, 'forwards received').to.eq(1);
-			expect(forwarded.fields, 'value parts forwarded').to.include('fullName');
-			expect(forwarded.files, 'file parts forwarded').to.deep.equal([]);
-		});
-
-		// Save to JCR did not opt in either: it stored the values, and no file.
-		cy.login();
-		getLatestLiveSubmissionValues(formName).its('fullName').should('eq', 'Ada');
-		storedFileNames(formName).should('deep.equal', []);
-	});
-
-	it('Q14: a form with no quarantining action hands its file to every action, as before', () => {
+	it('Q14: a form with the switch off hands its file to every action, as before', () => {
 		const formName = 'plain-upload-form';
 		createPublishedLiveFormPage(formName, 'Plain upload form', fields(), undefined, undefined, {
 			actions: [
@@ -135,7 +102,7 @@ describe('Quarantine - 95 The uploads of a form reach its quarantining action al
 			cy.logout();
 			postDirectMultipartSubmission({formId, body: submissionWithAFile('Grace'), headers: withSameOriginHeaders()}).then(response => {
 				expect(response.status).to.eq(200);
-				expect(response.headers[UPLOAD_SPLIT_HEADERS.observer], 'files of the observer').to.eq('1');
+				expect(response.headers[UPLOAD_OBSERVER_HEADER], 'files of the observer').to.eq('1');
 			});
 		});
 
@@ -149,7 +116,7 @@ describe('Quarantine - 95 The uploads of a form reach its quarantining action al
 		storedFileNames(formName).should('deep.equal', [FILE_NAME]);
 	});
 
-	it('Q15: with a mandatory quarantine, a form with no quarantining action keeps its values and hands its file to no action', () => {
+	it('Q15: with a mandatory quarantine, a form with the switch off keeps its values and hands its file to no action', () => {
 		const formName = 'mandatory-quarantine-form';
 		setUploadsRequireQuarantine(true);
 		createPublishedLiveFormPage(formName, 'Mandatory quarantine form', fields(), undefined, undefined, {
@@ -162,7 +129,7 @@ describe('Quarantine - 95 The uploads of a form reach its quarantining action al
 			cy.logout();
 			postDirectMultipartSubmission({formId, body: submissionWithAFile('Hedy'), headers: withSameOriginHeaders()}).then(response => {
 				expect(response.status).to.eq(200);
-				expect(response.headers[UPLOAD_SPLIT_HEADERS.observer], 'files of the observer').to.eq('0');
+				expect(response.headers[UPLOAD_OBSERVER_HEADER], 'files of the observer').to.eq('0');
 			});
 		});
 
