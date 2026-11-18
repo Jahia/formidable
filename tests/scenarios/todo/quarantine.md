@@ -46,8 +46,9 @@ Each milestone is one pull request, and delivers the specs of its scenarios.
 - **Actions after release**: the list `deferredActions`. It runs once every
   check passed, and receives the values and the released files.
 - **Hold**: the service that receives a submission with its uploads. The
-  samples module ships a sample hold for the tests (M1), which releases at
-  once. The quarantine module ships the hold that stores the submission (M2).
+  samples module ships a sample hold for the tests (M1), which releases the
+  submission inside the request, before the response. The quarantine module
+  ships the hold that stores the submission (M2).
 - **Held submission**: a submission in the quarantine tree, with its values.
 - **Item**: one upload of a held submission, with its SHA-256.
 - **State** of a held submission: `held`, `checking`, `releasing`,
@@ -116,7 +117,8 @@ the scenario proves:
 ## 1. The hold and the actions after release (M1)
 
 The scenarios of this section use the sample hold, which releases a submission
-as soon as it receives it.
+inside the request: when the response arrives, the actions after release have
+run, and a spec reads their effects with no wait.
 
 ### Q06 — An e-mail action on submission sends no file — control
 
@@ -262,13 +264,20 @@ does not ship without it.
 
 ### Q16 — Read-only maintenance
 
+A form answers `FMDB-014` in read-only maintenance when it is presumed to
+write. A form with the switch on writes whatever its actions, because the hold
+stores the submission. Save to JCR in "Actions after release" makes a
+submission with no file a write too, because that list then runs in the request
+(Q25).
+
 **Steps:**
-1. Put the platform in read-only maintenance.
-2. Submit the form with a file, then with no file.
+1. Add Save to JCR to "Actions after release".
+2. Put the platform in read-only maintenance.
+3. Submit the form with a file, then with no file.
 
 **Expected:**
 - `FMDB-014` each time
-- No held submission and no item is written
+- No held submission, no item and no stored submission is written
 
 ---
 
@@ -317,7 +326,7 @@ covers the exhaustion of the attempts.
 **Expected:**
 - The submission was accepted with HTTP 200
 - The state is `checking` after each run
-- After step 3, the alarm of the form is raised
+- With M4: after step 3, the alarm e-mail of the form is in Mailpit
 
 ### Q05 — Attempts exhausted, then a manual retry
 
@@ -346,16 +355,18 @@ covers the exhaustion of the attempts.
 ### Q12 — The visitor learns nothing of the outcome
 
 **Steps:**
-1. Submit the form with a `VERDICT:PASS` file, then with a `VERDICT:FAIL`
-   file.
-2. Run the job, so that one submission is completed and the other rejected.
-3. Submit the same two files again.
-4. As a guest, request the form page, and the quarantine and results paths of
-   both submissions.
+1. Submit the form twice with a `VERDICT:PASS` file, before any run of the
+   job. The keys of the response body whose values differ between these two
+   responses are the only keys that the comparison below ignores.
+2. Submit the form with a `VERDICT:FAIL` file.
+3. Run the job, so that two submissions are completed and one rejected.
+4. Submit the `VERDICT:PASS` file and the `VERDICT:FAIL` file again.
+5. As a guest, request the form page, and the quarantine and results paths of
+   the submissions.
 
 **Expected:**
-- The four response bodies of the submissions are the same, but for what
-  differs between two submissions of one file
+- The five responses to a submission have the same status, the same keys and,
+  but for the keys of step 1, the same values
 - The file already rejected is accepted again, with HTTP 200
 - No response to the guest carries a state or an outcome
 
@@ -450,18 +461,23 @@ the bytes inside Jahia.
 ### Q20 — Manager actions
 
 **Steps:**
-1. Submit the form twice with `PENDING:3` files, and once with a `DOWN` file,
-   then run the job until the third submission is `needsReview`.
+1. Submit the form twice with `PENDING:9` files, and once with an
+   `INCONCLUSIVE` file, then run the job once. The check of the form sends an
+   inconclusive answer to review: the first two submissions are `checking`,
+   and the third is `needsReview`.
 2. As the results reader, try to release the first, to reject the second and
    to retry the third.
 3. As a manager, release the first, reject the second and retry the third.
-4. On the form of Q24, as the results reader then as a manager, resume the
-   submission that is `needsReview`.
+4. On a second form, bring a submission to `needsReview` as steps 1 to 3 of
+   Q24 do, and make the mail server accept the mail again.
+5. As the results reader, then as a manager, resume that submission, and run
+   the job.
 
 **Expected:**
 - Each attempt of the reader is refused, and no state changes
-- The first submission is `completed`, the second `rejected`, the third
-  `checking`, and the submission of step 4 `completed`
+- After step 3, the first submission is `completed`, the second `rejected` and
+  the third `checking`
+- After step 5, the submission of the second form is `completed`
 - Each action of the manager leaves an audit record that names the user
 
 ---
