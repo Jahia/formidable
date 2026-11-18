@@ -58,9 +58,9 @@ public @interface UploadsConfig {
 
     @AttributeDefinition(
             name = "Uploads require a quarantine",
-            description = "When true, a form hands its uploads to no action unless one of its actions quarantines " +
-                    "them: a form with no quarantining action keeps its values and drops its files. Applies to " +
-                    "every form of the platform. Default: false.",
+            description = "When true, a form whose option 'Hold uploads in quarantine' is off hands its uploads to " +
+                    "no action: it keeps its values and drops its files. Applies to every form of the platform. " +
+                    "Default: false.",
             type = AttributeType.BOOLEAN
     )
     boolean uploadsRequireQuarantine() default false;

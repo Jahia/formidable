@@ -1,5 +1,8 @@
 package org.jahia.modules.formidable.engine.actions.form.email;
 
+import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.engine.servlet.DetachedRequest;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.mail.MailMessage;
@@ -151,6 +154,44 @@ class EmailActionRecipientTest {
         verify(mailService).sendMessage(messageCaptor.capture());
         // Expected outcome: the outgoing recipient remains the configured literal value.
         assertEquals("team+${email}@example.com", messageCaptor.getValue().getTo());
+    }
+
+    @Test
+    void theNotificationActionRunsAfterReleaseWithNoHttpRequest() throws Exception {
+        // Verifies the action reads nothing of the request: handed the stand-in of a released submission, which
+        // throws on any call but the three values it kept, the action sends its mail.
+        JCRNodeWrapper actionNode = mockActionNodeWithTo(TEAM);
+        MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
+        ArgumentCaptor<MailMessage> messageCaptor = ArgumentCaptor.forClass(MailMessage.class);
+        doNothing().when(mailService).sendMessage(any(MailMessage.class));
+
+        SendEmailNotificationFormAction action = new SendEmailNotificationFormAction();
+        action.bindMailService(mailService);
+        action.execute(actionNode, DetachedRequest.request(new SubmissionOrigin(null, null, null)), null,
+                Map.of("email", List.of("guest@example.net")), List.of());
+
+        verify(mailService).sendMessage(messageCaptor.capture());
+        assertEquals(TEAM, messageCaptor.getValue().getTo());
+    }
+
+    @Test
+    void theContentActionRunsAfterReleaseWithNoHttpRequest() throws Exception {
+        // Verifies the same of the content action, with a released file in its hands.
+        JCRNodeWrapper actionNode = mockActionNodeWithTo(TEAM);
+        MailService mailService = mock(MailService.class);
+        when(mailService.isEnabled()).thenReturn(true);
+        ArgumentCaptor<MailMessage> messageCaptor = ArgumentCaptor.forClass(MailMessage.class);
+        doNothing().when(mailService).sendMessage(any(MailMessage.class));
+
+        SendEmailContentFormAction action = new SendEmailContentFormAction();
+        action.bindMailService(mailService);
+        action.execute(actionNode, DetachedRequest.request(new SubmissionOrigin(null, null, null)), null,
+                Map.of("email", List.of("guest@example.net")),
+                List.of(new SubmittedFile("cv", "cv.pdf", "application/pdf", new byte[] {1})));
+
+        verify(mailService).sendMessage(messageCaptor.capture());
+        assertEquals(TEAM, messageCaptor.getValue().getTo());
     }
 
     @Test

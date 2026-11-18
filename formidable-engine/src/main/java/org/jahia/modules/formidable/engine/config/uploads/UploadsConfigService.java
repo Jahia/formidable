@@ -100,7 +100,7 @@ public class UploadsConfigService {
     public int  getUploadMaxFileCount()        { return lifecycle.current().maxFileCount(); }
     /** The MIME types and wildcards a file field may accept; empty means no file is accepted. */
     public Set<String> getUploadAllowedTypes() { return lifecycle.current().allowedTypes(); }
-    /** Whether a form with no quarantining action hands its uploads to no action. */
+    /** Whether a form whose quarantine switch is off hands its uploads to no action. */
     public boolean isUploadsRequireQuarantine() { return lifecycle.current().requireQuarantine(); }
 
     /**

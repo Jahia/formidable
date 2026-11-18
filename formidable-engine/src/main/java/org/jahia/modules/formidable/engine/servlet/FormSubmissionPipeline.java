@@ -7,8 +7,12 @@ import org.jahia.modules.formidable.engine.api.FieldActionRequest;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionContext;
 import org.jahia.modules.formidable.engine.api.FormActionResult;
+import org.jahia.modules.formidable.engine.api.HeldSubmission;
 import org.jahia.modules.formidable.engine.api.RedirectTargets;
 import org.jahia.modules.formidable.engine.api.SensitiveFields;
+import org.jahia.modules.formidable.engine.api.SubmissionHold;
+import org.jahia.modules.formidable.engine.api.SubmissionHoldException;
+import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionMessage;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionDispatcher;
 import org.jahia.modules.formidable.engine.actions.field.ResolvedFieldAction;
@@ -49,6 +53,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.IntConsumer;
 
 import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WORKSPACE_LIVE;
 
@@ -75,7 +81,9 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  *   11. validateRequired         — post-parse check for required fields (catches absent fields)
  *   11b. runFieldActions         — the blocking field actions run again server-side (FMDB-015 with messages)
  *   12. dispatchActions          — execute fmdb:actionList nodes in order; a ContextualFormAction may answer the browser
- *                                  (redirect, message)
+ *                                  (redirect, message). On a form that holds its uploads (fmdbmix:quarantine), no action
+ *                                  of the list receives a file: the submission goes to the SubmissionHold service, or,
+ *                                  with no upload, its actions after release run here
  */
 class FormSubmissionPipeline {
 
@@ -158,6 +166,14 @@ class FormSubmissionPipeline {
     private FormDataParser.ParseResult parsed;
     private ConditionalLogicEvaluator logicEvaluator;
     private List<ResolvedAction> resolvedActions;
+    private List<ResolvedAction> resolvedDeferredActions;
+    /** Whether the form holds its uploads in quarantine, read once; {@code null} until asked. */
+    private Boolean holdsUploads;
+    /**
+     * The service that holds a submission with its uploads; {@code null} when no module registers one, and a form that
+     * holds its uploads then refuses a submission with an upload. Handed over by the servlet through {@link #useSubmissionHold}.
+     */
+    private SubmissionHold submissionHold;
     private HttpServletResponse response;
     /** The accepted values of the fields that are not sensitive: what the logic, every action, enricher and log line see. */
     private Map<String, List<String>> publicParameters;
@@ -196,6 +212,32 @@ class FormSubmissionPipeline {
         this.multipartParser = multipartParser;
         this.currentUserSessionProvider = currentUserSessionProvider;
         this.readOnlyStatusProvider = readOnlyStatusProvider;
+    }
+
+    /**
+     * A pipeline that runs no step: it holds what a released submission carries, for {@link #release} to run the
+     * actions after release as step 12 runs the actions of a request.
+     */
+    private FormSubmissionPipeline(List<FormAction> formActions, JcrTemplateProvider jcrTemplateProvider,
+                                   HeldSubmission submission) {
+        this.uploads = null;
+        this.captcha = null;
+        this.fieldActionsConfig = null;
+        this.formActions = formActions;
+        this.fieldMetadataCollector = null;
+        this.jcrTemplateProvider = jcrTemplateProvider;
+        this.multipartParser = null;
+        this.currentUserSessionProvider = null;
+        this.readOnlyStatusProvider = null;
+        this.formId = submission.formId();
+        this.locale = submission.locale();
+        this.publicParameters = submission.parameters();
+        this.sensitiveParameters = submission.sensitiveParameters();
+    }
+
+    /** The hold service the servlet references; without it a form that holds its uploads refuses a submission with one. */
+    void useSubmissionHold(SubmissionHold hold) {
+        this.submissionHold = hold;
     }
 
     /** The field actions' dispatcher, from the runtime the servlet references; without it step 11b runs nothing. */
@@ -321,7 +363,12 @@ class FormSubmissionPipeline {
         if (!readOnlyStatusProvider.isReadOnly()) {
             return;
         }
-        for (ResolvedAction action : actions()) {
+        List<ResolvedAction> presumedToRun = new ArrayList<>(actions());
+        if (holdsUploads()) {
+            // a submission with no upload runs them in the request
+            presumedToRun.addAll(deferredActions());
+        }
+        for (ResolvedAction action : presumedToRun) {
             if (!action.readOnlyCompatible()) {
                 throw new SubmissionException(ErrorCode.FMDB_014,
                         "Platform is in read-only mode and action '" + action.nodeType()
@@ -717,14 +764,96 @@ class FormSubmissionPipeline {
         return List.copyOf(firstOfEachAnswer.values());
     }
 
+    /**
+     * Step 12. On a form that holds its uploads ({@code fmdbmix:quarantine}), who receives the uploads is decided
+     * here, once, before the first action runs: no action of the request does, whatever its place in the list and
+     * whatever its code. A submission with an upload goes to the hold service once the actions of the request ran, and
+     * is refused before any action when no hold service is installed. A submission with no upload has nothing to
+     * hold: its actions after release run here, after the actions of the request.
+     */
     private void dispatchActions(HttpServletRequest req) throws SubmissionException {
         List<ResolvedAction> actions = actions();
-        List<SubmittedFile> submittedFiles = uploadsOfTheActions(toSubmittedFiles(publicFiles()));
-        int total = actions.size();
-        int executed = 0;
+        List<SubmittedFile> publicUploads = toSubmittedFiles(publicFiles());
         String siteKey = siteKeyOrNull();
+        Channel visitor = new Channel(req, response, session, siteKey, false);
+        if (!holdsUploads()) {
+            runActions(actions, 0, uploadsOfTheActions(publicUploads), visitor, new Progress(0, actions.size(), NOT_RECORDED));
+            return;
+        }
+        boolean held = !publicUploads.isEmpty();
+        if (held && submissionHold == null) {
+            throw new SubmissionException(ErrorCode.FMDB_018, "Form " + formId + " holds its uploads in quarantine and "
+                    + "no hold service is installed: a submission with an upload is refused.");
+        }
+        List<ResolvedAction> deferred = held ? List.of() : deferredActions();
+        int total = actions.size() + deferred.size();
+        SubmissionOrigin origin = new SubmissionOrigin(req.getParameter(SubmissionOrigin.LANGUAGE_PARAMETER),
+                req.getHeader(SubmissionOrigin.REFERER_HEADER), req.getHeader(SubmissionOrigin.TIME_ZONE_HEADER));
+        runActions(actions, 0, List.of(), visitor, new Progress(0, total, NOT_RECORDED));
+        if (held) {
+            hold(new HeldSubmission(formId, siteKey, locale, publicParameters, sensitiveParameters, publicUploads, origin));
+        } else {
+            runActions(deferred, 0, List.of(), Channel.detached(origin, siteKey), new Progress(actions.size(), total, NOT_RECORDED));
+        }
+    }
 
-        for (ResolvedAction action : actions) {
+    /**
+     * Runs the actions after release of a released submission, from the action at index {@code from}, as step 12 runs
+     * the actions of a request: the same dispatch, with the stand-ins of the request and of the response.
+     */
+    static void release(List<FormAction> formActions, JcrTemplateProvider jcrTemplateProvider, HeldSubmission submission,
+                        int from, IntConsumer completed) throws SubmissionException {
+        FormSubmissionPipeline pipeline = new FormSubmissionPipeline(formActions, jcrTemplateProvider, submission);
+        List<ResolvedAction> deferred = pipeline.deferredActions();
+        if (from < 0 || from > deferred.size()) {
+            throw new SubmissionException(ErrorCode.FMDB_012, "No action after release has the index " + from
+                    + " on form " + submission.formId() + ", whose list holds " + deferred.size() + ".");
+        }
+        pipeline.runActions(deferred, from, submission.files(), Channel.detached(submission.origin(), submission.siteKey()),
+                new Progress(0, deferred.size(), completed));
+    }
+
+    /** Whether the form holds its uploads in quarantine: its switch, {@code fmdbmix:quarantine}, read once. */
+    private boolean holdsUploads() throws SubmissionException {
+        if (holdsUploads == null) {
+            try {
+                holdsUploads = formNode.isNodeType(FmdbMixin.QUARANTINE);
+            } catch (RepositoryException e) {
+                throw new SubmissionException(ErrorCode.FMDB_500, "Cannot read the quarantine switch of form: " + formId, e);
+            }
+        }
+        return holdsUploads;
+    }
+
+    /**
+     * Hands the submission to the hold service. A failure refuses the submission, and its text is removed unless the
+     * hold wrote it: the hold was handed every value, and a library may quote one in a message.
+     */
+    private void hold(HeldSubmission submission) throws SubmissionException {
+        try {
+            submissionHold.hold(submission);
+        } catch (SubmissionHoldException e) {
+            throw new SubmissionException(ErrorCode.FMDB_018,
+                    "The hold service could not store the submission of form " + formId + ": " + e.getMessage(),
+                    redacted(e, true));
+        } catch (RuntimeException e) {
+            throw new SubmissionException(ErrorCode.FMDB_018,
+                    "The hold service could not store the submission of form " + formId + ": " + e.getClass().getName()
+                            + " (message removed: the hold service held the values)",
+                    redacted(e, false));
+        }
+    }
+
+    /**
+     * Runs the actions of a list from the index {@code from}, in order, each one in a system session of its own. The
+     * first failure stops the run. The result of an action is kept for the browser, unless no browser waits for it.
+     */
+    private void runActions(List<ResolvedAction> actions, int from, List<SubmittedFile> files, Channel channel,
+                            Progress progress) throws SubmissionException {
+        int total = progress.total();
+        for (int index = from; index < actions.size(); index++) {
+            ResolvedAction action = actions.get(index);
+            int executed = progress.offset() + index;
             String nodeType = action.nodeType();
             FormAction handler = handlerOf(nodeType);
             if (handler == null) {
@@ -739,16 +868,23 @@ class FormSubmissionPipeline {
             AtomicBoolean held = new AtomicBoolean();
             try {
                 FormActionResult result = jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale,
-                        systemSession -> executeAction(handler, action.id(), systemSession, req, siteKey, submittedFiles, held));
-                executed++;
-                keepFirstInstruction(result, nodeType);
+                        systemSession -> executeAction(handler, action.id(), systemSession, channel, files, held));
+                keepInstruction(result, nodeType, channel);
             } catch (WrappedFormActionException e) {
                 throw actionFailure(nodeType, executed, total, e.getFormActionException(), held.get());
             } catch (RepositoryException e) {
                 throw actionFailure(nodeType, executed, total, e, held.get());
             } catch (RuntimeException e) {
-                throw runtimeActionFailure(nodeType, executed, total, e, held.get());
+                throw runtimeActionFailure(nodeType, executed, total, e, held.get() ? Held.YES : Held.NO, channel.detached());
             }
+            progress.completed().accept(index);
+        }
+    }
+
+    /** Keeps what a contextual action told the browser, when a browser waits for it. */
+    private void keepInstruction(FormActionResult result, String nodeType, Channel channel) {
+        if (!channel.detached()) {
+            keepFirstInstruction(result, nodeType);
         }
     }
 
@@ -761,14 +897,15 @@ class FormSubmissionPipeline {
     }
 
     /**
-     * The uploads the actions of the request receive, decided once, before the first action runs: every public upload,
-     * or none when the operator made the quarantine mandatory ({@code uploadsRequireQuarantine}).
+     * The uploads the actions of a form receive when its quarantine switch is off, decided once, before the first
+     * action runs: every public upload, or none when the operator made the quarantine mandatory
+     * ({@code uploadsRequireQuarantine}).
      */
     private List<SubmittedFile> uploadsOfTheActions(List<SubmittedFile> publicUploads) {
         if (publicUploads.isEmpty() || !uploads.isUploadsRequireQuarantine()) {
             return publicUploads;
         }
-        log.warn("[FormSubmissionPipeline] uploadsRequireQuarantine is set and form {} holds no upload in quarantine: "
+        log.warn("[FormSubmissionPipeline] uploadsRequireQuarantine is set and the quarantine switch of form {} is off: "
                 + "its uploads are handed to no action.", formNode.getPath());
         return List.of();
     }
@@ -781,12 +918,14 @@ class FormSubmissionPipeline {
     }
 
     /**
-     * The failure of an action that threw a runtime exception: the repository's read-only rejection is an action failure;
-     * any other is rethrown as it is, unless the action held sensitive values.
+     * The failure of an action that threw a runtime exception: the repository's read-only rejection is an action failure,
+     * and so is any failure of an action that runs after release, whose caller needs the place of the action. Any
+     * other is rethrown as it is, unless the action held sensitive values.
      */
     private SubmissionException runtimeActionFailure(String nodeType, int executed, int total, RuntimeException e,
-                                                     boolean held) {
-        if (isReadOnlyRejection(e)) {
+                                                     Held heldValues, boolean detached) {
+        boolean held = heldValues == Held.YES;
+        if (detached || isReadOnlyRejection(e)) {
             return actionFailure(nodeType, executed, total, e, held);
         }
         if (!held) {
@@ -806,7 +945,7 @@ class FormSubmissionPipeline {
      * values, so that the dispatch knows a failure of the action may carry a secret.
      */
     private FormActionResult executeAction(FormAction handler, String actionId, JCRSessionWrapper systemSession,
-                                           HttpServletRequest req, String siteKey, List<SubmittedFile> files,
+                                           Channel channel, List<SubmittedFile> files,
                                            AtomicBoolean held) throws RepositoryException {
         JCRNodeWrapper actionNode = systemSession.getNodeByIdentifier(actionId);
         try {
@@ -815,9 +954,9 @@ class FormSubmissionPipeline {
                         ? Map.of()
                         : select(sensitiveParameters, contextual.sensitiveFieldsConsumed(actionNode));
                 held.set(!sensitive.isEmpty());
-                return contextual.execute(contextFor(actionNode, systemSession, req, siteKey, files, sensitive));
+                return contextual.execute(contextFor(actionNode, systemSession, channel, files, sensitive));
             }
-            handler.execute(actionNode, req, session, publicParameters, files);
+            handler.execute(actionNode, channel.request(), channel.session(), publicParameters, files);
             return FormActionResult.none();
         } catch (FormActionException e) {
             throw new WrappedFormActionException(e);
@@ -835,11 +974,13 @@ class FormSubmissionPipeline {
     }
 
     private FormActionContext contextFor(JCRNodeWrapper actionNode, JCRSessionWrapper systemSession,
-                                         HttpServletRequest req, String siteKey, List<SubmittedFile> files,
+                                         Channel channel, List<SubmittedFile> files,
                                          Map<String, List<String>> sensitive) throws RepositoryException {
         // the sensitive values reach only the action whose selection asks for them (step 9a)
-        return new FormActionContext(actionNode, systemSession.getNodeByIdentifier(formId), req, response, session,
-                locale, siteKey == null ? "" : siteKey, publicParameters, sensitive, files);
+        String siteKey = channel.siteKey();
+        return new FormActionContext(actionNode, systemSession.getNodeByIdentifier(formId), channel.request(),
+                channel.response(), channel.session(), locale, siteKey == null ? "" : siteKey, publicParameters, sensitive,
+                files);
     }
 
     /**
@@ -990,20 +1131,43 @@ class FormSubmissionPipeline {
         return resolvedActions;
     }
 
+    /**
+     * The actions after release of the form, the nodes of its {@code deferredActions} list. A node whose type does not
+     * declare {@code fmdbmix:deferrableAction} refuses the list: the repository refuses to create one there, so such a
+     * node says that the list was written around the repository.
+     */
+    private List<ResolvedAction> deferredActions() throws SubmissionException {
+        if (resolvedDeferredActions == null) {
+            resolvedDeferredActions = resolveActionNodes(FmdbNodeName.DEFERRED_ACTIONS, FmdbMixin.DEFERRABLE_ACTION);
+        }
+        return resolvedDeferredActions;
+    }
+
     private List<ResolvedAction> resolveActionNodes() throws SubmissionException {
+        return resolveActionNodes(FmdbNodeName.ACTIONS, null);
+    }
+
+    /**
+     * The nodes of a list of the form, in order.
+     *
+     * @param requiredMixin the mixin each node of the list declares, or {@code null} when the list asks for none
+     */
+    private List<ResolvedAction> resolveActionNodes(String listName, String requiredMixin) throws SubmissionException {
         List<ResolvedAction> result = new ArrayList<>();
+        AtomicReference<String> refused = new AtomicReference<>();
         try {
             jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                 JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
-                if (!systemFormNode.hasNode(FmdbNodeName.ACTIONS)) {
+                if (!systemFormNode.hasNode(listName)) {
                     return null;
                 }
 
-                JCRNodeWrapper actionList = systemFormNode.getNode(FmdbNodeName.ACTIONS);
-                NodeIterator it = actionList.getNodes();
+                NodeIterator it = systemFormNode.getNode(listName).getNodes();
                 while (it.hasNext()) {
-                    javax.jcr.Node child = it.nextNode();
-                    if (child instanceof JCRNodeWrapper w) {
+                    if (it.nextNode() instanceof JCRNodeWrapper w) {
+                        if (requiredMixin != null && !w.isNodeType(requiredMixin)) {
+                            refused.compareAndSet(null, w.getPrimaryNodeTypeName());
+                        }
                         result.add(new ResolvedAction(
                                 w.getIdentifier(),
                                 w.getPath(),
@@ -1019,12 +1183,42 @@ class FormSubmissionPipeline {
                     "Could not read action list for form: " + formId,
                     e);
         }
+        if (refused.get() != null) {
+            throw new SubmissionException(ErrorCode.FMDB_012, "The list '" + listName + "' of form " + formId
+                    + " holds an action of type '" + refused.get() + "', which does not declare " + requiredMixin + ".");
+        }
         return result;
     }
 
     // --- Internal types ---
 
     record ResolvedAction(String id, String path, String nodeType, boolean readOnlyCompatible) {}
+
+    /** Whether an action was handed sensitive values, so that two flags of a call are not taken for one another. */
+    private enum Held { YES, NO }
+
+    /** The checkpoint of a run that nobody resumes. */
+    private static final IntConsumer NOT_RECORDED = index -> { };
+
+    /**
+     * Where a run of a list stands among the actions of the submission.
+     *
+     * @param offset    the number of actions that ran before the list
+     * @param total     the number of actions of the submission
+     * @param completed called with the index of each action of the list once it ran
+     */
+    private record Progress(int offset, int total, IntConsumer completed) {}
+
+    /**
+     * What an action is handed beside the values: the request, the response and the session of the visitor, or, after
+     * release, the stand-ins of the first two and no session.
+     */
+    private record Channel(HttpServletRequest request, HttpServletResponse response, JCRSessionWrapper session,
+                           String siteKey, boolean detached) {
+        static Channel detached(SubmissionOrigin origin, String siteKey) {
+            return new Channel(DetachedRequest.request(origin), DetachedRequest.response(), null, siteKey, true);
+        }
+    }
 
     /** A throwable of a failure that may carry a secret, as it is logged: its class name and its stack, never its text. */
     static final class RedactedThrowable extends Exception {

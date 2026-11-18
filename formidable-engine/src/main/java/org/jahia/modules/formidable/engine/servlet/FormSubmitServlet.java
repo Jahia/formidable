@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.actions.common.FieldEscaper;
 import org.jahia.modules.formidable.engine.api.AcceptedSubmission;
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionResult;
+import org.jahia.modules.formidable.engine.api.SubmissionHold;
 import org.jahia.modules.formidable.engine.actions.field.FieldActionRuntime;
 import org.jahia.modules.formidable.engine.api.SubmissionResponseEnricher;
 import org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService;
@@ -20,6 +21,7 @@ import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.component.annotations.ReferencePolicyOption;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,6 +72,8 @@ public class FormSubmitServlet extends HttpServlet {
     private final AtomicReference<SettingsBean> settingsBean = new AtomicReference<>();
     /** The field actions' shared runtime (Java actions, verdict cache): the pipeline's step 11b runs on its dispatcher. */
     private final AtomicReference<FieldActionRuntime> fieldActionRuntime = new AtomicReference<>();
+    /** The service that holds a submission with its uploads: an extension module registers it, the engine ships none. */
+    private final AtomicReference<SubmissionHold> submissionHold = new AtomicReference<>();
     private final List<FormAction> formActions = new CopyOnWriteArrayList<>();
     private final List<SubmissionResponseEnricher> responseEnrichers = new CopyOnWriteArrayList<>();
 
@@ -119,6 +123,18 @@ public class FormSubmitServlet extends HttpServlet {
 
     protected void unbindFormAction(FormAction action) {
         formActions.remove(action);
+    }
+
+    /** Greedy: when a hold with a higher service ranking arrives, it replaces the bound one. */
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC,
+            policyOption = ReferencePolicyOption.GREEDY, unbind = "unbindSubmissionHold")
+    protected void bindSubmissionHold(SubmissionHold hold) {
+        submissionHold.set(hold);
+    }
+
+    /** A replacement binds the new hold before it unbinds the old one, so only the bound hold is cleared. */
+    protected void unbindSubmissionHold(SubmissionHold hold) {
+        submissionHold.compareAndSet(hold, null);
     }
 
     @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC, unbind = "unbindResponseEnricher")
@@ -250,6 +266,7 @@ public class FormSubmitServlet extends HttpServlet {
         FormSubmissionPipeline.Themes themes = new FormSubmissionPipeline.Themes(require(uploadsConfig, "UploadsConfigService"),
                 require(captchaConfig, "CaptchaConfigService"), require(fieldActionsConfig, "FieldActionsConfigService"));
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(themes, formActions, optionsSourceService.get(), this::isPlatformReadOnly);
+        pipeline.useSubmissionHold(submissionHold.get());
         FieldActionRuntime runtime = fieldActionRuntime.get();
         if (runtime != null) {
             pipeline.useFieldActions(runtime.dispatcher());

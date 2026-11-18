@@ -377,6 +377,8 @@ class FormSubmissionPipelineTest {
         // an action type without fmdbmix:readOnlyCompatibleAction must be rejected before
         // any authentication, CAPTCHA, or body processing happens.
         FormSubmissionPipeline pipeline = newPipelineWithReadOnlyStatus(true);
+        // step 4 resolved the form before this step: its quarantine switch is off
+        setField(pipeline, "formNode", mock(JCRNodeWrapper.class));
         setField(pipeline, "resolvedActions", List.of(
                 new FormSubmissionPipeline.ResolvedAction("id-1", "/form/actions/email", "fmdb:emailNotificationAction", true),
                 new FormSubmissionPipeline.ResolvedAction("id-2", "/form/actions/save", "fmdb:save2jcrAction", false)));
@@ -393,6 +395,8 @@ class FormSubmissionPipelineTest {
         // Verifies the scoping decision: a form whose actions all declare read-only
         // compatibility (e.g. email-only) keeps working during maintenance windows.
         FormSubmissionPipeline pipeline = newPipelineWithReadOnlyStatus(true);
+        // step 4 resolved the form before this step: its quarantine switch is off
+        setField(pipeline, "formNode", mock(JCRNodeWrapper.class));
         setField(pipeline, "resolvedActions", List.of(
                 new FormSubmissionPipeline.ResolvedAction("id-1", "/form/actions/email", "fmdb:emailNotificationAction", true)));
 
