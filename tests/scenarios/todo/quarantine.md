@@ -124,7 +124,7 @@ run, and a spec reads their effects with no wait.
 
 **Steps:**
 1. Add an e-mail content action with attachments to "Actions on submission",
-   and a second one, with another subject, to "Actions after release".
+   and a second one, with another recipient, to "Actions after release".
 2. Submit the form with a file.
 
 **Expected:**
