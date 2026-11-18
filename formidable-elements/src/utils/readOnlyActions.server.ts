@@ -12,9 +12,9 @@ export interface ActionNodeLike {
 // reads the same mixin on the same nodes, so render and submit cannot disagree.
 const READ_ONLY_COMPATIBLE_ACTION_MIXIN = "fmdbmix:readOnlyCompatibleAction";
 
-// The two lists whose actions the pipeline counts: the actions of the request, and, on a form that holds its
-// uploads in quarantine, the actions after release, which run in the request for a submission with no upload.
-const ACTION_LISTS = ["actions", "deferredActions"];
+// The switch of a form that holds its uploads in quarantine. While it is on, the pipeline also counts the actions
+// after release, which run in the request for a submission with no upload.
+const QUARANTINE_MIXIN = "fmdbmix:quarantine";
 
 /**
  * Whether an action of the form is presumed to write to the repository, as the submission pipeline decides it in
@@ -22,7 +22,8 @@ const ACTION_LISTS = ["actions", "deferredActions"];
  */
 export const hasRepositoryWritingAction = (formNode: ActionNodeLike): boolean => {
 	try {
-		return ACTION_LISTS
+		const lists = formNode.isNodeType(QUARANTINE_MIXIN) ? ["actions", "deferredActions"] : ["actions"];
+		return lists
 			.filter((list) => formNode.hasNode(list))
 			.flatMap((list) => Array.from(formNode.getNode(list).getNodes()))
 			.some((action) => !action.isNodeType(READ_ONLY_COMPATIBLE_ACTION_MIXIN));

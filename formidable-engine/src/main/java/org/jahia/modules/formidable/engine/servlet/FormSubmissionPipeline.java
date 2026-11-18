@@ -167,11 +167,6 @@ class FormSubmissionPipeline {
     private ConditionalLogicEvaluator logicEvaluator;
     private List<ResolvedAction> resolvedActions;
     private List<ResolvedAction> resolvedDeferredActions;
-    /**
-     * Whether a form with no {@code deferredActions} list refuses the run. True at release: the switch of the form
-     * was turned off since the submission was held, and a run of no action would read as a release that delivered.
-     */
-    private boolean deferredListMustExist;
     /** Whether the form holds its uploads in quarantine, read once; {@code null} until asked. */
     private Boolean holdsUploads;
     /**
@@ -371,7 +366,7 @@ class FormSubmissionPipeline {
         List<ResolvedAction> presumedToRun = new ArrayList<>(actions());
         if (holdsUploads()) {
             // a submission with no upload runs them in the request
-            presumedToRun.addAll(deferredActions());
+            presumedToRun.addAll(deferredActions(false));
         }
         for (ResolvedAction action : presumedToRun) {
             if (!action.readOnlyCompatible()) {
@@ -792,7 +787,7 @@ class FormSubmissionPipeline {
         }
         // read before the first action runs, for a held submission too: a list that the engine refuses is found
         // here, and not at the release of a submission that the visitor believes accepted
-        List<ResolvedAction> deferred = deferredActions();
+        List<ResolvedAction> deferred = deferredActions(false);
         int total = actions.size() + (held ? 0 : deferred.size());
         SubmissionOrigin origin = new SubmissionOrigin(req.getParameter(SubmissionOrigin.LANGUAGE_PARAMETER),
                 req.getHeader(SubmissionOrigin.REFERER_HEADER), req.getHeader(SubmissionOrigin.TIME_ZONE_HEADER));
@@ -811,8 +806,7 @@ class FormSubmissionPipeline {
     static void release(List<FormAction> formActions, JcrTemplateProvider jcrTemplateProvider, HeldSubmission submission,
                         int from, IntConsumer completed) throws SubmissionException {
         FormSubmissionPipeline pipeline = new FormSubmissionPipeline(formActions, jcrTemplateProvider, submission);
-        pipeline.deferredListMustExist = true;
-        List<ResolvedAction> deferred = pipeline.deferredActions();
+        List<ResolvedAction> deferred = pipeline.deferredActions(true);
         if (from < 0 || from > deferred.size()) {
             throw new SubmissionException(ErrorCode.FMDB_012, "No action after release has the index " + from
                     + " on form " + submission.formId() + ", whose list holds " + deferred.size() + ".");
@@ -1158,32 +1152,29 @@ class FormSubmissionPipeline {
      * The actions after release of the form, the nodes of its {@code deferredActions} list. A node whose type does not
      * declare {@code fmdbmix:deferrableAction} refuses the list: the repository refuses to create one there, so such a
      * node says that the list was written around the repository.
+     *
+     * @param listRequired whether a form with no such list refuses the run. True at release: the switch of the form
+     *                     was turned off since the submission was held, and a run of no action would read as a
+     *                     release that delivered
      */
-    private List<ResolvedAction> deferredActions() throws SubmissionException {
+    private List<ResolvedAction> deferredActions(boolean listRequired) throws SubmissionException {
         if (resolvedDeferredActions == null) {
-            AtomicBoolean missing = new AtomicBoolean();
-            List<ResolvedAction> resolved = resolveActionNodes(FmdbNodeName.DEFERRED_ACTIONS, FmdbMixin.DEFERRABLE_ACTION, missing);
-            if (missing.get() && deferredListMustExist) {
-                throw new SubmissionException(ErrorCode.FMDB_012, "Form " + formId + " has no '"
-                        + FmdbNodeName.DEFERRED_ACTIONS + "' list: its quarantine switch was turned off, and no action "
-                        + "after release can run.");
-            }
-            resolvedDeferredActions = resolved;
+            resolvedDeferredActions = resolveActionNodes(FmdbNodeName.DEFERRED_ACTIONS, FmdbMixin.DEFERRABLE_ACTION, listRequired);
         }
         return resolvedDeferredActions;
     }
 
     private List<ResolvedAction> resolveActionNodes() throws SubmissionException {
-        return resolveActionNodes(FmdbNodeName.ACTIONS, null, new AtomicBoolean());
+        return resolveActionNodes(FmdbNodeName.ACTIONS, null, false);
     }
 
     /**
      * The nodes of a list of the form, in order.
      *
      * @param requiredMixin the mixin each node of the list declares, or {@code null} when the list asks for none
-     * @param missing       set when the form has no such list, which reads as an empty list
+     * @param listRequired  whether a form with no such list refuses the read; otherwise it reads as an empty list
      */
-    private List<ResolvedAction> resolveActionNodes(String listName, String requiredMixin, AtomicBoolean missing)
+    private List<ResolvedAction> resolveActionNodes(String listName, String requiredMixin, boolean listRequired)
             throws SubmissionException {
         List<ResolvedAction> result = new ArrayList<>();
         AtomicReference<String> refused = new AtomicReference<>();
@@ -1191,7 +1182,10 @@ class FormSubmissionPipeline {
             jcrTemplateProvider.get().doExecuteWithSystemSessionAsUser(null, WORKSPACE_LIVE, locale, systemSession -> {
                 JCRNodeWrapper systemFormNode = systemSession.getNodeByIdentifier(formId);
                 if (!systemFormNode.hasNode(listName)) {
-                    missing.set(true);
+                    if (listRequired) {
+                        refused.set("Form " + formId + " has no '" + listName + "' list: its quarantine switch was "
+                                + "turned off, and no action after release can run.");
+                    }
                     return null;
                 }
 
@@ -1199,7 +1193,8 @@ class FormSubmissionPipeline {
                 while (it.hasNext()) {
                     if (it.nextNode() instanceof JCRNodeWrapper w) {
                         if (requiredMixin != null && !w.isNodeType(requiredMixin)) {
-                            refused.compareAndSet(null, w.getPrimaryNodeTypeName());
+                            refused.compareAndSet(null, "The list '" + listName + "' of form " + formId + " holds an action "
+                                    + "of type '" + w.getPrimaryNodeTypeName() + "', which does not declare " + requiredMixin + ".");
                         }
                         result.add(new ResolvedAction(
                                 w.getIdentifier(),
@@ -1217,8 +1212,7 @@ class FormSubmissionPipeline {
                     e);
         }
         if (refused.get() != null) {
-            throw new SubmissionException(ErrorCode.FMDB_012, "The list '" + listName + "' of form " + formId
-                    + " holds an action of type '" + refused.get() + "', which does not declare " + requiredMixin + ".");
+            throw new SubmissionException(ErrorCode.FMDB_012, refused.get());
         }
         return result;
     }

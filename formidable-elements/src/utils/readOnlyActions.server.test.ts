@@ -34,13 +34,19 @@ describe('hasRepositoryWritingAction', () => {
 
 	it('counts the actions after release of a form that holds its uploads, as the pipeline does', () => {
 		// The second list runs in the request for a submission with no upload, so the pipeline answers FMDB-014.
-		const form = nodeOf({children: {actions: listOf(mail()), deferredActions: listOf(store())}});
+		const form = nodeOf({mixins: ['fmdbmix:quarantine'], children: {actions: listOf(mail()), deferredActions: listOf(store())}});
 
 		expect(hasRepositoryWritingAction(form)).toBe(true);
 	});
 
+	it('ignores a second list that a form with the switch off still carries, as the pipeline does', () => {
+		const form = nodeOf({children: {actions: listOf(mail()), deferredActions: listOf(store())}});
+
+		expect(hasRepositoryWritingAction(form)).toBe(false);
+	});
+
 	it('is false when both lists hold only actions that never write', () => {
-		const form = nodeOf({children: {actions: listOf(mail()), deferredActions: listOf(mail())}});
+		const form = nodeOf({mixins: ['fmdbmix:quarantine'], children: {actions: listOf(mail()), deferredActions: listOf(mail())}});
 
 		expect(hasRepositoryWritingAction(form)).toBe(false);
 	});
