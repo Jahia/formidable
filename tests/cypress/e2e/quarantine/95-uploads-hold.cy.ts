@@ -26,8 +26,15 @@ import {
 	submissionWithNoFile
 } from './support';
 
-const graphql = (query: string, variables: Record<string, unknown>): Cypress.Chainable<Cypress.Response<any>> =>
-	cy.request({
+/** The body of a GraphQL answer: the data of the query, or the errors that refused it. */
+interface GraphqlBody {
+	// eslint-disable-next-line @typescript-eslint/no-explicit-any -- each query of the spec reads its own shape
+	data: any;
+	errors?: Array<{message: string}>;
+}
+
+const graphql = (query: string, variables: Record<string, unknown>): Cypress.Chainable<Cypress.Response<GraphqlBody>> =>
+	cy.request<GraphqlBody>({
 		method: 'POST',
 		url: '/modules/graphql',
 		headers: {Origin: SAME_ORIGIN},
