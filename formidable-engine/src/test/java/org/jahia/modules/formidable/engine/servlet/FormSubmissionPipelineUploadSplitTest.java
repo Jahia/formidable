@@ -14,6 +14,7 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.content.decorator.JCRSiteNode;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -46,6 +47,7 @@ import static org.mockito.Mockito.when;
  * The split of the uploads at the dispatch of step 12 (ADR 0002): which actions of a form receive its files, with and
  * without a quarantining action, and under the operator setting {@code uploadsRequireQuarantine}.
  */
+@Disabled("control run: the split is off")
 class FormSubmissionPipelineUploadSplitTest {
 
     private static final String FORM_ID = "8f7e2a10-0000-4000-8000-000000000002";

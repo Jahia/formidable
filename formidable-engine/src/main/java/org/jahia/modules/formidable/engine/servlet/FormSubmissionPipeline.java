@@ -775,6 +775,14 @@ class FormSubmissionPipeline {
      */
     private Set<String> uploadRecipients(List<ResolvedAction> actions, List<FormAction> handlers)
             throws SubmissionException {
+        // CONTROL RUN, never to merge: every action receives the uploads, as before the split.
+        if (!actions.isEmpty()) {
+            Set<String> control = new LinkedHashSet<>();
+            for (ResolvedAction action : actions) {
+                control.add(action.id());
+            }
+            return control;
+        }
         if (handlers.contains(null)) {
             log.warn("[FormSubmissionPipeline] An action of form {} has no handler, and it may be the quarantining one: "
                     + "the uploads of the form are handed to no action.", formNode.getPath());
