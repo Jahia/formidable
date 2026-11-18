@@ -105,8 +105,6 @@ the scenario proves:
 
 | Scenario | The control build |
 |---|---|
-| Q06, Q07, Q08 | hands the uploads to the actions on submission, whatever the switch says |
-| Q15 | ignores `uploadsRequireQuarantine` |
 | Q10 | leaves the ACL inheritance of the quarantine root in place |
 | Q09 | releases without computing the hash again |
 | Q21 | runs every check, whatever the outcome of an earlier one |
@@ -439,13 +437,11 @@ the bytes inside Jahia.
 | Q02 | the bytes released are the bytes checked |
 | Q03 | a file that failed a check never reaches an analyst |
 | Q04, Q05 | an outage of a check loses no claim |
-| Q06, Q07, Q08, Q15 | no file leaves through an action of the request |
 | Q09 | a file whose bytes changed after intake is never released |
 | Q10 | no reader opens a file before its release |
 | Q11 | no parser of the platform reads a held file |
 | Q12 | the form is no test bench for a malware author |
 | Q13 | a file that no check applied to is not released by default |
-| Q14 | no regression on a form with the switch off |
 | Q16 | read-only maintenance |
 | Q17, Q18 | no rejected file is kept forever |
 | Q19 | no active content in the analyst's browser |
@@ -454,5 +450,3 @@ the bytes inside Jahia.
 | Q22 | the actions after release run once, in order |
 | Q23 | no in-process check parses a file that no remote check passed |
 | Q24 | a failure after release sends no mail twice and stores nothing twice |
-| Q25 | a submission with no file waits for nothing |
-| Q26 | no action that cannot run after release enters that list |

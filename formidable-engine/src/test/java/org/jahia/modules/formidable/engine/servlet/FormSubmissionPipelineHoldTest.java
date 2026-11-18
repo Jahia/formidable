@@ -62,14 +62,16 @@ class FormSubmissionPipelineHoldTest {
     private JCRNodeWrapper userFormNode;
     private HttpServletRequest request;
     private JCRTemplate template;
+    /** The node that every identifier resolves to in the system session, the form included. */
+    private JCRNodeWrapper systemNode;
     /** What ran, in order: the type of each action, and {@code hold} for the hold service. */
     private List<String> ran;
 
     @BeforeEach
     void setUp() throws Exception {
         JCRSessionWrapper systemSession = mock(JCRSessionWrapper.class);
-        JCRNodeWrapper anyNode = mock(JCRNodeWrapper.class);
-        when(systemSession.getNodeByIdentifier(any())).thenReturn(anyNode);
+        systemNode = mock(JCRNodeWrapper.class);
+        when(systemSession.getNodeByIdentifier(any())).thenReturn(systemNode);
         template = mock(JCRTemplate.class);
         when(template.doExecuteWithSystemSessionAsUser(any(), any(), any(), any()))
                 .thenAnswer(call -> ((JCRCallback<?>) call.getArgument(3)).doInJCR(systemSession));
@@ -259,6 +261,26 @@ class FormSubmissionPipelineHoldTest {
 
         assertNull(store.receivedFiles.get());
         assertEquals(List.of("t:mail", "hold"), ran);
+    }
+
+    @Test
+    void aSecondListThatCannotBeReadRefusesAHeldSubmissionBeforeAnyActionRuns() throws Exception {
+        // Verifies the second list is read at intake for a held submission too: a list that the engine cannot read is
+        // found before the first action, and not at a release, after the visitor read a success.
+        PlainAction mail = new PlainAction("t:mail");
+        RecordingHold hold = new RecordingHold();
+        FormSubmissionPipeline pipeline = pipeline(true, List.of(mail), List.of("t:mail"), List.of(),
+                List.of(file("cv", "cv.pdf")));
+        pipeline.useSubmissionHold(hold);
+        set(pipeline, "resolvedDeferredActions", null);
+        when(systemNode.hasNode("deferredActions")).thenReturn(true);
+        when(systemNode.getNode("deferredActions")).thenThrow(new javax.jcr.PathNotFoundException("deferredActions"));
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> dispatch(pipeline));
+
+        assertEquals(ErrorCode.FMDB_012, error.errorCode);
+        assertEquals(List.of(), ran);
+        assertNull(hold.held.get());
     }
 
     @Test

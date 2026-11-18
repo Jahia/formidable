@@ -1,10 +1,11 @@
 package org.jahia.modules.formidable.engine.api;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 
 /**
  * A submission that the pipeline accepted on a form that holds its uploads in quarantine
@@ -42,9 +43,14 @@ public record HeldSubmission(
         files = files == null ? List.of() : List.copyOf(files);
     }
 
+    /** A copy that nobody changes, in the order of the source: an action lists the fields in that order. */
     private static Map<String, List<String>> copyOf(Map<String, List<String>> source) {
-        return source == null ? Map.of() : source.entrySet().stream()
-                .collect(Collectors.toUnmodifiableMap(Map.Entry::getKey, entry -> List.copyOf(entry.getValue())));
+        if (source == null) {
+            return Map.of();
+        }
+        Map<String, List<String>> copy = new LinkedHashMap<>();
+        source.forEach((field, values) -> copy.put(field, List.copyOf(values)));
+        return Collections.unmodifiableMap(copy);
     }
 
     /** What a log line may say: which fields, never what they hold. */

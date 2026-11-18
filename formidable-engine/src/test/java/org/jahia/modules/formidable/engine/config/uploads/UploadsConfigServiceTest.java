@@ -98,7 +98,7 @@ class UploadsConfigServiceTest {
 
     @Test
     void theQuarantineIsNotMandatoryUnlessTheOperatorSaysSo() {
-        // Verifies the operator switch of the split of the uploads: off by default, so that a platform that does not
+        // Verifies the operator setting uploadsRequireQuarantine: off by default, so that a platform that does not
         // set it keeps its behaviour, and read as it is written.
         assertFalse(activated(Map.of()).isUploadsRequireQuarantine());
         assertTrue(activated(Map.of("uploadsRequireQuarantine", true)).isUploadsRequireQuarantine());

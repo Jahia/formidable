@@ -7,7 +7,6 @@ import {
 	Render,
 	server,
 } from "@jahia/javascript-modules-library";
-import type {JCRNodeWrapper} from "org.jahia.services.content";
 import type {RenderContext} from "org.jahia.services.render";
 import {useTranslation} from "react-i18next";
 import AlertIcon from "~/design/AlertIcon";
@@ -15,14 +14,11 @@ import LockIcon from "~/design/LockIcon";
 import ShieldCheckIcon from "~/design/ShieldCheckIcon";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
+import {hasRepositoryWritingAction} from "~/utils/readOnlyActions.server";
 import {resolveUrlPlaceholders, styleTagCss} from "~/utils/richTextUtils";
 
 const SETTINGS_BEAN_SERVICE = "org.jahia.api.settings.SettingsBean";
 const CAPTCHA_CONFIG_SERVICE = "org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService";
-// Absence of the mixin = the action is presumed to write to the repository (the
-// declaration is inverted on purpose; see the engine CND). The submission pipeline
-// reads the same mixin on the same nodes, so render and submit cannot disagree.
-const READ_ONLY_COMPATIBLE_ACTION_MIXIN = "fmdbmix:readOnlyCompatibleAction";
 
 // Fail-open: if the platform state cannot be read, render the form normally — the
 // submission pipeline remains the correctness boundary (FMDB-014).
@@ -52,20 +48,6 @@ const isCaptchaSetUp = (): boolean => {
 		return true;
 	}
 };
-
-const hasRepositoryWritingAction = (formNode: JCRNodeWrapper): boolean => {
-	try {
-		const actionListNode = formNode.getNode("actions");
-		if (!actionListNode) return false;
-		return Array.from(actionListNode.getNodes())
-			.some((action) => !action.isNodeType(READ_ONLY_COMPATIBLE_ACTION_MIXIN));
-	} catch (error) {
-		console.error(`[Formidable] Could not inspect the actions of form ${formNode.getPath()}`, error);
-		// Fail-closed on the scoping side: an unreadable action list is presumed writing.
-		return true;
-	}
-};
-
 
 /**
  * The captcha settings CaptchaRenderFilter (Java) sets as request attributes on a form carrying the

@@ -207,10 +207,16 @@ moments.
   a type declares the marker, and content cannot. Save to JCR, the two e-mail actions and the forward action
   declare it, and the redirect action does not.
 - A node of the list without the marker refuses the whole run, before the first action. The repository refuses to
-  create such a node, so the node was written around the repository.
+  create such a node, so the node was written around the repository. Step 12 reads the list for a held submission
+  too, so the pipeline refuses such a list at intake, with FMDB-012.
+- A form with no `deferredActions` list refuses the run too. The contributor turned the switch off after the
+  submission was held, and a run of no action would read as a release that delivered the files.
 - A failure stops the run. `DeferredActionException` carries the index of the action that failed, and
   `DeferredActions#run` takes the index to resume from, so a resumed run repeats no action. The service calls a
-  checkpoint after each action, which the hold records.
+  checkpoint after each action, which the hold records. A checkpoint that fails stops the run, and the exception
+  then carries the index of the next action.
+- An index names a place in the list as the list stands when the run starts. A resumed run on a list that the
+  contributor reordered runs the action that now stands at that place.
 
 
 ### Response enrichers

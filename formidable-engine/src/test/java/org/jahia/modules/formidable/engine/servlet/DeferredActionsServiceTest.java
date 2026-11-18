@@ -291,6 +291,56 @@ class DeferredActionsServiceTest {
     }
 
     @Test
+    void aFormWhoseListIsGoneRefusesTheRun() throws Exception {
+        // Verifies a release on a form whose switch was turned off since the hold does not read as delivered: the
+        // form has no second list, so the run is refused, and the hold keeps the files.
+        bind(new PlainAction("t:store"));
+        when(formNode.hasNode("deferredActions")).thenReturn(false);
+
+        DeferredActionException error = assertThrows(DeferredActionException.class,
+                () -> service.run(released(), 0, completed::add));
+
+        assertEquals(DeferredActionException.NO_ACTION, error.failedAction());
+        assertTrue(error.getMessage().contains("deferredActions"), error.getMessage());
+        assertEquals(List.of(), ran);
+    }
+
+    @Test
+    void aCheckpointThatFailsStopsTheRunAfterTheActionItRecords() throws Exception {
+        // Verifies a hold that cannot record a checkpoint gets the exception of the service, with the index of the
+        // next action: the first action ran, so a resume from that index repeats nothing, and the second did not run.
+        PlainAction store = new PlainAction("t:store");
+        PlainAction mail = new PlainAction("t:mail");
+        bind(store, mail);
+        deferredList(deferrable("t:store", "t:mail"));
+
+        DeferredActionException error = assertThrows(DeferredActionException.class,
+                () -> service.run(released(), 0, index -> {
+                    throw new IllegalStateException("the store of the hold is down");
+                }));
+
+        assertEquals(1, error.failedAction());
+        assertEquals(2, error.total());
+        assertEquals(List.of("t:store"), ran);
+    }
+
+    @Test
+    void theValuesOfAReleasedSubmissionKeepTheirOrder() {
+        // Verifies an action lists the fields after release in the order the hold was handed, whatever the JVM.
+        Map<String, List<String>> ordered = new java.util.LinkedHashMap<>();
+        for (String field : List.of("zeta", "alpha", "mid", "beta", "omega", "gamma")) {
+            ordered.put(field, List.of(field));
+        }
+
+        HeldSubmission held = new HeldSubmission(FORM_ID, "mysite", Locale.FRENCH, ordered, ordered, List.of(),
+                new SubmissionOrigin(null, null, null));
+
+        assertEquals(List.of("zeta", "alpha", "mid", "beta", "omega", "gamma"), List.copyOf(held.parameters().keySet()));
+        assertEquals(List.of("zeta", "alpha", "mid", "beta", "omega", "gamma"), List.copyOf(held.sensitiveParameters().keySet()));
+        assertThrows(UnsupportedOperationException.class, () -> held.parameters().put("extra", List.of()));
+    }
+
+    @Test
     void anIndexOutsideTheListIsRefused() throws Exception {
         // Verifies a resume from an index the list does not have runs nothing.
         bind(new PlainAction("t:store"));

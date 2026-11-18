@@ -20,7 +20,10 @@ public class DeferredActionException extends Exception {
         this.total = total;
     }
 
-    /** The index of the action that failed, the one to resume from, or {@link #NO_ACTION}. */
+    /**
+     * The index to resume from: the action that failed, or the action after the one whose checkpoint failed. It is
+     * {@link #NO_ACTION} when the list was refused before any action ran.
+     */
     public int failedAction() {
         return failedAction;
     }
