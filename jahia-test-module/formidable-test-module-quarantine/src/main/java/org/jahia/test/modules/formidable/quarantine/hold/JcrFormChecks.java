@@ -7,13 +7,13 @@ import org.jahia.test.modules.formidable.quarantine.QuarantineTypes;
 import javax.jcr.RepositoryException;
 
 /** Reads the "Checks" list of a form in live, with a system session: the visitor who submits cannot read it. */
-final class JcrFormChecks implements FormChecks {
+public final class JcrFormChecks implements FormChecks {
 
     /**
      * The child of a form that holds its uploads, which the engine declares on {@code fmdbmix:quarantine}. The
      * {@code api} package of the engine has no constant for it.
      */
-    static final String QUALIFIERS = "qualifiers";
+    public static final String QUALIFIERS = "qualifiers";
     private static final String LIVE_WORKSPACE = "live";
 
     @Override

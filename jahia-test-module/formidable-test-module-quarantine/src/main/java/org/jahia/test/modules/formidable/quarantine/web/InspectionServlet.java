@@ -1,7 +1,10 @@
 package org.jahia.test.modules.formidable.quarantine.web;
 
+import org.jahia.test.modules.formidable.quarantine.store.CheckStore;
+import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.test.modules.formidable.quarantine.store.ItemRecord;
+import org.jahia.test.modules.formidable.quarantine.store.OutcomeRecord;
 import org.jahia.test.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.test.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.json.JSONArray;
@@ -25,8 +28,9 @@ import java.util.regex.Pattern;
 /**
  * The inspection of the quarantine tree, for the test suite: a {@code GET} on
  * {@code /modules/formidable-quarantine/inspection?site=<siteKey>&form=<formId>} answers the held submissions of the
- * form as JSON: the state of each, the names of its fields, and of each item its file name, size, SHA-256 and whether
- * its bytes are still there. Never a value, never a sensitive value, never a byte.
+ * form as JSON: the state of each, the names of its fields, of each item its file name, size, SHA-256 and whether
+ * its bytes are still there, the outcome of each check for each item, and the decision that stopped the run. Never a
+ * value, never a sensitive value, never a byte, never a ticket.
  *
  * <p>Server administrators only: any other caller, a site administrator included, gets 403 and nothing else.</p>
  */
@@ -46,6 +50,7 @@ public class InspectionServlet extends HttpServlet {
 
     private final transient ServerAdministrators administrators;
     private final transient AtomicReference<QuarantineStore> store = new AtomicReference<>();
+    private transient CheckStore checkStore;
 
     public InspectionServlet() {
         this(ServerAdministrators.ofThePlatform());
@@ -58,6 +63,11 @@ public class InspectionServlet extends HttpServlet {
     @Reference
     public void setStore(QuarantineStore store) {
         this.store.set(store);
+    }
+
+    @Reference
+    public void setCheckStore(CheckStore checkStore) {
+        this.checkStore = checkStore;
     }
 
     @Override
@@ -83,16 +93,17 @@ public class InspectionServlet extends HttpServlet {
         }
     }
 
-    /** The JSON of the held submissions of a form: names, states, sizes and hashes only. */
-    static JSONObject inspection(String site, String form, List<HeldRecord> records) {
+    /** The JSON of the held submissions of a form: names, states, sizes, hashes and outcomes only. */
+    JSONObject inspection(String site, String form, List<HeldRecord> records) throws QuarantineStoreException {
         JSONArray submissions = new JSONArray();
         for (HeldRecord held : records) {
-            submissions.put(submission(held));
+            submissions.put(submission(held, checkStore.outcomes(held.path()), checkStore.decision(held.path()).orElse(null)));
         }
         return new JSONObject().put("site", site).put("form", form).put("submissions", submissions);
     }
 
-    private static JSONObject submission(HeldRecord held) {
+    private static JSONObject submission(HeldRecord held, List<OutcomeRecord> outcomes,
+                                         DecisionRecord decision) {
         JSONArray items = new JSONArray();
         for (ItemRecord item : held.items()) {
             items.put(new JSONObject()
@@ -114,7 +125,37 @@ public class InspectionServlet extends HttpServlet {
                 .put("fields", new JSONArray(held.valueFields()))
                 .put("sensitiveFields", new JSONArray(held.sensitiveFields()))
                 .put("valuesPresent", held.valuesPresent())
-                .put("items", items);
+                .put("items", items)
+                .put("checks", checks(outcomes))
+                .put("decision", decision == null ? JSONObject.NULL : decision(decision));
+    }
+
+    /** The outcome of each check for each item: no ticket, only whether one is pending. */
+    private static JSONArray checks(List<OutcomeRecord> outcomes) {
+        JSONArray checks = new JSONArray();
+        for (OutcomeRecord outcome : outcomes) {
+            checks.put(new JSONObject()
+                    .put("item", outcome.itemName())
+                    .put("check", outcome.checkName())
+                    .put("outcome", outcome.outcome())
+                    .put("reason", nullable(outcome.reason()))
+                    .put("retryable", outcome.retryable())
+                    .put("ticketPresent", outcome.ticket() != null)
+                    .put("attempts", outcome.attempts())
+                    .put("sha256", outcome.sha256())
+                    .put("at", instant(outcome.at())));
+        }
+        return checks;
+    }
+
+    private static JSONObject decision(DecisionRecord decision) {
+        return new JSONObject()
+                .put("reason", decision.reason())
+                .put("item", nullable(decision.itemName()))
+                .put("check", nullable(decision.checkName()))
+                .put("sha256", nullable(decision.sha256()))
+                .put("failedAction", decision.failedAction() == null ? JSONObject.NULL : decision.failedAction())
+                .put("at", instant(decision.at()));
     }
 
     private static Object instant(Instant at) {
