@@ -11,7 +11,8 @@ public interface CheckList {
 
     /**
      * @param formId the identifier of the form, in live
-     * @return the settings of each node of the list, in the order of the list; empty when the form has no list
+     * @return the settings of each check of the list (a child with {@code fmdbmix:qualifier}), in the order of
+     *         the list; empty when the form has no list
      * @throws RepositoryException when the form or its list cannot be read
      */
     List<CheckSettings> of(String formId) throws RepositoryException;
