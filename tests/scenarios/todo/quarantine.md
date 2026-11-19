@@ -176,13 +176,12 @@ does not ship without it.
 ### Q16 — Read-only maintenance
 
 A form answers `FMDB-014` in read-only maintenance when it is presumed to
-write. A form with the switch on writes whatever its actions, because the hold
-stores the submission. Save to JCR in "Actions after release" makes a
-submission with no file a write too, because that list then runs in the request
-(Q25).
+write. A form with the switch on is presumed to write, whatever its actions:
+the hold stores a submission with a file, and the gate runs before the body
+says whether a file came.
 
 **Steps:**
-1. Add Save to JCR to "Actions after release".
+1. Keep only actions that never write in both lists of the form.
 2. Put the platform in read-only maintenance.
 3. Submit the form with a file, then with no file.
 

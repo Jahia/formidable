@@ -462,17 +462,6 @@ class FormSubmissionPipelineHoldTest {
     }
 
     @Test
-    void readOnlyMaintenanceCountsTheActionsAfterReleaseOfAFormWithTheSwitchOn() throws Exception {
-        // Verifies a form with the switch on and an action after release that is presumed to write answers FMDB-014:
-        // that action may run in the request, and the switch alone already counts as a write.
-        FormSubmissionPipeline pipeline = pipeline(true, List.of(), List.of("t:mail"), List.of("t:write"), List.of(), true);
-
-        SubmissionException error = assertThrows(SubmissionException.class, () -> verifyPlatformWritable(pipeline));
-
-        assertEquals(ErrorCode.FMDB_014, error.errorCode);
-    }
-
-    @Test
     void readOnlyMaintenanceRefusesAHeldUploadEvenWhenEveryActionIsReadOnlyCompatible() throws Exception {
         // Verifies the switch counts as a write: with an e-mail action in each list and a file, the hold would store
         // the submission, so the form answers FMDB-014 before any action runs, and the hold is not called. Without the

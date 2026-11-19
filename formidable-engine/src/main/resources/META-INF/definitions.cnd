@@ -95,7 +95,8 @@ orderable
 // safety: an action type WITHOUT this mixin — including any third-party action that
 // never considered read-only mode — is presumed to write, and blocks its form during
 // maintenance windows. Worst case an unaffected form is over-blocked; a submission is
-// never lost to a mid-pipeline repository rejection.
+// never lost to a mid-pipeline repository rejection. The mixin does not help a form that
+// holds its uploads (fmdbmix:quarantine): such a form is presumed to write, whatever its actions.
 [fmdbmix:readOnlyCompatibleAction] mixin
 
 // --- The quarantine of the uploads (docs/adr/0002, docs/architecture/form-submission-flow.md) ---

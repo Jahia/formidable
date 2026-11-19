@@ -21,7 +21,7 @@ const QUARANTINE_MIXIN = "fmdbmix:quarantine";
  * maintenance (FMDB-014): the switch is on, or an action is presumed to write. The form view then shows the
  * maintenance message in place of the form.
  */
-export const hasRepositoryWritingAction = (formNode: ActionNodeLike): boolean => {
+export const isPresumedToWrite =(formNode: ActionNodeLike): boolean => {
 	try {
 		if (formNode.isNodeType(QUARANTINE_MIXIN)) {
 			return true;

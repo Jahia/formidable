@@ -1,5 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest';
-import {type ActionNodeLike, hasRepositoryWritingAction} from './readOnlyActions.server';
+import {type ActionNodeLike, isPresumedToWrite} from './readOnlyActions.server';
 
 /** A node as the check reads it: its mixins and its children. */
 const nodeOf = (options: {mixins?: string[]; children?: Record<string, ActionNodeLike>} = {}): ActionNodeLike => {
@@ -19,45 +19,38 @@ const store = () => nodeOf({mixins: ['fmdbmix:formAction']});
 const listOf = (...actions: ActionNodeLike[]) =>
 	nodeOf({children: Object.fromEntries(actions.map((node, index) => [`action-${index}`, node]))});
 
-describe('hasRepositoryWritingAction', () => {
+describe('isPresumedToWrite', () => {
 	afterEach(() => {
 		vi.restoreAllMocks();
 	});
 
 	it('is false for a form whose actions all declare that they never write', () => {
-		expect(hasRepositoryWritingAction(nodeOf({children: {actions: listOf(mail())}}))).toBe(false);
+		expect(isPresumedToWrite(nodeOf({children: {actions: listOf(mail())}}))).toBe(false);
 	});
 
 	it('is true when an action on submission is presumed to write', () => {
-		expect(hasRepositoryWritingAction(nodeOf({children: {actions: listOf(mail(), store())}}))).toBe(true);
-	});
-
-	it('counts the actions after release of a form that holds its uploads, as the pipeline does', () => {
-		// The second list runs in the request for a submission with no upload, so the pipeline answers FMDB-014.
-		const form = nodeOf({mixins: ['fmdbmix:quarantine'], children: {actions: listOf(mail()), deferredActions: listOf(store())}});
-
-		expect(hasRepositoryWritingAction(form)).toBe(true);
+		expect(isPresumedToWrite(nodeOf({children: {actions: listOf(mail(), store())}}))).toBe(true);
 	});
 
 	it('ignores a second list that a form with the switch off still carries, as the pipeline does', () => {
 		const form = nodeOf({children: {actions: listOf(mail()), deferredActions: listOf(store())}});
 
-		expect(hasRepositoryWritingAction(form)).toBe(false);
+		expect(isPresumedToWrite(form)).toBe(false);
 	});
 
 	it('is true for a form with the switch on, whatever its actions, as the pipeline decides', () => {
 		// The hold stores a submission with an upload, and the view cannot know whether a visitor attaches one.
 		const form = nodeOf({mixins: ['fmdbmix:quarantine'], children: {actions: listOf(mail()), deferredActions: listOf(mail())}});
 
-		expect(hasRepositoryWritingAction(form)).toBe(true);
+		expect(isPresumedToWrite(form)).toBe(true);
 	});
 
 	it('is true for a form with the switch on and no list', () => {
-		expect(hasRepositoryWritingAction(nodeOf({mixins: ['fmdbmix:quarantine']}))).toBe(true);
+		expect(isPresumedToWrite(nodeOf({mixins: ['fmdbmix:quarantine']}))).toBe(true);
 	});
 
 	it('is false for a form with no list', () => {
-		expect(hasRepositoryWritingAction(nodeOf())).toBe(false);
+		expect(isPresumedToWrite(nodeOf())).toBe(false);
 	});
 
 	it('presumes a write when a list cannot be read', () => {
@@ -67,6 +60,6 @@ describe('hasRepositoryWritingAction', () => {
 			throw new Error('the repository is stopping');
 		};
 
-		expect(hasRepositoryWritingAction(form)).toBe(true);
+		expect(isPresumedToWrite(form)).toBe(true);
 	});
 });

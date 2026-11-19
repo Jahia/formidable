@@ -14,7 +14,7 @@ import LockIcon from "~/design/LockIcon";
 import ShieldCheckIcon from "~/design/ShieldCheckIcon";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
-import {hasRepositoryWritingAction} from "~/utils/readOnlyActions.server";
+import {isPresumedToWrite} from "~/utils/readOnlyActions.server";
 import {resolveUrlPlaceholders, styleTagCss} from "~/utils/richTextUtils";
 
 const SETTINGS_BEAN_SERVICE = "org.jahia.api.settings.SettingsBean";
@@ -151,12 +151,12 @@ jahiaComponent(
 		// language is always sent — the engine renders the contributor's message in it.
 		const fieldActionUrl = `${renderContext.getRequest().getContextPath()}/modules/formidable-engine/field-action?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
-		// Maintenance state: only for forms that write to the repository (an action presumed
-		// to write, or the quarantine switch on), and only
-		// in live (contributors keep seeing the real form in edit/preview). Render-time
-		// detection is a UX layer — cached fragments can be stale in both directions, so the
-		// maintenance fragment gets a short TTL and the submission pipeline stays authoritative.
-		const isMaintenance = !isSubmitDisabled && isPlatformReadOnly() && hasRepositoryWritingAction(currentNode);
+		// Maintenance state: only for forms presumed to write to the repository (an action presumed
+		// to write, or the quarantine switch on), and only in live (contributors keep seeing the
+		// real form in edit/preview). Render-time detection is a UX layer — cached fragments can be
+		// stale in both directions, so the maintenance fragment gets a short TTL and the submission
+		// pipeline stays authoritative.
+		const isMaintenance = !isSubmitDisabled && isPlatformReadOnly() && isPresumedToWrite(currentNode);
 		if (isMaintenance) {
 			// The Java request exposes setAttribute; the TS stub only types the getters.
 			(renderContext.getRequest() as unknown as {setAttribute(name: string, value: string): void})
