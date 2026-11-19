@@ -161,6 +161,7 @@ Its structure, for the rare rule that must reach inside it — the
 | Class | Element |
 |---|---|
 | `fmdb-authoring-actions` | The zone, an `aside` |
+| `fmdb-authoring-deferred-actions` | The second zone of a form that holds its uploads in quarantine, the **Actions after release** list, next to `fmdb-authoring-actions` on the same `aside`; it sits under the first zone |
 | `fmdb-authoring-actions-header`, `fmdb-authoring-actions-title`, `fmdb-authoring-actions-hint` | The header row: the title (list icon and count) and the hint on the right |
 | `fmdb-authoring-actions-glyph` | The list's type icon in the title, and the triangle of the warning |
 | `fmdb-authoring-actions-empty` | The "no action" warning — and, with `fmdb-authoring-actions-unavailable`, the field zone's "no type" call-out |

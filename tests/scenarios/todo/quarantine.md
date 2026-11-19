@@ -7,7 +7,9 @@ its actions after release.
 Decision: [ADR 0002](../../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-No scenario of this document is automated yet. A scenario moves to
+No scenario of this document is automated yet, except a part of Q16:
+`tests/cypress/e2e/security/45-read-only-maintenance.cy.ts` covers its gate for a
+submission with no file and for the form view. A scenario moves to
 [`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
 it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1 moved there.
 

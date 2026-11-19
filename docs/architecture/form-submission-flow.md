@@ -168,9 +168,8 @@ Step 12 reads the switch once, before it runs the first action, and then decides
 - The upload of a sensitive field still reaches nobody, the hold included (decision D4). A submission whose only
   upload is the one of a sensitive field is not held.
 - The values of the fields are not held back: the actions of `actions` receive the public values, as before.
-- In read-only maintenance, a form with the switch on answers FMDB-014, whatever its actions. The hold writes when
-  it stores a submission with an upload, and the check runs before the pipeline reads the body, so it cannot know
-  whether an upload comes. The form view shows the maintenance message for the same reason.
+- In read-only maintenance, a form with the switch on answers FMDB-014, whatever its actions
+  ([Read-only maintenance mode](#read-only-maintenance-mode)).
 - `uploadsRequireQuarantine` is a setting of `org.jahia.modules.formidable.uploads.cfg`, for every form of the
   platform ([Configuration files](../administration/configuration.md#a-mandatory-quarantine)).
 
@@ -640,7 +639,9 @@ As a consequence:
 - there is **nothing to delete on disk** from `FormDataParser` itself
 
 After parsing, the validated uploads remain in memory as `List<FormFile>` and are converted
-to the SPI-level `List<SubmittedFile>` passed to each `FormAction`.
+to the SPI-level `List<SubmittedFile>`. On a form with the switch off, and with the default
+`uploadsRequireQuarantine=false`, that list goes to each `FormAction` of the form.
+[The hold of the uploads](#the-hold-of-the-uploads) states who receives it in the other cases.
 
 Actions that need uploaded files reuse that in-memory list:
 
