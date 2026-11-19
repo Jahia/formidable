@@ -9,8 +9,9 @@ Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
 No scenario of this document is automated yet. A scenario moves to
 [`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
-it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1, and those of the
-intake (Q01, Q10, Q11, Q16), moved there.
+it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1, those of the
+intake (Q01, Q10, Q11, Q16), and those of the checks and the release (Q02, Q03,
+Q04, Q09, Q12, Q13, Q21, Q22, Q23) moved there.
 
 The scenarios of M1 are final. Those of a later milestone are the acceptance
 list that its pull request starts from: that pull request completes their steps
@@ -106,9 +107,7 @@ the scenario proves:
 
 | Scenario | The control build |
 |---|---|
-| Q09 | releases without computing the hash again |
-| Q21 | runs every check, whatever the outcome of an earlier one |
-| Q23 | runs a list whose first check is in-process |
+| Q09, Q21, Q23 | moved to [`../quarantine.md`](../quarantine.md) with their specs |
 
 ---
 
@@ -129,50 +128,12 @@ quarantine test module.
 
 ## 3. Checks and release (M3)
 
+The scenarios Q02, Q03, Q04, Q09, Q12, Q13, Q21, Q22 and Q23 moved to
+[`../quarantine.md`](../quarantine.md), with the run and the release of the
+quarantine test module. Q05 and Q24 wait for the operations of the module.
+
 The form of this section has one stub check in "Checks", and Save to JCR in
 "Actions after release", unless the scenario says otherwise.
-
-### Q02 — Every check passes, and the file is released
-
-**Steps:**
-1. Submit the form with a `VERDICT:PASS` file.
-2. Read the SHA-256 that the item records (Groovy).
-3. Run the job.
-
-**Expected:**
-- The file exists under `files/` of the stored submission, the SHA-256 of its
-  bytes is the one that step 2 read, and the file carries the released marker
-- The item is gone
-- The state is `completed`
-
-### Q03 — A check fails, and the submission is rejected
-
-**Steps:**
-1. Submit the form with a `VERDICT:FAIL` file.
-2. Run the job.
-
-**Expected:**
-- The state is `rejected`
-- No submission is stored in the results of the form, and no action after
-  release ran
-- The outcome and its reason are recorded on the held submission
-- With M4: the outcome is on the Results page, and the alarm e-mail of the form
-  is in Mailpit
-
-### Q04 — A check that is down keeps the submission
-
-**Steps:**
-1. Submit the form with a `DOWN` file.
-2. Run the job twice.
-3. Age the held submission past the alarm delay (Groovy), and run the job.
-
-The settings allow more attempts than the three runs of this scenario. Q05
-covers the exhaustion of the attempts.
-
-**Expected:**
-- The submission was accepted with HTTP 200
-- The state is `checking` after each run
-- With M4: after step 3, the alarm e-mail of the form is in Mailpit
 
 ### Q05 — Attempts exhausted, then a manual retry
 
@@ -185,87 +146,6 @@ covers the exhaustion of the attempts.
 **Expected:**
 - The state is `needsReview` after step 2
 - The state is `checking` after the retry, then `completed`
-
-### Q09 — The bytes changed after intake — control
-
-**Steps:**
-1. Submit the form with a `VERDICT:PASS` file.
-2. Change the binary of the item (Groovy).
-3. Run the job.
-
-**Expected:**
-- No submission is stored in the results of the form
-- The state is `needsReview`
-- An audit record names the difference of hash
-
-### Q12 — The visitor learns nothing of the outcome
-
-**Steps:**
-1. Submit the form twice with a `VERDICT:PASS` file, before any run of the
-   job. The keys of the response body whose values differ between these two
-   responses are the only keys that the comparison below ignores.
-2. Submit the form with a `VERDICT:FAIL` file.
-3. Run the job, so that two submissions are completed and one rejected.
-4. Submit the `VERDICT:PASS` file and the `VERDICT:FAIL` file again.
-5. As a guest, request the form page, and the quarantine and results paths of
-   the submissions.
-
-**Expected:**
-- The five responses to a submission have the same status, the same keys and,
-  but for the keys of step 1, the same values
-- The file already rejected is accepted again, with HTTP 200
-- No response to the guest carries a state or an outcome
-
-### Q13 — A file that no check applies to
-
-**Steps:**
-1. Submit the form with an image: the stub check applies to text files alone.
-2. Run the job.
-
-**Expected:**
-- The file is withheld: no submission is stored in the results of the form
-- The state is `needsReview`
-- The stub logs no call
-
-### Q21 — Two checks, and the first fails — control
-
-**Steps:**
-1. Put two stub checks in "Checks".
-2. Submit the form with a `VERDICT:FAIL` file.
-3. Run the job.
-
-**Expected:**
-- The state is `rejected`
-- The stub logs one call, for the first check, and none for the second
-
-### Q22 — Two checks, and both pass
-
-**Steps:**
-1. Put two stub checks in "Checks", and two observer actions in "Actions after
-   release".
-2. Submit the form with a `VERDICT:PASS` file.
-3. Run the job twice.
-
-**Expected:**
-- The stub logs one call for each check, in the order of the list
-- Each observer action reports one call, with one file, in the order of the
-  list
-- The state is `completed`
-
-### Q23 — An in-process check placed first — control
-
-The quarantine test module registers a second stub check, which declares that
-it reads the bytes inside Jahia.
-
-**Steps:**
-1. Put the in-process stub check first in "Checks", and the stub check second.
-2. Open the form in the editor.
-3. Submit the form with a `VERDICT:PASS` file, and run the job.
-
-**Expected:**
-- The editor shows an alert on the list of checks
-- Neither stub logs a call
-- The state is `needsReview`
 
 ### Q24 — An action after release fails, and a manager resumes
 
@@ -368,16 +248,8 @@ it reads the bytes inside Jahia.
 
 | Scenario | Proves |
 |---|---|
-| Q02 | the bytes released are the bytes checked |
-| Q03 | a file that failed a check never reaches an analyst |
-| Q04, Q05 | an outage of a check loses no claim |
-| Q09 | a file whose bytes changed after intake is never released |
-| Q12 | the form is no test bench for a malware author |
-| Q13 | a file that no check applied to is not released by default |
+| Q05 | an outage of a check loses no claim |
 | Q17, Q18 | no rejected file is kept forever |
 | Q19 | no active content in the analyst's browser |
 | Q20 | a release is the act of a named manager |
-| Q21 | a later check never reads a file that an earlier check failed |
-| Q22 | the actions after release run once, in order |
-| Q23 | no in-process check parses a file that no remote check passed |
 | Q24 | a failure after release sends no mail twice and stores nothing twice |

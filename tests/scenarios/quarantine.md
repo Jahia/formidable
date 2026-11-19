@@ -20,6 +20,8 @@ Specs:
   the mail of Q14 and of Q15.
 - `tests/cypress/e2e/quarantine/97-quarantine-intake.cy.ts` covers Q01, Q10,
   Q11 and Q16, with the reference hold of the quarantine test module.
+- `tests/cypress/e2e/quarantine/98-quarantine-checks.cy.ts` covers Q02, Q03,
+  Q04, Q09, Q12, Q13, Q21, Q22 and Q23: the run of the checks and the release.
 
 ## Vocabulary
 
@@ -61,6 +63,28 @@ Specs:
   It answers server administrators alone, as JSON: the state of each held
   submission, the names of its fields, and of each item its file name, size,
   SHA-256 and whether its bytes are there. It never answers a value or a byte.
+- **Stub check**: a check of the module. It applies to text files alone, and
+  reads its answer from a marker line of the file: `VERDICT:PASS`,
+  `VERDICT:FAIL`, `INCONCLUSIVE`, `PENDING:<n>` (pending for `n` polls, then
+  `PASS`) or `DOWN` (a failure that can be retried while the outage is on, then
+  `PASS`). A file with no marker is inconclusive. The remote stub declares that
+  an external service reads the bytes; the in-process stub declares that it
+  reads them inside Jahia.
+- **Stub control**: `/modules/formidable-quarantine/stub`. It answers the calls
+  that the stubs received, with the name of the check node, and lifts or sets
+  the outage of the stubs. The outage is on when the module starts. Server
+  administrators only.
+- **Run now**: `POST /modules/formidable-quarantine/run?site=<site>&form=<formId>`.
+  One pass of the checks over the due held submissions of the form. It answers
+  the state of each submission after the run. `ignoreSchedule=true` also takes
+  a submission whose next attempt is ahead, so a spec never waits for time.
+  Server administrators only.
+- **Outcome**: the last answer of one check for one item, recorded on the held
+  submission with the SHA-256 it was given for: `PASS`, `FAIL`,
+  `INCONCLUSIVE`, `PENDING` or `FAILED`.
+- **Decision**: why the run stopped a held submission, such as `CHECK_FAILED`,
+  `FILE_WITHHELD`, `IN_PROCESS_FIRST`, `INTEGRITY_FAILED` or `ACTION_FAILED`.
+  The inspection answers the outcomes and the decision.
 - **Mailbox**: Mailpit, the `smtp-server` service of `tests/docker-compose.yml`.
   The provisioning of `@jahia/cypress` points the mail service of Jahia at it.
 
@@ -98,6 +122,9 @@ the scenario proves:
 | Q06, Q07, Q08 | hands the uploads to the actions on submission, whatever the switch says |
 | Q15 | ignores `uploadsRequireQuarantine` |
 | Q10 | leaves the ACL inheritance of the quarantine root in place: the quarantine test module without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf`, and with `root == null` as the condition of `JcrQuarantineStore.closed` |
+| Q09 | releases without computing the hash again: `Release.release` with `firstChanged(record, submission)` replaced by `null` |
+| Q21 | runs every check, whatever the outcome of an earlier one: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS` |
+| Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once. The setting `allowInProcessFirst=true` gives the same failure with no build |
 
 ---
 
@@ -212,8 +239,8 @@ type.
 
 The scenarios of this section use the reference hold of the quarantine test
 module. The form has a remote stub check in "Checks", unless the scenario says
-otherwise. No scenario of this section releases a submission: the checks and
-the release come with the next part of the module.
+otherwise. No scenario of this section releases a submission: the next section
+covers the checks and the release.
 
 ### Q01 — A submission with a file is held
 
@@ -334,15 +361,181 @@ says whether a file came.
 
 ---
 
+## The checks and the release
+
+The scenarios of this section use the reference hold, and start the run of the
+checks through "run now", restricted to the form of the scenario. The form has
+one remote stub check in "Checks", and Save to JCR in "Actions after release",
+unless the scenario says otherwise. Each scenario submits as a guest, with a
+direct multipart POST, and reads the result as root.
+
+The plan of the test module drops four things that the first version of these
+scenarios read: the Results page, the alarm e-mail, the alert in edit mode, and
+the marker of a released file.
+
+### Q02 — Every check passes, and the file is released
+
+**Steps:**
+1. Submit the form with a `VERDICT:PASS` file.
+2. Read the SHA-256 that the item records, through the inspection.
+3. Run the checks.
+
+**Expected:**
+- The state is `completed`, and one action after release ran
+- The outcome `PASS` of the check is recorded for the SHA-256 of step 2
+- The stored submission holds one file, and the SHA-256 of its bytes is the one
+  of step 2 (Groovy)
+- The item keeps its name, size and SHA-256, and holds no bytes; the held
+  submission holds no values
+
+### Q03 — A check fails, and the submission is rejected
+
+**Steps:**
+1. Add Save to JCR and the observer action to "Actions after release".
+2. Submit the form with a `VERDICT:FAIL` file.
+3. Run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`, for the check
+- The outcome `FAIL` and its reason are recorded on the held submission
+- No submission is stored in the results of the form, and the observer action
+  reports no call
+- The held submission holds no values, and the item no bytes
+
+### Q04 — A check that is down keeps the submission
+
+**Steps:**
+1. Submit the form with a `DOWN` file. The outage is on.
+2. Run the checks.
+3. Run the checks on schedule, then once more with `ignoreSchedule`.
+
+The settings allow more attempts than the runs of this scenario. Q05 covers the
+exhaustion of the attempts.
+
+**Expected:**
+- The submission was accepted with HTTP 200
+- After step 2, the state is `checking`, with one attempt, a next attempt, and
+  the outcome `FAILED` (`stub.down`, retryable)
+- The run on schedule processes nothing: the next attempt is ahead
+- After the last run, the state is still `checking`, with two attempts; the
+  values and the bytes are kept, and the stub logs two calls
+
+### Q09 — The bytes changed after intake — control
+
+**Steps:**
+1. Add Save to JCR and the observer action to "Actions after release".
+2. Submit the form with a `VERDICT:PASS` file.
+3. Change the binary of the item (Groovy). The new bytes still carry
+   `VERDICT:PASS`, so every check passes them.
+4. Run the checks.
+
+**Expected:**
+- The state is `needsReview`, and the decision is `INTEGRITY_FAILED`, for the
+  item
+- The outcome of the check is `PASS`: the release alone refused the bytes
+- No submission is stored in the results of the form, the observer action
+  reports no call, and no action after release ran
+
+The plan has no audit record in this part of the module: the decision names the
+item, and a log line names it too.
+
+**Control build:** see the table of the control runs.
+
+### Q12 — The visitor learns nothing of the outcome
+
+**Steps:**
+1. Submit the form twice with a `VERDICT:PASS` file, before any run. The keys
+   of the response body whose values differ between these two responses are
+   the only keys that the comparison below ignores.
+2. Submit the form with a `VERDICT:FAIL` file.
+3. Run the checks, so that two submissions are completed and one rejected.
+4. Submit the `VERDICT:PASS` file and the `VERDICT:FAIL` file again.
+5. As a guest, request the form page, the quarantine paths of the held
+   submissions and the results path of the form, then the inspection, "run
+   now" and the stub control.
+
+**Expected:**
+- The five responses to a submission have the same status, the same keys and,
+  but for the keys of step 1, the same values
+- The file already rejected is accepted again, with HTTP 200
+- No response to the guest carries a state or an outcome, and each item path
+  answers 401, 403 or 404
+- The inspection, "run now" and the stub control answer 403
+
+### Q13 — A file that no check applies to
+
+**Steps:**
+1. Submit a PNG image through the form page: the stub applies to text files
+   alone.
+2. Run the checks.
+
+**Expected:**
+- The state is `needsReview`, and the decision is `FILE_WITHHELD`
+- The stub logs no call, and no outcome is recorded
+- No submission is stored in the results of the form, and the item keeps its
+  bytes
+
+### Q21 — Two checks, and the first fails — control
+
+**Steps:**
+1. Put two remote stub checks in "Checks".
+2. Submit the form with a `VERDICT:FAIL` file.
+3. Run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision names the first check
+- The stub logs one call for the first check, and none for the second
+
+### Q22 — Two checks, and both pass
+
+**Steps:**
+1. Put two remote stub checks in "Checks", and two observer actions in "Actions
+   after release".
+2. Submit the form with a `VERDICT:PASS` file.
+3. Run the checks, then run them again with `ignoreSchedule`.
+
+**Expected:**
+- The first run releases the submission: the stub logs one call for each
+  check, in the order of the list
+- The second run processes nothing
+- Each observer action reports one call, with one file, in the order of the
+  list
+- The state is `completed`, with two actions after release that ran
+
+### Q23 — An in-process check placed first — control
+
+**Steps:**
+1. Put the in-process stub check first in "Checks", and the remote stub check
+   second.
+2. Submit the form with a `VERDICT:PASS` file, and run the checks.
+
+**Expected:**
+- The state is `needsReview`, and the decision is `IN_PROCESS_FIRST`, for the
+  in-process check
+- Neither stub logs a call
+
+The plan drops the alert of the editor on the list of checks.
+
+---
+
 ## Coverage map
 
 | Scenario | Proves |
 |---|---|
 | Q01 | the intake always succeeds, and nothing runs after it before a release |
+| Q02 | the bytes released are the bytes checked |
+| Q03 | a file that failed a check never reaches an action after release |
+| Q04 | an outage of a check loses no claim |
 | Q06, Q07, Q08, Q15 | no file leaves through an action of the request |
+| Q09 | a file whose bytes changed after intake is never released |
 | Q10 | no reader opens a file before its release |
 | Q11 | no parser of the platform reads a held file |
+| Q12 | the form is no test bench for a malware author |
+| Q13 | a file that no check applied to is not released by default |
 | Q14 | no regression on a form with the switch off |
 | Q16 | read-only maintenance writes nothing |
+| Q21 | a later check never reads a file that an earlier check failed |
+| Q22 | the actions after release run once, in order |
+| Q23 | no in-process check parses a file that no remote check passed |
 | Q25 | a submission with no file waits for nothing |
 | Q26 | no action that cannot run after release enters that list |

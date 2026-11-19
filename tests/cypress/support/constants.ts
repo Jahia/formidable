@@ -45,6 +45,10 @@ export const FORWARD_SINK_PATH = '/modules/formidable-samples/forward-sink'
 export const UPLOAD_OBSERVATIONS_PATH = '/modules/formidable-samples/upload-observations'
 /** The quarantine test module's inspection of its tree: server administrators only, names and hashes, never a value. */
 export const QUARANTINE_INSPECTION_PATH = '/modules/formidable-quarantine/inspection'
+/** The quarantine test module's "run now": one pass of the checks over the due held submissions. Server administrators only. */
+export const QUARANTINE_RUN_PATH = '/modules/formidable-quarantine/run'
+/** The quarantine test module's control of its stub checks: their call log and their outage. Server administrators only. */
+export const QUARANTINE_STUB_PATH = '/modules/formidable-quarantine/stub'
 export const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State'
 
 /**
