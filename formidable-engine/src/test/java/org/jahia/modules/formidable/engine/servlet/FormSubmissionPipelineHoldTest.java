@@ -20,6 +20,7 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.services.content.decorator.JCRSiteNode;
+import org.jahia.settings.readonlymode.ReadOnlyModeException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -462,9 +463,39 @@ class FormSubmissionPipelineHoldTest {
 
     @Test
     void readOnlyMaintenanceCountsTheActionsAfterReleaseOfAFormWithTheSwitchOn() throws Exception {
-        // Verifies the read-only rule reads both lists when the switch is on: an action after release that is
-        // presumed to write may run in the request, so the form answers FMDB-014.
+        // Verifies a form with the switch on and an action after release that is presumed to write answers FMDB-014:
+        // that action may run in the request, and the switch alone already counts as a write.
         FormSubmissionPipeline pipeline = pipeline(true, List.of(), List.of("t:mail"), List.of("t:write"), List.of(), true);
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> verifyPlatformWritable(pipeline));
+
+        assertEquals(ErrorCode.FMDB_014, error.errorCode);
+    }
+
+    @Test
+    void readOnlyMaintenanceRefusesAHeldUploadEvenWhenEveryActionIsReadOnlyCompatible() throws Exception {
+        // Verifies the switch counts as a write: with an e-mail action in each list and a file, the hold would store
+        // the submission, so the form answers FMDB-014 before any action runs, and the hold is not called. Without the
+        // rule, the gate lets the submission through and the store of the hold fails as the repository refuses it.
+        PlainAction mail = new PlainAction("t:mail");
+        FormSubmissionPipeline pipeline = pipeline(true, List.of(mail), List.of("t:mail"), List.of("t:mail"),
+                List.of(file("cv", "cv.pdf")), true);
+        pipeline.useSubmissionHold(submission -> {
+            ran.add("hold");
+            throw new IllegalStateException("cannot store", new ReadOnlyModeException("read-only mode is enabled"));
+        });
+
+        SubmissionException error = assertThrows(SubmissionException.class, () -> submit(pipeline));
+
+        assertEquals(ErrorCode.FMDB_014, error.errorCode);
+        assertEquals(List.of(), ran);
+    }
+
+    @Test
+    void readOnlyMaintenanceRefusesASubmissionWithNoUploadOfAFormWithTheSwitchOn() throws Exception {
+        // Verifies the rule bears on the form and not on the submission: the gate runs before the body is read, and
+        // the view shows the maintenance message without knowing what a visitor attaches.
+        FormSubmissionPipeline pipeline = pipeline(true, List.of(), List.of("t:mail"), List.of("t:mail"), List.of(), true);
 
         SubmissionException error = assertThrows(SubmissionException.class, () -> verifyPlatformWritable(pipeline));
 
@@ -483,6 +514,12 @@ class FormSubmissionPipelineHoldTest {
     private void dispatch(FormSubmissionPipeline pipeline) throws Exception {
         invoke(pipeline, FormSubmissionPipeline.class.getDeclaredMethod("separateSensitiveValues"));
         invoke(pipeline, FormSubmissionPipeline.class.getDeclaredMethod("dispatchActions", HttpServletRequest.class), request);
+    }
+
+    /** Steps 5, 9a and 12, in the order {@link FormSubmissionPipeline#run} calls them. */
+    private void submit(FormSubmissionPipeline pipeline) throws Exception {
+        verifyPlatformWritable(pipeline);
+        dispatch(pipeline);
     }
 
     private static void verifyPlatformWritable(FormSubmissionPipeline pipeline) throws Exception {

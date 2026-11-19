@@ -69,7 +69,8 @@ import static org.jahia.modules.formidable.engine.util.FormidableJcrConstants.WO
  *   2.  readRoutingParams        — fid (validated as UUID) + lang from URL query params
  *   3.  guardContentLength       — early reject oversized requests when Content-Length is present
  *   4.  resolveFormNode          — JCR lookup in "live" workspace
- *   5.  verifyPlatformWritable   — reject if the platform is read-only and an action lacks fmdbmix:readOnlyCompatibleAction
+ *   5.  verifyPlatformWritable   — reject if the platform is read-only and the form holds its uploads
+ *                                  (fmdbmix:quarantine) or an action lacks fmdbmix:readOnlyCompatibleAction
  *   6.  verifyAuthentication     — reject Guest if fmdbmix:authenticatedOnlyForm is present
  *   7.  verifyCaptcha            — only if fmdbmix:captchaProtectedForm is present
  *   8.  collectFormFieldInfo     — build whitelist + types + choices + accept + constraints from JCR
@@ -357,18 +358,20 @@ class FormSubmissionPipeline {
      * carry {@code fmdbmix:readOnlyCompatibleAction}. Runs before authentication and CAPTCHA:
      * during a maintenance window there is no point contacting the CAPTCHA provider for a
      * submission that cannot be persisted. Forms whose actions all declare read-only
-     * compatibility (e.g. email-only forms) keep working normally.
+     * compatibility (e.g. email-only forms) keep working normally. A form that holds its uploads
+     * ({@code fmdbmix:quarantine}) is presumed to write whatever its actions: the hold stores a
+     * submission with an upload, and this step runs before the body says whether one came.
      */
     private void verifyPlatformWritable() throws SubmissionException {
         if (!readOnlyStatusProvider.isReadOnly()) {
             return;
         }
-        List<ResolvedAction> presumedToRun = new ArrayList<>(actions());
         if (holdsUploads()) {
-            // a submission with no upload runs them in the request
-            presumedToRun.addAll(deferredActions(false));
+            throw new SubmissionException(ErrorCode.FMDB_014,
+                    "Platform is in read-only mode and form '" + formId
+                            + "' holds its uploads in quarantine, so it is presumed to write to the repository");
         }
-        for (ResolvedAction action : presumedToRun) {
+        for (ResolvedAction action : actions()) {
             if (!action.readOnlyCompatible()) {
                 throw new SubmissionException(ErrorCode.FMDB_014,
                         "Platform is in read-only mode and action '" + action.nodeType()

@@ -45,10 +45,15 @@ describe('hasRepositoryWritingAction', () => {
 		expect(hasRepositoryWritingAction(form)).toBe(false);
 	});
 
-	it('is false when both lists hold only actions that never write', () => {
+	it('is true for a form with the switch on, whatever its actions, as the pipeline decides', () => {
+		// The hold stores a submission with an upload, and the view cannot know whether a visitor attaches one.
 		const form = nodeOf({mixins: ['fmdbmix:quarantine'], children: {actions: listOf(mail()), deferredActions: listOf(mail())}});
 
-		expect(hasRepositoryWritingAction(form)).toBe(false);
+		expect(hasRepositoryWritingAction(form)).toBe(true);
+	});
+
+	it('is true for a form with the switch on and no list', () => {
+		expect(hasRepositoryWritingAction(nodeOf({mixins: ['fmdbmix:quarantine']}))).toBe(true);
 	});
 
 	it('is false for a form with no list', () => {

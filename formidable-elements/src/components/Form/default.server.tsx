@@ -151,7 +151,8 @@ jahiaComponent(
 		// language is always sent — the engine renders the contributor's message in it.
 		const fieldActionUrl = `${renderContext.getRequest().getContextPath()}/modules/formidable-engine/field-action?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
-		// Maintenance state: only for forms whose actions write to the repository, and only
+		// Maintenance state: only for forms that write to the repository (an action presumed
+		// to write, or the quarantine switch on), and only
 		// in live (contributors keep seeing the real form in edit/preview). Render-time
 		// detection is a UX layer — cached fragments can be stale in both directions, so the
 		// maintenance fragment gets a short TTL and the submission pipeline stays authoritative.
