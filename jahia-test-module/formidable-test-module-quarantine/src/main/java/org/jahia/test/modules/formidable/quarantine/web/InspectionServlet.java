@@ -124,6 +124,7 @@ public class InspectionServlet extends HttpServlet {
                 .put("path", held.path())
                 .put("state", held.state())
                 .put("createdAt", instant(held.createdAt()))
+                .put("changedAt", instant(held.changedAt()))
                 .put("attempts", held.attempts())
                 .put("nextAttempt", instant(held.nextAttempt()))
                 .put("completedActions", held.completedActions())

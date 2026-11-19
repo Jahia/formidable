@@ -208,6 +208,7 @@ public class JcrQuarantineStore implements QuarantineStore {
             throws RepositoryException {
         held.setProperty(QuarantineTree.STATE, HeldStates.HELD);
         held.setProperty(QuarantineTree.CREATED_AT, calendar(at));
+        held.setProperty(QuarantineTree.CHANGED_AT, calendar(at));
         held.setProperty(QuarantineTree.ATTEMPTS, 0L);
         held.setProperty(QuarantineTree.COMPLETED_ACTIONS, 0L);
         held.setProperty(QuarantineTree.FORM_ID, submission.formId());
@@ -293,7 +294,11 @@ public class JcrQuarantineStore implements QuarantineStore {
         if (!HeldStates.isState(state)) {
             throw new QuarantineStoreException("Not a state of a held submission: " + state);
         }
-        change(path, "set the state " + state, held -> held.setProperty(QuarantineTree.STATE, state));
+        Instant at = clock.instant();
+        change(path, "set the state " + state, held -> {
+            held.setProperty(QuarantineTree.STATE, state);
+            held.setProperty(QuarantineTree.CHANGED_AT, calendar(at));
+        });
     }
 
     @Override
@@ -328,6 +333,12 @@ public class JcrQuarantineStore implements QuarantineStore {
             held.setProperty(QuarantineTree.STATE, state);
         });
         log.info("Held submission {} is {}: its values and bytes are deleted", path, state);
+    }
+
+    @Override
+    public void purge(String path) throws QuarantineStoreException {
+        change(path, "purge", JCRNodeWrapper::remove);
+        log.info("Purged the held submission at {}", path);
     }
 
     /** A change of one held submission, saved at once. */
@@ -377,7 +388,14 @@ public class JcrQuarantineStore implements QuarantineStore {
                 string(held, QuarantineTree.STATE), instant(held, QuarantineTree.CREATED_AT),
                 (int) number(held, QuarantineTree.ATTEMPTS), instant(held, QuarantineTree.NEXT_ATTEMPT),
                 (int) number(held, QuarantineTree.COMPLETED_ACTIONS), strings(held, QuarantineTree.VALUE_FIELDS),
-                strings(held, QuarantineTree.SENSITIVE_FIELDS), held.hasNode(QuarantineTree.VALUES), items);
+                strings(held, QuarantineTree.SENSITIVE_FIELDS), held.hasNode(QuarantineTree.VALUES), items,
+                changedAt(held));
+    }
+
+    /** The last change of the state; a submission held before the property existed answers its time of intake. */
+    private static Instant changedAt(JCRNodeWrapper held) throws RepositoryException {
+        Instant changed = instant(held, QuarantineTree.CHANGED_AT);
+        return changed != null ? changed : instant(held, QuarantineTree.CREATED_AT);
     }
 
     private static HeldSubmission submissionOf(JCRNodeWrapper held) throws RepositoryException {

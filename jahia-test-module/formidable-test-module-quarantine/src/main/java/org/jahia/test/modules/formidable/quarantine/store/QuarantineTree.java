@@ -41,6 +41,8 @@ public final class QuarantineTree {
     public static final String ATTEMPTS = "attempts";
     public static final String NEXT_ATTEMPT = "nextAttempt";
     public static final String COMPLETED_ACTIONS = "completedActions";
+    /** The last change of the state: the retention reads it. */
+    public static final String CHANGED_AT = "changedAt";
     public static final String FORM_ID = "formId";
     public static final String SITE_KEY = "siteKey";
     public static final String LOCALE = "locale";

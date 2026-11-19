@@ -20,10 +20,12 @@ import java.util.List;
  * @param sensitiveFields  the names of the sensitive fields, in the order of the submission
  * @param valuesPresent    false once the values were deleted
  * @param items            the items, in the order of the files of the submission
+ * @param changedAt        the last change of the state, or the time of intake when the state never changed
  */
 public record HeldRecord(String path, String formId, String siteKey, String state, Instant createdAt, int attempts,
                          Instant nextAttempt, int completedActions, List<String> valueFields,
-                         List<String> sensitiveFields, boolean valuesPresent, List<ItemRecord> items) {
+                         List<String> sensitiveFields, boolean valuesPresent, List<ItemRecord> items,
+                         Instant changedAt) {
 
     public HeldRecord {
         valueFields = List.copyOf(valueFields);

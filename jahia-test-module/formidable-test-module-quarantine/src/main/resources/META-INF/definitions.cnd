@@ -52,6 +52,7 @@
  - attempts (long) = 0 autocreated indexed=no
  - nextAttempt (date)
  - completedActions (long) = 0 autocreated indexed=no
+ - changedAt (date) indexed=no
  - formId (string) mandatory
  - siteKey (string) indexed=no
  - locale (string) indexed=no

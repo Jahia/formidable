@@ -43,6 +43,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         public final String formId;
         public final Instant createdAt;
         public String state = HeldStates.HELD;
+        public Instant changedAt;
         public int attempts;
         public Instant nextAttempt;
         public int completedActions;
@@ -139,7 +140,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         }
         return Optional.of(new HeldRecord(one.path, one.formId, SITE, one.state, one.createdAt, one.attempts,
                 one.nextAttempt, one.completedActions, List.of("fullName"), List.of("password"), one.valuesPresent,
-                items));
+                items, one.changedAt != null ? one.changedAt : one.createdAt));
     }
 
     @Override
@@ -170,6 +171,16 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         Held one = get(path);
         one.state = state;
         one.states.add(state);
+        one.changedAt = changedAt;
+    }
+
+    /** The time setState writes as the last change. */
+    public Instant changedAt = Instant.parse("2026-11-19T12:00:00Z");
+
+    @Override
+    public void purge(String path) throws QuarantineStoreException {
+        get(path);
+        held.remove(path);
     }
 
     @Override

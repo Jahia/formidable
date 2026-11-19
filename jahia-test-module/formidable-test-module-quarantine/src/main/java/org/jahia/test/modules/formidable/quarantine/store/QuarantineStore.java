@@ -48,8 +48,8 @@ public interface QuarantineStore {
     List<HeldRecord> list(String siteKey, String formId) throws QuarantineStoreException;
 
     /**
-     * Writes the state. The store checks only that the state is one of {@link HeldStates#ALL}: the state machine
-     * of the module decides which move is allowed.
+     * Writes the state, and the time of the change ({@link HeldRecord#changedAt()}). The store checks only that the
+     * state is one of {@link HeldStates#ALL}: the state machine of the module decides which move is allowed.
      */
     void setState(String path, String state) throws QuarantineStoreException;
 
@@ -72,4 +72,10 @@ public interface QuarantineStore {
      * @throws QuarantineStoreException for any other state, or when the repository refused the save: nothing changed
      */
     void finish(String path, String state) throws QuarantineStoreException;
+
+    /**
+     * Removes the whole held submission: its items, its values, the outcomes and the decision of its checks, and its
+     * audit. The retention calls it. The datastore of the repository frees the bytes only at its garbage collection.
+     */
+    void purge(String path) throws QuarantineStoreException;
 }
