@@ -1,0 +1,13 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
+<fmdbquar = 'http://www.jahia.org/jahia/fmdbquar/nt/1.0'>
+
+// The two checks of the reference hold, stubs for the test suite. Each takes fmdbmix:qualifier as a supertype,
+// the marker of the engine: the "Checks" list of a form accepts no other kind of node. The reference hold owns
+// a form only when its "Checks" list holds at least one node of these two types.
+
+// A stub of a check that asks a remote service, such as a sandbox.
+[fmdbquar:remoteStubCheck] > jnt:content, fmdbmix:qualifier, mix:title
+
+// A stub of a check that reads the file inside the JVM. The chain refuses a list that starts with it.
+[fmdbquar:inProcessStubCheck] > jnt:content, fmdbmix:qualifier, mix:title
