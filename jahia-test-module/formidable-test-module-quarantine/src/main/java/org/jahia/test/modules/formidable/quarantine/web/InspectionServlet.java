@@ -1,5 +1,6 @@
 package org.jahia.test.modules.formidable.quarantine.web;
 
+import org.jahia.test.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.test.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
@@ -29,7 +30,8 @@ import java.util.regex.Pattern;
  * The inspection of the quarantine tree, for the test suite: a {@code GET} on
  * {@code /modules/formidable-quarantine/inspection?site=<siteKey>&form=<formId>} answers the held submissions of the
  * form as JSON: the state of each, the names of its fields, of each item its file name, size, SHA-256 and whether
- * its bytes are still there, the outcome of each check for each item, and the decision that stopped the run. Never a
+ * its bytes are still there, the outcome of each check for each item, the decision that stopped the run, and the audit
+ * records of the operations and of the run, with the names of their users. Never a
  * value, never a sensitive value, never a byte, never a ticket.
  *
  * <p>Server administrators only: any other caller, a site administrator included, gets 403 and nothing else.</p>
@@ -99,7 +101,8 @@ public class InspectionServlet extends HttpServlet {
         CheckStore checks = checkStore.get();
         JSONArray submissions = new JSONArray();
         for (HeldRecord held : records) {
-            submissions.put(submission(held, checks.outcomes(held.path()), checks.decision(held.path()).orElse(null)));
+            submissions.put(submission(held, checks.outcomes(held.path()), checks.decision(held.path()).orElse(null))
+                    .put("audit", audit(checks.audit(held.path()))));
         }
         return new JSONObject().put("site", site).put("form", form).put("submissions", submissions);
     }
@@ -148,6 +151,20 @@ public class InspectionServlet extends HttpServlet {
                     .put("at", instant(outcome.at())));
         }
         return checks;
+    }
+
+    /** Who changed the state, how and when: the name of the user, never a value. */
+    private static JSONArray audit(List<AuditRecord> records) {
+        JSONArray audit = new JSONArray();
+        for (AuditRecord record : records) {
+            audit.put(new JSONObject()
+                    .put("operation", record.operation())
+                    .put("user", nullable(record.userName()))
+                    .put("from", record.fromState())
+                    .put("to", record.toState())
+                    .put("at", instant(record.at())));
+        }
+        return audit;
     }
 
     private static JSONObject decision(DecisionRecord decision) {

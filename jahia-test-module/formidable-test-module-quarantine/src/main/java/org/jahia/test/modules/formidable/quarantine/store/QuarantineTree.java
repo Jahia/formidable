@@ -30,7 +30,7 @@ public final class QuarantineTree {
     public static final String SENSITIVE = "sensitive";
     /** Under a held submission, the outcomes of the checks and the decision of the run. */
     public static final String CHECKS = "checks";
-    /** Under a held submission, the audit records, which a later part of the module writes. */
+    /** Under a held submission, the audit records of the operations and of the run. */
     public static final String AUDIT = "audit";
     /** The prefix of the name of an item: {@code item0}, {@code item1}, in the order of the files. */
     public static final String ITEM_PREFIX = "item";

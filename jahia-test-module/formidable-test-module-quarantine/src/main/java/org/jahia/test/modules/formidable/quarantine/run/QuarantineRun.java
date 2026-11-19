@@ -3,6 +3,7 @@ package org.jahia.test.modules.formidable.quarantine.run;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.test.modules.formidable.quarantine.check.Qualifier;
 import org.jahia.test.modules.formidable.quarantine.state.HeldState;
+import org.jahia.test.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.test.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldStates;
@@ -148,6 +149,7 @@ public class QuarantineRun {
     private RunReport.Processed process(SubmissionRun submissionRun, HeldRecord held) {
         try {
             HeldState state = submissionRun.run(held);
+            auditIfStopped(held, state);
             return new RunReport.Processed(held.path(), held.formId(), held.state(), state.value(), null);
         } catch (QuarantineStoreException | RepositoryException e) {
             log.warn("Held submission {}: the run failed, the pass goes on: {}", held.path(), e.toString());
@@ -162,6 +164,24 @@ public class QuarantineRun {
 
     private RunReport.Processed failed(HeldRecord held, String error) {
         return new RunReport.Processed(held.path(), held.formId(), held.state(), stateOf(held.path()), error);
+    }
+
+    /**
+     * One audit record when the run released, rejected or sent the submission to review, with no user: the run moved
+     * the state, not a manager. A submission that keeps checking gets none. A failure to write it is logged: the state
+     * already moved.
+     */
+    private void auditIfStopped(HeldRecord record, HeldState state) {
+        if (state != HeldState.COMPLETED && state != HeldState.REJECTED && state != HeldState.NEEDS_REVIEW) {
+            return;
+        }
+        try {
+            checkStore.writeAudit(record.path(), new AuditRecord(AuditRecord.RUN, null, record.state(), state.value(),
+                    clock.instant()));
+        } catch (QuarantineStoreException e) {
+            log.warn("Held submission {}: the audit record of the run could not be written: {}", record.path(),
+                    e.getMessage());
+        }
     }
 
     private String stateOf(String path) {

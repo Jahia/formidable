@@ -7,7 +7,8 @@ import java.util.Optional;
 /**
  * The records of the run of the checks under a held submission, an OSGi service beside {@link QuarantineStore}: the
  * outcome of each check for each item ({@code checks/<item>/<check>}), and the decision that stopped the run
- * ({@code checks/decision}). It writes in live, with a system session, as the store does. A held submission is named
+ * ({@code checks/decision}), and the audit records of the operations and of the run ({@code audit/<n>}). It writes in
+ * live, with a system session, as the store does. A held submission is named
  * by its path; every method refuses a path that names no held submission.
  *
  * <p>No record holds a byte or a value. {@link #openItem} reads the bytes of an item for a check, and for nothing
@@ -32,6 +33,18 @@ public interface CheckStore {
 
     /** Writes the decision that stopped the run, in place of the one before. */
     void writeDecision(String path, DecisionRecord decision) throws QuarantineStoreException;
+
+    /**
+     * Removes every outcome that is not a {@code PASS}, so that the next run calls those checks again with no failure
+     * counted: a manager retries the submission. A {@code PASS} stays, for the bytes it was given for.
+     */
+    void keepPassedOutcomesOnly(String path) throws QuarantineStoreException;
+
+    /** The audit records of the held submission, oldest first. */
+    List<AuditRecord> audit(String path) throws QuarantineStoreException;
+
+    /** Adds an audit record after the others, under {@code audit}. */
+    void writeAudit(String path, AuditRecord audit) throws QuarantineStoreException;
 
     /**
      * The bytes of one item, for a check. The whole item is read into memory inside the system session, once per

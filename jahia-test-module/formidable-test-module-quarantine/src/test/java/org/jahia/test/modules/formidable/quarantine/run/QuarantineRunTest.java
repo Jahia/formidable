@@ -17,6 +17,7 @@ import org.jahia.test.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
 import org.jahia.test.modules.formidable.quarantine.state.Backoff;
 import org.jahia.test.modules.formidable.quarantine.state.HeldState;
 import org.jahia.test.modules.formidable.quarantine.state.IllegalTransitionException;
+import org.jahia.test.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldStates;
@@ -674,6 +675,29 @@ class QuarantineRunTest {
             held.state = state;
             assertFalse(QuarantineRun.isDue(recordOf(held), NOW, true), state);
         }
+    }
+
+    @Test
+    void theRunWritesOneAuditRecordWithNoUserWhenItReleasesRejectsOrSendsToReview() throws Exception {
+        Held completed = stores.hold(FORM, "VERDICT:PASS\nOne");
+        Held rejected = stores.hold(FORM, "VERDICT:FAIL\nTwo");
+        Held inReview = stores.hold(FORM, "INCONCLUSIVE\nThree");
+
+        runNow();
+
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "completed", NOW)), completed.audit);
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "rejected", NOW)), rejected.audit);
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "needsReview", NOW)), inReview.audit);
+    }
+
+    @Test
+    void aSubmissionThatKeepsCheckingGetsNoAuditRecord() throws Exception {
+        Held held = stores.hold(FORM, "DOWN");
+
+        runNow();
+
+        assertEquals(HeldStates.CHECKING, held.state);
+        assertTrue(held.audit.isEmpty());
     }
 
     private HeldRecord recordOf(Held held) {

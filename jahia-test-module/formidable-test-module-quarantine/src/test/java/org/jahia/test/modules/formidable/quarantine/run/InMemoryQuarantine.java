@@ -3,6 +3,7 @@ package org.jahia.test.modules.formidable.quarantine.run;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
 import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.test.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.test.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
@@ -31,29 +32,30 @@ import java.util.Set;
  * values, the bytes, the outcomes and the decision of each held submission. A path listed in {@link #broken} refuses
  * every call, as a repository that cannot read the node.
  */
-final class InMemoryQuarantine implements QuarantineStore, CheckStore {
+public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
 
-    static final String SITE = "site";
-    static final String SECRET = "sensitive-value-of-the-test";
+    public static final String SITE = "site";
+    public static final String SECRET = "sensitive-value-of-the-test";
 
     /** One held submission. */
-    static final class Held {
-        final String path;
-        final String formId;
-        final Instant createdAt;
-        String state = HeldStates.HELD;
-        int attempts;
-        Instant nextAttempt;
-        int completedActions;
-        boolean valuesPresent = true;
+    public static final class Held {
+        public final String path;
+        public final String formId;
+        public final Instant createdAt;
+        public String state = HeldStates.HELD;
+        public int attempts;
+        public Instant nextAttempt;
+        public int completedActions;
+        public boolean valuesPresent = true;
         final List<String> itemNames = new ArrayList<>();
         final List<String> mimeTypes = new ArrayList<>();
         final List<String> sha256s = new ArrayList<>();
-        final List<byte[]> bytes = new ArrayList<>();
-        final Map<String, OutcomeRecord> outcomes = new LinkedHashMap<>();
-        DecisionRecord decision;
+        public final List<byte[]> bytes = new ArrayList<>();
+        public final Map<String, OutcomeRecord> outcomes = new LinkedHashMap<>();
+        public DecisionRecord decision;
         final List<Integer> checkpoints = new ArrayList<>();
-        final List<String> states = new ArrayList<>();
+        public final List<String> states = new ArrayList<>();
+        public final List<AuditRecord> audit = new ArrayList<>();
 
         Held(String path, String formId, Instant createdAt) {
             this.path = path;
@@ -61,19 +63,19 @@ final class InMemoryQuarantine implements QuarantineStore, CheckStore {
             this.createdAt = createdAt;
         }
 
-        boolean anyBytes() {
+        public boolean anyBytes() {
             return bytes.stream().anyMatch(b -> b != null);
         }
     }
 
-    final Map<String, Held> held = new LinkedHashMap<>();
-    final Set<String> broken = new HashSet<>();
+    public final Map<String, Held> held = new LinkedHashMap<>();
+    public final Set<String> broken = new HashSet<>();
     /** The paths whose values and bytes the store fails to delete, as a repository that refuses the save. */
-    final Set<String> failingDeletion = new HashSet<>();
+    public final Set<String> failingDeletion = new HashSet<>();
     private int count;
 
     /** Holds a submission of the form with one file per text, each a text file. */
-    Held hold(String formId, String... texts) {
+    public Held hold(String formId, String... texts) {
         Held one = new Held("/sites/" + SITE + "/formidable-quarantine/" + formId + "/2026/11/19/held-" + count,
                 formId, Instant.parse("2026-11-19T10:00:00Z").plusSeconds(count));
         count++;
@@ -125,6 +127,10 @@ final class InMemoryQuarantine implements QuarantineStore, CheckStore {
 
     @Override
     public Optional<HeldRecord> heldRecord(String path) throws QuarantineStoreException {
+        if (!held.containsKey(path) && !broken.contains(path)) {
+            // as the JCR store: a path that names no held submission answers nothing
+            return Optional.empty();
+        }
         Held one = get(path);
         List<ItemRecord> items = new ArrayList<>();
         for (int i = 0; i < one.itemNames.size(); i++) {
@@ -223,6 +229,21 @@ final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     @Override
     public void writeDecision(String path, DecisionRecord decision) throws QuarantineStoreException {
         get(path).decision = decision;
+    }
+
+    @Override
+    public void keepPassedOutcomesOnly(String path) throws QuarantineStoreException {
+        get(path).outcomes.values().removeIf(outcome -> !OutcomeRecord.PASS.equals(outcome.outcome()));
+    }
+
+    @Override
+    public List<AuditRecord> audit(String path) throws QuarantineStoreException {
+        return List.copyOf(get(path).audit);
+    }
+
+    @Override
+    public void writeAudit(String path, AuditRecord audit) throws QuarantineStoreException {
+        get(path).audit.add(audit);
     }
 
     @Override
