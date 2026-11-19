@@ -122,12 +122,7 @@
                         <ignoredUnusedDeclaredDependency>org.jahia.server:jahia-taglib</ignoredUnusedDeclaredDependency>
                         <!-- Declared for the classes to come, and used by none yet: remove an entry below
                              once a class of the module uses the dependency. -->
-                        <ignoredUnusedDeclaredDependency>org.jahia.server:jahia-impl</ignoredUnusedDeclaredDependency>
-                        <ignoredUnusedDeclaredDependency>org.jahia.modules:formidable-engine</ignoredUnusedDeclaredDependency>
                         <ignoredUnusedDeclaredDependency>javax.servlet:javax.servlet-api</ignoredUnusedDeclaredDependency>
-                        <ignoredUnusedDeclaredDependency>org.slf4j:slf4j-api</ignoredUnusedDeclaredDependency>
-                        <ignoredUnusedDeclaredDependency>org.osgi:osgi.cmpn</ignoredUnusedDeclaredDependency>
-                        <ignoredUnusedDeclaredDependency>org.mockito:mockito-core</ignoredUnusedDeclaredDependency>
                     </ignoredUnusedDeclaredDependencies>
                 </configuration>
                 <executions>
