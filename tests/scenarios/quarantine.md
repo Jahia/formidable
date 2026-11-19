@@ -217,8 +217,7 @@ the release come with the next part of the module.
 ### Q01 — A submission with a file is held
 
 **Steps:**
-1. Add Save to JCR, an e-mail content action that attaches the files, and the
-   observer action to "Actions after release".
+1. Add Save to JCR and the observer action to "Actions after release".
 2. Submit the form with a file.
 
 **Expected:**
@@ -227,7 +226,10 @@ the release come with the next part of the module.
 - One item, with the file name, the size and the SHA-256 of the upload, and its
   bytes
 - The sample hold reports no call, and the observer action no call
-- No submission is stored in the results of the form, and no mail is sent
+- No submission is stored in the results of the form
+
+The observer action is deferrable, as an e-mail action is. Its call count proves
+that no action after release ran, with no mailbox.
 
 The spec also submits a file to a form with the switch on and no check of the
 module. The sample hold reports one call with one file, and the quarantine tree
@@ -299,24 +301,20 @@ administrator.
 ### Q16 — Read-only maintenance
 
 A form answers `FMDB-014` in read-only maintenance when it is presumed to
-write. The engine presumes it from the action types of "Actions on submission"
-and, on a form with the switch on, of "Actions after release": Save to JCR in
-"Actions after release" makes every submission of the form a write.
+write. A form with the switch on is presumed to write, whatever its actions:
+the hold stores a submission with a file, and the gate runs before the body
+says whether a file came.
 
 **Steps:**
-1. Add Save to JCR to "Actions after release".
+1. Make two forms. The first has Save to JCR in "Actions after release". The
+   second has only the observer action there, which is read-only compatible.
 2. Put the platform in read-only maintenance.
-3. Submit the form with a file, then with no file.
+3. Submit each form with a file, then with no file.
 
 **Expected:**
 - HTTP 503 and `FMDB-014` each time
-- No held submission, no item and no stored submission is written, and the
-  sample hold reports no call
-
-The engine does not presume a write from the switch alone. On a form with the
-switch on whose lists hold only read-only compatible actions, a submission with
-a file passes the gate and reaches the hold, which cannot write. No scenario
-covers that case yet.
+- No held submission, no item and no stored submission is written
+- The sample hold reports no call, and the observer action no call
 
 ---
 

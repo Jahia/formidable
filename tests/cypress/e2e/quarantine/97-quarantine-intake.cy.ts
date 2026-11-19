@@ -4,7 +4,6 @@ import {
 	FORMIDABLE_TEST_SITE,
 	QUARANTINE_MODULE_ID,
 	createPublishedLiveFormPage,
-	getEmailContentActionNode,
 	getInputFileNode,
 	getInputTextNode,
 	getLatestLiveFormSubmission,
@@ -38,9 +37,6 @@ import {
 const SITE_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}`;
 const quarantineOf = (formId: string): string => `${SITE_PATH}/formidable-quarantine/${formId}`;
 const resultsOf = (formName: string): string => `${SITE_PATH}/formidable-results/${formName}`;
-
-/** An address that no earlier run wrote to: the mailbox keeps the mails of an earlier run. */
-const recipient = (name: string): string => `${name}-${Date.now()}@formidable.test`;
 
 /** The three readers of Q10. Each is an editor of the site, which makes the account privileged enough for GraphQL. */
 const PASSWORD = 'Quarantine#1234';
@@ -142,13 +138,10 @@ describe('Quarantine - 97 The reference hold stores a submission in the quaranti
 
 	it('Q01: a submission with a file is held, with its values and the SHA-256 of its file, and nothing runs after it', () => {
 		const formName = 'quarantine-held-form';
-		const mailTo = recipient('q01-after-release');
-		cy.mailpitReady().should('be.true');
 		createPublishedLiveFormPage(formName, 'Quarantine held form', fields(), undefined, undefined, {
 			qualifiers: [getRemoteStubCheckNode()],
 			deferredActions: [
 				getSaveToJcrActionNode(),
-				getEmailContentActionNode({to: mailTo, attachFiles: true}),
 				getUploadObserverActionNode('afterRelease')
 			]
 		}).then(({formId}) => {
@@ -175,14 +168,14 @@ describe('Quarantine - 97 The reference hold stores a submission in the quaranti
 			});
 		});
 
-		// The reference hold owned the form: the sample hold was not called, no action after release ran, no
-		// submission is stored in the results of the form, and no mail is sent.
+		// The reference hold owned the form: the sample hold was not called, and no action after release ran. The
+		// observer action reports no call, and Save to JCR stored nothing in the results of the form. The observer is
+		// deferrable as an e-mail action is, so it stands for every action after release, with no mailbox.
 		readUploadObservations().then(seen => {
 			expect(seen.hold, 'calls of the sample hold').to.deep.equal([]);
 			expect(seen.observer, 'calls of the observer action after release').to.deep.equal([]);
 		});
 		liveNodeExists(resultsOf(formName)).should('eq', false);
-		cy.mailpitSearchEmails(`to:${mailTo}`).its('messages').should('have.length', 0);
 	});
 
 	it('Q01: a form with no check of the module goes to the sample hold, and nothing is held', () => {
@@ -332,26 +325,39 @@ describe('Quarantine - 97 The reference hold stores a submission in the quaranti
 		});
 	});
 
-	it('Q16: in read-only maintenance, a form with a check of the module answers FMDB-014 and writes nothing', () => {
-		const formName = 'quarantine-readonly-form';
-		createPublishedLiveFormPage(formName, 'Quarantine read-only form', fields(), undefined, undefined, {
-			qualifiers: [getRemoteStubCheckNode()],
-			deferredActions: [getSaveToJcrActionNode()]
-		}).then(({formId}) => {
-			cy.logout();
-			setReadOnlyMode(true);
+	// The engine presumes that a form with the switch on writes, whatever its actions: the two forms differ only by
+	// the kind of their action after release.
+	[
+		{formName: 'quarantine-readonly-form', what: 'Save to JCR', deferredActions: () => [getSaveToJcrActionNode()]},
+		{
+			formName: 'quarantine-readonly-compatible-form',
+			what: 'only a read-only compatible action',
+			deferredActions: () => [getUploadObserverActionNode('afterRelease')]
+		}
+	].forEach(({formName, what, deferredActions}) => {
+		it(`Q16: in read-only maintenance, a form with a check of the module and ${what} after release answers FMDB-014 and writes nothing`, () => {
+			createPublishedLiveFormPage(formName, 'Quarantine read-only form', fields(), undefined, undefined, {
+				qualifiers: [getRemoteStubCheckNode()],
+				deferredActions: deferredActions()
+			}).then(({formId}) => {
+				cy.logout();
+				setReadOnlyMode(true);
 
-			postDirectMultipartSubmission({formId, body: submissionWithAFile('Katherine'), headers: withSameOriginHeaders()})
-				.then(response => expectErrorResponse(response, 503, 'FMDB-014'));
-			postDirectMultipartSubmission({formId, body: submissionWithNoFile('Katherine'), headers: withSameOriginHeaders()})
-				.then(response => expectErrorResponse(response, 503, 'FMDB-014'));
+				postDirectMultipartSubmission({formId, body: submissionWithAFile('Katherine'), headers: withSameOriginHeaders()})
+					.then(response => expectErrorResponse(response, 503, 'FMDB-014'));
+				postDirectMultipartSubmission({formId, body: submissionWithNoFile('Katherine'), headers: withSameOriginHeaders()})
+					.then(response => expectErrorResponse(response, 503, 'FMDB-014'));
 
-			setReadOnlyMode(false);
-			cy.login();
-			readHeldSubmissions(formId).should('deep.equal', []);
-			liveNodeExists(quarantineOf(formId)).should('eq', false);
-			liveNodeExists(resultsOf(formName)).should('eq', false);
+				setReadOnlyMode(false);
+				cy.login();
+				readHeldSubmissions(formId).should('deep.equal', []);
+				liveNodeExists(quarantineOf(formId)).should('eq', false);
+				liveNodeExists(resultsOf(formName)).should('eq', false);
+			});
+			readUploadObservations().then(seen => {
+				expect(seen.hold, 'calls of the sample hold').to.deep.equal([]);
+				expect(seen.observer, 'calls of the observer action').to.deep.equal([]);
+			});
 		});
-		readUploadObservations().its('hold').should('deep.equal', []);
 	});
 });
