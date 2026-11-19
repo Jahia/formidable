@@ -174,7 +174,8 @@ class InspectionServletTest {
     void anItemWithNoFieldNameNorFileNameKeepsBothKeysAsNull() throws Exception {
         HeldRecord heldRecord = new HeldRecord(HELD_PATH, FORM_ID, SITE, HeldStates.HELD,
                 Instant.parse("2026-11-19T18:30:00Z"), 0, null, 0, List.of(), List.of(), true,
-                List.of(new ItemRecord("item0", null, null, null, 0, "e3b0", true)));
+                List.of(new ItemRecord("item0", null, null, null, 0, "e3b0", true)),
+                Instant.parse("2026-11-19T18:30:00Z"));
         InspectionServlet servlet = new InspectionServlet(() -> true);
         servlet.setStore(store);
         servlet.setCheckStore(checkStore);
