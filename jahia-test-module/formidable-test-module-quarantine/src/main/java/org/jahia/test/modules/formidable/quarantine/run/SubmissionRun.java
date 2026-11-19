@@ -2,6 +2,7 @@ package org.jahia.test.modules.formidable.quarantine.run;
 
 import org.jahia.test.modules.formidable.quarantine.chain.ChainCheck;
 import org.jahia.test.modules.formidable.quarantine.chain.ChainDecision;
+import org.jahia.test.modules.formidable.quarantine.chain.ChainReason;
 import org.jahia.test.modules.formidable.quarantine.chain.CheckChain;
 import org.jahia.test.modules.formidable.quarantine.chain.OutcomeKey;
 import org.jahia.test.modules.formidable.quarantine.chain.RecordedOutcome;
@@ -35,7 +36,7 @@ import java.util.function.Function;
  * One pass of the run over one held submission: the chain decides, the run calls the checks of each step, records
  * each answer under the SHA-256 of intake of the file, and asks the chain again. A pass calls each check at most once
  * for each file: when a pass of steps brings no new {@code PASS} and no terminal decision, the submission waits for
- * the back-off, in state {@code checking}. A terminal decision moves the state through the state machine.
+ * the back-off, in state {@code checking}, until the attempts are exhausted. A terminal decision moves the state through the state machine.
  */
 final class SubmissionRun {
 
@@ -101,11 +102,13 @@ final class SubmissionRun {
         pass.recorded = OutcomeCodec.recorded(checkStore.outcomes(pass.path()));
         CheckChain chain = new CheckChain(settings.allowInProcessFirst(), settings.backoff().maxAttempts());
         ChainDecision decision = chain.decide(checks, pass.files, pass.recorded);
+        boolean progressedOnce = false;
         while (decision instanceof ChainDecision.Proceed proceed) {
             boolean progressed = execute(pass, proceed.steps());
+            progressedOnce |= progressed;
             decision = chain.decide(checks, pass.files, pass.recorded);
-            if (!progressed && decision instanceof ChainDecision.Proceed) {
-                return waitForBackoff(pass);
+            if (!progressed && decision instanceof ChainDecision.Proceed waiting) {
+                return waitForBackoff(pass, progressedOnce, waiting.steps().get(0));
             }
         }
         return conclude(pass, decision);
@@ -181,8 +184,19 @@ final class SubmissionRun {
         }
     }
 
-    private HeldState waitForBackoff(Pass pass) throws QuarantineStoreException {
-        int attempts = pass.record.attempts() + 1;
+    /**
+     * Counts one more pass with no new {@code PASS}, from 0 when this pass brought one. Once the count reaches the
+     * attempts of the back-off, the run gives up on the check it waits for, as it does on failures: a check that stays
+     * pending never keeps the values for ever.
+     */
+    private HeldState waitForBackoff(Pass pass, boolean progressed, Step waiting) throws QuarantineStoreException {
+        int attempts = (progressed ? 0 : pass.record.attempts()) + 1;
+        if (settings.backoff().exhausted(attempts)) {
+            store.setAttempts(pass.path(), attempts, null);
+            writeDecision(pass, ChainReason.ATTEMPTS_EXHAUSTED.name(), waiting.file().sha256(),
+                    waiting.check().name());
+            return transitions.move(pass.path(), pass.state, HeldEvent.REVIEW);
+        }
         store.setAttempts(pass.path(), attempts, settings.backoff().nextAttempt(attempts, clock.instant()));
         return transitions.move(pass.path(), pass.state, HeldEvent.CONTINUE);
     }

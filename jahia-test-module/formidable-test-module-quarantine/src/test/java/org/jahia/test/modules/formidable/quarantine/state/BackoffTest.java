@@ -44,14 +44,6 @@ class BackoffTest {
     }
 
     @Test
-    void aManualRetryStartsTheAttemptsOver() {
-        int attempts = backoff.reset();
-        assertEquals(0, attempts);
-        assertFalse(backoff.exhausted(attempts));
-        assertEquals(Duration.ofSeconds(30), backoff.delay(attempts + 1));
-    }
-
-    @Test
     void aBadSettingIsRefused() {
         assertThrows(IllegalArgumentException.class, () -> new Backoff(Duration.ZERO, Duration.ofMinutes(1), 3));
         assertThrows(IllegalArgumentException.class,

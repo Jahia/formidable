@@ -15,7 +15,7 @@ import java.util.Objects;
  * @param reason    the reason code of the check, or {@code null}
  * @param retryable for {@link #FAILED}: true when a later attempt may succeed
  * @param ticket    the ticket to poll, or {@code null}
- * @param attempts  the count of retryable failures in a row
+ * @param attempts  the count of retryable failures since the last result
  * @param at        when the outcome was recorded
  */
 public record OutcomeRecord(String itemName, String checkName, String sha256, String outcome, String reason,

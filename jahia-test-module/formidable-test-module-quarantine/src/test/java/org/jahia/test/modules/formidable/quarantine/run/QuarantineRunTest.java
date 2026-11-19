@@ -4,12 +4,19 @@ import org.jahia.modules.formidable.engine.api.DeferredActionException;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
 import org.jahia.test.modules.formidable.quarantine.QuarantineTypes;
+import org.jahia.test.modules.formidable.quarantine.chain.RecordedOutcome;
 import org.jahia.test.modules.formidable.quarantine.check.CheckSettings;
 import org.jahia.test.modules.formidable.quarantine.check.OnInconclusive;
 import org.jahia.test.modules.formidable.quarantine.check.OnUnavailable;
+import org.jahia.test.modules.formidable.quarantine.check.Outcome;
+import org.jahia.test.modules.formidable.quarantine.check.Qualifier;
+import org.jahia.test.modules.formidable.quarantine.check.QuarantinedFile;
+import org.jahia.test.modules.formidable.quarantine.check.Scope;
+import org.jahia.test.modules.formidable.quarantine.check.Submitted;
 import org.jahia.test.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
 import org.jahia.test.modules.formidable.quarantine.state.Backoff;
 import org.jahia.test.modules.formidable.quarantine.state.HeldState;
+import org.jahia.test.modules.formidable.quarantine.state.IllegalTransitionException;
 import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldStates;
@@ -28,7 +35,9 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +46,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -251,7 +261,7 @@ class QuarantineRunTest {
         assertEquals(HeldStates.CHECKING, held.state);
         runIgnoringSchedule();
 
-        // the second retryable failure in a row reaches maxAttempts
+        // the second retryable failure since the last result reaches maxAttempts
         assertEquals(HeldStates.NEEDS_REVIEW, held.state);
         assertEquals("ATTEMPTS_EXHAUSTED", held.decision.reason());
         assertNull(held.nextAttempt);
@@ -282,6 +292,140 @@ class QuarantineRunTest {
         assertEquals(HeldStates.COMPLETED, held.state);
         assertEquals(List.of(StubCallLog.Kind.SUBMIT, StubCallLog.Kind.POLL, StubCallLog.Kind.POLL),
                 calls.calls().stream().map(StubCallLog.StubCall::kind).toList());
+    }
+
+    @Test
+    void aCheckThatStaysPendingSendsTheSubmissionToReviewOnceTheAttemptsAreExhausted() throws Exception {
+        run = newRun(new RunSettings(false, new Backoff(Duration.ofMinutes(1), Duration.ofHours(1), 2)));
+        Held held = stores.hold(FORM, "PENDING:1000");
+
+        runIgnoringSchedule();
+        assertEquals(HeldStates.CHECKING, held.state);
+        runIgnoringSchedule();
+
+        // two runs in a row brought no new answer: the run gives up, as it does on failures
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals("ATTEMPTS_EXHAUSTED", held.decision.reason());
+        assertEquals("item0", held.decision.itemName());
+        assertEquals("remoteCheck", held.decision.checkName());
+        assertNull(held.nextAttempt);
+        assertTrue(held.valuesPresent);
+    }
+
+    @Test
+    void aRunThatBringsANewPassStartsTheAttemptsOver() throws Exception {
+        run = newRun(new RunSettings(false, new Backoff(Duration.ofMinutes(1), Duration.ofHours(1), 3)));
+        lists.put(FORM, List.of(remote("firstCheck"), remote("secondCheck")));
+        // each check answers with a ticket, pending at its first poll, and passes at its second poll
+        Held held = stores.hold(FORM, "PENDING:1");
+
+        runIgnoringSchedule();
+        runIgnoringSchedule();
+        assertEquals(2, held.attempts);
+        // the first check passes, then the second answers with a ticket: a new PASS, so the count starts over
+        runIgnoringSchedule();
+        assertEquals(1, held.attempts);
+        assertEquals(HeldStates.CHECKING, held.state);
+        runIgnoringSchedule();
+        runIgnoringSchedule();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+    }
+
+    @Test
+    void aCheckThatThrowsCountsAsARetryableFailure() throws Exception {
+        ScriptedQualifier scripted = new ScriptedQualifier();
+        scripted.answers.add(new IllegalStateException("the engine of the check broke"));
+        run.addQualifier(scripted);
+        lists.put(FORM, List.of(CheckSettings.withDefaults(ScriptedQualifier.NODE_TYPE, "scriptedCheck")));
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertEquals(HeldStates.CHECKING, held.state);
+        OutcomeRecord outcome = held.outcomes.get("item0/scriptedCheck");
+        assertEquals(OutcomeRecord.FAILED, outcome.outcome());
+        assertEquals(SubmissionRun.CHECK_ERROR, outcome.reason());
+        assertTrue(outcome.retryable());
+        assertEquals(1, outcome.attempts());
+        assertTrue(released.isEmpty());
+    }
+
+    @Test
+    void aPendingAnswerWithNoTicketIsAFailureThatNoRetryCanMend() {
+        RecordedOutcome recorded = SubmissionRun.recordOf(Outcome.PENDING, null, 3);
+
+        assertEquals(new Outcome.Failed(false, SubmissionRun.CHECK_ERROR), recorded.outcome());
+        assertNull(recorded.ticket());
+        assertEquals(4, recorded.attempts());
+    }
+
+    @Test
+    void anItemWhoseBytesAreGoneRefusesTheRelease() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS", "VERDICT:PASS");
+        // the bytes of the second file go after intake: the checks see the first file only
+        held.bytes.set(1, null);
+
+        runNow();
+
+        assertTrue(released.isEmpty(), "the actions after release ran without the second file");
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals(DecisionRecord.INTEGRITY_FAILED, held.decision.reason());
+        assertEquals("item1", held.decision.itemName());
+        assertTrue(held.valuesPresent);
+    }
+
+    @Test
+    void aReleaseFromAStateItCannotLeaveRunsNoAction() {
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        held.state = HeldStates.NEEDS_REVIEW;
+        Release release = run.release();
+
+        assertThrows(IllegalTransitionException.class, () -> release.release(held.path, HeldState.NEEDS_REVIEW));
+
+        assertTrue(released.isEmpty(), "the actions after release ran from state needsReview");
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+    }
+
+    /** A remote check that answers what the test scripts, one answer per call; a scripted exception is thrown. */
+    private static final class ScriptedQualifier implements Qualifier {
+
+        static final String NODE_TYPE = "test:scriptedCheck";
+
+        final Deque<Object> answers = new ArrayDeque<>();
+
+        @Override
+        public String getNodeType() {
+            return NODE_TYPE;
+        }
+
+        @Override
+        public Scope scope() {
+            return Scope.REMOTE;
+        }
+
+        @Override
+        public boolean appliesTo(QuarantinedFile file, CheckSettings settings) {
+            return true;
+        }
+
+        @Override
+        public Submitted submit(QuarantinedFile file, CheckSettings settings) {
+            return (Submitted) next();
+        }
+
+        @Override
+        public Outcome poll(String ticket) {
+            return (Outcome) next();
+        }
+
+        private Object next() {
+            Object answer = answers.removeFirst();
+            if (answer instanceof RuntimeException e) {
+                throw e;
+            }
+            return answer;
+        }
     }
 
     @Test

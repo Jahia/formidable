@@ -74,9 +74,4 @@ public final class Backoff {
     public boolean exhausted(int attempts) {
         return attempts >= maxAttempts;
     }
-
-    /** @return the count of attempts after a manual retry */
-    public int reset() {
-        return 0;
-    }
 }

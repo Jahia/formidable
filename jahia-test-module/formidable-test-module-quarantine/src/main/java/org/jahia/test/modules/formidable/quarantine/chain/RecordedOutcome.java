@@ -9,7 +9,7 @@ import org.jahia.test.modules.formidable.quarantine.check.Outcome;
  *
  * @param outcome  the last answer of the check
  * @param ticket   the ticket the check returned, or null when it answered at once
- * @param attempts the count of retryable failures in a row for this file and this check
+ * @param attempts the count of retryable failures for this file and this check since its last result
  */
 public record RecordedOutcome(Outcome outcome, String ticket, int attempts) {
 

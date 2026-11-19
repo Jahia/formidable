@@ -16,8 +16,8 @@
  - onInconclusive (string, choicelist[resourceBundle]) = 'review' autocreated indexed=no < 'review', 'reject'
  - onUnavailable (string, choicelist[resourceBundle]) = 'retry' autocreated indexed=no < 'retry', 'reject'
 
-// A stub of a check that reads the file inside the JVM. The chain, a later part of the module, refuses a list that
-// starts with it.
+// A stub of a check that reads the file inside the JVM. The chain refuses a list where it reads a file before a
+// remote check passed it, unless the run allows it (allowInProcessFirst).
 [fmdbquar:inProcessStubCheck] > jnt:content, fmdbmix:qualifier, mix:title
  - onInconclusive (string, choicelist[resourceBundle]) = 'review' autocreated indexed=no < 'review', 'reject'
  - onUnavailable (string, choicelist[resourceBundle]) = 'retry' autocreated indexed=no < 'retry', 'reject'
@@ -41,11 +41,11 @@
  + * (fmdbquar:dateFolder) = fmdbquar:dateFolder
  + * (fmdbquar:heldSubmission) = fmdbquar:heldSubmission
 
-// One held submission. The state is one of six strings; the state machine, a later part of the module, moves
-// it. The names of the fields keep the order of the submission: valueFields for the public values,
-// sensitiveFields for the sensitive ones. The values live in the two children values and sensitive, apart,
-// and go with the bytes once the submission is completed or rejected. checks and audit hold the records that
-// the checks and the operations add later: each accepts any jnt:content, so a later type needs no change here.
+// One held submission. The state is one of six strings; the state machine moves it. The names of the fields keep
+// the order of the submission: valueFields for the public values, sensitiveFields for the sensitive ones. The
+// values live in the two children values and sensitive, apart, and go with the bytes once the submission is
+// completed or rejected. checks holds the records of the run, and audit those of the operations: each accepts any
+// jnt:content, so a new type of record needs no change here.
 [fmdbquar:heldSubmission] > jnt:content
  - state (string) = 'held' mandatory autocreated < 'held', 'checking', 'releasing', 'completed', 'rejected', 'needsReview'
  - createdAt (date) mandatory
@@ -80,8 +80,7 @@
  - * (string) multiple indexed=no
 
 // One upload of a held submission. Its bytes are a binary property of this type, never jcr:data on a jnt:resource,
-// and never indexed. sha256 is computed once at intake; the release, a later part of the module, computes
-// it again and compares.
+// and never indexed. sha256 is computed once at intake; the release computes it again and compares.
 [fmdbquar:item] > jnt:content
  - data (binary) indexed=no
  - sha256 (string) mandatory indexed=no
@@ -90,8 +89,8 @@
  - fieldName (string) indexed=no
  - mimeType (string) indexed=no
 
-// The container of the records that a later part of the module adds under a held submission: the outcomes of the
-// checks (checks/<item>/<check>) and the audit (audit/<n>). Ordered, as an audit is.
+// The container of the records under a held submission: the outcomes of the checks and the decision of the run
+// (checks/<item>/<check>, checks/decision), and the audit (audit/<n>). Ordered, as an audit is.
 [fmdbquar:records] > jnt:content
  orderable
  + * (jnt:content)
@@ -105,7 +104,7 @@
 // The last outcome of one check for one item, named after the check node (checks/item0/remoteCheck). sha256 is the
 // SHA-256 of the bytes the outcome was given for: an outcome given for other bytes never counts. No byte here.
 // outcome is PASS, FAIL or INCONCLUSIVE (an answer), PENDING (a ticket to poll) or FAILED (the check could not
-// answer; retryable says whether a later attempt may). attempts counts the retryable failures in a row.
+// answer; retryable says whether a later attempt may). attempts counts the retryable failures since the last answer.
 [fmdbquar:outcome] > jnt:content
  - outcome (string) mandatory < 'PASS', 'FAIL', 'INCONCLUSIVE', 'PENDING', 'FAILED'
  - reason (string) indexed=no

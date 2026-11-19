@@ -106,7 +106,7 @@ For each due submission:
 
 1. A `held` submission moves to `checking`.
 2. The chain decides the calls to make. The run calls each check, and records each answer under `checks/<item>/<check>`, with the SHA-256 of intake. A result starts the failures of that check over; a retryable failure counts one more.
-3. The chain decides again. A pass calls each check at most once for each file. When a pass brings no new `PASS` and no final decision, the submission stays `checking`: `attempts` counts one more, and `nextAttempt` follows the back-off.
+3. The chain decides again. A pass calls each check at most once for each file. When a pass brings no new `PASS` and no final decision, the submission stays `checking`: `attempts` counts one more, from 0 when the pass brought a new `PASS`, and `nextAttempt` follows the back-off. Once `attempts` reaches `maxAttempts`, the attempts are exhausted, as for a check that stays pending.
 4. A final decision moves the state, and `checks/decision` records why:
    - a rejection (a `FAIL`, or a setting `reject`) moves to `rejected`, and deletes the values, the sensitive values and the bytes;
    - a review (inconclusive, a file no check applies to, attempts exhausted, an in-process check first, a check that no service serves) moves to `needsReview`, and keeps them;
@@ -116,7 +116,7 @@ Every move of the state goes through the state machine. Each submission is read 
 
 ## The release
 
-1. The release reads the bytes of every item again, and computes their SHA-256 again. A difference from the SHA-256 of intake refuses the release: the state moves to `needsReview`, the decision is `INTEGRITY_FAILED` and names the item, and a log line names the item. No action runs.
+1. The release reads the bytes of every item again, and computes their SHA-256 again. A difference from the SHA-256 of intake, or an item with no bytes, refuses the release: the state moves to `needsReview`, the decision is `INTEGRITY_FAILED` and names the item, and a log line names the item. No action runs.
 2. Otherwise the state moves to `releasing`, and the engine's `DeferredActions` runs the actions after release with the released submission, from the index `completedActions`. After each action, the release writes its index plus one to `completedActions`.
 3. A failed action stops the run: the state moves to `needsReview`, `completedActions` holds the index to resume from, and the decision is `ACTION_FAILED` with that index. The values and the bytes stay for the resume.
 4. Once every action ran, the state moves to `completed`, and the values, the sensitive values and the bytes are deleted. The record and the outcomes stay.
@@ -125,7 +125,7 @@ Every move of the state goes through the state machine. Each submission is read 
 
 ## The endpoints for the specs
 
-Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries the `Origin` header of the instance. No answer holds a value or a byte.
+Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries the `Origin` header of the instance and `X-Requested-With`: without it, the run and the stub control answer 403. No answer holds a value or a byte.
 
 | Endpoint | Answer |
 |---|---|
@@ -144,7 +144,7 @@ Each endpoint answers server administrators alone, as the inspection does: any o
 | `allowInProcessFirst` | `false` | Lifts the refusal of a list where an in-process check reads a file before a remote check passed it |
 | `backoffInitialSeconds` | `60` | The delay after the first attempt; it doubles at each attempt |
 | `backoffCapSeconds` | `3600` | The longest delay |
-| `maxAttempts` | `10` | The count of retryable failures in a row of a check after which the submission goes to `needsReview` |
+| `maxAttempts` | `10` | The count after which the submission goes to `needsReview`: the retryable failures of a check on a file until it answers a result, or the passes in a row that bring no new `PASS` |
 
 A setting the back-off cannot use, such as a cap below the initial delay, falls back to the defaults with a warning. A spec that needs few attempts edits `maxAttempts` through the provisioning API (`editConfiguration`), then waits until `GET /modules/formidable-quarantine/run` answers the new value, and sets the default back when it ends. No request parameter changes a limit: the run reads its limits from the configuration only.
 

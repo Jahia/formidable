@@ -27,7 +27,8 @@ import java.util.regex.Pattern;
  * </ul>
  * The answer names paths, states and settings: never a value, never a byte.
  *
- * <p>Server administrators only: any other caller gets 403, and nothing runs.</p>
+ * <p>Server administrators only: any other caller gets 403, and nothing runs. A POST also needs the header
+ * {@code X-Requested-With}.</p>
  */
 @Component(service = {HttpServlet.class, Servlet.class}, property = {"alias=" + RunServlet.ALIAS}, immediate = true)
 public class RunServlet extends HttpServlet {
@@ -72,6 +73,9 @@ public class RunServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) {
         if (!administrators.currentUserIsOne()) {
             JsonAnswers.answer(resp, HttpServletResponse.SC_FORBIDDEN, JsonAnswers.error(JsonAnswers.FORBIDDEN));
+            return;
+        }
+        if (JsonAnswers.refusedAsCrossSite(req, resp)) {
             return;
         }
         String site = req.getParameter(SITE_PARAMETER);

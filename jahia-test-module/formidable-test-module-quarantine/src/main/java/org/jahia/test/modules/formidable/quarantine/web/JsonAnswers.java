@@ -15,6 +15,8 @@ final class JsonAnswers {
     private static final Logger log = LoggerFactory.getLogger(JsonAnswers.class);
 
     static final String FORBIDDEN = "server administrators only";
+    /** The header a POST must carry: a cross-site form or a simple request cannot send it with no preflight. */
+    static final String REQUESTED_WITH = "X-Requested-With";
 
     private JsonAnswers() {
     }
@@ -34,6 +36,20 @@ final class JsonAnswers {
         } catch (IOException e) {
             log.warn("Could not write the answer: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Refuses a POST that does not carry {@link #REQUESTED_WITH}, with 403: a cross-site page cannot make the browser
+     * of a connected administrator send it. The POSTs of the module read no body, so no media type is checked.
+     *
+     * @return true when the request was refused and answered
+     */
+    static boolean refusedAsCrossSite(HttpServletRequest req, HttpServletResponse resp) {
+        if (req.getHeader(REQUESTED_WITH) != null) {
+            return false;
+        }
+        answer(resp, HttpServletResponse.SC_FORBIDDEN, error("a POST needs the header " + REQUESTED_WITH));
+        return true;
     }
 
     /** The path under the alias: the path info, or the request URI past the alias when the container gives none. */

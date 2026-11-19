@@ -36,7 +36,8 @@ public final class CheckChain {
     /**
      * @param allowInProcessFirst true to lift the refusal of an in-process check placed first; an operator setting,
      *                            false by default
-     * @param maxAttempts         the count of retryable failures in a row after which a check is given up
+     * @param maxAttempts         the count of retryable failures since the last result after which a check is given
+     *                            up
      */
     public CheckChain(boolean allowInProcessFirst, int maxAttempts) {
         if (maxAttempts < 1) {

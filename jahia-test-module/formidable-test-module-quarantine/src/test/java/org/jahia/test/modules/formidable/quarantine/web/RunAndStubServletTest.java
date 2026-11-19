@@ -57,10 +57,17 @@ class RunAndStubServletTest {
                 StubCallLog.Kind.SUBMIT));
     }
 
+    /** A call of the specs: a POST carries the header that a cross-site form or a simple request cannot send. */
     private static Call call(HttpServlet servlet, String method, String pathInfo, Map<String, String> parameters)
             throws Exception {
+        return call(servlet, method, pathInfo, parameters, "XMLHttpRequest");
+    }
+
+    private static Call call(HttpServlet servlet, String method, String pathInfo, Map<String, String> parameters,
+                             String requestedWith) throws Exception {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getMethod()).thenReturn(method);
+        when(request.getHeader(JsonAnswers.REQUESTED_WITH)).thenReturn(requestedWith);
         when(request.getPathInfo()).thenReturn(pathInfo);
         parameters.forEach((name, value) -> when(request.getParameter(name)).thenReturn(value));
         HttpServletResponse response = mock(HttpServletResponse.class);
@@ -96,6 +103,20 @@ class RunAndStubServletTest {
         assertEquals(HttpServletResponse.SC_FORBIDDEN, get.status());
         assertFalse(post.body().contains(HELD_PATH), post.body());
         verify(run, never()).run(anyString(), any(), anyBoolean());
+    }
+
+    @Test
+    void aPostWithoutTheRequestedWithHeaderIsRefusedAndChangesNothing() throws Exception {
+        Call post = call(runServlet(true), "POST", null, Map.of("site", SITE), null);
+        Call lift = call(stubServlet(true), "POST", StubServlet.LIFT, Map.of(), null);
+        Call clear = call(stubServlet(true), "POST", StubServlet.CLEAR, Map.of(), null);
+
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, post.status());
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, lift.status());
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, clear.status());
+        verify(run, never()).run(anyString(), any(), anyBoolean());
+        assertTrue(control.outage().isDown());
+        assertEquals(1, control.log().calls().size());
     }
 
     @Test

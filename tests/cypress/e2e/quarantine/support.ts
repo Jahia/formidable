@@ -9,6 +9,8 @@ import {FORMIDABLE_TEST_SITE, FORWARD_SINK_TARGET_ID, getInputFileNode, getInput
 import {SAME_ORIGIN} from '../security/support';
 
 const BOUNDARY = '----FormidableCypressBoundary';
+/** A POST to an endpoint of the quarantine test module: the module refuses one without X-Requested-With. */
+export const QUARANTINE_POST_HEADERS ={Origin: SAME_ORIGIN, 'X-Requested-With': 'XMLHttpRequest'};
 export const FILE_FIELD = 'supportingDocument';
 export const FILE_NAME = 'claim-note.txt';
 /** The text of the file of submissionWithAFile. */
@@ -212,7 +214,7 @@ export const runQuarantine = (formId?: string, ignoreSchedule = false): Cypress.
 	cy.request<QuarantineRunReport>({
 		method: 'POST',
 		url: QUARANTINE_RUN_PATH,
-		headers: {Origin: SAME_ORIGIN},
+		headers: QUARANTINE_POST_HEADERS,
 		qs: {site: FORMIDABLE_TEST_SITE.key, ...(formId ? {form: formId} : {}), ...(ignoreSchedule ? {ignoreSchedule: 'true'} : {})}
 	}).its('body');
 
@@ -248,12 +250,12 @@ export const readStubCalls = (checkName?: string): Cypress.Chainable<StubCall[]>
 	}).its('body.calls');
 
 export const clearStubCalls = (): Cypress.Chainable =>
-	cy.request({method: 'POST', url: `${QUARANTINE_STUB_PATH}/calls/clear`, headers: {Origin: SAME_ORIGIN}});
+	cy.request({method: 'POST', url: `${QUARANTINE_STUB_PATH}/calls/clear`, headers: QUARANTINE_POST_HEADERS});
 
 /** Sets the outage of the stub checks (a DOWN file then fails, retryable), or lifts it (a DOWN file then passes). */
 export const setStubOutage = (down: boolean): Cypress.Chainable =>
 	cy.request({
 		method: 'POST',
 		url: `${QUARANTINE_STUB_PATH}/outage/${down ? 'set' : 'lift'}`,
-		headers: {Origin: SAME_ORIGIN}
+		headers: QUARANTINE_POST_HEADERS
 	});

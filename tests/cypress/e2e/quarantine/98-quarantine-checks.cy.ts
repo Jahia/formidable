@@ -17,6 +17,7 @@ import {SAME_ORIGIN, expectSuccessResponse, postDirectMultipartSubmission, withS
 import {useFormidableSite} from '../support/useFormidableSite';
 import {
 	HeldSubmissionRecord,
+	QUARANTINE_POST_HEADERS,
 	STUB_FILE,
 	clearStubCalls,
 	fields,
@@ -296,14 +297,15 @@ describe('Quarantine - 98 The run of the checks releases, rejects or withholds a
 					cy.request({url: `/files/live${one.path}/item0`, failOnStatusCode: false})
 						.its('status').should('be.oneOf', [401, 403, 404]);
 				});
-				// the endpoints of the module answer server administrators alone
+				// the endpoints of the module answer server administrators alone; the header of a POST is there, so the
+				// 403 is the refusal of the guest
 				[
 					{method: 'GET', url: QUARANTINE_INSPECTION_PATH, qs: {site: FORMIDABLE_TEST_SITE.key, form: formId}},
 					{method: 'POST', url: QUARANTINE_RUN_PATH, qs: {site: FORMIDABLE_TEST_SITE.key, form: formId}},
 					{method: 'GET', url: `${QUARANTINE_STUB_PATH}/calls`, qs: {}},
 					{method: 'POST', url: `${QUARANTINE_STUB_PATH}/outage/lift`, qs: {}}
 				].forEach(({method, url, qs}) => {
-					cy.request({method, url, qs, headers: {Origin: SAME_ORIGIN}, failOnStatusCode: false})
+					cy.request({method, url, qs, headers: QUARANTINE_POST_HEADERS, failOnStatusCode: false})
 						.its('status').should('eq', 403);
 				});
 				cy.login();

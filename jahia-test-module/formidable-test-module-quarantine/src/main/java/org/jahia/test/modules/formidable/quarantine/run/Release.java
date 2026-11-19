@@ -6,6 +6,8 @@ import org.jahia.modules.formidable.engine.api.HeldSubmission;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.test.modules.formidable.quarantine.state.HeldEvent;
 import org.jahia.test.modules.formidable.quarantine.state.HeldState;
+import org.jahia.test.modules.formidable.quarantine.state.IllegalTransitionException;
+import org.jahia.test.modules.formidable.quarantine.state.StateMachine;
 import org.jahia.test.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
@@ -17,7 +19,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,7 +28,8 @@ import java.util.Objects;
  * {@link DeferredActions}, from the index the held submission records, with a checkpoint after each action. Once
  * every action ran, the values, the sensitive values and the bytes are deleted; the record and the outcomes stay.
  *
- * <p>The released files are the very files whose bytes were hashed: the bytes released are the bytes checked.</p>
+ * <p>The released files are the very files whose bytes were hashed: the bytes released are the bytes of intake, under
+ * whose SHA-256 the run recorded each outcome.</p>
  */
 public final class Release {
 
@@ -57,10 +59,13 @@ public final class Release {
      * @param path  the path of the held submission
      * @param state {@link HeldState#CHECKING} when every check passed: the release moves it on
      *              {@link HeldEvent#ALL_PASSED}; or {@link HeldState#RELEASING} when a manager released or resumed it
-     * @return the state after the release: {@code completed}, or {@code needsReview} on a hash difference or a failed
-     *         action
+     * @return the state after the release: {@code completed}, or {@code needsReview} on a hash difference, an item
+     *         with no bytes, or a failed action
+     * @throws IllegalTransitionException for any other state: no byte is read and no action runs
      */
     public HeldState release(String path, HeldState state) throws QuarantineStoreException {
+        // refuses a state the release cannot leave, before any byte is read and any action runs
+        StateMachine.next(state, state == HeldState.CHECKING ? HeldEvent.ALL_PASSED : HeldEvent.ACTIONS_DONE);
         HeldRecord record = store.record(path)
                 .orElseThrow(() -> new QuarantineStoreException("No held submission at " + path));
         HeldSubmission submission = store.read(path)
@@ -74,14 +79,15 @@ public final class Release {
     }
 
     /**
-     * @return the first item whose bytes differ from the SHA-256 of intake, or an item named {@link #ITEM_COUNT}
-     *         when the files and the items with bytes are not as many; null when every file is unchanged
+     * @return the first item that has no bytes, or whose bytes differ from the SHA-256 of intake, or an item named
+     *         {@link #ITEM_COUNT} when the files and the items are not as many; null when every file is unchanged
      */
     static ItemRecord firstChanged(HeldRecord record, HeldSubmission submission) {
-        List<ItemRecord> items = new ArrayList<>();
-        for (ItemRecord item : record.items()) {
-            if (item.binaryPresent()) {
-                items.add(item);
+        List<ItemRecord> items = record.items();
+        for (ItemRecord item : items) {
+            if (!item.binaryPresent()) {
+                // the bytes go only once the submission is completed: an item with none lost them
+                return item;
             }
         }
         List<SubmittedFile> files = submission.files();

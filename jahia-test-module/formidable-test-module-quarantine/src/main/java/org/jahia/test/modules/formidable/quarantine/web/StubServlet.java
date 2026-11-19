@@ -23,7 +23,8 @@ import java.util.List;
  * </ul>
  * A call names the node type of the stub, the check node, the SHA-256 of the file and the kind of call: never a byte.
  *
- * <p>Server administrators only: any other caller gets 403 and nothing changes.</p>
+ * <p>Server administrators only: any other caller gets 403 and nothing changes. A POST also needs the header
+ * {@code X-Requested-With}.</p>
  */
 @Component(service = {HttpServlet.class, Servlet.class}, property = {"alias=" + StubServlet.ALIAS}, immediate = true)
 public class StubServlet extends HttpServlet {
@@ -72,6 +73,9 @@ public class StubServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) {
         if (!administrators.currentUserIsOne()) {
             JsonAnswers.answer(resp, HttpServletResponse.SC_FORBIDDEN, JsonAnswers.error(JsonAnswers.FORBIDDEN));
+            return;
+        }
+        if (JsonAnswers.refusedAsCrossSite(req, resp)) {
             return;
         }
         switch (JsonAnswers.operationOf(req, ALIAS)) {
