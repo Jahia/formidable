@@ -148,6 +148,7 @@ A form whose switch **Hold uploads in quarantine** is on (`fmdbmix:quarantine`) 
 - The switch decides, never the code of an action: no action opts in to the uploads of such a form.
 - The pipeline reads the switch once, before it runs the first action. Never move that decision into the loop.
 - The hold fails closed: a submission with an upload is refused with FMDB-018 when no `SubmissionHold` service is installed, and `uploadsRequireQuarantine=true` hands the uploads of a form with the switch off to no action.
+- In read-only maintenance, a form with the switch on answers FMDB-014 whatever its actions: the hold writes, and step 5 runs before the body says whether an upload came. The pipeline and the form view (`readOnlyActions.server.ts`) decide it the same way.
 - An action type runs after release only when it declares `fmdbmix:deferrableAction`. Its code reads nothing of the request but the three values of `SubmissionOrigin`, and writes nothing to the response.
 - A hold keeps the bytes outside the file model until a file is qualified, and sends them nowhere but to the checks.
 - **Review check**: a change on the dispatch of the actions keeps `FormSubmissionPipelineHoldTest` and `DeferredActionsServiceTest` green, and a new built-in action declares `fmdbmix:deferrableAction` only with a test that runs it against `DetachedRequest`.

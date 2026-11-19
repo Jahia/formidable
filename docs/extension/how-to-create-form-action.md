@@ -347,7 +347,8 @@ waits for the result.
 - An action after release may run again when a manager resumes a run that failed at it. Fail before the action has
   an effect, or make the effect safe to repeat.
 - The marker does not replace `fmdbmix:readOnlyCompatibleAction`: declare both on an action that never writes to
-  the repository.
+  the repository. In read-only maintenance, a form with the switch on answers `FMDB-014` whatever its actions,
+  because the hold writes. The mixin counts only for a form with the switch off.
 
 `formidable-test-module-samples-java` holds a sample of each side. `UploadObserverFormAction` is a deferrable
 action that records the number of files it received. `SampleSubmissionHold` is a test double of a hold: it

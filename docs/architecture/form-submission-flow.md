@@ -32,8 +32,9 @@ Browser
          Step 2   readRoutingParams       fid (UUID-validated) + lang read from URL query params  — 0 byte read
          Step 3   guardContentLength      early reject if Content-Length > max                    — 0 byte read
          Step 4   resolveFormNode         JCR getNodeByIdentifier(fid) in "live"                 — 0 byte read
-         Step 5   verifyPlatformWritable  if the platform is in read-only mode and an action
-                                          lacks fmdbmix:readOnlyCompatibleAction → FMDB-014      — 0 byte read
+         Step 5   verifyPlatformWritable  if the platform is in read-only mode and the form has
+                                          fmdbmix:quarantine, or an action lacks
+                                          fmdbmix:readOnlyCompatibleAction → FMDB-014            — 0 byte read
          Step 6   verifyAuthentication    if fmdbmix:authenticatedOnlyForm → reject Guest
          Step 7   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify CAPTCHA header — 0 byte read
          Step 8   collectFormFieldInfo    walk form node: build the field whitelist —
@@ -167,8 +168,9 @@ Step 12 reads the switch once, before it runs the first action, and then decides
 - The upload of a sensitive field still reaches nobody, the hold included (decision D4). A submission whose only
   upload is the one of a sensitive field is not held.
 - The values of the fields are not held back: the actions of `actions` receive the public values, as before.
-- In read-only maintenance, a form with the switch on counts the actions of both lists, because the second list
-  may run in the request.
+- In read-only maintenance, a form with the switch on answers FMDB-014, whatever its actions. The hold writes when
+  it stores a submission with an upload, and the check runs before the pipeline reads the body, so it cannot know
+  whether an upload comes. The form view shows the maintenance message for the same reason.
 - `uploadsRequireQuarantine` is a setting of `org.jahia.modules.formidable.uploads.cfg`, for every form of the
   platform ([Configuration files](../administration/configuration.md#a-mandatory-quarantine)).
 
@@ -348,6 +350,9 @@ repository level. Formidable handles this natively for forms whose actions persi
   is deliberately inverted: an action type **without** the mixin — including any third-party
   action that never considered read-only mode — is presumed to write and blocks its form during
   maintenance. Worst case an unaffected form is over-blocked; a submission is never lost.
+- **A form that holds its uploads writes.** A form with the switch `fmdbmix:quarantine` on is
+  presumed to write, whatever its actions, because the hold stores a submission with an upload
+  ([The hold of the uploads](#the-hold-of-the-uploads)).
 - **Render time (UX layer):** `default.server.tsx` reads the platform state (`SettingsBean`)
   and the form's action nodes. A repository-writing form in live renders as the maintenance
   message alone — the form markup is not emitted at all, no island is mounted — and the
@@ -369,7 +374,7 @@ module resource bundle (`maintenanceMessage.default`), so contributors can rewor
 The client maps `FMDB-014` to the same message, never to the generic error banner — forms
 created before the property existed fall back to the bundled text
 (`fmdb_form.maintenanceUnavailable`). Forms whose actions all carry the mixin (e.g. email-only
-forms) keep working normally during maintenance.
+forms) keep working normally during maintenance, unless they hold their uploads.
 
 ---
 
