@@ -18,6 +18,8 @@ Specs:
   Q15, Q25 and Q26.
 - `tests/cypress/e2e/quarantine/96-uploads-hold-email.cy.ts` covers Q06, and
   the mail of Q14 and of Q15.
+- `tests/cypress/e2e/quarantine/97-quarantine-intake.cy.ts` covers Q01, Q10,
+  Q11 and Q16, with the reference hold of the quarantine test module.
 
 ## Vocabulary
 
@@ -37,6 +39,27 @@ Specs:
 - **Forward sink**: a receiver of the samples module, which the spec declares
   as the forward target `samplesink`. It answers the names of the parts that
   the last forward carried.
+- **Quarantine test module**: `formidable-test-module-quarantine`. It ships the
+  reference hold, the quarantine tree and an inspection of the tree. Never for
+  production: its checks are stubs.
+- **Check of the module**: a node of `fmdbquar:remoteStubCheck` or
+  `fmdbquar:inProcessStubCheck` in the list "Checks" (`qualifiers`) of a form.
+- **Reference hold**: the hold of the quarantine test module. It ranks above the
+  sample hold. It owns a form whose list "Checks" holds a check of the module,
+  and stores its submissions in the quarantine tree. It hands any other form to
+  the sample hold.
+- **Quarantine tree**:
+  `/sites/<site>/formidable-quarantine/<form>/YYYY/MM/DD/<held>`, in live. The
+  root cuts its ACL inheritance and holds no access control entry.
+- **Held submission**: a node of the quarantine tree, with its state, the names
+  of its fields, its values and, apart, its sensitive values.
+- **Item**: one upload of a held submission. Its bytes are a binary property
+  of the item, not indexed, never `jcr:data` on a `jnt:resource`. It records
+  the SHA-256 of the bytes.
+- **Inspection**: `/modules/formidable-quarantine/inspection?site=<site>&form=<formId>`.
+  It answers server administrators alone, as JSON: the state of each held
+  submission, the names of its fields, and of each item its file name, size,
+  SHA-256 and whether its bytes are there. It never answers a value or a byte.
 - **Mailbox**: Mailpit, the `smtp-server` service of `tests/docker-compose.yml`.
   The provisioning of `@jahia/cypress` points the mail service of Jahia at it.
 
@@ -54,6 +77,11 @@ A spec reads the calls of the observer action and of the sample hold from the
 samples module, at `/modules/formidable-samples/upload-observations`, and
 resets them before each test.
 
+The specs of the reference hold (97) also enable the quarantine test module on
+the site, and put a remote stub check in the list "Checks" of the form. They
+read the quarantine tree as root, through the inspection, and through Groovy
+with a system session.
+
 ## Control runs
 
 A security scenario proves nothing if it also passes without the change. Each
@@ -68,6 +96,7 @@ the scenario proves:
 |---|---|
 | Q06, Q07, Q08 | hands the uploads to the actions on submission, whatever the switch says |
 | Q15 | ignores `uploadsRequireQuarantine` |
+| Q10 | leaves the ACL inheritance of the quarantine root in place: the quarantine test module without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf` |
 
 ---
 
@@ -178,11 +207,128 @@ type.
 
 ---
 
+## The intake of the reference hold
+
+The scenarios of this section use the reference hold of the quarantine test
+module. The form has a remote stub check in "Checks", unless the scenario says
+otherwise. No scenario of this section releases a submission: the checks and
+the release come with the next part of the module.
+
+### Q01 — A submission with a file is held
+
+**Steps:**
+1. Add Save to JCR, an e-mail content action that attaches the files, and the
+   observer action to "Actions after release".
+2. Submit the form with a file.
+
+**Expected:**
+- HTTP 200 to the visitor, with the body of any accepted submission
+- One held submission, with state `held`, the field names and the field values
+- One item, with the file name, the size and the SHA-256 of the upload, and its
+  bytes
+- The sample hold reports no call, and the observer action no call
+- No submission is stored in the results of the form, and no mail is sent
+
+The spec also submits a file to a form with the switch on and no check of the
+module. The sample hold reports one call with one file, and the quarantine tree
+holds nothing for that form.
+
+### Q10 — No reader role reads the quarantine tree — control
+
+The quarantine root cuts the ACL inheritance and holds no access control entry,
+so a role granted on the site, the site administrator included, gives nothing
+on it. A system session, and a member of the server `administrators` group such
+as `root`, are outside this scenario: the Jahia core grants them every
+permission, whatever the ACL says.
+
+`docs/administration/results-permissions.md` says that site administrators read
+the results of a form, whose entry cuts the inheritance too. The core, as read
+in its access manager and not run, gives a site administrator no such bypass.
+This scenario is the check of that case on a live Jahia: if the site
+administrator reads the item, the quarantine root needs another guard.
+
+**Steps:**
+1. Create three users: a results reader (editor of the site, and
+   `fmdb-results-reader` on the form, published), an editor of the site, and a
+   site administrator.
+2. Submit the form with a file.
+3. As root, read the held submission and its item through GraphQL.
+4. As each of the three users, read the quarantine root, the held submission,
+   its values and its item through GraphQL; the item through `/files/live/...`;
+   the held submission and its item through the JCR REST API; and the
+   inspection.
+5. Read the ACL of the quarantine root with a system session (Groovy).
+
+**Expected:**
+- Root reads the held submission and its item: the paths are real
+- Each GraphQL read of the three users answers no node
+- Each `/files` and JCR REST read answers 401, 403 or 404
+- The inspection answers 403
+- The root cuts its ACL inheritance and holds no `jnt:ace`
+
+The JCR REST API answers 404 when its module is not installed: that read then
+proves nothing.
+
+**Control build:** the quarantine test module with the line
+`root.setAclInheritanceBreak(true);` removed from `JcrQuarantineStore.rootOf`.
+Build it with `package`, deploy it in place of the module, and run spec 97. The
+spec creates the site again, so the quarantine root is created by the control
+build. Q10 must fail by assertion on a read of the editor or of the site
+administrator.
+
+### Q11 — The quarantine tree is inert
+
+**Steps:**
+1. On a form with a multiple file field, submit a PDF and an image through the
+   form page.
+2. Submit the same PDF through the form page of a form with the switch off and
+   Save to JCR. Poll its submission until a node under it carries
+   `j:extractedText` (Groovy): the extraction of the core has then run. A
+   platform that extracts no text fails this step, and the scenario proved
+   nothing there.
+3. Read the held submission through the inspection, and the quarantine tree of
+   the first form with a system session (Groovy).
+
+**Expected:**
+- One held submission with two items, one for each upload, and each holds its
+  bytes
+- No `jnt:file`, `jnt:resource`, `nt:file` or `nt:resource` node
+- No `j:extractedText` property
+- No thumbnail node and no image node
+
+### Q16 — Read-only maintenance
+
+A form answers `FMDB-014` in read-only maintenance when it is presumed to
+write. The engine presumes it from the action types of "Actions on submission"
+and, on a form with the switch on, of "Actions after release": Save to JCR in
+"Actions after release" makes every submission of the form a write.
+
+**Steps:**
+1. Add Save to JCR to "Actions after release".
+2. Put the platform in read-only maintenance.
+3. Submit the form with a file, then with no file.
+
+**Expected:**
+- HTTP 503 and `FMDB-014` each time
+- No held submission, no item and no stored submission is written, and the
+  sample hold reports no call
+
+The engine does not presume a write from the switch alone. On a form with the
+switch on whose lists hold only read-only compatible actions, a submission with
+a file passes the gate and reaches the hold, which cannot write. No scenario
+covers that case yet.
+
+---
+
 ## Coverage map
 
 | Scenario | Proves |
 |---|---|
+| Q01 | the intake always succeeds, and nothing runs after it before a release |
 | Q06, Q07, Q08, Q15 | no file leaves through an action of the request |
+| Q10 | no reader opens a file before its release |
+| Q11 | no parser of the platform reads a held file |
 | Q14 | no regression on a form with the switch off |
+| Q16 | read-only maintenance writes nothing |
 | Q25 | a submission with no file waits for nothing |
 | Q26 | no action that cannot run after release enters that list |
