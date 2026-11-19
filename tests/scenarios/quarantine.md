@@ -7,10 +7,11 @@ release receive the released files.
 Decision: [ADR 0002](../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-This document holds the scenarios that a spec covers. The scenarios of the
-later milestones stay in [`todo/quarantine.md`](./todo/quarantine.md) until
-their specs exist. A scenario keeps its identifier wherever it moves, so the
-identifiers of this document are not in order.
+This document holds the scenarios that a spec covers. The plan of the test
+module dropped two scenarios, Q17 and Q19:
+[`todo/quarantine.md`](./todo/quarantine.md) says why. A scenario keeps its
+identifier wherever it moves, so the identifiers of this document are not in
+order.
 
 Specs:
 
@@ -22,6 +23,8 @@ Specs:
   Q11 and Q16, with the reference hold of the quarantine test module.
 - `tests/cypress/e2e/quarantine/98-quarantine-checks.cy.ts` covers Q02, Q03,
   Q04, Q09, Q12, Q13, Q21, Q22 and Q23: the run of the checks and the release.
+- `tests/cypress/e2e/quarantine/99-quarantine-operations.cy.ts` covers Q05,
+  Q18, Q20 and Q24: the operations of a manager, the audit and the retention.
 
 ## Vocabulary
 
@@ -40,7 +43,9 @@ Specs:
   node and of its list. Its type is deferrable.
 - **Forward sink**: a receiver of the samples module, which the spec declares
   as the forward target `samplesink`. It answers the names of the parts that
-  the last forward carried.
+  the last forward carried. A server administrator makes it refuse each
+  forward with 503 (`POST .../refuse`), until `POST .../accept` or
+  `POST .../reset`. A refused forward is not counted as received.
 - **Quarantine test module**: `formidable-test-module-quarantine`. It ships the
   reference hold, the quarantine tree and an inspection of the tree. Never for
   production: its checks are stubs.
@@ -85,6 +90,23 @@ Specs:
 - **Decision**: why the run stopped a held submission, such as `CHECK_FAILED`,
   `FILE_WITHHELD`, `IN_PROCESS_FIRST`, `INTEGRITY_FAILED` or `ACTION_FAILED`.
   The inspection answers the outcomes and the decision.
+- **Manager**: a user that holds the role `fmdbquar-quarantine-manager` on the
+  form, published. The role grants the permission `fmdbquarManageQuarantine`
+  of the quarantine test module. A server administrator is a manager of every
+  form.
+- **Operation**: `POST /modules/formidable-quarantine/operations?path=<held>&operation=<op>`,
+  where the operation is `retry`, `release`, `resume` or `reject`. It runs on
+  a held submission in state `needsReview`, for a manager. Any other user gets
+  403, and a state that does not allow the operation gets 409. `resume` needs
+  the decision `ACTION_FAILED`, and `release` any other decision.
+- **Audit record**: a record under the held submission: the operation, the name
+  of the user, the state before and after, and the time. The run writes one,
+  with no user, when it releases, rejects or sends to review. The inspection
+  answers them.
+- **Retention**: `POST /modules/formidable-quarantine/retention?site=<site>`.
+  It purges each `rejected` held submission whose last change is older than
+  `retentionDays` (30 by default), or `olderThanDays` for that call. Server
+  administrators only.
 - **Mailbox**: Mailpit, the `smtp-server` service of `tests/docker-compose.yml`.
   The provisioning of `@jahia/cypress` points the mail service of Jahia at it.
 
@@ -125,6 +147,7 @@ the scenario proves:
 | Q09 | releases without computing the hash again: `Release.release` with `firstChanged(record, submission)` replaced by `null` |
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
+| Q20 | runs an operation for any user: in `QuarantineOperations.apply`, `!managers.mayManage(record.formId())` replaced by `false` |
 
 ---
 
@@ -436,8 +459,8 @@ exhaustion of the attempts.
 - No submission is stored in the results of the form, the observer action
   reports no call, and no action after release ran
 
-The plan has no audit record in this part of the module: the decision names the
-item, and a log line names it too.
+The decision names the item, and a log line names it too. The audit record of
+the run names no item.
 
 **Control build:** see the table of the control runs.
 
@@ -518,6 +541,102 @@ The plan drops the alert of the editor on the list of checks.
 
 ---
 
+## The operations and the retention
+
+The scenarios of this section use the reference hold and "run now", as the
+section before. An operation runs as root unless the scenario names a user. The
+form has one remote stub check in "Checks", and Save to JCR in "Actions after
+release", unless the scenario says otherwise.
+
+### Q05 — Attempts exhausted, then a manager retries
+
+**Steps:**
+1. Set `maxAttempts=2` in the configuration of the run.
+2. Submit the form with a `DOWN` file. The outage is on.
+3. Run the checks, then run them again with `ignoreSchedule`.
+4. Lift the outage, and retry the submission through the operation.
+5. Run the checks.
+
+**Expected:**
+- After step 3, the state is `needsReview`, the decision is
+  `ATTEMPTS_EXHAUSTED`, and the outcome `FAILED` counts two failures
+- After step 4, the state is `checking`, with no attempt and no outcome
+- After step 5, the state is `completed`, the outcome is `PASS`, and one action
+  after release ran
+- The audit holds the run to `needsReview`, the retry by root, and the run to
+  `completed`
+
+The spec sets `maxAttempts=10` back when it ends.
+
+### Q18 — Retention
+
+**Steps:**
+1. Submit the form with a `VERDICT:FAIL` file, then with another
+   `VERDICT:FAIL` file, then with a `VERDICT:PASS` file, and run the checks.
+2. Move the last change of the first rejected submission and of the completed
+   one 40 days back (Groovy).
+3. Run the retention, with the default limit of 30 days.
+
+**Expected:**
+- After step 1, two submissions are `rejected` and one is `completed`
+- The retention answers the path of the first rejected submission alone
+- That held submission is gone, with its outcomes and its decision
+- The second rejected submission and the completed one are kept
+
+The retention keeps a `completed` submission, however old: it holds no value
+and no byte any more.
+
+### Q20 — Only a manager runs an operation, and each leaves an audit record — control
+
+**Steps:**
+1. Create three users: a results reader (editor of the site, and
+   `fmdb-results-reader` on the form), an editor of the site, and a manager
+   (`fmdbquar-quarantine-manager` on the form, and no role on the site).
+   Publish the form.
+2. Submit the form three times with an `INCONCLUSIVE` file, and run the
+   checks: each submission is `needsReview`.
+3. As the reader, then as the editor, run each operation on each submission,
+   and run the retention.
+4. As the manager, release the first submission, reject the second, and retry
+   the third. Then release the first again, and run the retention.
+
+**Expected:**
+- Each request of step 3 answers 403, and no state, value or audit record
+  changes
+- After step 4, the first submission is `completed`, the second `rejected`,
+  with no value and no byte, and the third `checking`
+- The second release answers 409, and the retention 403
+- The last audit record of each submission names the operation and the
+  manager, and no audit record holds a value
+
+The plan dropped the Results page: no scenario opens it.
+
+**Control build:** see the table of the control runs. Q20 must fail by
+assertion on the status of an operation of the reader.
+
+### Q24 — An action after release fails, and a manager resumes
+
+**Steps:**
+1. Declare the forward sink as a forward target. Put Save to JCR, then a
+   forward action on the sink, in "Actions after release".
+2. Make the sink refuse.
+3. Submit the form with a `VERDICT:PASS` file, and run the checks.
+4. Make the sink accept again. Release the submission, then resume it, through
+   the operations.
+
+**Expected:**
+- After step 3, the state is `needsReview`, the decision is `ACTION_FAILED`
+  with the index 1, one action ran, the submission is stored once, and the
+  sink received no forward
+- In step 4, the release answers 409: it would run Save to JCR again
+- After step 4, the state is `completed`, two actions ran, the submission is
+  still stored once, and the sink received one forward, with the file
+
+The first version of this scenario made a mail server refuse a mail. A Cortex
+lab has no mailbox, so the forward sink refuses instead.
+
+---
+
 ## Coverage map
 
 | Scenario | Proves |
@@ -525,7 +644,7 @@ The plan drops the alert of the editor on the list of checks.
 | Q01 | the intake always succeeds, and nothing runs after it before a release |
 | Q02 | the bytes released are the bytes checked |
 | Q03 | a file that failed a check never reaches an action after release |
-| Q04 | an outage of a check loses no claim |
+| Q04, Q05 | an outage of a check loses no claim |
 | Q06, Q07, Q08, Q15 | no file leaves through an action of the request |
 | Q09 | a file whose bytes changed after intake is never released |
 | Q10 | no reader opens a file before its release |
@@ -534,8 +653,11 @@ The plan drops the alert of the editor on the list of checks.
 | Q13 | a file that no check applied to is not released by default |
 | Q14 | no regression on a form with the switch off |
 | Q16 | read-only maintenance writes nothing |
+| Q18 | no rejected file is kept forever |
+| Q20 | a release is the act of a named manager |
 | Q21 | a later check never reads a file that an earlier check failed |
 | Q22 | the actions after release run once, in order |
 | Q23 | no in-process check parses a file that no remote check passed |
+| Q24 | a failure after release stores nothing twice and forwards nothing twice |
 | Q25 | a submission with no file waits for nothing |
 | Q26 | no action that cannot run after release enters that list |

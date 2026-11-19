@@ -4,6 +4,12 @@ import {JahiaNode} from './types';
 export const QUARANTINE_MODULE_ID = 'formidable-test-module-quarantine';
 
 /**
+ * The role of the quarantine test module that grants its permission fmdbquarManageQuarantine: granted on a form, and
+ * published, it lets a user retry, release, resume or reject the held submissions of that form.
+ */
+export const QUARANTINE_MANAGER_ROLE = 'fmdbquar-quarantine-manager';
+
+/**
  * The stub of a remote check of the quarantine test module, for the "Checks" list of a form (the `qualifiers` option
  * of createFormNode), with the CND defaults of its settings (review, retry). A form whose list holds it is owned by the
  * reference hold, which stores its submissions in the quarantine tree; any other form goes to the sample hold.

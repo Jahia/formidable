@@ -1,6 +1,8 @@
 import {
 	FORWARD_SINK_PATH,
 	QUARANTINE_INSPECTION_PATH,
+	QUARANTINE_OPERATIONS_PATH,
+	QUARANTINE_RETENTION_PATH,
 	QUARANTINE_RUN_PATH,
 	QUARANTINE_STUB_PATH,
 	UPLOAD_OBSERVATIONS_PATH
@@ -39,7 +41,8 @@ export const submissionWithAFile = (fullName: string): string => submissionWithT
 export const STUB_FILE = {
 	pass: 'VERDICT:PASS\nA claim note the checks pass.',
 	fail: 'VERDICT:FAIL\nA claim note the checks fail.',
-	down: 'DOWN\nA claim note the checks cannot reach while the outage is on.'
+	down: 'DOWN\nA claim note the checks cannot reach while the outage is on.',
+	inconclusive: 'INCONCLUSIVE\nA claim note the checks cannot decide.'
 };
 
 /** A submission of the text field alone: the file field is left empty. */
@@ -89,13 +92,26 @@ export const FORWARD_SINK_TARGET = {
 };
 
 export interface ForwardSinkState {
+	/** The forwards received since the reset; a refused forward is not received. */
 	count: number;
 	fields: string[];
 	files: string[];
+	/** Whether the sink answers each forward with 503. */
+	refusing: boolean;
+	/** The forwards refused since the reset. */
+	refused: number;
 }
 
+/** Forgets the forwards received, and lifts a refusal. */
 export const resetForwardSink = (): Cypress.Chainable =>
 	cy.request({method: 'POST', url: `${FORWARD_SINK_PATH}/reset`, headers: {Origin: SAME_ORIGIN}});
+
+/**
+ * Makes the sink answer each forward with 503, so a forward action fails, or lifts it. Server administrators only: the
+ * spec sets it logged in as root.
+ */
+export const setForwardSinkRefusal = (refuse: boolean): Cypress.Chainable =>
+	cy.request({method: 'POST', url: `${FORWARD_SINK_PATH}/${refuse ? 'refuse' : 'accept'}`, headers: {Origin: SAME_ORIGIN}});
 
 /** What the last forward carried: the number of forwards since the reset, and the names of its value and file parts. */
 export const readForwardSink = (): Cypress.Chainable<ForwardSinkState> =>
@@ -155,11 +171,22 @@ export interface HeldDecision {
 	at: string;
 }
 
+/** Who changed the state of a held submission, how and when: an operation of a manager, or the run (no user). */
+export interface HeldAuditRecord {
+	operation: 'retry' | 'release' | 'resume' | 'reject' | 'run';
+	user: string | null;
+	from: string;
+	to: string;
+	at: string;
+}
+
 /** One held submission, as the inspection answers it: the names of its fields, never a value. */
 export interface HeldSubmissionRecord {
 	path: string;
 	state: 'held' | 'checking' | 'releasing' | 'completed' | 'rejected' | 'needsReview';
 	createdAt: string;
+	/** The last change of the state: the retention reads it. */
+	changedAt: string | null;
 	attempts: number;
 	nextAttempt: string | null;
 	completedActions: number;
@@ -169,6 +196,7 @@ export interface HeldSubmissionRecord {
 	items: HeldItem[];
 	checks: HeldOutcome[];
 	decision: HeldDecision | null;
+	audit: HeldAuditRecord[];
 }
 
 /**
@@ -258,4 +286,49 @@ export const setStubOutage = (down: boolean): Cypress.Chainable =>
 		method: 'POST',
 		url: `${QUARANTINE_STUB_PATH}/outage/${down ? 'set' : 'lift'}`,
 		headers: QUARANTINE_POST_HEADERS
+	});
+
+export type QuarantineOperation = 'retry' | 'release' | 'resume' | 'reject';
+
+/** The answer of an operation: the state of the held submission before it and after it. */
+export interface QuarantineOperationAnswer {
+	path: string;
+	operation: QuarantineOperation;
+	from: string;
+	state: HeldSubmissionRecord['state'];
+}
+
+/**
+ * An operation of a manager on a held submission, as the user of the current session: a manager of the form, or a
+ * server administrator. Any other user gets 403; a state that does not allow the operation gets 409.
+ */
+export const operateHeldSubmission = (path: string, operation: QuarantineOperation, failOnStatusCode = true):
+	Cypress.Chainable<Cypress.Response<QuarantineOperationAnswer>> =>
+	cy.request<QuarantineOperationAnswer>({
+		method: 'POST',
+		url: QUARANTINE_OPERATIONS_PATH,
+		headers: {Origin: SAME_ORIGIN},
+		qs: {path, operation},
+		failOnStatusCode
+	});
+
+export interface QuarantineRetentionAnswer {
+	site: string;
+	retentionDays: number;
+	purged: string[];
+	failed: string[];
+}
+
+/**
+ * The retention over the test site: purges each rejected held submission whose last change is older than the limit,
+ * retentionDays of the configuration or olderThanDays for this call. Server administrators only.
+ */
+export const runQuarantineRetention = (olderThanDays?: number, failOnStatusCode = true):
+	Cypress.Chainable<Cypress.Response<QuarantineRetentionAnswer>> =>
+	cy.request<QuarantineRetentionAnswer>({
+		method: 'POST',
+		url: QUARANTINE_RETENTION_PATH,
+		headers: {Origin: SAME_ORIGIN},
+		qs: {site: FORMIDABLE_TEST_SITE.key, ...(olderThanDays === undefined ? {} : {olderThanDays: String(olderThanDays)})},
+		failOnStatusCode
 	});
