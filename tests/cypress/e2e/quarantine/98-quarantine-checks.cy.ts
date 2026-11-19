@@ -107,9 +107,10 @@ const runOnce = (formId: string, state: HeldSubmissionRecord['state'], ignoreSch
  *   SHA-256 again. Q09 fails on the state (`completed`, not `needsReview`) or on the stored results.
  * - Q21: in CheckChain.judgeResult, answer `null` for FAIL as for PASS, so every check of the list runs whatever an
  *   earlier one answered. Q21 fails on the calls of the second check.
- * - Q23: in CheckChain.refuseInProcessFirst, return `null` at once, so a list whose first check is in-process runs.
- *   Q23 fails on the calls of the stubs. The same failure follows, with no build, from `allowInProcessFirst=true` in
- *   the configuration org.jahia.test.modules.formidable.quarantine.run.
+ * - Q23: in CheckChain.refuseInProcessFirst, replace `if (allowInProcessFirst)` with
+ *   `if (allowInProcessFirst || files != null)`, so the method returns `null` at once and a list whose first check is
+ *   in-process runs (a bare `return null;` leaves the loop unreachable and does not compile). Q23 fails on the calls
+ *   of the stubs. The setting `allowInProcessFirst=true` is not a control: the `beforeEach` asserts it is `false`.
  */
 describe('Quarantine - 98 The run of the checks releases, rejects or withholds a held submission', () => {
 	useFormidableSite();
