@@ -157,7 +157,7 @@ Step 12 reads the switch once, before it runs the first action, and then decides
 | The form and the submission | Who receives the uploads |
 |---|---|
 | The switch is off, and `uploadsRequireQuarantine=false`, which is the default | Every action of `actions`, as before. |
-| The switch is off, and `uploadsRequireQuarantine=true` | No action. The pipeline logs one warning for the submission. |
+| The switch is off, and `uploadsRequireQuarantine=true` | No action. The pipeline logs one warning for a submission that carries an upload. |
 | The switch is on, and the submission carries an upload | The `SubmissionHold` service, once the actions of `actions` ran with no file. |
 | The switch is on, the submission carries an upload, and no `SubmissionHold` service is installed | Nobody. The pipeline refuses the submission with FMDB-018 before it runs an action. |
 | The switch is on, and the submission carries no upload | Nobody. The actions of `deferredActions` run in the request, after the actions of `actions`. |

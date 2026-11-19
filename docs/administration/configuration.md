@@ -133,7 +133,7 @@ quarantine mandatory for every form of the platform.
 
 With `true`, a form with the option off still accepts a submission. The storage action stores the values with no
 file, and an e-mail or a forward action sends the values with no file. The visitor is not told. The engine logs
-one warning for each such submission, which names the form.
+one warning for each such submission that carries an upload, and the warning names the form.
 
 The server applies a change at once. Set `true` only when a module that holds the uploads is deployed, and the
 option is on for every form that takes a file.
