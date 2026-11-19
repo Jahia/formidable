@@ -58,12 +58,16 @@
  + * (fmdbquar:item) = fmdbquar:item
 
 // The public values of a held submission: one multiple string property per field, named after the field.
+// The single residual is there for Jahia: setProperty(name, Value[]) of a JCR node wrapper looks up a single
+// definition first and refuses the write without one. The repository then stores the property as multiple.
 [fmdbquar:values] > jnt:content
+ - * (string) indexed=no
  - * (string) multiple indexed=no
 
 // The sensitive values of a held submission, apart from the public ones. No endpoint of the module reads them,
-// no log line names them, and they are deleted with the public values.
+// no log line names them, and they are deleted with the public values. Two residuals, as fmdbquar:values.
 [fmdbquar:sensitiveValues] > jnt:content
+ - * (string) indexed=no
  - * (string) multiple indexed=no
 
 // One upload of a held submission. Its bytes are a binary property of this type, never jcr:data on a jnt:resource,
