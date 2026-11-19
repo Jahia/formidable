@@ -15,6 +15,7 @@
     - 'js:mvn:org.jahia.modules/formidable-elements/LATEST/tgz'
     - 'js:mvn:org.jahia.modules/formidable-extended-inputs/LATEST/tgz'
     - 'mvn:org.jahia.test/formidable-test-module-samples-java'
+    - 'mvn:org.jahia.test/formidable-test-module-quarantine'
     - 'js:mvn:org.jahia.test/formidable-test-module-samples-tsx/LATEST/tgz'
     - 'mvn:org.jahia.test/formidable-test-module-templateset-jsp'
     - 'js:mvn:org.jahia.test/formidable-test-module-templateset-tsx/LATEST/tgz'
