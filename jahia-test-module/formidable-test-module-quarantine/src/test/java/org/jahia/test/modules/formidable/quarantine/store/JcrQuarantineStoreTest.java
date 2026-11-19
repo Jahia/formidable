@@ -24,6 +24,7 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -32,11 +33,14 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.never;
@@ -166,7 +170,54 @@ class JcrQuarantineStoreTest {
         store.hold(submission(List.of(file())));
 
         verify(site, never()).addNode(anyString(), anyString());
-        verify(existing, never()).setAclInheritanceBreak(false);
+        verify(existing, never()).setAclInheritanceBreak(anyBoolean());
+        verify(existing, never()).grantRoles(anyString(), any());
+        verify(existing, never()).changeRoles(anyString(), any());
+    }
+
+    @Test
+    void aRootThatAConcurrentIntakeCreatedFirstIsReadAgain() throws Exception {
+        JCRNodeWrapper site = session.getNode("/sites/" + SITE);
+        JCRNodeWrapper concurrent = node("/sites/" + SITE + "/formidable-quarantine");
+        // no root before the save; the concurrent intake saved it in between
+        when(site.hasNode(QuarantineTree.ROOT_NAME)).thenReturn(false, true);
+        when(site.getNode(QuarantineTree.ROOT_NAME)).thenReturn(concurrent);
+        doThrow(new RepositoryException("the root exists")).when(session).save();
+
+        assertSame(concurrent, JcrQuarantineStore.rootOf(session, SITE));
+        verify(session).refresh(false);
+    }
+
+    @Test
+    void aFirstWriteThatFailsIsWrittenAgain() throws Exception {
+        int[] calls = new int[1];
+        JcrQuarantineStore retrying = new JcrQuarantineStore(Clock.fixed(NOW, ZoneOffset.UTC)) {
+            @Override
+            <T> T inLiveSystemSession(JCRCallback<T> callback) throws RepositoryException {
+                calls[0]++;
+                if (calls[0] == 1) {
+                    throw new RepositoryException("a concurrent intake created the day folder");
+                }
+                return callback.doInJCR(session);
+            }
+        };
+
+        String path = retrying.hold(submission(List.of(file())));
+
+        assertEquals(2, calls[0]);
+        assertTrue(path.contains("/held-"), path);
+    }
+
+    @Test
+    void aSecondWriteThatFailsRefusesTheIntake() {
+        JcrQuarantineStore failing = new JcrQuarantineStore(Clock.fixed(NOW, ZoneOffset.UTC)) {
+            @Override
+            <T> T inLiveSystemSession(JCRCallback<T> callback) throws RepositoryException {
+                throw new RepositoryException("the repository refuses every write");
+            }
+        };
+
+        assertThrows(QuarantineStoreException.class, () -> failing.hold(submission(List.of(file()))));
     }
 
     @Test
@@ -182,7 +233,7 @@ class JcrQuarantineStoreTest {
         verify(item).setProperty(QuarantineTree.FILE_NAME, "claim-note.txt");
         verify(item).setProperty(QuarantineTree.FIELD_NAME, "supportingDocument");
         verify(item).setProperty(QuarantineTree.MIME_TYPE, "text/plain");
-        verify(item).setProperty(any(String.class), any(Binary.class));
+        verify(item).setProperty(eq(QuarantineTree.DATA), any(Binary.class));
         assertEquals(1, binaries.size());
         assertArrayEquals(BYTES, binaries.get(0));
     }
@@ -343,6 +394,73 @@ class JcrQuarantineStoreTest {
     void aPathWithNoHeldSubmissionReadsAsEmpty() throws Exception {
         assertTrue(store.read("/sites/" + SITE + "/formidable-quarantine/nothing").isEmpty());
         assertTrue(store.record("/sites/" + SITE + "/formidable-quarantine/nothing").isEmpty());
+    }
+
+    /** A held submission at the path, which the session finds. */
+    private JCRNodeWrapper heldAt(String path) throws RepositoryException {
+        JCRNodeWrapper held = node(path);
+        when(session.nodeExists(path)).thenReturn(true);
+        when(session.getNode(path)).thenReturn(held);
+        when(held.isNodeType(QuarantineTree.HELD_TYPE)).thenReturn(true);
+        return held;
+    }
+
+    @Test
+    void theAttemptsAndTheNextAttemptAreSetAndANullNextAttemptRemovesIt() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-3";
+        JCRNodeWrapper held = heldAt(path);
+        JCRPropertyWrapper next = mock(JCRPropertyWrapper.class);
+        when(held.hasProperty(QuarantineTree.NEXT_ATTEMPT)).thenReturn(true);
+        when(held.getProperty(QuarantineTree.NEXT_ATTEMPT)).thenReturn(next);
+
+        store.setAttempts(path, 2, NOW);
+        verify(held).setProperty(QuarantineTree.ATTEMPTS, 2L);
+        verify(held).setProperty(eq(QuarantineTree.NEXT_ATTEMPT), any(Calendar.class));
+
+        store.setAttempts(path, 3, null);
+        verify(held).setProperty(QuarantineTree.ATTEMPTS, 3L);
+        verify(next).remove();
+        verify(session, times(2)).save();
+    }
+
+    @Test
+    void theCompletedActionsAreSet() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-4";
+        JCRNodeWrapper held = heldAt(path);
+
+        store.setCompletedActions(path, 1);
+
+        verify(held).setProperty(QuarantineTree.COMPLETED_ACTIONS, 1L);
+        verify(session).save();
+    }
+
+    @Test
+    void theRecordOfAHeldSubmissionHoldsItsStateItsFieldNamesAndItsItemsButNoValue() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-5";
+        JCRNodeWrapper held = heldAt(path);
+        string(held, QuarantineTree.FORM_ID, FORM_ID);
+        string(held, QuarantineTree.STATE, HeldStates.HELD);
+        strings(held, QuarantineTree.VALUE_FIELDS, "fullName");
+        strings(held, QuarantineTree.SENSITIVE_FIELDS, "password");
+        when(held.hasNode(QuarantineTree.VALUES)).thenReturn(true);
+        JCRNodeWrapper item = node(path + "/item0");
+        when(item.getName()).thenReturn("item0");
+        when(item.isNodeType(QuarantineTree.ITEM_TYPE)).thenReturn(true);
+        string(item, QuarantineTree.SHA256, BYTES_SHA256);
+        JCRNodeIteratorWrapper children = mock(JCRNodeIteratorWrapper.class);
+        when(children.iterator()).thenReturn(List.of(item).iterator());
+        when(held.getNodes()).thenReturn(children);
+
+        HeldRecord record = store.record(path).orElseThrow();
+
+        assertEquals(path, record.path());
+        assertEquals(HeldStates.HELD, record.state());
+        assertEquals(List.of("fullName"), record.valueFields());
+        assertEquals(List.of("password"), record.sensitiveFields());
+        assertTrue(record.valuesPresent());
+        assertEquals(1, record.items().size());
+        assertEquals(BYTES_SHA256, record.items().get(0).sha256());
+        assertFalse(record.items().get(0).binaryPresent());
     }
 
     @Test

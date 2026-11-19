@@ -96,8 +96,8 @@ public class InspectionServlet extends HttpServlet {
         for (ItemRecord item : held.items()) {
             items.put(new JSONObject()
                     .put("name", item.name())
-                    .put("fieldName", item.fieldName())
-                    .put("fileName", item.fileName())
+                    .put("fieldName", nullable(item.fieldName()))
+                    .put("fileName", nullable(item.fileName()))
                     .put("mimeType", nullable(item.mimeType()))
                     .put("size", item.size())
                     .put("sha256", item.sha256())

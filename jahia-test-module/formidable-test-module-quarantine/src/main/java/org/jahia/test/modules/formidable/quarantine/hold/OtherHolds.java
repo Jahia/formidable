@@ -28,7 +28,17 @@ final class OtherHolds {
     private final List<Registered> holds = new CopyOnWriteArrayList<>();
 
     void add(SubmissionHold hold, Map<String, ?> properties) {
-        holds.add(new Registered(hold, ranking(properties.get(SERVICE_RANKING)), serviceId(properties.get(SERVICE_ID))));
+        holds.add(registered(hold, properties));
+    }
+
+    private static Registered registered(SubmissionHold hold, Map<String, ?> properties) {
+        return new Registered(hold, ranking(properties.get(SERVICE_RANKING)), serviceId(properties.get(SERVICE_ID)));
+    }
+
+    /** The properties of a bound hold changed, such as its ranking: its place in the order follows, in one step. */
+    void update(SubmissionHold hold, Map<String, ?> properties) {
+        Registered updated = registered(hold, properties);
+        holds.replaceAll(registered -> registered.hold() == hold ? updated : registered);
     }
 
     void remove(SubmissionHold hold) {

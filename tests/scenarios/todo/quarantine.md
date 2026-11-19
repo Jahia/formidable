@@ -7,9 +7,7 @@ its actions after release.
 Decision: [ADR 0002](../../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-No scenario of this document is automated yet, except a part of Q16:
-`tests/cypress/e2e/security/45-read-only-maintenance.cy.ts` covers its gate for a
-submission with no file and for the form view. A scenario moves to
+No scenario of this document is automated yet. A scenario moves to
 [`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
 it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1, and those of the
 intake (Q01, Q10, Q11, Q16), moved there.
@@ -74,8 +72,8 @@ Each milestone is one pull request, and delivers the specs of its scenarios.
 
 ## The check double
 
-No scenario calls a real engine. The samples module registers a stub check
-(M3), which applies to text files alone. The stub reads its outcome from a
+No scenario calls a real engine. The quarantine test module registers a stub
+check (M3), which applies to text files alone. The stub reads its outcome from a
 marker in the uploaded text file:
 
 | Marker | The stub answers |
@@ -256,8 +254,8 @@ covers the exhaustion of the attempts.
 
 ### Q23 — An in-process check placed first — control
 
-The samples module registers a second stub check, which declares that it reads
-the bytes inside Jahia.
+The quarantine test module registers a second stub check, which declares that
+it reads the bytes inside Jahia.
 
 **Steps:**
 1. Put the in-process stub check first in "Checks", and the stub check second.

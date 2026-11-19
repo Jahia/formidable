@@ -149,6 +149,21 @@ class ReferenceSubmissionHoldTest {
     }
 
     @Test
+    void aNewRankingOfABoundHoldChangesTheNextHold() throws Exception {
+        ReferenceSubmissionHold hold = hold(false);
+        SubmissionHold other = mock(SubmissionHold.class);
+        hold.addOtherHold(sampleHold, ranked(5, 10L));
+        hold.addOtherHold(other, ranked(0, 20L));
+        HeldSubmission submission = submission();
+
+        hold.updatedOtherHold(other, ranked(10, 20L));
+        hold.hold(submission);
+
+        verify(other).hold(submission);
+        verify(sampleHold, never()).hold(any());
+    }
+
+    @Test
     void aRankingThatIsNotAnIntegerCountsAsZero() {
         SubmissionHold odd = mock(SubmissionHold.class);
         SubmissionHold ranked = mock(SubmissionHold.class);

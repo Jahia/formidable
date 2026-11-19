@@ -15,14 +15,15 @@ interface ServerAdministrators {
 
     /** The check of the platform: the user that the authentication of Jahia set on the request. */
     static ServerAdministrators ofThePlatform() {
-        return () -> {
-            JahiaUser user = JCRSessionFactory.getInstance().getCurrentUser();
-            if (user == null) {
-                return false;
-            }
-            // a null site key asks for the server group administrators, not for the site-administrators of a site
-            return user.isRoot()
-                    || JahiaGroupManagerService.getInstance().isAdminMember(user.getUsername(), user.getRealm(), null);
-        };
+        return () -> isOne(JCRSessionFactory.getInstance().getCurrentUser(), JahiaGroupManagerService.getInstance());
+    }
+
+    /** The rule of the check, apart from the services that give the user and the groups. */
+    static boolean isOne(JahiaUser user, JahiaGroupManagerService groups) {
+        if (user == null) {
+            return false;
+        }
+        // a null site key asks for the server group administrators, not for the site-administrators of a site
+        return user.isRoot() || groups.isAdminMember(user.getUsername(), user.getRealm(), null);
     }
 }

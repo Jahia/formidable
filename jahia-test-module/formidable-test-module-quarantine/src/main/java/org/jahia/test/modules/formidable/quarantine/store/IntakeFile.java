@@ -43,9 +43,9 @@ final class IntakeFile {
         return sha256;
     }
 
-    /** What a log line may say: never the bytes. */
+    /** What a log line may say: the field and the size, never the file name the visitor chose, never the bytes. */
     @Override
     public String toString() {
-        return "IntakeFile[fieldName=" + fieldName() + ", fileName=" + fileName() + ", size=" + bytes.length + "]";
+        return "IntakeFile[fieldName=" + fieldName() + ", size=" + bytes.length + "]";
     }
 }

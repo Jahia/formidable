@@ -7,6 +7,7 @@ import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldStates;
 import org.jahia.test.modules.formidable.quarantine.store.ItemRecord;
 import org.jahia.test.modules.formidable.quarantine.store.QuarantineStore;
+import org.jahia.test.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.json.JSONObject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -129,6 +130,31 @@ class InspectionServletTest {
         assertFalse(call.body().contains(PUBLIC_VALUE), call.body());
         assertFalse(call.body().contains("VERDICT"), call.body());
         verify(store, never()).read(any());
+    }
+
+    @Test
+    void aTreeThatCannotBeReadAnswersAnErrorAndNoRecord() throws Exception {
+        when(store.list(SITE, FORM_ID)).thenThrow(new QuarantineStoreException("the repository is down"));
+
+        Call call = get(true, SITE, FORM_ID);
+
+        assertEquals(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, call.status());
+        assertEquals(Set.of("error"), new JSONObject(call.body()).keySet());
+        assertFalse(call.body().contains("repository is down"), call.body());
+    }
+
+    @Test
+    void anItemWithNoFieldNameNorFileNameKeepsBothKeysAsNull() {
+        HeldRecord record = new HeldRecord(HELD_PATH, FORM_ID, SITE, HeldStates.HELD,
+                Instant.parse("2026-11-19T18:30:00Z"), 0, null, 0, List.of(), List.of(), true,
+                List.of(new ItemRecord("item0", null, null, null, 0, "e3b0", true)));
+
+        JSONObject item = InspectionServlet.inspection(SITE, FORM_ID, List.of(record))
+                .getJSONArray("submissions").getJSONObject(0).getJSONArray("items").getJSONObject(0);
+
+        assertEquals(Set.of("name", "fieldName", "fileName", "mimeType", "size", "sha256", "binaryPresent"), item.keySet());
+        assertTrue(item.isNull("fieldName"));
+        assertTrue(item.isNull("fileName"));
     }
 
     @Test

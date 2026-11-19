@@ -41,7 +41,6 @@ The store writes the tree in live, with a system session:
                  └─ audit                        fmdbquar:records          added by the operations
 ```
 
-- The state is one of `held`, `checking`, `releasing`, `completed`, `rejected` and `needsReview`.
 - No node of the tree is a file. An item holds its bytes in its own binary property, never in `jcr:data` on a `jnt:resource`. No core listener, no `/files` servlet and no text extraction reads it.
 - The SHA-256 of a file is computed once at intake, from the bytes read once from `SubmittedFile.data()`.
 - The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `deleteValues` removes both nodes and the bytes of every item. The record stays: the state, the field names, and of each item its name, size and SHA-256.
@@ -77,18 +76,6 @@ It answers server administrators alone: `root` and the members of the server gro
 
 The module declares its types in its own namespace, `fmdbquar` (`http://www.jahia.org/jahia/fmdbquar/nt/1.0`).
 
-| Type | Role |
-|---|---|
-| `fmdbquar:remoteStubCheck` | A stub of a check that asks a remote service |
-| `fmdbquar:inProcessStubCheck` | A stub of a check that reads the file inside the JVM |
-| `fmdbquar:quarantineRoot` | The root of the tree of a site |
-| `fmdbquar:formQuarantine` | The held submissions of one form |
-| `fmdbquar:dateFolder` | A year, a month or a day |
-| `fmdbquar:heldSubmission` | One held submission |
-| `fmdbquar:values`, `fmdbquar:sensitiveValues` | The public values, and the sensitive values apart |
-| `fmdbquar:item` | One upload, with its bytes and their SHA-256 |
-| `fmdbquar:records` | The containers `checks` and `audit` |
-
 Each check type takes the marker of the engine, `fmdbmix:qualifier`, as a supertype. The "Checks" list accepts no other kind of node.
 
 ## Java packages
@@ -99,8 +86,7 @@ The base package is `org.jahia.test.modules.formidable.quarantine`. The module c
 |---|---|
 | `hold` | The reference hold and its rule of ownership |
 | `store` | The quarantine tree: `QuarantineStore` and its JCR implementation |
-| `check`, `chain`, `state`, `stub` | The checks, their chain, the state machine and the stubs. The chain and the state machine import no JCR and no OSGi class |
-| `run`, `ops`, `web` | The run over the due submissions, the operations and the endpoints, the inspection among them |
+| `web` | The inspection of the tree |
 
 ## Build and test
 

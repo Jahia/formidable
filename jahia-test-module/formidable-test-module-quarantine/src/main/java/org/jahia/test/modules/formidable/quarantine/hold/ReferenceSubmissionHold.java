@@ -56,10 +56,15 @@ public class ReferenceSubmissionHold implements SubmissionHold {
 
     /** Every other hold of the platform: the target leaves this component out. */
     @Reference(service = SubmissionHold.class, cardinality = ReferenceCardinality.MULTIPLE,
-            policy = ReferencePolicy.DYNAMIC, unbind = "removeOtherHold",
+            policy = ReferencePolicy.DYNAMIC, unbind = "removeOtherHold", updated = "updatedOtherHold",
             target = "(!(component.name=" + COMPONENT_NAME + "))")
     public void addOtherHold(SubmissionHold hold, Map<String, Object> properties) {
         otherHolds.add(hold, properties);
+    }
+
+    /** A bound hold whose properties changed, such as its ranking. */
+    public void updatedOtherHold(SubmissionHold hold, Map<String, Object> properties) {
+        otherHolds.update(hold, properties);
     }
 
     public void removeOtherHold(SubmissionHold hold) {
