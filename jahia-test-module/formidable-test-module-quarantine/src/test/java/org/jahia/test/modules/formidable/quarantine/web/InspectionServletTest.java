@@ -170,12 +170,15 @@ class InspectionServletTest {
     }
 
     @Test
-    void anItemWithNoFieldNameNorFileNameKeepsBothKeysAsNull() {
+    void anItemWithNoFieldNameNorFileNameKeepsBothKeysAsNull() throws Exception {
         HeldRecord heldRecord = new HeldRecord(HELD_PATH, FORM_ID, SITE, HeldStates.HELD,
                 Instant.parse("2026-11-19T18:30:00Z"), 0, null, 0, List.of(), List.of(), true,
                 List.of(new ItemRecord("item0", null, null, null, 0, "e3b0", true)));
+        InspectionServlet servlet = new InspectionServlet(() -> true);
+        servlet.setStore(store);
+        servlet.setCheckStore(checkStore);
 
-        JSONObject item = InspectionServlet.inspection(SITE, FORM_ID, List.of(heldRecord))
+        JSONObject item = servlet.inspection(SITE, FORM_ID, List.of(heldRecord))
                 .getJSONArray("submissions").getJSONObject(0).getJSONArray("items").getJSONObject(0);
 
         assertEquals(Set.of("name", "fieldName", "fileName", "mimeType", "size", "sha256", "binaryPresent"), item.keySet());
