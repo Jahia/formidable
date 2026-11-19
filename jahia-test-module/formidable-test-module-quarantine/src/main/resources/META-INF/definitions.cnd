@@ -35,9 +35,9 @@
 
 // One held submission. The state is one of six strings; the state machine, a later part of the module, moves
 // it. The names of the fields keep the order of the submission: valueFields for the public values,
-// sensitiveFields for the sensitive ones. The values live in the two children values and sensitive, apart, and go with the bytes once
-// the submission is completed or rejected. checks and audit hold the records that the checks and the operations
-// add later: each accepts any jnt:content, so a later type needs no change here.
+// sensitiveFields for the sensitive ones. The values live in the two children values and sensitive, apart,
+// and go with the bytes once the submission is completed or rejected. checks and audit hold the records that
+// the checks and the operations add later: each accepts any jnt:content, so a later type needs no change here.
 [fmdbquar:heldSubmission] > jnt:content
  - state (string) = 'held' mandatory autocreated < 'held', 'checking', 'releasing', 'completed', 'rejected', 'needsReview'
  - createdAt (date) mandatory
