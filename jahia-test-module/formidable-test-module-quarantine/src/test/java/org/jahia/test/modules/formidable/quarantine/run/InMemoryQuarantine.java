@@ -68,6 +68,8 @@ final class InMemoryQuarantine implements QuarantineStore, CheckStore {
 
     final Map<String, Held> held = new LinkedHashMap<>();
     final Set<String> broken = new HashSet<>();
+    /** The paths whose values and bytes the store fails to delete, as a repository that refuses the save. */
+    final Set<String> failingDeletion = new HashSet<>();
     private int count;
 
     /** Holds a submission of the form with one file per text, each a text file. */
@@ -179,8 +181,13 @@ final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     }
 
     @Override
-    public void deleteValues(String path) throws QuarantineStoreException {
+    public void finish(String path, String state) throws QuarantineStoreException {
         Held one = get(path);
+        if (failingDeletion.contains(path)) {
+            throw new QuarantineStoreException("Could not delete the values of the held submission at " + path);
+        }
+        one.state = state;
+        one.states.add(state);
         one.valuesPresent = false;
         for (int i = 0; i < one.bytes.size(); i++) {
             one.bytes.set(i, null);

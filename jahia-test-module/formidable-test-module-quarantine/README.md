@@ -51,7 +51,7 @@ The store writes the tree in live, with a system session:
 - The store creates the root on first use and cuts its ACL inheritance. It uses a node that already exists at `/sites/<site>/formidable-quarantine` only when the node is a `fmdbquar:quarantineRoot`, its `j:acl` has `j:inherit=false`, and its `j:acl` holds no access control entry. It uses a form folder or a date folder that already exists only when the folder is of the type of the store and has no `j:acl` of its own. Any other node refuses the hold: the message of the refusal names its path, the engine logs it, and the visitor gets FMDB-018. A node that someone else created there could give its readers the held values and bytes.
 - No node of the tree is a file. An item holds its bytes in its own binary property, never in `jcr:data` on a `jnt:resource`. No core listener, no `/files` servlet and no text extraction reads it.
 - The SHA-256 of a file is computed once at intake, from the bytes read once from `SubmittedFile.data()`.
-- The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `deleteValues` removes both nodes and the bytes of every item. The record stays: the state, the field names, and of each item its name, size and SHA-256.
+- The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `finish` writes the final state, `completed` or `rejected`, and removes both nodes and the bytes of every item, in one save. A failure writes neither, so a final state never keeps its data: a release stays `releasing` and a rejection by the checks stays `checking`. The record stays: the state, the field names, and of each item its name, size and SHA-256.
 - An outcome records the SHA-256 of the bytes it was given for, never a byte. The run reads an outcome only for the bytes of that SHA-256.
 - `checks` and `audit` accept any `jnt:content`. A later part of the module adds its own record types there with no change to the types above, so a lab that runs this version takes the next one without a refused CND change.
 
@@ -108,7 +108,7 @@ For each due submission:
 2. The chain decides the calls to make. The run calls each check, and records each answer under `checks/<item>/<check>`, with the SHA-256 of intake. A result starts the failures of that check over; a retryable failure counts one more.
 3. The chain decides again. A pass calls each check at most once for each file. When a pass brings no new `PASS` and no final decision, the submission stays `checking`: `attempts` counts one more, from 0 when the pass brought a new `PASS`, and `nextAttempt` follows the back-off.
 4. A final decision moves the state, and `checks/decision` records why:
-   - a rejection (a `FAIL`, or a setting `reject`) moves to `rejected`, and deletes the values, the sensitive values and the bytes;
+   - a rejection (a `FAIL`, or a setting `reject`) moves to `rejected`, and deletes the values, the sensitive values and the bytes in the same save. If the save fails, the submission stays `checking` with its data, and the next pass decides again;
    - a review (inconclusive, a file no check applies to, attempts exhausted, an in-process check first, a check that no service serves) moves to `needsReview`, and keeps them;
    - a release runs the release below.
 
@@ -119,7 +119,7 @@ Every move of the state goes through the state machine. Each submission is read 
 1. The release reads the bytes of every item again, and computes their SHA-256 again. A difference from the SHA-256 of intake, or an item with no bytes, refuses the release: the state moves to `needsReview`, the decision is `INTEGRITY_FAILED` and names the item, and a log line names the item. No action runs.
 2. Otherwise the state moves to `releasing`, and the engine's `DeferredActions` runs the actions after release with the released submission, from the index `completedActions`. After each action, the release writes its index plus one to `completedActions`.
 3. A failed action stops the run: the state moves to `needsReview`, `completedActions` holds the index to resume from, and the decision is `ACTION_FAILED` with that index. The values and the bytes stay for the resume.
-4. Once every action ran, the state moves to `completed`, and the values, the sensitive values and the bytes are deleted. The record and the outcomes stay.
+4. Once every action ran, the state moves to `completed`, and the values, the sensitive values and the bytes are deleted, in one save. The record and the outcomes stay. If the save fails, the submission stays `releasing` with its data.
 
 `QuarantineRun.release()` gives the release to an operation that releases or resumes a submission by hand: the operation moves the state to `releasing` first, then calls it.
 

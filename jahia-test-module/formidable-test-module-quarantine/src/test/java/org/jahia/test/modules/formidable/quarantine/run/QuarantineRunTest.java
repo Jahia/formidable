@@ -200,6 +200,34 @@ class QuarantineRunTest {
     }
 
     @Test
+    void aReleaseWhoseDeletionFailsStaysReleasingWithItsData() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        stores.failingDeletion.add(held.path);
+
+        runNow();
+
+        // never completed with its data: a manager resumes or rejects a release that stopped in releasing
+        assertEquals(HeldStates.RELEASING, held.state);
+        assertFalse(held.states.contains(HeldStates.COMPLETED), held.states.toString());
+        assertTrue(held.valuesPresent);
+        assertTrue(held.anyBytes());
+    }
+
+    @Test
+    void aRejectWhoseDeletionFailsStaysCheckingWithItsData() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        stores.failingDeletion.add(held.path);
+
+        runNow();
+
+        // never rejected with its data: the next pass of the run decides again
+        assertEquals(HeldStates.CHECKING, held.state);
+        assertFalse(held.states.contains(HeldStates.REJECTED), held.states.toString());
+        assertTrue(held.valuesPresent);
+        assertTrue(held.anyBytes());
+    }
+
+    @Test
     void anInconclusiveAnswerGoesToReviewByDefaultAndKeepsTheValues() throws Exception {
         Held held = stores.hold(FORM, "INCONCLUSIVE");
 

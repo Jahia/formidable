@@ -125,9 +125,8 @@ public final class Release {
                     resumeFrom, e.getMessage());
             return transitions.move(path, releasing, HeldEvent.ACTION_FAILED);
         }
-        HeldState completed = transitions.move(path, releasing, HeldEvent.ACTIONS_DONE);
-        store.deleteValues(path);
-        return completed;
+        // one save: a failure leaves releasing with the data, which a manager resumes or rejects
+        return transitions.finish(path, releasing, HeldEvent.ACTIONS_DONE);
     }
 
     /** Records that the action at the index ran: a resumed run starts after it. */

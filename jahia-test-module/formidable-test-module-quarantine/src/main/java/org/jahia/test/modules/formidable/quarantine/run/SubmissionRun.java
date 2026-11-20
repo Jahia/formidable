@@ -206,9 +206,7 @@ final class SubmissionRun {
         store.setAttempts(pass.path(), pass.record.attempts(), null);
         if (decision instanceof ChainDecision.Reject reject) {
             writeDecision(pass, reject.reason().name(), reject.sha256(), reject.checkName());
-            HeldState rejected = transitions.move(pass.path(), pass.state, HeldEvent.CHECK_FAILED);
-            store.deleteValues(pass.path());
-            return rejected;
+            return transitions.finish(pass.path(), pass.state, HeldEvent.CHECK_FAILED);
         }
         if (decision instanceof ChainDecision.Review review) {
             writeDecision(pass, review.reason().name(), review.sha256(), review.checkName());

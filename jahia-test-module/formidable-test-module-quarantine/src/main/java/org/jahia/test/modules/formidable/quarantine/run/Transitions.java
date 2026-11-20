@@ -35,4 +35,18 @@ public final class Transitions {
         log.info("Held submission {}: {} to {} on {}", path, from.value(), to.value(), event);
         return to;
     }
+
+    /**
+     * Moves to a final state, {@code completed} or {@code rejected}, and deletes the values and the bytes in the same
+     * save. A failure leaves the state it had, with its data.
+     *
+     * @return the final state the event leads to
+     * @throws IllegalTransitionException when the state does not allow the event: nothing is written
+     */
+    public HeldState finish(String path, HeldState from, HeldEvent event) throws QuarantineStoreException {
+        HeldState to = StateMachine.next(from, event);
+        store.finish(path, to.value());
+        log.info("Held submission {}: {} to {} on {}", path, from.value(), to.value(), event);
+        return to;
+    }
 }
