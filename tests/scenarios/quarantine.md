@@ -246,9 +246,13 @@ permission, whatever the ACL says.
 
 The store creates the root and cuts its inheritance. It uses a node that
 already exists at that path only when the node is a `fmdbquar:quarantineRoot`
-that cuts its inheritance and holds no access control entry. Any other node
-refuses the hold, and the visitor gets FMDB-018. The unit tests of
-`JcrQuarantineStore` prove that refusal; this scenario does not.
+that cuts its inheritance and holds no access control entry. It uses a form
+folder or a date folder that already exists only when the folder is of the type
+of the store and has no ACL of its own. Any other node refuses the hold, and
+the visitor gets FMDB-018. The unit tests of `JcrQuarantineStore` prove that
+refusal; this scenario does not. A spec would need a second site, because the
+site of the suite already holds the root, and the refusal reaches the visitor
+through the same error path as any other failure of the store.
 
 `docs/administration/results-permissions.md` says that site administrators read
 the results of a form, whose entry cuts the inheritance too. The core, as read

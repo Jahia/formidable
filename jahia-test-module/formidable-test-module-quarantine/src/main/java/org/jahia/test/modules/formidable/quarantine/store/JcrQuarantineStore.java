@@ -81,6 +81,7 @@ public class JcrQuarantineStore implements QuarantineStore {
         try {
             path = inLiveSystemSession(session -> write(session, submission, files, at));
         } catch (RefusedRootException refused) {
+            log.warn("Refused to hold a submission of form {}: {}", submission.formId(), refused.getMessage());
             throw new QuarantineStoreException("Could not hold the submission of form " + submission.formId()
                     + " in site " + submission.siteKey(), refused);
         } catch (RepositoryException first) {
@@ -168,20 +169,20 @@ public class JcrQuarantineStore implements QuarantineStore {
         return !acl.getNodes().iterator().hasNext();
     }
 
-    /** A node at the path of the quarantine root that the store does not use. */
+    /** A node at the path of the quarantine root, or of a folder below it, that the store does not use. */
     static final class RefusedRootException extends RepositoryException {
 
         private static final long serialVersionUID = 1L;
 
         RefusedRootException(String path) {
-            super("The node at " + path + " is not a quarantine root that cuts its ACL inheritance and holds no"
-                    + " access control entry: the store refuses to write under it");
+            super("The node at " + path + " is not a node of the quarantine tree that keeps its access closed:"
+                    + " the store refuses to write under it");
         }
     }
 
     private static JCRNodeWrapper formFolder(JCRNodeWrapper root, String formId) throws RepositoryException {
         if (root.hasNode(formId)) {
-            return root.getNode(formId);
+            return reused(root.getNode(formId), QuarantineTree.FORM_TYPE);
         }
         JCRNodeWrapper folder = root.addNode(formId, QuarantineTree.FORM_TYPE);
         folder.setProperty(QuarantineTree.FORM_ID, formId);
@@ -189,7 +190,19 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     private static JCRNodeWrapper child(JCRNodeWrapper parent, String name, String type) throws RepositoryException {
-        return parent.hasNode(name) ? parent.getNode(name) : parent.addNode(name, type);
+        return parent.hasNode(name) ? reused(parent.getNode(name), type) : parent.addNode(name, type);
+    }
+
+    /**
+     * A folder of the tree that exists already. The store never gives a folder an ACL of its own, so a folder of
+     * another type or with its own {@code j:acl} was not written by the store, and could open the held values to its
+     * readers: it is refused with {@link RefusedRootException}.
+     */
+    private static JCRNodeWrapper reused(JCRNodeWrapper folder, String type) throws RepositoryException {
+        if (!folder.isNodeType(type) || folder.hasNode(ACL)) {
+            throw new RefusedRootException(folder.getPath());
+        }
+        return folder;
     }
 
     private static void writeHeader(JCRNodeWrapper held, HeldSubmission submission, Instant at)

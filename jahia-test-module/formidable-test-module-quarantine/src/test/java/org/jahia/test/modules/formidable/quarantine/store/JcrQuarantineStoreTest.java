@@ -258,7 +258,82 @@ class JcrQuarantineStoreTest {
         when(site.getNode(QuarantineTree.ROOT_NAME)).thenReturn(other);
         doThrow(new RepositoryException("the root exists")).when(session).save();
 
-        assertThrows(RepositoryException.class, () -> JcrQuarantineStore.rootOf(session, SITE));
+        assertThrows(JcrQuarantineStore.RefusedRootException.class, () -> JcrQuarantineStore.rootOf(session, SITE));
+        verify(session).refresh(false);
+    }
+
+    @Test
+    void anExistingRootWhoseAclNamesNoInheritanceIsRefused() throws Exception {
+        JCRNodeWrapper existing = rootNode(QuarantineTree.ROOT_TYPE, false);
+        JCRNodeWrapper acl = existing.getNode("j:acl");
+        when(acl.hasProperty("j:inherit")).thenReturn(false);
+
+        assertRefused(existing);
+    }
+
+    @Test
+    void aRefusedRootIsNotWrittenAgain() throws Exception {
+        existingRoot(rootNode(QuarantineTree.ROOT_TYPE, true));
+        int[] calls = new int[1];
+        JcrQuarantineStore counting = new JcrQuarantineStore(Clock.fixed(NOW, ZoneOffset.UTC)) {
+            @Override
+            <T> T inLiveSystemSession(JCRCallback<T> callback) throws RepositoryException {
+                calls[0]++;
+                return callback.doInJCR(session);
+            }
+        };
+
+        assertThrows(QuarantineStoreException.class, () -> counting.hold(submission(List.of(file()))));
+        assertEquals(1, calls[0]);
+    }
+
+    /** A folder that already exists under {@code parent}, of the given type, with its own {@code j:acl} or not. */
+    private JCRNodeWrapper existingFolder(JCRNodeWrapper parent, String name, String type, boolean ownAcl)
+            throws RepositoryException {
+        JCRNodeWrapper folder = node(parent.getPath() + "/" + name);
+        when(folder.isNodeType(type)).thenReturn(true);
+        when(folder.hasNode("j:acl")).thenReturn(ownAcl);
+        when(parent.hasNode(name)).thenReturn(true);
+        when(parent.getNode(name)).thenReturn(folder);
+        return folder;
+    }
+
+    @Test
+    void aFormFolderThatCarriesItsOwnAclIsRefused() throws Exception {
+        JCRNodeWrapper root = rootNode(QuarantineTree.ROOT_TYPE, false);
+        existingFolder(root, FORM_ID, QuarantineTree.FORM_TYPE, true);
+
+        assertRefused(root);
+    }
+
+    @Test
+    void aFormFolderOfAnotherTypeIsRefused() throws Exception {
+        JCRNodeWrapper root = rootNode(QuarantineTree.ROOT_TYPE, false);
+        existingFolder(root, FORM_ID, "jnt:contentFolder", false);
+
+        assertRefused(root);
+    }
+
+    @Test
+    void aDateFolderThatCarriesItsOwnAclIsRefused() throws Exception {
+        JCRNodeWrapper root = rootNode(QuarantineTree.ROOT_TYPE, false);
+        JCRNodeWrapper form = existingFolder(root, FORM_ID, QuarantineTree.FORM_TYPE, false);
+        existingFolder(form, "2026", QuarantineTree.DATE_FOLDER_TYPE, true);
+
+        assertRefused(root);
+    }
+
+    @Test
+    void existingFoldersOfTheStoreWithNoAclOfTheirOwnAreReused() throws Exception {
+        JCRNodeWrapper root = rootNode(QuarantineTree.ROOT_TYPE, false);
+        JCRNodeWrapper form = existingFolder(root, FORM_ID, QuarantineTree.FORM_TYPE, false);
+        JCRNodeWrapper year = existingFolder(form, "2026", QuarantineTree.DATE_FOLDER_TYPE, false);
+        existingRoot(root);
+
+        String path = store.hold(submission(List.of(file())));
+
+        assertTrue(path.startsWith(year.getPath() + "/11/19/held-"), path);
+        verify(form, never()).addNode(anyString(), anyString());
     }
 
     @Test
