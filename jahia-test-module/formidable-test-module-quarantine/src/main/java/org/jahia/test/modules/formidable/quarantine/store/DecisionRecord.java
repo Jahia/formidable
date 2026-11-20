@@ -8,7 +8,7 @@ import java.util.Objects;
  * decision replaces the one before.
  *
  * @param reason       a reason of the chain, such as {@code CHECK_FAILED}, or {@link #INTEGRITY_FAILED}, or
- *                     {@link #ACTION_FAILED}
+ *                     {@link #ACTION_FAILED}, or {@link #FORM_GONE}
  * @param itemName     the item the reason is about, or {@code null}
  * @param checkName    the check the reason is about, or {@code null}
  * @param sha256       the SHA-256 of the file the reason is about, or {@code null}
@@ -24,6 +24,9 @@ public record DecisionRecord(String reason, String itemName, String checkName, S
 
     /** An action after release failed: the run stopped at its index. */
     public static final String ACTION_FAILED = "ACTION_FAILED";
+
+    /** The form of the submission is gone, so its checks cannot be read: no check runs and no release. */
+    public static final String FORM_GONE = "FORM_GONE";
 
     public DecisionRecord {
         Objects.requireNonNull(reason, "reason");

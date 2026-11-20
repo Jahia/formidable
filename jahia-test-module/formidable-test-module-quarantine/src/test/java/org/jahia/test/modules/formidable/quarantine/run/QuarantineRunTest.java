@@ -28,6 +28,7 @@ import org.jahia.test.modules.formidable.quarantine.stub.StubCallLog;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.jcr.ItemNotFoundException;
 import javax.jcr.RepositoryException;
 import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
@@ -65,6 +66,8 @@ class QuarantineRunTest {
     private OutageSwitch outage;
     private final Map<String, List<CheckSettings>> lists = new HashMap<>();
     private final List<String> broken = new ArrayList<>();
+    /** The forms deleted since their submissions were held. */
+    private final List<String> gone = new ArrayList<>();
     /** What the double of the engine received: the files of each run, and the index each run started from. */
     private final List<HeldSubmission> released = new ArrayList<>();
     private final List<Integer> releasedFrom = new ArrayList<>();
@@ -85,6 +88,9 @@ class QuarantineRunTest {
         QuarantineRun created = new QuarantineRun(formId -> {
             if (broken.contains(formId)) {
                 throw new RepositoryException("The list of form " + formId + " cannot be read");
+            }
+            if (gone.contains(formId)) {
+                throw new ItemNotFoundException(formId);
             }
             return lists.getOrDefault(formId, List.of());
         }, Clock.fixed(NOW, ZoneOffset.UTC));
@@ -620,6 +626,20 @@ class QuarantineRunTest {
         assertNull(report.processed().get(1).error());
         assertNotNull(report.processed().get(2).error());
         assertEquals(HeldStates.CHECKING, third.state);
+    }
+
+    @Test
+    void aSubmissionWhoseFormIsGoneGoesToReviewAndCallsNoCheck() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        gone.add(FORM);
+
+        RunReport report = runNow();
+
+        assertNull(report.processed().get(0).error());
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals(DecisionRecord.FORM_GONE, held.decision.reason());
+        assertTrue(calls.calls().isEmpty());
+        assertTrue(released.isEmpty());
     }
 
     @Test

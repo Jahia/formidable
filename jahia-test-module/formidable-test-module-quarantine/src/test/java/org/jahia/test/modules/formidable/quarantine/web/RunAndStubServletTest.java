@@ -133,6 +133,16 @@ class RunAndStubServletTest {
     }
 
     @Test
+    void aRunThatFailsWithARuntimeExceptionAnswersAJsonError() throws Exception {
+        when(run.run(anyString(), any(), anyBoolean())).thenThrow(new IllegalStateException("a bug of the run"));
+
+        Call post = call(runServlet(true), "POST", null, Map.of("site", SITE));
+
+        assertEquals(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, post.status());
+        assertTrue(new JSONObject(post.body()).has("error"), post.body());
+    }
+
+    @Test
     void theRunRefusesASiteOrAFormThatNamesAPath() throws Exception {
         assertEquals(HttpServletResponse.SC_BAD_REQUEST, call(runServlet(true), "POST", null, Map.of()).status());
         assertEquals(HttpServletResponse.SC_BAD_REQUEST,

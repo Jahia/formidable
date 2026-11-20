@@ -96,7 +96,7 @@ Each check node of the "Checks" list carries two settings:
 
 There is no "accept": the chain fails closed. The run matches each check node to the `Qualifier` service of its node type. A node that no service serves sends the submission to `needsReview`.
 
-The two stubs apply to `text/plain` files alone, and answer the first marker line of the file: `VERDICT:PASS`, `VERDICT:FAIL`, `INCONCLUSIVE`, `PENDING:<n>` (pending for `n` polls, then `PASS`), or `DOWN` (a retryable failure while the outage is on, then `PASS`). A file with no marker is inconclusive. The remote stub (`fmdbquar:remoteStubCheck`) declares that a remote service reads the bytes. The in-process stub (`fmdbquar:inProcessStubCheck`) declares that it reads them inside Jahia: the chain refuses a list where it would read a file before a remote check passed it. The tickets of the pending answers live in memory, and a restart of the module loses them: the next poll then fails, and the submission goes to `needsReview`.
+The two stubs apply to `text/plain` files alone, and answer the first marker line of the file: `VERDICT:PASS`, `VERDICT:FAIL`, `INCONCLUSIVE`, `PENDING:<n>` (pending for `n` polls, then `PASS`), or `DOWN` (a retryable failure while the outage is on, then `PASS`). A file with no marker is inconclusive. The remote stub (`fmdbquar:remoteStubCheck`) declares that a remote service reads the bytes. The in-process stub (`fmdbquar:inProcessStubCheck`) declares that it reads them inside Jahia: the chain refuses a list where it would read a file before a remote check passed it. The tickets of the pending answers live in memory, and a restart of the module loses them: the next poll then fails, and the submission goes to `needsReview`, or to `rejected` when the check sets `onUnavailable` to `reject`. A check that throws instead of answering counts as a retryable failure of its service.
 
 ## The run
 
@@ -105,9 +105,10 @@ The two stubs apply to `text/plain` files alone, and answer the first marker lin
 For each due submission:
 
 1. A `held` submission moves to `checking`.
-2. The chain decides the calls to make. The run calls each check, and records each answer under `checks/<item>/<check>`, with the SHA-256 of intake. A result starts the failures of that check over; a retryable failure counts one more.
-3. The chain decides again. A pass calls each check at most once for each file. When a pass brings no new `PASS` and no final decision, the submission stays `checking`: `attempts` counts one more, from 0 when the pass brought a new `PASS`, and `nextAttempt` follows the back-off.
-4. A final decision moves the state, and `checks/decision` records why:
+2. A submission whose form is gone goes to `needsReview` with the decision `FORM_GONE`, and keeps its data: no check runs. Any other failure to read the checks of the form leaves the submission `checking`, and the run reports it.
+3. The chain decides the calls to make. The run calls each check, and records each answer under `checks/<item>/<check>`, with the SHA-256 of intake. A result starts the failures of that check over; a retryable failure counts one more.
+4. The chain decides again. A pass calls each check at most once for each file. When a pass brings no new `PASS` and no final decision, the submission stays `checking`: `attempts` counts one more, from 0 when the pass brought a new `PASS`, and `nextAttempt` follows the back-off.
+5. A final decision moves the state, and `checks/decision` records why:
    - a rejection (a `FAIL`, or a setting `reject`) moves to `rejected`, and deletes the values, the sensitive values and the bytes in the same save. If the save fails, the submission stays `checking` with its data, and the next pass decides again;
    - a review (inconclusive, a file no check applies to, attempts exhausted, an in-process check first, a check that no service serves) moves to `needsReview`, and keeps them;
    - a release runs the release below.

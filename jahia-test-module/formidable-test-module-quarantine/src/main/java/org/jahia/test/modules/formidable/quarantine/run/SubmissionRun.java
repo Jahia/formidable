@@ -22,6 +22,7 @@ import org.jahia.test.modules.formidable.quarantine.store.QuarantineStoreExcepti
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.ItemNotFoundException;
 import javax.jcr.RepositoryException;
 import java.time.Clock;
 import java.time.Instant;
@@ -94,7 +95,12 @@ final class SubmissionRun {
         if (pass.state == HeldState.HELD) {
             pass.state = transitions.move(pass.path(), pass.state, HeldEvent.START);
         }
-        List<ChainCheck> checks = checksOf(record.formId());
+        List<ChainCheck> checks;
+        try {
+            checks = checksOf(record.formId());
+        } catch (ItemNotFoundException gone) {
+            return formGone(pass);
+        }
         for (ItemRecord item : record.items()) {
             if (item.binaryPresent()) {
                 pass.files.add(new ItemFile(pass.path(), item, checkStore));
@@ -113,6 +119,18 @@ final class SubmissionRun {
             }
         }
         return conclude(pass, decision);
+    }
+
+    /**
+     * The form was deleted since the intake: its checks cannot be read, and no run would ever read them. The submission
+     * goes to review with its data, rather than being tried again at every run.
+     */
+    private HeldState formGone(Pass pass) throws QuarantineStoreException {
+        log.info("Held submission {}: its form {} is gone, the checks stopped on {}", pass.path(),
+                pass.record.formId(), DecisionRecord.FORM_GONE);
+        checkStore.writeDecision(pass.path(), new DecisionRecord(DecisionRecord.FORM_GONE, null, null, null, null,
+                clock.instant()));
+        return transitions.move(pass.path(), pass.state, HeldEvent.REVIEW);
     }
 
     private List<ChainCheck> checksOf(String formId) throws RepositoryException {

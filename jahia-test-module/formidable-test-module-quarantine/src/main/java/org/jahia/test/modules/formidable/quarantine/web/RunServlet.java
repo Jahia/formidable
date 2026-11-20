@@ -93,6 +93,11 @@ public class RunServlet extends HttpServlet {
             log.warn("The run of the quarantine of site {} failed: {}", site, e.getMessage());
             JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     JsonAnswers.error("the quarantine tree could not be read"));
+        } catch (RuntimeException e) {
+            // the class alone: the message of an unexpected failure may quote a held value
+            log.error("The run of the quarantine of site {} failed with {}", site, e.getClass().getName());
+            JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    JsonAnswers.error("the run failed"));
         }
     }
 
