@@ -104,7 +104,7 @@ public final class Release {
 
     private HeldState integrityFailed(String path, HeldState state, ItemRecord changed)
             throws QuarantineStoreException {
-        // names the item, never its bytes; no audit record: the operations of the module write those
+        // names the item, never its bytes; no audit record here: the run and the operations write those
         log.warn("Held submission {}: the bytes of {} differ from the SHA-256 of intake, the release is refused",
                 path, changed.name());
         checkStore.writeDecision(path, new DecisionRecord(DecisionRecord.INTEGRITY_FAILED, changed.name(), null,
