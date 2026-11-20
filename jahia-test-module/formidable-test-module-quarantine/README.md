@@ -151,7 +151,7 @@ An operation runs on a held submission in state `needsReview`, and a resume or a
 | `resume` | `needsReview`, and the decision is `ACTION_FAILED`; or `releasing` | The same, from the index `completedActions`: the actions that ran do not run again |
 | `reject` | `needsReview` or `releasing` | Moves to `rejected`, and deletes the values, the sensitive values and the bytes. The outcomes and the decision stay |
 
-A release after a failed action is refused: it would run the actions again from the first, and store or send the submission twice. The release starts at `completedActions` in any case, so this is a rule of the module, not of the release.
+A release after a failed action is refused: a failed action takes a resume. The release starts at `completedActions` in any case, so this is a rule of the module, not of the release.
 
 ## The audit
 

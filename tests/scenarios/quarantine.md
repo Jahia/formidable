@@ -631,7 +631,7 @@ assertion on the status of an operation of the reader.
 - After step 3, the state is `needsReview`, the decision is `ACTION_FAILED`
   with the index 1, one action ran, the submission is stored once, and the
   sink received no forward
-- In step 4, the release answers 409: it would run Save to JCR again
+- In step 4, the release answers 409: a failed action takes a resume
 - After step 4, the state is `completed`, two actions ran, the submission is
   still stored once, and the sink received one forward, with the file
 

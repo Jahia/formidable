@@ -359,7 +359,7 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 
 			setForwardSinkRefusal(false);
 			theHeldSubmission(formId).then(held => {
-				// a release would run Save to JCR again: it is refused after a failed action
+				// a failed action takes a resume: a release is refused
 				operateHeldSubmission(held.path, 'release', false).its('status').should('eq', 409);
 				operateAsRoot(held.path, 'resume', 'completed');
 			});
