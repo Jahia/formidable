@@ -112,11 +112,13 @@ const setReadOnlyMode = (enable: boolean): void => {
  * runs after it until a release, which this spec never starts. The spec reads the tree through the inspection of the
  * module, as root: the state, the names of the fields, and of each item its file name, size and SHA-256.
  *
- * Q10 is a control scenario. Its control build is the quarantine test module with the line
- * `root.setAclInheritanceBreak(true);` removed from JcrQuarantineStore.rootOf, so that the quarantine root keeps the
- * ACL inheritance of the site. Build it with `package`, deploy it in place of the module, and run this spec: Q10 must
- * fail by assertion, on the read of the site administrator or of the editor. The root of the tree is created on first
- * use, and the spec creates the site again, so no root of an earlier build survives.
+ * Q10 is a control scenario. Its control build is the quarantine test module with two changes in JcrQuarantineStore:
+ * the line `root.setAclInheritanceBreak(true);` removed from rootOf, so that the quarantine root keeps the ACL
+ * inheritance of the site, and the condition of `closed` replaced by `root == null`, so that the store reuses that
+ * root. Without the second change the store refuses every hold after the first one (FMDB-018), and Q10 fails in its
+ * `before` hook with a 503, which proves nothing. Build it with `package`, deploy it in place of the module, and run
+ * this spec: Q10 must fail by assertion, on the read of the site administrator or of the editor. The root of the tree
+ * is created on first use, and the spec creates the site again, so no root of an earlier build survives.
  */
 describe('Quarantine - 97 The reference hold stores a submission in the quarantine tree', () => {
 	useFormidableSite();

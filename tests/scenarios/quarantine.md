@@ -97,7 +97,7 @@ the scenario proves:
 |---|---|
 | Q06, Q07, Q08 | hands the uploads to the actions on submission, whatever the switch says |
 | Q15 | ignores `uploadsRequireQuarantine` |
-| Q10 | leaves the ACL inheritance of the quarantine root in place: the quarantine test module without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf` |
+| Q10 | leaves the ACL inheritance of the quarantine root in place: the quarantine test module without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf`, and with `root == null` as the condition of `JcrQuarantineStore.closed` |
 
 ---
 
@@ -278,14 +278,17 @@ administrator reads the item, the quarantine root needs another guard.
 The JCR REST API answers 404 when its module is not installed: that read then
 proves nothing.
 
-**Control build:** the quarantine test module with the line
-`root.setAclInheritanceBreak(true);` removed from `JcrQuarantineStore.rootOf`.
-Build it with `package`, deploy it in place of the module, and run spec 97. The
-spec creates the site again, so the quarantine root is created by the control
-build. Q10 must fail by assertion on a read of the editor or of the site
-administrator. The control build creates a root that inherits its access, so
-it refuses every later hold on that site with FMDB-018: the tests of spec 97
-that submit after the first hold fail too, and prove nothing about Q10.
+**Control build:** the quarantine test module with two changes in
+`JcrQuarantineStore`: the line `root.setAclInheritanceBreak(true);` removed
+from `rootOf`, and the condition of `closed` replaced by `root == null`, so
+that the store reuses the root it created. Build it with `package`, deploy it
+in place of the module, and run spec 97. The spec creates the site again, so
+the quarantine root is created by the control build. Q10 must fail by
+assertion on a read of the editor or of the site administrator.
+
+The first change alone proves nothing. The store then refuses every hold after
+the first one with FMDB-018, because the root inherits its access: Q10 fails
+in its `before` hook with a 503, before any read.
 
 ### Q11 — The quarantine tree is inert
 
