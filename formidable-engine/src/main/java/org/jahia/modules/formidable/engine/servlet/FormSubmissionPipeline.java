@@ -1191,21 +1191,7 @@ class FormSubmissionPipeline {
                     return null;
                 }
 
-                NodeIterator it = systemFormNode.getNode(listName).getNodes();
-                while (it.hasNext()) {
-                    if (it.nextNode() instanceof JCRNodeWrapper w) {
-                        if (requiredMixin != null && !w.isNodeType(requiredMixin)) {
-                            refused.compareAndSet(null, "The list '" + listName + "' of form " + formId + " holds an action "
-                                    + "of type '" + w.getPrimaryNodeTypeName() + "', which does not declare " + requiredMixin + ".");
-                        }
-                        result.add(new ResolvedAction(
-                                w.getIdentifier(),
-                                w.getPath(),
-                                w.getPrimaryNodeTypeName(),
-                                w.isNodeType(FmdbMixin.READ_ONLY_COMPATIBLE_ACTION)
-                        ));
-                    }
-                }
+                result.addAll(readActionList(systemFormNode.getNode(listName), listName, requiredMixin, refused));
                 return null;
             });
         } catch (RepositoryException e) {
@@ -1217,6 +1203,32 @@ class FormSubmissionPipeline {
             throw new SubmissionException(ErrorCode.FMDB_012, refused.get());
         }
         return result;
+    }
+
+    /**
+     * The actions of one list node, in order.
+     *
+     * @param refused set to the reason of the first node whose type does not declare {@code requiredMixin}
+     */
+    private List<ResolvedAction> readActionList(JCRNodeWrapper listNode, String listName, String requiredMixin,
+                                                AtomicReference<String> refused) throws RepositoryException {
+        List<ResolvedAction> actions = new ArrayList<>();
+        NodeIterator it = listNode.getNodes();
+        while (it.hasNext()) {
+            if (it.nextNode() instanceof JCRNodeWrapper w) {
+                if (requiredMixin != null && !w.isNodeType(requiredMixin)) {
+                    refused.compareAndSet(null, "The list '" + listName + "' of form " + formId + " holds an action "
+                            + "of type '" + w.getPrimaryNodeTypeName() + "', which does not declare " + requiredMixin + ".");
+                }
+                actions.add(new ResolvedAction(
+                        w.getIdentifier(),
+                        w.getPath(),
+                        w.getPrimaryNodeTypeName(),
+                        w.isNodeType(FmdbMixin.READ_ONLY_COMPATIBLE_ACTION)
+                ));
+            }
+        }
+        return actions;
     }
 
     // --- Internal types ---

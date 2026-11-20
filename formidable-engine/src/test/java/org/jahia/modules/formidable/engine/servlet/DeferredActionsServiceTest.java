@@ -20,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -201,7 +202,8 @@ class DeferredActionsServiceTest {
         assertEquals(SECRET, consumer.received.get().sensitiveParameter("password"));
         assertTrue(passive.received.get().sensitiveParameters().isEmpty());
         assertNull(consumer.received.get().session());
-        assertThrows(DetachedRequestException.class, () -> consumer.received.get().response().setHeader("X-Sample", "1"));
+        HttpServletResponse response = consumer.received.get().response();
+        assertThrows(DetachedRequestException.class, () -> response.setHeader("X-Sample", "1"));
     }
 
     @Test
@@ -337,7 +339,8 @@ class DeferredActionsServiceTest {
 
         assertEquals(List.of("zeta", "alpha", "mid", "beta", "omega", "gamma"), List.copyOf(held.parameters().keySet()));
         assertEquals(List.of("zeta", "alpha", "mid", "beta", "omega", "gamma"), List.copyOf(held.sensitiveParameters().keySet()));
-        assertThrows(UnsupportedOperationException.class, () -> held.parameters().put("extra", List.of()));
+        Map<String, List<String>> parameters = held.parameters();
+        assertThrows(UnsupportedOperationException.class, () -> parameters.put("extra", List.of()));
     }
 
     @Test

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -70,7 +71,7 @@ class DetachedRequestTest {
         HttpServletRequest request = DetachedRequest.request(ORIGIN);
 
         assertEquals("DetachedRequest", request.toString());
-        assertEquals(request, request);
+        assertTrue(Set.of(request).contains(request));
         assertNotEquals(request, DetachedRequest.request(ORIGIN));
         assertEquals(request.hashCode(), request.hashCode());
     }
