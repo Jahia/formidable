@@ -629,6 +629,18 @@ class QuarantineRunTest {
     }
 
     @Test
+    void anUnexpectedFailureIsAnsweredByItsClassAloneAndNeverQuotesItsMessage() throws Exception {
+        stores.hold(FORM, "VERDICT:PASS");
+        actions = (submission, from, completed) -> {
+            throw new IllegalStateException("the action read the value Ada");
+        };
+
+        RunReport report = runNow();
+
+        assertEquals("IllegalStateException", report.processed().get(0).error());
+    }
+
+    @Test
     void aSubmissionWhoseFormIsGoneGoesToReviewAndCallsNoCheck() throws Exception {
         Held held = stores.hold(FORM, "VERDICT:PASS");
         gone.add(FORM);

@@ -128,7 +128,7 @@ A release that stops half way, on a failure of the store, an error of an action 
 
 ## The endpoints for the specs
 
-Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries the `Origin` header of the instance and `X-Requested-With`: without it, the run and the stub control answer 403. No answer holds a value or a byte.
+Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, the run and the stub control answer 403. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
 
 | Endpoint | Answer |
 |---|---|

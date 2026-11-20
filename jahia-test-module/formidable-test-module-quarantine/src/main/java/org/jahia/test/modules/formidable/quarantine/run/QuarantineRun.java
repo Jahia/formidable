@@ -147,11 +147,19 @@ public class QuarantineRun {
         try {
             HeldState state = submissionRun.run(record);
             return new RunReport.Processed(record.path(), record.formId(), record.state(), state.value(), null);
-        } catch (QuarantineStoreException | RepositoryException | RuntimeException e) {
+        } catch (QuarantineStoreException | RepositoryException e) {
             log.warn("Held submission {}: the run failed, the pass goes on: {}", record.path(), e.toString());
-            return new RunReport.Processed(record.path(), record.formId(), record.state(), stateOf(record.path()),
-                    e.getClass().getSimpleName() + ": " + e.getMessage());
+            return failed(record, e.getClass().getSimpleName() + ": " + e.getMessage());
+        } catch (RuntimeException e) {
+            // the class alone: the message of an unexpected failure, such as one of an action, may quote a held value
+            log.warn("Held submission {}: the run failed with {}, the pass goes on", record.path(),
+                    e.getClass().getName());
+            return failed(record, e.getClass().getSimpleName());
         }
+    }
+
+    private RunReport.Processed failed(HeldRecord record, String error) {
+        return new RunReport.Processed(record.path(), record.formId(), record.state(), stateOf(record.path()), error);
     }
 
     private String stateOf(String path) {
