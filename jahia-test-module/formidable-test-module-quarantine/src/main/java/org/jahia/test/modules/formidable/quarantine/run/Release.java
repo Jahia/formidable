@@ -66,24 +66,24 @@ public final class Release {
     public HeldState release(String path, HeldState state) throws QuarantineStoreException {
         // refuses a state the release cannot leave, before any byte is read and any action runs
         StateMachine.next(state, state == HeldState.CHECKING ? HeldEvent.ALL_PASSED : HeldEvent.ACTIONS_DONE);
-        HeldRecord record = store.record(path)
+        HeldRecord held = store.heldRecord(path)
                 .orElseThrow(() -> new QuarantineStoreException("No held submission at " + path));
         HeldSubmission submission = store.read(path)
                 .orElseThrow(() -> new QuarantineStoreException("No held submission at " + path));
-        ItemRecord changed = firstChanged(record, submission);
+        ItemRecord changed = firstChanged(held, submission);
         if (changed != null) {
             return integrityFailed(path, state, changed);
         }
         HeldState releasing = state == HeldState.CHECKING ? transitions.move(path, state, HeldEvent.ALL_PASSED) : state;
-        return runActions(path, releasing, submission, record.completedActions());
+        return runActions(path, releasing, submission, held.completedActions());
     }
 
     /**
      * @return the first item that has no bytes, or whose bytes differ from the SHA-256 of intake, or an item named
      *         {@link #ITEM_COUNT} when the files and the items are not as many; null when every file is unchanged
      */
-    static ItemRecord firstChanged(HeldRecord record, HeldSubmission submission) {
-        List<ItemRecord> items = record.items();
+    static ItemRecord firstChanged(HeldRecord held, HeldSubmission submission) {
+        List<ItemRecord> items = held.items();
         for (ItemRecord item : items) {
             if (!item.binaryPresent()) {
                 // the bytes go only once the submission is completed: an item with none lost them

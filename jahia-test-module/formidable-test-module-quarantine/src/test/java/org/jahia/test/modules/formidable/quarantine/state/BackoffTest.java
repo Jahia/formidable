@@ -45,11 +45,11 @@ class BackoffTest {
 
     @Test
     void aBadSettingIsRefused() {
-        assertThrows(IllegalArgumentException.class, () -> new Backoff(Duration.ZERO, Duration.ofMinutes(1), 3));
-        assertThrows(IllegalArgumentException.class,
-                () -> new Backoff(Duration.ofMinutes(2), Duration.ofMinutes(1), 3));
-        assertThrows(IllegalArgumentException.class,
-                () -> new Backoff(Duration.ofMinutes(1), Duration.ofMinutes(1), 0));
+        Duration oneMinute = Duration.ofMinutes(1);
+        Duration twoMinutes = Duration.ofMinutes(2);
+        assertThrows(IllegalArgumentException.class, () -> new Backoff(Duration.ZERO, oneMinute, 3));
+        assertThrows(IllegalArgumentException.class, () -> new Backoff(twoMinutes, oneMinute, 3));
+        assertThrows(IllegalArgumentException.class, () -> new Backoff(oneMinute, oneMinute, 0));
         assertThrows(IllegalArgumentException.class, () -> backoff.delay(0));
     }
 

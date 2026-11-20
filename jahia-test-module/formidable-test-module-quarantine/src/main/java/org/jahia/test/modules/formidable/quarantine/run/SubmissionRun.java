@@ -70,38 +70,38 @@ final class SubmissionRun {
 
     /** What one pass knows of the submission. */
     private static final class Pass {
-        final HeldRecord record;
+        final HeldRecord held;
         final List<ItemFile> files = new ArrayList<>();
         final Set<OutcomeKey> called = new HashSet<>();
         Map<OutcomeKey, RecordedOutcome> recorded;
         HeldState state;
 
-        Pass(HeldRecord record) {
-            this.record = record;
+        Pass(HeldRecord held) {
+            this.held = held;
         }
 
         String path() {
-            return record.path();
+            return held.path();
         }
     }
 
     /**
-     * @param record a held submission in state {@code held} or {@code checking}
+     * @param held a held submission in state {@code held} or {@code checking}
      * @return the state after the pass
      */
-    HeldState run(HeldRecord record) throws QuarantineStoreException, RepositoryException {
-        Pass pass = new Pass(record);
-        pass.state = HeldState.fromValue(record.state());
+    HeldState run(HeldRecord held) throws QuarantineStoreException, RepositoryException {
+        Pass pass = new Pass(held);
+        pass.state = HeldState.fromValue(held.state());
         if (pass.state == HeldState.HELD) {
             pass.state = transitions.move(pass.path(), pass.state, HeldEvent.START);
         }
         List<ChainCheck> checks;
         try {
-            checks = checksOf(record.formId());
+            checks = checksOf(held.formId());
         } catch (ItemNotFoundException gone) {
             return formGone(pass);
         }
-        for (ItemRecord item : record.items()) {
+        for (ItemRecord item : held.items()) {
             if (item.binaryPresent()) {
                 pass.files.add(new ItemFile(pass.path(), item, checkStore));
             }
@@ -126,11 +126,13 @@ final class SubmissionRun {
      * goes to review with its data, rather than being tried again at every run.
      */
     private HeldState formGone(Pass pass) throws QuarantineStoreException {
-        log.info("Held submission {}: its form {} is gone, the checks stopped on {}", pass.path(),
-                pass.record.formId(), DecisionRecord.FORM_GONE);
-        checkStore.writeDecision(pass.path(), new DecisionRecord(DecisionRecord.FORM_GONE, null, null, null, null,
+        String path = pass.path();
+        String formId = pass.held.formId();
+        log.info("Held submission {}: its form {} is gone, the checks stopped on {}", path, formId,
+                DecisionRecord.FORM_GONE);
+        checkStore.writeDecision(path, new DecisionRecord(DecisionRecord.FORM_GONE, null, null, null, null,
                 clock.instant()));
-        return transitions.move(pass.path(), pass.state, HeldEvent.REVIEW);
+        return transitions.move(path, pass.state, HeldEvent.REVIEW);
     }
 
     private List<ChainCheck> checksOf(String formId) throws RepositoryException {
@@ -209,7 +211,7 @@ final class SubmissionRun {
      * pending never keeps the values for ever.
      */
     private HeldState waitForBackoff(Pass pass, boolean progressed, Step waiting) throws QuarantineStoreException {
-        int attempts = (progressed ? 0 : pass.record.attempts()) + 1;
+        int attempts = (progressed ? 0 : pass.held.attempts()) + 1;
         if (settings.backoff().exhausted(attempts)) {
             store.setAttempts(pass.path(), attempts, null);
             writeDecision(pass, ChainReason.ATTEMPTS_EXHAUSTED.name(), waiting.file().sha256(),
@@ -221,7 +223,7 @@ final class SubmissionRun {
     }
 
     private HeldState conclude(Pass pass, ChainDecision decision) throws QuarantineStoreException {
-        store.setAttempts(pass.path(), pass.record.attempts(), null);
+        store.setAttempts(pass.path(), pass.held.attempts(), null);
         if (decision instanceof ChainDecision.Reject reject) {
             writeDecision(pass, reject.reason().name(), reject.sha256(), reject.checkName());
             return transitions.finish(pass.path(), pass.state, HeldEvent.CHECK_FAILED);
@@ -241,9 +243,10 @@ final class SubmissionRun {
                 itemName = file.itemName();
             }
         }
-        log.info("Held submission {}: the checks stopped on {} (item {}, check {})", pass.path(), reason, itemName,
+        String path = pass.path();
+        log.info("Held submission {}: the checks stopped on {} (item {}, check {})", path, reason, itemName,
                 checkName);
-        checkStore.writeDecision(pass.path(), new DecisionRecord(reason, itemName, checkName, sha256, null,
+        checkStore.writeDecision(path, new DecisionRecord(reason, itemName, checkName, sha256, null,
                 clock.instant()));
     }
 }

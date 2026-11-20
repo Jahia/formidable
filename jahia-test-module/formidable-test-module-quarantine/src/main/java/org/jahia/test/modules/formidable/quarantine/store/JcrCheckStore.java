@@ -113,7 +113,7 @@ public class JcrCheckStore implements CheckStore {
             setOrRemove(node, REASON, outcome.reason());
             node.setProperty(RETRYABLE, outcome.retryable());
             setOrRemove(node, TICKET, outcome.ticket());
-            node.setProperty(ATTEMPTS, (long) outcome.attempts());
+            node.setProperty(ATTEMPTS, outcome.attempts());
             node.setProperty(AT, calendar(outcome.at()));
         });
     }
@@ -122,10 +122,10 @@ public class JcrCheckStore implements CheckStore {
     public Optional<DecisionRecord> decision(String path) throws QuarantineStoreException {
         return inSession("read the decision of the held submission at " + path, session -> {
             JCRNodeWrapper checks = checksOrNull(held(session, path));
-            if (checks == null || !checks.hasNode(DECISION)) {
+            if (checks == null || !checks.hasNode(DECISION_NODE)) {
                 return Optional.empty();
             }
-            JCRNodeWrapper node = checks.getNode(DECISION);
+            JCRNodeWrapper node = checks.getNode(DECISION_NODE);
             Integer failedAction = node.hasProperty(FAILED_ACTION) ? (int) node.getProperty(FAILED_ACTION).getLong() : null;
             return Optional.of(new DecisionRecord(string(node, REASON), string(node, ITEM_NAME), string(node, CHECK_NAME),
                     string(node, QuarantineTree.SHA256), failedAction, instant(node, AT)));
@@ -136,16 +136,16 @@ public class JcrCheckStore implements CheckStore {
     public void writeDecision(String path, DecisionRecord decision) throws QuarantineStoreException {
         change(path, "write the decision " + decision.reason(), held -> {
             JCRNodeWrapper checks = checks(held);
-            if (checks.hasNode(DECISION)) {
-                checks.getNode(DECISION).remove();
+            if (checks.hasNode(DECISION_NODE)) {
+                checks.getNode(DECISION_NODE).remove();
             }
-            JCRNodeWrapper node = checks.addNode(DECISION, DECISION_TYPE);
+            JCRNodeWrapper node = checks.addNode(DECISION_NODE, DECISION_TYPE);
             node.setProperty(REASON, decision.reason());
             setOrRemove(node, ITEM_NAME, decision.itemName());
             setOrRemove(node, CHECK_NAME, decision.checkName());
             setOrRemove(node, QuarantineTree.SHA256, decision.sha256());
             if (decision.failedAction() != null) {
-                node.setProperty(FAILED_ACTION, (long) decision.failedAction());
+                node.setProperty(FAILED_ACTION, decision.failedAction());
             }
             node.setProperty(AT, calendar(decision.at()));
         });

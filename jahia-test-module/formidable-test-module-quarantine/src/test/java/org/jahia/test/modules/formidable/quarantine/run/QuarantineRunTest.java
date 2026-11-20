@@ -318,7 +318,7 @@ class QuarantineRunTest {
 
         runNow();
         assertEquals(HeldStates.CHECKING, held.state);
-        assertTrue(held.outcomes.get("item0/remoteCheck").ticket() != null);
+        assertNotNull(held.outcomes.get("item0/remoteCheck").ticket());
 
         runIgnoringSchedule();
         assertEquals(HeldStates.CHECKING, held.state);
@@ -678,7 +678,7 @@ class QuarantineRunTest {
 
     private HeldRecord recordOf(Held held) {
         try {
-            return stores.record(held.path).orElseThrow();
+            return stores.heldRecord(held.path).orElseThrow();
         } catch (Exception e) {
             throw new AssertionError(e);
         }

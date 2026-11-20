@@ -47,10 +47,11 @@ public class InspectionServlet extends HttpServlet {
     /** A site key, and a JCR identifier: no path separator, so the parameters name one folder of the tree. */
     private static final Pattern SITE_KEY = Pattern.compile("[A-Za-z0-9_-]{1,64}");
     private static final Pattern FORM_ID = Pattern.compile("[A-Fa-f0-9-]{1,64}");
+    private static final String SHA256 = "sha256";
 
     private final transient ServerAdministrators administrators;
     private final transient AtomicReference<QuarantineStore> store = new AtomicReference<>();
-    private transient CheckStore checkStore;
+    private final transient AtomicReference<CheckStore> checkStore = new AtomicReference<>();
 
     public InspectionServlet() {
         this(ServerAdministrators.ofThePlatform());
@@ -67,7 +68,7 @@ public class InspectionServlet extends HttpServlet {
 
     @Reference
     public void setCheckStore(CheckStore checkStore) {
-        this.checkStore = checkStore;
+        this.checkStore.set(checkStore);
     }
 
     @Override
@@ -95,9 +96,10 @@ public class InspectionServlet extends HttpServlet {
 
     /** The JSON of the held submissions of a form: names, states, sizes, hashes and outcomes only. */
     JSONObject inspection(String site, String form, List<HeldRecord> records) throws QuarantineStoreException {
+        CheckStore checks = checkStore.get();
         JSONArray submissions = new JSONArray();
         for (HeldRecord held : records) {
-            submissions.put(submission(held, checkStore.outcomes(held.path()), checkStore.decision(held.path()).orElse(null)));
+            submissions.put(submission(held, checks.outcomes(held.path()), checks.decision(held.path()).orElse(null)));
         }
         return new JSONObject().put("site", site).put("form", form).put("submissions", submissions);
     }
@@ -112,7 +114,7 @@ public class InspectionServlet extends HttpServlet {
                     .put("fileName", nullable(item.fileName()))
                     .put("mimeType", nullable(item.mimeType()))
                     .put("size", item.size())
-                    .put("sha256", item.sha256())
+                    .put(SHA256, item.sha256())
                     .put("binaryPresent", item.binaryPresent()));
         }
         return new JSONObject()
@@ -142,7 +144,7 @@ public class InspectionServlet extends HttpServlet {
                     .put("retryable", outcome.retryable())
                     .put("ticketPresent", outcome.ticket() != null)
                     .put("attempts", outcome.attempts())
-                    .put("sha256", outcome.sha256())
+                    .put(SHA256, outcome.sha256())
                     .put("at", instant(outcome.at())));
         }
         return checks;
@@ -153,7 +155,7 @@ public class InspectionServlet extends HttpServlet {
                 .put("reason", decision.reason())
                 .put("item", nullable(decision.itemName()))
                 .put("check", nullable(decision.checkName()))
-                .put("sha256", nullable(decision.sha256()))
+                .put(SHA256, nullable(decision.sha256()))
                 .put("failedAction", decision.failedAction() == null ? JSONObject.NULL : decision.failedAction())
                 .put("at", instant(decision.at()));
     }

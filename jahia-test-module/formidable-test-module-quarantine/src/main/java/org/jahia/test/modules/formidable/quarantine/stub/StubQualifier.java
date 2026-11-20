@@ -58,7 +58,7 @@ public abstract class StubQualifier implements Qualifier {
 
     @Override
     public Submitted submit(QuarantinedFile file, CheckSettings settings) {
-        log.record(new StubCall(nodeType, settings.name(), file.sha256(), Kind.SUBMIT));
+        log.add(new StubCall(nodeType, settings.name(), file.sha256(), Kind.SUBMIT));
         if (!appliesTo(file, settings)) {
             return Submitted.answered(new Outcome.Failed(false, "stub.notApplicable"));
         }
@@ -80,10 +80,10 @@ public abstract class StubQualifier implements Qualifier {
     public Outcome poll(String ticket) {
         PendingTicket pending = tickets.get(ticket);
         if (pending == null) {
-            log.record(new StubCall(nodeType, null, null, Kind.POLL));
+            log.add(new StubCall(nodeType, null, null, Kind.POLL));
             return new Outcome.Failed(false, "stub.unknownTicket");
         }
-        log.record(new StubCall(nodeType, pending.checkName(), pending.sha256(), Kind.POLL));
+        log.add(new StubCall(nodeType, pending.checkName(), pending.sha256(), Kind.POLL));
         PendingTicket after = tickets.computeIfPresent(ticket, (id, current) -> current.remainingPolls() == 0
                 ? null
                 : new PendingTicket(current.checkName(), current.sha256(), current.remainingPolls() - 1));

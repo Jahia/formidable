@@ -77,9 +77,9 @@ class JcrCheckStoreTest {
     void aDecisionReplacesTheOneBefore() throws Exception {
         JCRNodeWrapper before = mock(JCRNodeWrapper.class);
         JCRNodeWrapper after = mock(JCRNodeWrapper.class);
-        when(checks.hasNode(CheckStore.DECISION)).thenReturn(true);
-        when(checks.getNode(CheckStore.DECISION)).thenReturn(before);
-        when(checks.addNode(CheckStore.DECISION, JcrCheckStore.DECISION_TYPE)).thenReturn(after);
+        when(checks.hasNode(CheckStore.DECISION_NODE)).thenReturn(true);
+        when(checks.getNode(CheckStore.DECISION_NODE)).thenReturn(before);
+        when(checks.addNode(CheckStore.DECISION_NODE, JcrCheckStore.DECISION_TYPE)).thenReturn(after);
 
         store.writeDecision(HELD_PATH, new DecisionRecord(DecisionRecord.INTEGRITY_FAILED, "item0", null, SHA256, null,
                 AT));

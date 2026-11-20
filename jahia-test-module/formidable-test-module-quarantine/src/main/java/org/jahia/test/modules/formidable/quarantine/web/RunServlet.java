@@ -5,6 +5,7 @@ import org.jahia.test.modules.formidable.quarantine.run.RunReport;
 import org.jahia.test.modules.formidable.quarantine.run.RunSettings;
 import org.jahia.test.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
@@ -15,6 +16,7 @@ import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -45,7 +47,7 @@ public class RunServlet extends HttpServlet {
     private static final Pattern FORM_ID = Pattern.compile("[A-Fa-f0-9-]{1,64}");
 
     private final transient ServerAdministrators administrators;
-    private transient QuarantineRun run;
+    private final transient AtomicReference<QuarantineRun> run = new AtomicReference<>();
 
     public RunServlet() {
         this(ServerAdministrators.ofThePlatform());
@@ -57,7 +59,7 @@ public class RunServlet extends HttpServlet {
 
     @Reference
     public void setRun(QuarantineRun run) {
-        this.run = run;
+        this.run.set(run);
     }
 
     @Override
@@ -66,7 +68,16 @@ public class RunServlet extends HttpServlet {
             JsonAnswers.answer(resp, HttpServletResponse.SC_FORBIDDEN, JsonAnswers.error(JsonAnswers.FORBIDDEN));
             return;
         }
-        JsonAnswers.answer(resp, HttpServletResponse.SC_OK, new JSONObject().put("settings", settings(run.settings())));
+        JSONObject body;
+        try {
+            body = new JSONObject().put("settings", settings(run.get().settings()));
+        } catch (JSONException e) {
+            log.error("Could not write the settings of the run: {}", e.getMessage());
+            JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    JsonAnswers.error("the settings could not be written"));
+            return;
+        }
+        JsonAnswers.answer(resp, HttpServletResponse.SC_OK, body);
     }
 
     @Override
@@ -87,8 +98,9 @@ public class RunServlet extends HttpServlet {
         }
         boolean ignoreSchedule = Boolean.parseBoolean(req.getParameter(IGNORE_SCHEDULE_PARAMETER));
         try {
-            RunReport report = run.run(site, form, ignoreSchedule);
-            JsonAnswers.answer(resp, HttpServletResponse.SC_OK, report(report, run.settings()));
+            QuarantineRun current = run.get();
+            RunReport report = current.run(site, form, ignoreSchedule);
+            JsonAnswers.answer(resp, HttpServletResponse.SC_OK, report(report, current.settings()));
         } catch (QuarantineStoreException e) {
             log.warn("The run of the quarantine of site {} failed: {}", site, e.getMessage());
             JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,

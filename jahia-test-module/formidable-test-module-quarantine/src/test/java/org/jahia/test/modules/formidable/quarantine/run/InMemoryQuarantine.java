@@ -124,7 +124,7 @@ final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     }
 
     @Override
-    public Optional<HeldRecord> record(String path) throws QuarantineStoreException {
+    public Optional<HeldRecord> heldRecord(String path) throws QuarantineStoreException {
         Held one = get(path);
         List<ItemRecord> items = new ArrayList<>();
         for (int i = 0; i < one.itemNames.size(); i++) {
@@ -151,7 +151,7 @@ final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     private HeldRecord recordEvenIfBroken(Held one) throws QuarantineStoreException {
         boolean wasBroken = broken.remove(one.path);
         try {
-            return record(one.path).orElseThrow();
+            return heldRecord(one.path).orElseThrow();
         } finally {
             if (wasBroken) {
                 broken.add(one.path);

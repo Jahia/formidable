@@ -34,7 +34,7 @@ public final class StubCallLog {
     private final Deque<StubCall> calls = new ArrayDeque<>();
 
     /** Records a call; past {@value #CAPACITY} calls, the oldest one goes. */
-    public synchronized void record(StubCall call) {
+    public synchronized void add(StubCall call) {
         if (calls.size() == CAPACITY) {
             calls.removeFirst();
         }

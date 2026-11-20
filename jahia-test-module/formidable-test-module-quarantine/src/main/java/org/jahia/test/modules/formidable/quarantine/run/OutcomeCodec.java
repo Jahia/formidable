@@ -22,19 +22,19 @@ final class OutcomeCodec {
      */
     static Map<OutcomeKey, RecordedOutcome> recorded(List<OutcomeRecord> records) {
         Map<OutcomeKey, RecordedOutcome> recorded = new HashMap<>();
-        for (OutcomeRecord record : records) {
-            recorded.put(new OutcomeKey(record.sha256(), record.checkName()), decode(record));
+        for (OutcomeRecord stored : records) {
+            recorded.put(new OutcomeKey(stored.sha256(), stored.checkName()), decode(stored));
         }
         return recorded;
     }
 
-    static RecordedOutcome decode(OutcomeRecord record) {
-        return new RecordedOutcome(outcomeOf(record), record.ticket(), record.attempts());
+    static RecordedOutcome decode(OutcomeRecord stored) {
+        return new RecordedOutcome(outcomeOf(stored), stored.ticket(), stored.attempts());
     }
 
-    private static Outcome outcomeOf(OutcomeRecord record) {
-        String reason = record.reason() == null ? "" : record.reason();
-        switch (record.outcome()) {
+    private static Outcome outcomeOf(OutcomeRecord stored) {
+        String reason = stored.reason() == null ? "" : stored.reason();
+        switch (stored.outcome()) {
             case OutcomeRecord.PASS:
                 return Outcome.pass(reason, null);
             case OutcomeRecord.FAIL:
@@ -44,7 +44,7 @@ final class OutcomeCodec {
             case OutcomeRecord.PENDING:
                 return Outcome.PENDING;
             default:
-                return new Outcome.Failed(record.retryable(), reason);
+                return new Outcome.Failed(stored.retryable(), reason);
         }
     }
 

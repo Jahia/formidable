@@ -139,7 +139,7 @@ class StubQualifierTest {
     @Test
     void theLogKeepsTheLastCallsOnly() {
         for (int i = 0; i <= StubCallLog.CAPACITY; i++) {
-            log.record(new StubCall(REMOTE_TYPE, "n" + i, "abc", Kind.SUBMIT));
+            log.add(new StubCall(REMOTE_TYPE, "n" + i, "abc", Kind.SUBMIT));
         }
         assertEquals(StubCallLog.CAPACITY, log.calls().size());
         assertEquals("n1", log.calls().get(0).checkName());

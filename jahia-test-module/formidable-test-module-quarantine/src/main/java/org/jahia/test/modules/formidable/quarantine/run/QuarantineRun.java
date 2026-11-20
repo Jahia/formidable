@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The run of the checks over the due held submissions of a site, an OSGi service. It has no thread and no scheduler
@@ -47,7 +48,7 @@ public class QuarantineRun {
     private final CheckList checkList;
     private final Clock clock;
     private final Map<String, Qualifier> qualifiers = new ConcurrentHashMap<>();
-    private volatile RunSettings settings = RunSettings.DEFAULT;
+    private final AtomicReference<RunSettings> settings = new AtomicReference<>(RunSettings.DEFAULT);
     private QuarantineStore store;
     private CheckStore checkStore;
     private DeferredActions actions;
@@ -90,14 +91,15 @@ public class QuarantineRun {
     @Activate
     @Modified
     public void configure(RunConfig config) {
-        settings = RunSettings.of(config);
+        RunSettings configured = RunSettings.of(config);
+        settings.set(configured);
         log.info("Run of the quarantine test module configured: allowInProcessFirst={}, maxAttempts={}",
-                settings.allowInProcessFirst(), settings.backoff().maxAttempts());
+                configured.allowInProcessFirst(), configured.backoff().maxAttempts());
     }
 
     /** @return the settings the next run applies */
     public RunSettings settings() {
-        return settings;
+        return settings.get();
     }
 
     /**
@@ -120,15 +122,15 @@ public class QuarantineRun {
     public synchronized RunReport run(String siteKey, String formId, boolean ignoreSchedule)
             throws QuarantineStoreException {
         Instant now = clock.instant();
-        RunSettings current = settings;
+        RunSettings current = settings.get();
         SubmissionRun submissionRun = new SubmissionRun(store, checkStore, checkList, qualifiers::get, release(),
                 current, clock);
         List<String> forms = formId == null ? checkStore.forms(siteKey) : List.of(formId);
         List<RunReport.Processed> processed = new ArrayList<>();
         for (String form : forms) {
-            for (HeldRecord record : store.list(siteKey, form)) {
-                if (isDue(record, now, ignoreSchedule)) {
-                    processed.add(process(submissionRun, record));
+            for (HeldRecord held : store.list(siteKey, form)) {
+                if (isDue(held, now, ignoreSchedule)) {
+                    processed.add(process(submissionRun, held));
                 }
             }
         }
@@ -136,35 +138,35 @@ public class QuarantineRun {
         return new RunReport(siteKey, formId, processed);
     }
 
-    static boolean isDue(HeldRecord record, Instant now, boolean ignoreSchedule) {
-        if (!HeldStates.HELD.equals(record.state()) && !HeldStates.CHECKING.equals(record.state())) {
+    static boolean isDue(HeldRecord held, Instant now, boolean ignoreSchedule) {
+        if (!HeldStates.HELD.equals(held.state()) && !HeldStates.CHECKING.equals(held.state())) {
             return false;
         }
-        return ignoreSchedule || record.nextAttempt() == null || !record.nextAttempt().isAfter(now);
+        return ignoreSchedule || held.nextAttempt() == null || !held.nextAttempt().isAfter(now);
     }
 
-    private RunReport.Processed process(SubmissionRun submissionRun, HeldRecord record) {
+    private RunReport.Processed process(SubmissionRun submissionRun, HeldRecord held) {
         try {
-            HeldState state = submissionRun.run(record);
-            return new RunReport.Processed(record.path(), record.formId(), record.state(), state.value(), null);
+            HeldState state = submissionRun.run(held);
+            return new RunReport.Processed(held.path(), held.formId(), held.state(), state.value(), null);
         } catch (QuarantineStoreException | RepositoryException e) {
-            log.warn("Held submission {}: the run failed, the pass goes on: {}", record.path(), e.toString());
-            return failed(record, e.getClass().getSimpleName() + ": " + e.getMessage());
+            log.warn("Held submission {}: the run failed, the pass goes on: {}", held.path(), e.toString());
+            return failed(held, e.getClass().getSimpleName() + ": " + e.getMessage());
         } catch (RuntimeException e) {
             // the class alone: the message of an unexpected failure, such as one of an action, may quote a held value
-            log.warn("Held submission {}: the run failed with {}, the pass goes on", record.path(),
+            log.warn("Held submission {}: the run failed with {}, the pass goes on", held.path(),
                     e.getClass().getName());
-            return failed(record, e.getClass().getSimpleName());
+            return failed(held, e.getClass().getSimpleName());
         }
     }
 
-    private RunReport.Processed failed(HeldRecord record, String error) {
-        return new RunReport.Processed(record.path(), record.formId(), record.state(), stateOf(record.path()), error);
+    private RunReport.Processed failed(HeldRecord held, String error) {
+        return new RunReport.Processed(held.path(), held.formId(), held.state(), stateOf(held.path()), error);
     }
 
     private String stateOf(String path) {
         try {
-            return store.record(path).map(HeldRecord::state).orElse(null);
+            return store.heldRecord(path).map(HeldRecord::state).orElse(null);
         } catch (QuarantineStoreException e) {
             return null;
         }

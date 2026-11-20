@@ -53,7 +53,7 @@ class RunAndStubServletTest {
         when(run.run(anyString(), any(), anyBoolean())).thenReturn(new RunReport(SITE, FORM_ID,
                 List.of(new RunReport.Processed(HELD_PATH, FORM_ID, "held", "completed", null))));
         control = new StubControl();
-        control.log().record(new StubCallLog.StubCall("fmdbquar:remoteStubCheck", "remoteCheck", "abc",
+        control.log().add(new StubCallLog.StubCall("fmdbquar:remoteStubCheck", "remoteCheck", "abc",
                 StubCallLog.Kind.SUBMIT));
     }
 

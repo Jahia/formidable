@@ -12,6 +12,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The control of the stub checks, for the test suite, under {@code /modules/formidable-quarantine/stub}:
@@ -39,7 +40,7 @@ public class StubServlet extends HttpServlet {
     static final String CHECK_PARAMETER = "check";
 
     private final transient ServerAdministrators administrators;
-    private transient StubControl control;
+    private final transient AtomicReference<StubControl> control = new AtomicReference<>();
 
     public StubServlet() {
         this(ServerAdministrators.ofThePlatform());
@@ -51,7 +52,7 @@ public class StubServlet extends HttpServlet {
 
     @Reference
     public void setControl(StubControl control) {
-        this.control = control;
+        this.control.set(control);
     }
 
     @Override
@@ -65,7 +66,7 @@ public class StubServlet extends HttpServlet {
             return;
         }
         String check = req.getParameter(CHECK_PARAMETER);
-        List<StubCall> calls = check == null ? control.log().calls() : control.log().callsOf(check);
+        List<StubCall> calls = check == null ? control.get().log().calls() : control.get().log().callsOf(check);
         JsonAnswers.answer(resp, HttpServletResponse.SC_OK, state(calls));
     }
 
@@ -80,20 +81,20 @@ public class StubServlet extends HttpServlet {
         }
         switch (JsonAnswers.operationOf(req, ALIAS)) {
             case CLEAR:
-                control.log().clear();
+                control.get().log().clear();
                 break;
             case LIFT:
-                control.outage().lift();
+                control.get().outage().lift();
                 break;
             case SET:
-                control.outage().set();
+                control.get().outage().set();
                 break;
             default:
                 JsonAnswers.answer(resp, HttpServletResponse.SC_NOT_FOUND,
                         JsonAnswers.error("POST serves " + CLEAR + ", " + LIFT + " and " + SET));
                 return;
         }
-        JsonAnswers.answer(resp, HttpServletResponse.SC_OK, state(control.log().calls()));
+        JsonAnswers.answer(resp, HttpServletResponse.SC_OK, state(control.get().log().calls()));
     }
 
     private JSONObject state(List<StubCall> calls) {
@@ -105,7 +106,7 @@ public class StubServlet extends HttpServlet {
                     .put("sha256", nullable(call.sha256()))
                     .put("kind", call.kind().name()));
         }
-        return new JSONObject().put("outage", control.outage().isDown()).put("calls", array);
+        return new JSONObject().put("outage", control.get().outage().isDown()).put("calls", array);
     }
 
     private static Object nullable(String value) {

@@ -16,7 +16,7 @@ import java.util.Optional;
 public interface CheckStore {
 
     /** The name of the decision under {@code checks}. */
-    String DECISION = "decision";
+    String DECISION_NODE = "decision";
 
     /** The identifiers of the forms that have a folder in the quarantine tree of the site. Empty when it has none. */
     List<String> forms(String siteKey) throws QuarantineStoreException;
