@@ -50,7 +50,8 @@ Specs:
   the sample hold.
 - **Quarantine tree**:
   `/sites/<site>/formidable-quarantine/<form>/YYYY/MM/DD/<held>`, in live. The
-  root cuts its ACL inheritance and holds no access control entry.
+  root cuts its ACL inheritance and holds no access control entry. The store
+  refuses any other node at the path of the root.
 - **Held submission**: a node of the quarantine tree, with its state, the names
   of its fields, its values and, apart, its sensitive values.
 - **Item**: one upload of a held submission. Its bytes are a binary property
@@ -243,6 +244,12 @@ on it. A system session, and a member of the server `administrators` group such
 as `root`, are outside this scenario: the Jahia core grants them every
 permission, whatever the ACL says.
 
+The store creates the root and cuts its inheritance. It uses a node that
+already exists at that path only when the node is a `fmdbquar:quarantineRoot`
+that cuts its inheritance and holds no access control entry. Any other node
+refuses the hold, and the visitor gets FMDB-018. The unit tests of
+`JcrQuarantineStore` prove that refusal; this scenario does not.
+
 `docs/administration/results-permissions.md` says that site administrators read
 the results of a form, whose entry cuts the inheritance too. The core, as read
 in its access manager and not run, gives a site administrator no such bypass.
@@ -276,7 +283,9 @@ proves nothing.
 Build it with `package`, deploy it in place of the module, and run spec 97. The
 spec creates the site again, so the quarantine root is created by the control
 build. Q10 must fail by assertion on a read of the editor or of the site
-administrator.
+administrator. The control build creates a root that inherits its access, so
+it refuses every later hold on that site with FMDB-018: the tests of spec 97
+that submit after the first hold fail too, and prove nothing about Q10.
 
 ### Q11 — The quarantine tree is inert
 

@@ -48,6 +48,8 @@ public class JcrQuarantineStore implements QuarantineStore {
 
     static final String LIVE_WORKSPACE = "live";
     private static final String HELD_PREFIX = "held-";
+    private static final String ACL = "j:acl";
+    private static final String ACL_INHERIT = "j:inherit";
 
     private final Clock clock;
 
@@ -78,6 +80,9 @@ public class JcrQuarantineStore implements QuarantineStore {
         String path;
         try {
             path = inLiveSystemSession(session -> write(session, submission, files, at));
+        } catch (RefusedRootException refused) {
+            throw new QuarantineStoreException("Could not hold the submission of form " + submission.formId()
+                    + " in site " + submission.siteKey(), refused);
         } catch (RepositoryException first) {
             // two intakes of one form on one day may create the same folder at once: the second write sees it
             log.debug("First write of a held submission of form {} failed, written again", submission.formId(), first);
@@ -119,12 +124,14 @@ public class JcrQuarantineStore implements QuarantineStore {
 
     /**
      * The root of the tree of a site, created on first use: its ACL inheritance is cut, and it holds no access
-     * control entry. A concurrent first use may create it first: the root is then read again.
+     * control entry. A concurrent first use may create it first: the root is then read again. A node that exists
+     * at the path of the root is used only when it is a root of the module with the same ACL; any other node is
+     * refused with {@link RefusedRootException}, since its readers would read the held values and bytes.
      */
     static JCRNodeWrapper rootOf(JCRSessionWrapper session, String siteKey) throws RepositoryException {
         JCRNodeWrapper site = session.getNode(QuarantineTree.sitePath(siteKey));
         if (site.hasNode(QuarantineTree.ROOT_NAME)) {
-            return site.getNode(QuarantineTree.ROOT_NAME);
+            return closed(site.getNode(QuarantineTree.ROOT_NAME));
         }
         try {
             session.checkout(site);
@@ -135,9 +142,40 @@ public class JcrQuarantineStore implements QuarantineStore {
         } catch (RepositoryException e) {
             session.refresh(false);
             if (site.hasNode(QuarantineTree.ROOT_NAME)) {
-                return site.getNode(QuarantineTree.ROOT_NAME);
+                return closed(site.getNode(QuarantineTree.ROOT_NAME));
             }
             throw e;
+        }
+    }
+
+    /** The existing root, when it is of the root type, cuts its ACL inheritance and holds no access control entry. */
+    private static JCRNodeWrapper closed(JCRNodeWrapper root) throws RepositoryException {
+        if (!root.isNodeType(QuarantineTree.ROOT_TYPE) || !aclIsClosed(root)) {
+            throw new RefusedRootException(root.getPath());
+        }
+        return root;
+    }
+
+    /** {@code j:acl} exists, its {@code j:inherit} is false, and it holds no child: no ACE of any kind. */
+    private static boolean aclIsClosed(JCRNodeWrapper root) throws RepositoryException {
+        if (!root.hasNode(ACL)) {
+            return false;
+        }
+        JCRNodeWrapper acl = root.getNode(ACL);
+        if (!acl.hasProperty(ACL_INHERIT) || acl.getProperty(ACL_INHERIT).getBoolean()) {
+            return false;
+        }
+        return !acl.getNodes().iterator().hasNext();
+    }
+
+    /** A node at the path of the quarantine root that the store does not use. */
+    static final class RefusedRootException extends RepositoryException {
+
+        private static final long serialVersionUID = 1L;
+
+        RefusedRootException(String path) {
+            super("The node at " + path + " is not a quarantine root that cuts its ACL inheritance and holds no"
+                    + " access control entry: the store refuses to write under it");
         }
     }
 

@@ -160,25 +160,87 @@ class JcrQuarantineStoreTest {
         verify(root, never()).changeRoles(anyString(), any());
     }
 
-    @Test
-    void anExistingRootIsReusedAsItIs() throws Exception {
+    /**
+     * A node at the path of the root, of the given type. A null {@code inherit} gives it no {@code j:acl}; otherwise
+     * its {@code j:acl} carries {@code j:inherit} with that value, and the given access control entries.
+     */
+    private JCRNodeWrapper rootNode(String type, Boolean inherit, JCRNodeWrapper... aces) throws RepositoryException {
+        String path = "/sites/" + SITE + "/formidable-quarantine";
+        JCRNodeWrapper root = node(path);
+        when(root.isNodeType(type)).thenReturn(true);
+        if (inherit != null) {
+            JCRNodeWrapper acl = node(path + "/j:acl");
+            JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+            when(property.getBoolean()).thenReturn(inherit);
+            when(acl.hasProperty("j:inherit")).thenReturn(true);
+            when(acl.getProperty("j:inherit")).thenReturn(property);
+            JCRNodeIteratorWrapper children = mock(JCRNodeIteratorWrapper.class);
+            when(children.iterator()).thenReturn(List.of(aces).iterator());
+            when(acl.getNodes()).thenReturn(children);
+            when(root.hasNode("j:acl")).thenReturn(true);
+            when(root.getNode("j:acl")).thenReturn(acl);
+        }
+        return root;
+    }
+
+    /** The site already holds this node at the path of the root. */
+    private JCRNodeWrapper existingRoot(JCRNodeWrapper root) throws RepositoryException {
         JCRNodeWrapper site = session.getNode("/sites/" + SITE);
-        JCRNodeWrapper existing = node("/sites/" + SITE + "/formidable-quarantine");
         when(site.hasNode(QuarantineTree.ROOT_NAME)).thenReturn(true);
-        when(site.getNode(QuarantineTree.ROOT_NAME)).thenReturn(existing);
+        when(site.getNode(QuarantineTree.ROOT_NAME)).thenReturn(root);
+        return site;
+    }
 
-        store.hold(submission(List.of(file())));
+    @Test
+    void anExistingRootThatCutsItsInheritanceAndHoldsNoAceIsReusedAsItIs() throws Exception {
+        JCRNodeWrapper existing = rootNode(QuarantineTree.ROOT_TYPE, false);
+        JCRNodeWrapper site = existingRoot(existing);
 
+        String path = store.hold(submission(List.of(file())));
+
+        assertTrue(path.startsWith("/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/"), path);
         verify(site, never()).addNode(anyString(), anyString());
         verify(existing, never()).setAclInheritanceBreak(anyBoolean());
         verify(existing, never()).grantRoles(anyString(), any());
         verify(existing, never()).changeRoles(anyString(), any());
     }
 
+    /** The hold of a submission is refused, and nothing is written under the root or saved. */
+    private void assertRefused(JCRNodeWrapper existing) throws RepositoryException {
+        existingRoot(existing);
+
+        assertThrows(QuarantineStoreException.class, () -> store.hold(submission(List.of(file()))));
+        assertTrue(created.isEmpty(), "nodes were written under a refused root: " + created.keySet());
+        verify(session, never()).save();
+        verify(existing, never()).setAclInheritanceBreak(anyBoolean());
+    }
+
+    @Test
+    void anExistingRootOfAnotherTypeIsRefused() throws Exception {
+        assertRefused(rootNode("jnt:contentFolder", false));
+    }
+
+    @Test
+    void anExistingRootThatInheritsItsAccessIsRefused() throws Exception {
+        assertRefused(rootNode(QuarantineTree.ROOT_TYPE, true));
+    }
+
+    @Test
+    void anExistingRootWithNoAclInheritsItsAccessAndIsRefused() throws Exception {
+        assertRefused(rootNode(QuarantineTree.ROOT_TYPE, null));
+    }
+
+    @Test
+    void anExistingRootThatHoldsAnAccessControlEntryIsRefused() throws Exception {
+        JCRNodeWrapper ace = node("/sites/" + SITE + "/formidable-quarantine/j:acl/GRANT_u_editor");
+
+        assertRefused(rootNode(QuarantineTree.ROOT_TYPE, false, ace));
+    }
+
     @Test
     void aRootThatAConcurrentIntakeCreatedFirstIsReadAgain() throws Exception {
         JCRNodeWrapper site = session.getNode("/sites/" + SITE);
-        JCRNodeWrapper concurrent = node("/sites/" + SITE + "/formidable-quarantine");
+        JCRNodeWrapper concurrent = rootNode(QuarantineTree.ROOT_TYPE, false);
         // no root before the save; the concurrent intake saved it in between
         when(site.hasNode(QuarantineTree.ROOT_NAME)).thenReturn(false, true);
         when(site.getNode(QuarantineTree.ROOT_NAME)).thenReturn(concurrent);
@@ -186,6 +248,17 @@ class JcrQuarantineStoreTest {
 
         assertSame(concurrent, JcrQuarantineStore.rootOf(session, SITE));
         verify(session).refresh(false);
+    }
+
+    @Test
+    void aRootThatAppearedBetweenTheReadAndTheSaveIsRefusedWhenItInheritsItsAccess() throws Exception {
+        JCRNodeWrapper site = session.getNode("/sites/" + SITE);
+        JCRNodeWrapper other = rootNode(QuarantineTree.ROOT_TYPE, true);
+        when(site.hasNode(QuarantineTree.ROOT_NAME)).thenReturn(false, true);
+        when(site.getNode(QuarantineTree.ROOT_NAME)).thenReturn(other);
+        doThrow(new RepositoryException("the root exists")).when(session).save();
+
+        assertThrows(RepositoryException.class, () -> JcrQuarantineStore.rootOf(session, SITE));
     }
 
     @Test
