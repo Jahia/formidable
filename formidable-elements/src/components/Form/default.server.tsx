@@ -7,6 +7,7 @@ import {
 	Render,
 	server,
 } from "@jahia/javascript-modules-library";
+import type {JCRNodeWrapper} from "org.jahia.services.content";
 import type {RenderContext} from "org.jahia.services.render";
 import {useTranslation} from "react-i18next";
 import AlertIcon from "~/design/AlertIcon";
@@ -79,6 +80,9 @@ const ensureCaptchaExplicit = (url: string): string => {
 	return url + (url.includes('?') ? '&' : '?') + 'render=explicit';
 };
 
+const childNodeOrNull = (node: JCRNodeWrapper, name: string): JCRNodeWrapper | null =>
+	node.hasNode(name) ? node.getNode(name) : null;
+
 jahiaComponent(
 	{
 		componentType: "view",
@@ -108,9 +112,9 @@ jahiaComponent(
 	) => {
 		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_form"});
 		const fieldListNode = currentNode.getNode("fields");
-		const actionListNode = currentNode.hasNode("actions") ? currentNode.getNode("actions") : null;
+		const actionListNode = childNodeOrNull(currentNode, "actions");
 		// present while the switch "Hold uploads in quarantine" of the form is on (fmdbmix:quarantine)
-		const deferredActionListNode = currentNode.hasNode("deferredActions") ? currentNode.getNode("deferredActions") : null;
+		const deferredActionListNode = childNodeOrNull(currentNode, "deferredActions");
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		// The form's UUID is its one identity: the DOM id and name, what a visitor-profile integration calls the form
 		// (goals, mapping rules, the submission event) and the value of its data-form-id opt-out.
