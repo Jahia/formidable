@@ -123,7 +123,7 @@ the scenario proves:
 | Q15 | ignores `uploadsRequireQuarantine` |
 | Q10 | leaves the ACL inheritance of the quarantine root in place: the quarantine test module without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf`, and with `root == null` as the condition of `JcrQuarantineStore.closed` |
 | Q09 | releases without computing the hash again: `Release.release` with `firstChanged(record, submission)` replaced by `null` |
-| Q21 | runs every check, whatever the outcome of an earlier one: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS` |
+| Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
 
 ---

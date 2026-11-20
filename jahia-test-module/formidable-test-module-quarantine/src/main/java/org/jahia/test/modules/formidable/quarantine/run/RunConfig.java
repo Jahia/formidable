@@ -21,7 +21,7 @@ public @interface RunConfig {
     @AttributeDefinition(description = "The longest delay between two attempts, in seconds.")
     long backoffCapSeconds() default 3600;
 
-    @AttributeDefinition(description = "The count of retryable failures of a check after which the submission goes "
-            + "to review.")
+    @AttributeDefinition(description = "The count after which the submission goes to review: the retryable failures "
+            + "of a check on a file until it answers a result, or the runs in a row that bring no new PASS.")
     int maxAttempts() default 10;
 }

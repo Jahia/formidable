@@ -92,8 +92,8 @@ The stub logs each call it receives, with the name of its check node.
 - The repository holds no malware and no EICAR file: the antivirus of a
   developer's machine deletes it. A scenario that needs the EICAR string builds
   it at run time.
-- A spec never waits for the scheduler. It runs the job through the
-  administration mutation "run now" (M3).
+- A spec never waits for the scheduler. It starts a run through "run now" of
+  the quarantine test module: `POST /modules/formidable-quarantine/run`.
 
 ## Control runs
 

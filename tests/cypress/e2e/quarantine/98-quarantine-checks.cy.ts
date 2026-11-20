@@ -106,8 +106,8 @@ const runOnce = (formId: string, state: HeldSubmissionRecord['state'], ignoreSch
  * `package`, deploy it in place of the module, run this spec, and the scenario must fail by assertion:
  * - Q09: in Release.release, replace `firstChanged(record, submission)` with `null`, so the release never computes the
  *   SHA-256 again. Q09 fails on the state (`completed`, not `needsReview`) or on the stored results.
- * - Q21: in CheckChain.judgeResult, answer `null` for FAIL as for PASS, so every check of the list runs whatever an
- *   earlier one answered. Q21 fails on the calls of the second check.
+ * - Q21: in CheckChain.judgeResult, answer `null` for FAIL as for PASS, so a FAIL no longer rejects. Q21 fails on the
+ *   state after the run (`checking`, not `rejected`): the run waits for the back-off before it calls the second check.
  * - Q23: in CheckChain.refuseInProcessFirst, replace `if (allowInProcessFirst)` with
  *   `if (allowInProcessFirst || files != null)`, so the method returns `null` at once and a list whose first check is
  *   in-process runs (a bare `return null;` leaves the loop unreachable and does not compile). Q23 fails on the calls
