@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -115,11 +116,17 @@ class QuarantineOperationsTest {
         void run() throws Exception;
     }
 
+    /** needsReview allows each operation, and releasing a resume or a reject of a release that stopped half way. */
+    private static boolean allows(HeldState state, Operation operation) {
+        return state == HeldState.NEEDS_REVIEW
+                || state == HeldState.RELEASING && (operation == Operation.RESUME || operation == Operation.REJECT);
+    }
+
     @Test
-    void eachOperationIsRefusedFromEveryStateButNeedsReview() {
+    void eachOperationIsRefusedFromEveryStateThatDoesNotAllowIt() {
         for (Operation operation : Operation.values()) {
             for (HeldState state : HeldState.values()) {
-                if (state == HeldState.NEEDS_REVIEW) {
+                if (allows(state, operation)) {
                     continue;
                 }
                 Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
@@ -220,6 +227,38 @@ class QuarantineOperationsTest {
         assertTrue(held.valuesPresent, "values kept for the next resume");
         assertTrue(held.anyBytes(), "bytes kept for the next resume");
         assertEquals(List.of(new AuditRecord("resume", MANAGER, "needsReview", "needsReview", NOW)), held.audit);
+    }
+
+    @Test
+    void resumeOfAReleaseThatStoppedHalfWayStartsAtTheCompletedActions() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        held.completedActions = 1;
+
+        OperationResult result = assertDoesNotThrow(() -> operations.apply(held.path, Operation.RESUME));
+
+        assertEquals(HeldState.RELEASING, result.from());
+        assertEquals(HeldState.COMPLETED, result.to());
+        assertEquals(List.of(1), releasedFrom, "the resumed run starts after the last action that ran");
+        assertEquals(2, held.completedActions);
+        assertFalse(held.valuesPresent, "values deleted once completed");
+        assertEquals(List.of(new AuditRecord("resume", MANAGER, "releasing", "completed", NOW)), held.audit);
+    }
+
+    @Test
+    void rejectOfAReleaseThatStoppedHalfWayDeletesTheValuesAndRunsNoAction() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        held.completedActions = 1;
+
+        OperationResult result = assertDoesNotThrow(() -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals(HeldState.REJECTED, result.to());
+        assertEquals("rejected", held.state);
+        assertFalse(held.valuesPresent, "values deleted");
+        assertFalse(held.anyBytes(), "bytes deleted");
+        assertTrue(releasedFrom.isEmpty(), "no action after release ran");
+        assertEquals(List.of(new AuditRecord("reject", MANAGER, "releasing", "rejected", NOW)), held.audit);
     }
 
     @Test

@@ -142,14 +142,14 @@ We chose the simplest model that a Jahia module ships and that a spec grants wit
 
 ## The operations
 
-An operation runs on a held submission in state `needsReview`. It checks, in this order, that a held submission is at the path, that the user is a manager of its form, and that the state and the decision allow the operation. A refused operation changes nothing.
+An operation runs on a held submission in state `needsReview`, and a resume or a reject also on a release that stopped half way in `releasing`. It checks, in this order, that a held submission is at the path, that the user is a manager of its form, and that the state and the decision allow the operation. A refused operation changes nothing.
 
 | Operation | Allowed when | What it does |
 |---|---|---|
 | `retry` | `needsReview` | Sets the attempts to 0, removes every outcome that is not a `PASS` (with its count of failures), and moves to `checking`. The next run calls those checks again |
 | `release` | `needsReview`, and the decision is not `ACTION_FAILED` | Moves to `releasing`, then runs the release: the SHA-256 is computed again, then the actions after release run. The state is `completed`, or `needsReview` again |
-| `resume` | `needsReview`, and the decision is `ACTION_FAILED` | The same, from the index `completedActions`: the actions that ran do not run again |
-| `reject` | `needsReview` | Moves to `rejected`, and deletes the values, the sensitive values and the bytes. The outcomes and the decision stay |
+| `resume` | `needsReview`, and the decision is `ACTION_FAILED`; or `releasing` | The same, from the index `completedActions`: the actions that ran do not run again |
+| `reject` | `needsReview` or `releasing` | Moves to `rejected`, and deletes the values, the sensitive values and the bytes. The outcomes and the decision stay |
 
 A release after a failed action is refused: it would run the actions again from the first, and store or send the submission twice. The release starts at `completedActions` in any case, so this is a rule of the module, not of the release.
 

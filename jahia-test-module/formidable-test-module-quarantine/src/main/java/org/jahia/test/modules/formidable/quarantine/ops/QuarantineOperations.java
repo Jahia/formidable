@@ -22,7 +22,8 @@ import java.util.function.Supplier;
 
 /**
  * The operations of a manager on a held submission in state {@code needsReview}: retry, release, resume and reject, an
- * OSGi service. Each operation checks, in this order, that a held submission is at the path, that the user of the
+ * OSGi service. A release that stopped half way in {@code releasing} (a store failure, an error of an action, a stop of
+ * the JVM) takes a resume or a reject only. Each operation checks, in this order, that a held submission is at the path, that the user of the
  * request is a manager of its form ({@link Managers}), and that the state machine and the decision allow it. A refused
  * operation changes nothing. An operation that ran writes one audit record: the operation, the name of the user, the
  * state before and after, and when. No value.
@@ -32,8 +33,9 @@ import java.util.function.Supplier;
  * {@code checking}: the next run calls those checks again;</li>
  * <li>release: the state moves to {@code releasing}, and the release of the module runs, from the hash check on. It is
  * refused when an action after release failed: that is a resume;</li>
- * <li>resume: the same, allowed only when an action after release failed ({@code ACTION_FAILED}). The release starts at
- * the index {@code completedActions}, so the actions that ran do not run again;</li>
+ * <li>resume: the same, allowed in {@code needsReview} only when an action after release failed
+ * ({@code ACTION_FAILED}), and always in {@code releasing}. The release starts at the index {@code completedActions},
+ * so the actions that ran do not run again;</li>
  * <li>reject: the state moves to {@code rejected}, and the values, the sensitive values and the bytes are deleted.
  * The outcomes and the decision stay.</li>
  * </ul>
@@ -101,7 +103,7 @@ public class QuarantineOperations {
                     "The user does not manage the quarantine of the form");
         }
         HeldState from = HeldState.fromValue(record.state());
-        if (!StateMachine.allows(from, operation.event()) || !fitsTheDecision(path, operation)) {
+        if (!StateMachine.allows(from, operation.event()) || !fitsTheDecision(path, from, operation)) {
             throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                     "The operation " + operation.value() + " is not allowed in state " + from.value());
         }
@@ -112,9 +114,12 @@ public class QuarantineOperations {
         return new OperationResult(path, operation, from, to);
     }
 
-    /** A resume needs an action after release that failed; a release needs any other reason of review. */
-    private boolean fitsTheDecision(String path, Operation operation) throws QuarantineStoreException {
-        if (operation != Operation.RESUME && operation != Operation.RELEASE) {
+    /**
+     * In {@code needsReview}, a resume needs an action after release that failed, and a release needs any other reason
+     * of review. A release that stopped half way in {@code releasing} resumes whatever the decision says.
+     */
+    private boolean fitsTheDecision(String path, HeldState from, Operation operation) throws QuarantineStoreException {
+        if (from != HeldState.NEEDS_REVIEW || operation != Operation.RESUME && operation != Operation.RELEASE) {
             return true;
         }
         boolean actionFailed = checkStore.decision(path)

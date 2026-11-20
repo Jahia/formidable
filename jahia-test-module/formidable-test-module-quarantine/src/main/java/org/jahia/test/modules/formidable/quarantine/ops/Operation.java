@@ -3,8 +3,8 @@ package org.jahia.test.modules.formidable.quarantine.ops;
 import org.jahia.test.modules.formidable.quarantine.state.HeldEvent;
 
 /**
- * What a manager may do by hand with a held submission in state {@code needsReview}, and the event of the state machine
- * that each operation sends.
+ * What a manager may do by hand with a held submission in state {@code needsReview}, or with a release that stopped
+ * half way in {@code releasing} (resume and reject only), and the event of the state machine that each operation sends.
  */
 public enum Operation {
 
@@ -14,7 +14,7 @@ public enum Operation {
     /** Releases the submission whose checks did not all pass: the actions after release run. */
     RELEASE("release", HeldEvent.MANAGER_RELEASE),
 
-    /** Runs the actions after release again, from the one that failed. */
+    /** Runs the actions after release again, from the one that failed or from the first one that did not run. */
     RESUME("resume", HeldEvent.MANAGER_RESUME),
 
     /** Rejects the submission: its values and its bytes are deleted. */

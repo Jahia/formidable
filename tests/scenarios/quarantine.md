@@ -98,7 +98,8 @@ Specs:
   where the operation is `retry`, `release`, `resume` or `reject`. It runs on
   a held submission in state `needsReview`, for a manager. Any other user gets
   403, and a state that does not allow the operation gets 409. `resume` needs
-  the decision `ACTION_FAILED`, and `release` any other decision.
+  the decision `ACTION_FAILED`, and `release` any other decision. A release
+  that stopped half way in `releasing` takes `resume` or `reject` only.
 - **Audit record**: a record under the held submission: the operation, the name
   of the user, the state before and after, and the time. The run writes one,
   with no user, when it releases, rejects or sends to review. The inspection
