@@ -64,9 +64,12 @@ public interface QuarantineStore {
     void setCompletedActions(String path, int completedActions) throws QuarantineStoreException;
 
     /**
-     * Deletes the public values, the sensitive values and the bytes of every item, once the submission is
-     * completed or rejected. The record stays: the state, the names of the fields, and of each item its name, size
-     * and SHA-256.
+     * Writes a final state, {@link HeldStates#COMPLETED} or {@link HeldStates#REJECTED}, and deletes the public
+     * values, the sensitive values and the bytes of every item, in one save: a failure writes neither, so a final
+     * state never keeps its data. The record stays: the state, the names of the fields, and of each item its name,
+     * size and SHA-256.
+     *
+     * @throws QuarantineStoreException for any other state, or when the repository refused the save: nothing changed
      */
-    void deleteValues(String path) throws QuarantineStoreException;
+    void finish(String path, String state) throws QuarantineStoreException;
 }

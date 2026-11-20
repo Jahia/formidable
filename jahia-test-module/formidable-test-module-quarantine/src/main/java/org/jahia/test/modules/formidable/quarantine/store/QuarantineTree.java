@@ -28,7 +28,7 @@ public final class QuarantineTree {
     public static final String VALUES = "values";
     /** Under a held submission, the sensitive values, apart from the public ones. */
     public static final String SENSITIVE = "sensitive";
-    /** Under a held submission, the outcomes of the checks, which a later part of the module writes. */
+    /** Under a held submission, the outcomes of the checks and the decision of the run. */
     public static final String CHECKS = "checks";
     /** Under a held submission, the audit records, which a later part of the module writes. */
     public static final String AUDIT = "audit";

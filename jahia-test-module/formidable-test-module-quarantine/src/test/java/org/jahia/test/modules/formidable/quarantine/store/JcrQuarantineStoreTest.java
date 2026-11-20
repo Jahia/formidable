@@ -458,7 +458,7 @@ class JcrQuarantineStoreTest {
         when(session.getNode("/sites/" + SITE + "/home")).thenReturn(page);
 
         assertThrows(QuarantineStoreException.class, () -> store.setState("/sites/" + SITE + "/home", HeldStates.CHECKING));
-        assertThrows(QuarantineStoreException.class, () -> store.deleteValues("/users/root"));
+        assertThrows(QuarantineStoreException.class, () -> store.finish("/users/root", HeldStates.REJECTED));
         verify(page, never()).setProperty(anyString(), anyString());
     }
 
@@ -628,12 +628,24 @@ class JcrQuarantineStoreTest {
         when(children.iterator()).thenReturn(List.of(values, sensitive, item).iterator());
         when(held.getNodes()).thenReturn(children);
 
-        store.deleteValues(path);
+        store.finish(path, HeldStates.COMPLETED);
 
         verify(values).remove();
         verify(sensitive).remove();
         verify(data).remove();
+        verify(held).setProperty(QuarantineTree.STATE, HeldStates.COMPLETED);
         verify(held, never()).remove();
-        verify(session).save();
+        // the state and the deletion in one save
+        verify(session, times(1)).save();
+    }
+
+    @Test
+    void finishingRefusesAStateThatIsNotFinalBeforeAnyRead() throws Exception {
+        assertThrows(QuarantineStoreException.class,
+                () -> store.finish("/sites/" + SITE + "/held", HeldStates.RELEASING));
+        assertThrows(QuarantineStoreException.class,
+                () -> store.finish("/sites/" + SITE + "/held", HeldStates.NEEDS_REVIEW));
+        verify(session, never()).getNode(anyString());
+        verify(session, never()).save();
     }
 }

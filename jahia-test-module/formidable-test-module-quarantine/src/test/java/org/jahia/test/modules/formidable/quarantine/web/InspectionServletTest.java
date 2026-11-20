@@ -3,9 +3,12 @@ package org.jahia.test.modules.formidable.quarantine.web;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
 import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.test.modules.formidable.quarantine.store.CheckStore;
+import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldStates;
 import org.jahia.test.modules.formidable.quarantine.store.ItemRecord;
+import org.jahia.test.modules.formidable.quarantine.store.OutcomeRecord;
 import org.jahia.test.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.test.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.json.JSONObject;
@@ -50,6 +53,7 @@ class InspectionServletTest {
     private static final String HELD_PATH = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
 
     private QuarantineStore store;
+    private CheckStore checkStore;
 
     /** One call of the servlet, answered into a status and a body. */
     private record Call(int status, String body) {
@@ -70,6 +74,12 @@ class InspectionServletTest {
                         FILE_TEXT.getBytes(StandardCharsets.UTF_8))),
                 new SubmissionOrigin(null, null, null));
         when(store.read(anyString())).thenReturn(Optional.of(held));
+        checkStore = mock(CheckStore.class);
+        when(checkStore.outcomes(HELD_PATH)).thenReturn(List.of(new OutcomeRecord("item0", "remoteCheck",
+                "f7c11b5f5115eb9d0f4f8619af8870daf212b37948739f8534e4088a078e7ffd", OutcomeRecord.PENDING, null, false,
+                "ticket-secret-id", 0, Instant.parse("2026-11-19T18:31:00Z"))));
+        when(checkStore.decision(HELD_PATH)).thenReturn(Optional.of(new DecisionRecord("FILE_WITHHELD", "item0", null,
+                null, null, Instant.parse("2026-11-19T18:32:00Z"))));
     }
 
     private Call get(boolean administrator, String site, String form) throws Exception {
@@ -86,6 +96,7 @@ class InspectionServletTest {
         }).when(response).setStatus(anyInt());
         InspectionServlet servlet = new InspectionServlet(() -> administrator);
         servlet.setStore(store);
+        servlet.setCheckStore(checkStore);
 
         servlet.doGet(request, response);
 
@@ -123,6 +134,21 @@ class InspectionServletTest {
     }
 
     @Test
+    void aServerAdministratorReadsTheOutcomesAndTheDecisionButNoTicket() throws Exception {
+        Call call = get(true, SITE, FORM_ID);
+
+        JSONObject held = new JSONObject(call.body()).getJSONArray("submissions").getJSONObject(0);
+        JSONObject outcome = held.getJSONArray("checks").getJSONObject(0);
+        assertEquals("item0", outcome.getString("item"));
+        assertEquals("remoteCheck", outcome.getString("check"));
+        assertEquals("PENDING", outcome.getString("outcome"));
+        assertTrue(outcome.getBoolean("ticketPresent"));
+        assertEquals("FILE_WITHHELD", held.getJSONObject("decision").getString("reason"));
+        assertEquals("item0", held.getJSONObject("decision").getString("item"));
+        assertFalse(call.body().contains("ticket-secret-id"), call.body());
+    }
+
+    @Test
     void theAnswerHoldsNoValueNoSensitiveValueAndNoByte() throws Exception {
         Call call = get(true, SITE, FORM_ID);
 
@@ -144,12 +170,15 @@ class InspectionServletTest {
     }
 
     @Test
-    void anItemWithNoFieldNameNorFileNameKeepsBothKeysAsNull() {
+    void anItemWithNoFieldNameNorFileNameKeepsBothKeysAsNull() throws Exception {
         HeldRecord heldRecord = new HeldRecord(HELD_PATH, FORM_ID, SITE, HeldStates.HELD,
                 Instant.parse("2026-11-19T18:30:00Z"), 0, null, 0, List.of(), List.of(), true,
                 List.of(new ItemRecord("item0", null, null, null, 0, "e3b0", true)));
+        InspectionServlet servlet = new InspectionServlet(() -> true);
+        servlet.setStore(store);
+        servlet.setCheckStore(checkStore);
 
-        JSONObject item = InspectionServlet.inspection(SITE, FORM_ID, List.of(heldRecord))
+        JSONObject item = servlet.inspection(SITE, FORM_ID, List.of(heldRecord))
                 .getJSONArray("submissions").getJSONObject(0).getJSONArray("items").getJSONObject(0);
 
         assertEquals(Set.of("name", "fieldName", "fileName", "mimeType", "size", "sha256", "binaryPresent"), item.keySet());

@@ -1,8 +1,16 @@
-import {FORWARD_SINK_PATH, QUARANTINE_INSPECTION_PATH, UPLOAD_OBSERVATIONS_PATH} from '../../support/constants';
+import {
+	FORWARD_SINK_PATH,
+	QUARANTINE_INSPECTION_PATH,
+	QUARANTINE_RUN_PATH,
+	QUARANTINE_STUB_PATH,
+	UPLOAD_OBSERVATIONS_PATH
+} from '../../support/constants';
 import {FORMIDABLE_TEST_SITE, FORWARD_SINK_TARGET_ID, getInputFileNode, getInputTextNode} from '../../support/fixtures';
 import {SAME_ORIGIN} from '../security/support';
 
 const BOUNDARY = '----FormidableCypressBoundary';
+/** A POST to an endpoint of the quarantine test module: the module refuses one without X-Requested-With. */
+export const QUARANTINE_POST_HEADERS = {Origin: SAME_ORIGIN, 'X-Requested-With': 'XMLHttpRequest'};
 export const FILE_FIELD = 'supportingDocument';
 export const FILE_NAME = 'claim-note.txt';
 /** The text of the file of submissionWithAFile. */
@@ -10,16 +18,29 @@ export const FILE_TEXT = 'A note attached to the claim.';
 /** The SHA-256 of FILE_TEXT, computed outside Jahia (`shasum -a 256`). */
 export const FILE_SHA256 = 'f7c11b5f5115eb9d0f4f8619af8870daf212b37948739f8534e4088a078e7ffd';
 
-/** A submission of the text field and one small text file, as a browser posts it. */
-export const submissionWithAFile = (fullName: string): string =>
+/** A submission of the text field and one small text file of that text, as a browser posts it. */
+export const submissionWithText = (fullName: string, text: string): string =>
 	`--${BOUNDARY}\r\n`
 	+ 'Content-Disposition: form-data; name="fullName"\r\n\r\n'
 	+ `${fullName}\r\n`
 	+ `--${BOUNDARY}\r\n`
 	+ `Content-Disposition: form-data; name="${FILE_FIELD}"; filename="${FILE_NAME}"\r\n`
 	+ 'Content-Type: text/plain\r\n\r\n'
-	+ `${FILE_TEXT}\r\n`
+	+ `${text}\r\n`
 	+ `--${BOUNDARY}--\r\n`;
+
+/** A submission of the text field and one small text file, as a browser posts it. */
+export const submissionWithAFile = (fullName: string): string => submissionWithText(fullName, FILE_TEXT);
+
+/**
+ * The texts of the files the stub checks read: the first marker line decides what a stub answers. The second line
+ * keeps each file apart from the others, so no two of them share a SHA-256.
+ */
+export const STUB_FILE = {
+	pass: 'VERDICT:PASS\nA claim note the checks pass.',
+	fail: 'VERDICT:FAIL\nA claim note the checks fail.',
+	down: 'DOWN\nA claim note the checks cannot reach while the outage is on.'
+};
 
 /** A submission of the text field alone: the file field is left empty. */
 export const submissionWithNoFile = (fullName: string): string =>
@@ -111,6 +132,29 @@ export interface HeldItem {
 	binaryPresent: boolean;
 }
 
+/** The last outcome of one check for one item, as the inspection answers it: never the ticket, never a byte. */
+export interface HeldOutcome {
+	item: string;
+	check: string;
+	outcome: 'PASS' | 'FAIL' | 'INCONCLUSIVE' | 'PENDING' | 'FAILED';
+	reason: string | null;
+	retryable: boolean;
+	ticketPresent: boolean;
+	attempts: number;
+	sha256: string;
+	at: string;
+}
+
+/** Why the run stopped a held submission: a reason of the chain, INTEGRITY_FAILED or ACTION_FAILED. */
+export interface HeldDecision {
+	reason: string;
+	item: string | null;
+	check: string | null;
+	sha256: string | null;
+	failedAction: number | null;
+	at: string;
+}
+
 /** One held submission, as the inspection answers it: the names of its fields, never a value. */
 export interface HeldSubmissionRecord {
 	path: string;
@@ -123,6 +167,8 @@ export interface HeldSubmissionRecord {
 	sensitiveFields: string[];
 	valuesPresent: boolean;
 	items: HeldItem[];
+	checks: HeldOutcome[];
+	decision: HeldDecision | null;
 }
 
 /**
@@ -134,3 +180,82 @@ export const readHeldSubmissions = (formId: string): Cypress.Chainable<HeldSubmi
 		url: QUARANTINE_INSPECTION_PATH,
 		qs: {site: FORMIDABLE_TEST_SITE.key, form: formId}
 	}).its('body.submissions');
+
+/** The settings of the run of the quarantine test module, as "run now" answers them. */
+export interface QuarantineRunSettings {
+	allowInProcessFirst: boolean;
+	maxAttempts: number;
+	backoffInitialSeconds: number;
+	backoffCapSeconds: number;
+}
+
+/** One held submission a run processed, with its state after the run. */
+export interface ProcessedSubmission {
+	path: string;
+	form: string;
+	from: string;
+	state: HeldSubmissionRecord['state'] | null;
+	error: string | null;
+}
+
+export interface QuarantineRunReport {
+	site: string;
+	form: string | null;
+	settings: QuarantineRunSettings;
+	processed: ProcessedSubmission[];
+}
+
+/**
+ * "Run now": one pass of the checks over the due held submissions of the test site, or of one form. A submission that
+ * waits for its back-off is not due; ignoreSchedule takes it anyway, so a spec never waits for time. Server
+ * administrators only: the spec runs it logged in as root.
+ */
+export const runQuarantine = (formId?: string, ignoreSchedule = false): Cypress.Chainable<QuarantineRunReport> =>
+	cy.request<QuarantineRunReport>({
+		method: 'POST',
+		url: QUARANTINE_RUN_PATH,
+		headers: QUARANTINE_POST_HEADERS,
+		qs: {site: FORMIDABLE_TEST_SITE.key, ...(formId ? {form: formId} : {}), ...(ignoreSchedule ? {ignoreSchedule: 'true'} : {})}
+	}).its('body');
+
+/** The settings the next run applies. */
+export const readQuarantineRunSettings = (): Cypress.Chainable<QuarantineRunSettings> =>
+	cy.request<{settings: QuarantineRunSettings}>(QUARANTINE_RUN_PATH).its('body.settings');
+
+/**
+ * Edits the configuration of the run, then waits until the run reads it: the configuration admin applies an edit
+ * after the provisioning call returns.
+ */
+export const setQuarantineRunSettings = (settings: Partial<QuarantineRunSettings>): Cypress.Chainable => {
+	const properties = Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, String(value)]));
+	editConfiguration('org.jahia.test.modules.formidable.quarantine.run', properties);
+	return cy.waitUntil(() => readQuarantineRunSettings().then(current =>
+		Object.entries(settings).every(([key, value]) => current[key as keyof QuarantineRunSettings] === value)),
+	{timeout: 30000, interval: 500, errorMsg: 'The run of the quarantine test module did not read its new settings'});
+};
+
+/** One call a stub check received: the check node, the SHA-256 of the file, and whether it was a submit or a poll. */
+export interface StubCall {
+	nodeType: string;
+	checkName: string | null;
+	sha256: string | null;
+	kind: 'SUBMIT' | 'POLL';
+}
+
+/** The calls the stub checks received, oldest first: all of them, or those of one check node. */
+export const readStubCalls = (checkName?: string): Cypress.Chainable<StubCall[]> =>
+	cy.request<{calls: StubCall[]}>({
+		url: `${QUARANTINE_STUB_PATH}/calls`,
+		qs: checkName ? {check: checkName} : {}
+	}).its('body.calls');
+
+export const clearStubCalls = (): Cypress.Chainable =>
+	cy.request({method: 'POST', url: `${QUARANTINE_STUB_PATH}/calls/clear`, headers: QUARANTINE_POST_HEADERS});
+
+/** Sets the outage of the stub checks (a DOWN file then fails, retryable), or lifts it (a DOWN file then passes). */
+export const setStubOutage = (down: boolean): Cypress.Chainable =>
+	cy.request({
+		method: 'POST',
+		url: `${QUARANTINE_STUB_PATH}/outage/${down ? 'set' : 'lift'}`,
+		headers: QUARANTINE_POST_HEADERS
+	});
