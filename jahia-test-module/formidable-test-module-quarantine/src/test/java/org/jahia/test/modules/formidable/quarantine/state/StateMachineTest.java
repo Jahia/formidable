@@ -34,6 +34,9 @@ class StateMachineTest {
         legal(RELEASING, HeldEvent.ACTIONS_DONE, COMPLETED);
         legal(RELEASING, HeldEvent.ACTION_FAILED, NEEDS_REVIEW);
         legal(RELEASING, HeldEvent.INTEGRITY_FAILED, NEEDS_REVIEW);
+        // a release that stopped half way (a store failure, an error, a stop of the JVM): a manager resumes or rejects
+        legal(RELEASING, HeldEvent.MANAGER_RESUME, RELEASING);
+        legal(RELEASING, HeldEvent.MANAGER_REJECT, REJECTED);
         legal(NEEDS_REVIEW, HeldEvent.MANAGER_RETRY, CHECKING);
         legal(NEEDS_REVIEW, HeldEvent.MANAGER_RELEASE, RELEASING);
         legal(NEEDS_REVIEW, HeldEvent.MANAGER_RESUME, RELEASING);
@@ -97,7 +100,8 @@ class StateMachineTest {
             }
         }
         assertEquals(Set.of("held>checking", "checking>checking", "checking>rejected", "checking>needsReview",
-                "checking>releasing", "releasing>completed", "releasing>needsReview", "needsReview>checking",
+                "checking>releasing", "releasing>completed", "releasing>needsReview", "releasing>releasing",
+                "releasing>rejected", "needsReview>checking",
                 "needsReview>releasing", "needsReview>rejected"), arrows);
     }
 

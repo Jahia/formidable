@@ -7,9 +7,11 @@ import java.util.Objects;
  * <pre>
  * held -&gt; checking -&gt; checking | rejected | needsReview | releasing
  * releasing -&gt; completed | needsReview
+ * releasing -&gt; releasing | rejected                (manager operations: resume, reject)
  * needsReview -&gt; checking | releasing | rejected    (manager operations)
  * </pre>
- * Nothing leaves {@code completed} or {@code rejected}.
+ * Nothing leaves {@code completed} or {@code rejected}. The run never takes a submission in {@code releasing}: a
+ * release that stopped half way, on a failure of the store, an error or a stop of the JVM, waits for a manager.
  */
 public final class StateMachine {
 

@@ -11,7 +11,10 @@ public enum HeldState {
     /** The checks run. */
     CHECKING("checking"),
 
-    /** Every check passed; the actions after release run. */
+    /**
+     * Every check passed; the actions after release run. A release that stopped half way stays here, and the run never
+     * takes it: a manager resumes or rejects it.
+     */
     RELEASING("releasing"),
 
     /** Every action after release ran. Final. */

@@ -123,6 +123,8 @@ Every move of the state goes through the state machine. Each submission is read 
 
 `QuarantineRun.release()` gives the release to an operation that releases or resumes a submission by hand: the operation moves the state to `releasing` first, then calls it.
 
+A release that stops half way, on a failure of the store, an error of an action or a stop of the JVM, leaves the submission in `releasing`. The run never takes it. A manager resumes it, from `completedActions`, so no action runs twice, or rejects it: the state machine lets resume and reject leave `releasing` as they leave `needsReview`.
+
 ## The endpoints for the specs
 
 Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries the `Origin` header of the instance and `X-Requested-With`: without it, the run and the stub control answer 403. No answer holds a value or a byte.

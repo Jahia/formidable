@@ -39,11 +39,14 @@ public enum HeldEvent {
     /** A manager releases the submission. */
     MANAGER_RELEASE(HeldState.RELEASING, HeldState.NEEDS_REVIEW),
 
-    /** A manager resumes the actions after release from the one that failed. */
-    MANAGER_RESUME(HeldState.RELEASING, HeldState.NEEDS_REVIEW),
+    /**
+     * A manager resumes the actions after release from the one that failed, or from {@code completedActions} of a
+     * release that stopped half way in {@code releasing}: no action runs twice.
+     */
+    MANAGER_RESUME(HeldState.RELEASING, HeldState.NEEDS_REVIEW, HeldState.RELEASING),
 
-    /** A manager rejects the submission. */
-    MANAGER_REJECT(HeldState.REJECTED, HeldState.NEEDS_REVIEW);
+    /** A manager rejects the submission, also one whose release stopped half way in {@code releasing}. */
+    MANAGER_REJECT(HeldState.REJECTED, HeldState.NEEDS_REVIEW, HeldState.RELEASING);
 
     private final HeldState target;
     private final Set<HeldState> sources;
