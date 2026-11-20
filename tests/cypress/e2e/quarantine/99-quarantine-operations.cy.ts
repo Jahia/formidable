@@ -137,7 +137,7 @@ const operateAsRoot = (path: string, operation: QuarantineOperation, state: Held
  * through the inspection, as root.
  *
  * Q20 is a control scenario. Its control build is the quarantine test module with the check of the permission removed:
- * in QuarantineOperations.apply, replace `!managers.mayManage(record.formId())` with `false`. Build it with `package`,
+ * in QuarantineOperations.applyLocked, replace `!managers.mayManage(record.formId())` with `false`. Build it with `package`,
  * deploy it in place of the module, and run this spec: Q20 must fail by assertion, on the status of an operation of the
  * reader (200 or 409, not 403).
  */

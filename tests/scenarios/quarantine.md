@@ -149,7 +149,7 @@ the scenario proves:
 | Q09 | releases without computing the hash again: `Release.release` with `firstChanged(record, submission)` replaced by `null` |
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
-| Q20 | runs an operation for any user: in `QuarantineOperations.apply`, `!managers.mayManage(record.formId())` replaced by `false` |
+| Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(record.formId())` replaced by `false` |
 
 ---
 
