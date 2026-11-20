@@ -11,9 +11,13 @@ import org.jahia.test.modules.formidable.quarantine.state.HeldState;
 import org.jahia.test.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.OutcomeRecord;
+import org.jahia.test.modules.formidable.quarantine.store.QuarantineStore;
+import org.jahia.test.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -318,6 +322,34 @@ class QuarantineOperationsTest {
 
         assertEquals("releasing", held.state);
         assertEquals(List.of(new AuditRecord("resume", MANAGER, "releasing", "releasing", NOW)), held.audit);
+    }
+
+    /** The stores in memory, but a move of the state fails, as a store that is down. */
+    private QuarantineStore storeThatCannotMove() {
+        return (QuarantineStore) Proxy.newProxyInstance(QuarantineStore.class.getClassLoader(),
+                new Class<?>[]{QuarantineStore.class}, (proxy, method, arguments) -> {
+                    if (method.getName().equals("setState")) {
+                        throw new QuarantineStoreException("The store is down");
+                    }
+                    try {
+                        return method.invoke(stores, arguments);
+                    } catch (InvocationTargetException e) {
+                        throw e.getCause();
+                    }
+                });
+    }
+
+    @Test
+    void aRejectOfAStoppedReleaseThatCannotMoveTheStateWritesNoAuditRecord() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        operations.setStore(storeThatCannotMove());
+
+        assertThrows(QuarantineStoreException.class, () -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals("releasing", held.state);
+        assertTrue(held.valuesPresent, "values kept: the reject did not happen");
+        assertTrue(held.audit.isEmpty(), "audit of a reject that changed nothing");
     }
 
     @Test

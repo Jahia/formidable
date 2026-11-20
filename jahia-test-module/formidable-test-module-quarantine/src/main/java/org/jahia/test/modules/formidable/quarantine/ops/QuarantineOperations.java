@@ -27,7 +27,8 @@ import java.util.function.Supplier;
  * request is a manager of its form ({@link Managers}), and that the state machine and the decision allow it. A refused
  * operation changes nothing. An operation that ran writes one audit record: the operation, the name of the user, the
  * state before and after, and when. No value. An operation that failed after it moved the state writes one too, with
- * the state reached.
+ * the state reached, and so does a resume that failed: a resume of a release stopped in {@code releasing} stays
+ * there.
  *
  * <ul>
  * <li>retry: the attempts start over, every outcome that is not a {@code PASS} is dropped, and the state moves to
@@ -141,7 +142,7 @@ public class QuarantineOperations {
     private void auditStopped(String path, Operation operation, String user, HeldState from) {
         try {
             String reached = store.record(path).map(HeldRecord::state).orElse(null);
-            if (reached != null && (!reached.equals(from.value()) || from == HeldState.RELEASING)) {
+            if (reached != null && (!reached.equals(from.value()) || operation == Operation.RESUME)) {
                 checkStore.writeAudit(path, new AuditRecord(operation.value(), user, from.value(), reached,
                         clock.instant()));
             }
