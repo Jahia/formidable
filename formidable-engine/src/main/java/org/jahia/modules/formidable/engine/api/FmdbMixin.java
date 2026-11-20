@@ -25,6 +25,12 @@ public final class FmdbMixin {
     public static final String REDIRECT_TO_PAGE = "fmdbmix:redirectToPage";
     /** The URL target of a redirect action, the mode fieldset its {@code targetType} {@code url} activates. */
     public static final String REDIRECT_TO_URL = "fmdbmix:redirectToUrl";
+    /** An action type that may run after the release of a held submission, with no HTTP request. */
+    public static final String DEFERRABLE_ACTION = "fmdbmix:deferrableAction";
+    /** The switch of a form that holds its uploads in quarantine: it carries the checks and the actions after release. */
+    public static final String QUARANTINE = "fmdbmix:quarantine";
+    /** A check of a held file, the kind of node the {@code qualifiers} list of a form accepts. */
+    public static final String QUALIFIER = "fmdbmix:qualifier";
     // Field actions: the marker a field-action type takes, the settings it includes as a supertype, the switch on a field
     public static final String FIELD_ACTION = "fmdbmix:fieldAction";
     public static final String FIELD_ACTION_FEEDBACK = "fmdbmix:fieldActionFeedback";

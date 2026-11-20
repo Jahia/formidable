@@ -13,8 +13,18 @@ services:
       NEXUS_USERNAME: ${NEXUS_USERNAME}
       NEXUS_PASSWORD: ${NEXUS_PASSWORD}
       JPDA: 'true'
+      # Read by the Jahia JVM: the provisioning of @jahia/cypress points the mail service at this server.
+      SMTP_SERVER_URL: smtp://smtp-server:1025
     extra_hosts:
       - jahia:127.0.0.1
+    networks:
+      - stack
+  # The mail sink of the suite (Mailpit): SMTP on 1025 for Jahia, an HTTP API on 8025 for the specs.
+  smtp-server:
+    image: axllent/mailpit
+    container_name: smtp-server
+    ports:
+      - '8025:8025'
     networks:
       - stack
   # Cypress container
@@ -24,7 +34,10 @@ services:
     container_name: cypress
     depends_on:
       - jahia
+      - smtp-server
     environment:
+      # A literal, the name of the container: .env.example holds the value of a run outside Docker.
+      MAILPIT_URL: http://smtp-server:8025
       MANIFEST: ${MANIFEST}
       JAHIA_URL: ${JAHIA_URL}
       JAHIA_HOST: ${JAHIA_HOST}

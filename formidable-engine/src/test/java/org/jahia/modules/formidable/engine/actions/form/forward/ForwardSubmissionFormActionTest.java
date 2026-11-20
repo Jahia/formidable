@@ -1,6 +1,9 @@
 package org.jahia.modules.formidable.engine.actions.form.forward;
 
 import org.jahia.modules.formidable.engine.api.FormActionException;
+import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.engine.servlet.DetachedRequest;
 import org.jahia.modules.formidable.engine.config.formactions.FormActionsConfigService;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -27,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
@@ -108,6 +112,40 @@ class ForwardSubmissionFormActionTest {
 
         // Expected outcome: timeout surfaces as HTTP 502.
         assertEquals(502, exception.getHttpStatus());
+        assertInstanceOf(HttpTimeoutException.class, exception.getCause());
+    }
+
+    @Test
+    void theActionRunsAfterReleaseWithNoHttpRequest() throws Exception {
+        // Verifies the action reads nothing of the request: handed the stand-in of a released submission, which
+        // throws on any call but the three values it kept, the action reaches its target with the released file. The
+        // target times out here, so the failure of the action is the one of its target, and not one of the stand-in.
+        FormActionsConfigService configService = mock(FormActionsConfigService.class);
+        HostnameResolutionService resolver = mock(HostnameResolutionService.class);
+        HttpClient httpClient = mock(HttpClient.class);
+
+        URI targetUri = URI.create("https://api.example.com/forms/intake");
+        when(configService.resolveForwardTarget("crm"))
+                .thenReturn(Optional.of(new FormActionsConfigService.ForwardTarget("crm", "CRM", targetUri, false)));
+        when(configService.getForwardHttpRequestTimeout()).thenReturn(Duration.ofSeconds(5));
+        when(configService.getForwardHttpClient()).thenReturn(httpClient);
+        when(resolver.resolveAll("api.example.com"))
+                .thenReturn(new InetAddress[]{InetAddress.getByAddress("api.example.com", new byte[]{(byte) 203, 0, 113, 10})});
+        when(httpClient.send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class)))
+                .thenThrow(new HttpTimeoutException("request timed out"));
+
+        JCRNodeWrapper actionNode = mockActionNodeWithTargetId("crm");
+
+        ForwardSubmissionFormAction action = new ForwardSubmissionFormAction();
+        action.setConfigService(configService);
+        action.setHostnameResolutionService(resolver);
+
+        FormActionException exception = assertThrows(FormActionException.class,
+                () -> action.execute(actionNode, DetachedRequest.request(new SubmissionOrigin(null, null, null)), null,
+                        Map.of("fullName", List.of("Alice")),
+                        List.of(new SubmittedFile("cv", "cv.pdf", "application/pdf", new byte[] {1}))));
+
+        verify(httpClient).send(any(HttpRequest.class), any(HttpResponse.BodyHandler.class));
         assertInstanceOf(HttpTimeoutException.class, exception.getCause());
     }
 

@@ -229,6 +229,16 @@ value out of its logs; how the action that opts in calls its service is its own.
 `docs/architecture/form-submission-flow.md`, "Sensitive fields" and its decision log (D1 the
 type-level marker, D2 the Java opt-in, D3 the deferred edit-time alert, D4 never a file field).
 
+### The hold of the uploads: who receives the files
+
+A form whose switch `fmdbmix:quarantine` is on has three lists: `actions`, `qualifiers` and
+`deferredActions`. Step 12 reads the switch once, before the first action runs. With the switch on,
+no action of `actions` receives an upload: the pipeline hands the submission to the
+`SubmissionHold` service, and the `DeferredActions` service runs `deferredActions` when the hold
+releases it. A type enters the second list only when its developer declares
+`fmdbmix:deferrableAction`. See `docs/architecture/form-submission-flow.md`, "The hold of the
+uploads", for the rules, and ADR 0002.
+
 ### Java class layout
 
 ```

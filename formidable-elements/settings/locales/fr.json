@@ -56,6 +56,12 @@
 		"notLive": "Invisible pour les visiteurs.",
 		"empty": "Aucune action : les soumissions ne seront ni enregistrées ni transmises."
 	},
+	"fmdb_deferredActionList": {
+		"heading": "Actions après libération · {{count}}",
+		"inOrder": "Exécutées dans cet ordre une fois les fichiers envoyés libérés. Invisibles pour les visiteurs.",
+		"notLive": "Invisible pour les visiteurs.",
+		"empty": "Aucune action : un fichier libéré ne sera ni enregistré ni transmis."
+	},
 	"fmdb_redirectAction": {
 		"overridden": "Plusieurs actions de redirection détectées. Seule la première redirection valide de la liste est appliquée.",
 		"unusableUrl": "Les visiteurs ne sont pas envoyés à cette adresse : ce n'est pas une adresse http ou https complète, avec un hôte et sans nom d'utilisateur."

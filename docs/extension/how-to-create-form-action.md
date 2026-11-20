@@ -188,6 +188,10 @@ file field, and the pipeline drops the uploads of a type that declares both befo
 action that opts in to sensitive values ([Sensitive
 fields](../architecture/form-submission-flow.md#sensitive-fields)).
 
+`files` is empty for an action on submission of a form that holds its uploads in quarantine, and when the operator
+made the quarantine mandatory on a form whose switch is off ([Step 6d](#step-6d-run-after-the-release-of-held-uploads)).
+Treat an empty list as a submission with no file.
+
 ## Step 6: Fail correctly with `FormActionException`
 
 Throw `FormActionException` when the action must stop the pipeline and return an error to the client.
@@ -311,6 +315,47 @@ public class SignUpFormAction implements ContextualFormAction {
 `formidable-test-module-samples-java` holds two samples, on either side of the boundary:
 `SensitiveConsumerFormAction` opts in, `SensitiveNonConsumerFormAction` keeps the default. They report counts and
 lengths in response headers for the test suite, which a real action never does.
+
+## Step 6d: Run after the release of held uploads
+
+A form can hold its uploads in quarantine until checks qualify them ([The hold of the
+uploads](../architecture/form-submission-flow.md#the-hold-of-the-uploads)). Such a form has two lists of actions.
+The actions on submission run in the request and receive no file. The actions after release run once the uploads
+are released, and receive the released files.
+
+The second list accepts only an action type that declares `fmdbmix:deferrableAction`. Declare the marker on your
+type when your action runs with no HTTP request:
+
+```cnd
+[mymod:archiveAction] > jnt:content, fmdbmix:formAction, fmdbmix:deferrableAction, mix:title
+```
+
+An action that runs after release receives what it receives in a request, with three differences:
+
+- The request is a stand-in. It answers `getParameter("lang")`, `getHeader("Referer")` and
+  `getHeader("X-Formidable-Time-Zone")`. Any other call throws `DetachedRequestException`, and the run stops at
+  your action.
+- The response is a stand-in too, and every call on it throws `DetachedRequestException`. Set no header and no
+  cookie.
+- The session of the visitor is `null`. Read the repository through the session of `actionNode`.
+
+The engine drops the redirect or the message that a contextual action returns after release, because no browser
+waits for the result.
+
+- Declare the marker only when you tested the action with the stand-in. The engine hands the same stand-in to the
+  second list when that list runs in a request, which happens for a submission with no upload.
+- An action after release may run again when a manager resumes a run that failed at it. Fail before the action has
+  an effect, or make the effect safe to repeat.
+- The marker does not replace `fmdbmix:readOnlyCompatibleAction`: declare both on an action that never writes to
+  the repository. The mixin counts only for a form with the switch off.
+
+`formidable-test-module-samples-java` holds a sample of each side. `UploadObserverFormAction` is a deferrable
+action that records the number of files it received. `SampleSubmissionHold` is a test double of a hold: it
+releases every submission at once, inside the request, and checks nothing.
+
+A module that holds the uploads registers a `SubmissionHold` service, and releases a submission through the
+`DeferredActions` service. [The hold of the uploads](../architecture/form-submission-flow.md#the-hold-of-the-uploads)
+states the contract of both.
 
 ## Step 7: Add authoring support
 

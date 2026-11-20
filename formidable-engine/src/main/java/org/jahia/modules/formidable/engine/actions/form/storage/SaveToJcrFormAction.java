@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.engine.actions.form.storage;
 
 import org.jahia.modules.formidable.engine.api.FormAction;
 import org.jahia.modules.formidable.engine.api.FormActionException;
+import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.modules.formidable.engine.api.FmdbNodeName;
@@ -46,7 +47,7 @@ public class SaveToJcrFormAction implements FormAction {
     public static final String RESULTS_ROOT_NAME = "formidable-results";
     private static final String SUBMISSION_ORIGIN = "formidable";
     /** The submitter's time zone, sent by the form client as the browser reports it (an IANA zone id). */
-    static final String TIME_ZONE_HEADER = "X-Formidable-Time-Zone";
+    static final String TIME_ZONE_HEADER = SubmissionOrigin.TIME_ZONE_HEADER;
     /**
      * The longest IANA zone id is 32 characters ({@code America/Argentina/ComodRivadavia}); twice that
      * leaves room for future ids and stops a header that is not a zone at all before the set lookup.
@@ -233,11 +234,19 @@ public class SaveToJcrFormAction implements FormAction {
         String submissionName = buildSubmissionNodeName();
         String availableName = JCRContentUtils.findAvailableNodeName(submissions, submissionName);
         JCRNodeWrapper submission = submissions.addNode(availableName, FmdbNodeType.FORM_SUBMISSION);
-        submission.setProperty("origin", SUBMISSION_ORIGIN);
-        setOptionalProperty(submission, "locale", req.getParameter("lang"));
-        setOptionalProperty(submission, "referer", req.getHeader("Referer"));
-        setOptionalProperty(submission, "timeZone", submitterTimeZone(req.getHeader(TIME_ZONE_HEADER)));
+        stampOrigin(submission, req);
         return submission;
+    }
+
+    /**
+     * Writes where the submission comes from. This is all the action reads of the request: the three values of
+     * {@link SubmissionOrigin}, which the request still answers when the action runs after release.
+     */
+    static void stampOrigin(JCRNodeWrapper submission, HttpServletRequest req) throws RepositoryException {
+        submission.setProperty("origin", SUBMISSION_ORIGIN);
+        setOptionalProperty(submission, "locale", req.getParameter(SubmissionOrigin.LANGUAGE_PARAMETER));
+        setOptionalProperty(submission, "referer", req.getHeader(SubmissionOrigin.REFERER_HEADER));
+        setOptionalProperty(submission, "timeZone", submitterTimeZone(req.getHeader(TIME_ZONE_HEADER)));
     }
 
     /**

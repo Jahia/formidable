@@ -44,6 +44,8 @@ describe('Security - read-only maintenance mode', () => {
 	let savingFormLivePath: string;
 	let emailOnlyFormId: string;
 	let customMessageFormLivePath: string;
+	let quarantineFormId: string;
+	let quarantineFormLivePath: string;
 
 	// No per-test login/logout on purpose: fixtures are created up front while the
 	// platform is writable, then every request runs as Guest — logging in during the
@@ -95,6 +97,20 @@ describe('Security - read-only maintenance mode', () => {
 			customMessageFormLivePath = livePath;
 		});
 
+		// A form that holds its uploads (fmdbmix:quarantine) with only read-only-compatible
+		// actions in both lists: the switch alone makes it presumed to write.
+		createPublishedLiveFormPage(
+			'readonly-quarantine-form',
+			'Read-only quarantine form',
+			[getInputTextNode({name: 'fullName', title: 'Full name'})],
+			'readonly-quarantine-form-page',
+			'Read-only quarantine form page',
+			{actions: [EMAIL_ACTION], deferredActions: [EMAIL_ACTION]}
+		).then(({formId, livePath}) => {
+			quarantineFormId = formId;
+			quarantineFormLivePath = livePath;
+		});
+
 		cy.logout();
 	});
 
@@ -138,6 +154,16 @@ describe('Security - read-only maintenance mode', () => {
 			expect(response.status).to.not.eq(503);
 			expect((response.body as {errorCode?: string}).errorCode).to.not.eq('FMDB-014');
 		});
+
+		// The quarantine form has the same e-mail action, but holds its uploads: the hold
+		// would write, and the gate runs before the body says whether a file came.
+		postDirectMultipartSubmission({
+			formId: quarantineFormId,
+			fields: {fullName: 'Erin Maintenance'},
+			headers: withSameOriginHeaders()
+		}).then(response => {
+			expectErrorResponse(response, 503, 'FMDB-014');
+		});
 	});
 
 	it('renders the maintenance state instead of an active form while read-only', () => {
@@ -156,6 +182,11 @@ describe('Security - read-only maintenance mode', () => {
 		cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${customMessageFormLivePath}`);
 		cy.get('.fmdb-message-maintenance').should('be.visible')
 			.and('contain.text', 'Back on Monday, promised.');
+
+		// The view decides as the pipeline does: the quarantine form shows the message too.
+		cy.visit(`/en/sites/${FORMIDABLE_TEST_SITE.key}/${quarantineFormLivePath}`);
+		cy.get('.fmdb-message-maintenance').should('be.visible');
+		cy.get('form.fmdb-form').should('not.exist');
 	});
 
 	it('accepts submissions again once read-only mode is switched off', () => {
