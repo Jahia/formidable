@@ -4,6 +4,7 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.usermanager.JahiaGroupManagerService;
 import org.jahia.services.usermanager.JahiaUser;
+import org.jahia.test.modules.formidable.quarantine.web.ServerAdministrators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,13 +28,8 @@ final class PlatformManagers implements Managers {
 
     @Override
     public boolean isServerAdministrator() {
-        JahiaUser user = JCRSessionFactory.getInstance().getCurrentUser();
-        if (user == null) {
-            return false;
-        }
-        // a null site key asks for the server group administrators, not for the site-administrators of a site
-        return user.isRoot()
-                || JahiaGroupManagerService.getInstance().isAdminMember(user.getUsername(), user.getRealm(), null);
+        return ServerAdministrators.isOne(JCRSessionFactory.getInstance().getCurrentUser(),
+                JahiaGroupManagerService.getInstance());
     }
 
     @Override

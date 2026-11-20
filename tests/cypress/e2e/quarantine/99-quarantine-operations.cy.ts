@@ -37,10 +37,14 @@ import {
 const SITE_PATH = `/sites/${FORMIDABLE_TEST_SITE.key}`;
 const OPERATIONS: QuarantineOperation[] = ['retry', 'release', 'resume', 'reject'];
 
-/** The users of Q20. The reader and the editor are editors of the site; the manager holds the role on the form alone. */
+/**
+ * The users of Q20. The reader and the editor are editors of the site, the site administrator administers it; the
+ * manager holds the role on the form alone.
+ */
 const PASSWORD = 'quarOps-Password-1';
 const READER = 'quarOpsReader';
 const EDITOR = 'quarOpsEditor';
+const SITE_ADMIN = 'quarOpsSiteAdmin';
 const MANAGER = 'quarOpsManager';
 
 interface GraphqlBody {
@@ -247,9 +251,10 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 
 		before(() => {
 			cy.login();
-			[READER, EDITOR, MANAGER].forEach(name => createUser(name, PASSWORD));
+			[READER, EDITOR, SITE_ADMIN, MANAGER].forEach(name => createUser(name, PASSWORD));
 			grantRoles(SITE_PATH, ['editor'], READER, 'USER');
 			grantRoles(SITE_PATH, ['editor'], EDITOR, 'USER');
+			grantRoles(SITE_PATH, ['site-administrator'], SITE_ADMIN, 'USER');
 			createPublishedLiveFormPage(formName, 'Quarantine managed form', fields(), undefined, undefined, {
 				qualifiers: [getRemoteStubCheckNode()],
 				deferredActions: [getSaveToJcrActionNode()]
@@ -273,10 +278,10 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 
 		after(() => {
 			cy.login();
-			[READER, EDITOR, MANAGER].forEach(name => deleteUser(name));
+			[READER, EDITOR, SITE_ADMIN, MANAGER].forEach(name => deleteUser(name));
 		});
 
-		[READER, EDITOR].forEach(name => {
+		[READER, EDITOR, SITE_ADMIN].forEach(name => {
 			it(`${name} is refused each operation, and no state changes`, () => {
 				cy.logout();
 				cy.login(name, PASSWORD);

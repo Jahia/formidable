@@ -44,8 +44,9 @@ Specs:
 - **Forward sink**: a receiver of the samples module, which the spec declares
   as the forward target `samplesink`. It answers the names of the parts that
   the last forward carried. A server administrator makes it refuse each
-  forward with 503 (`POST .../refuse`), until `POST .../accept` or
-  `POST .../reset`. A refused forward is not counted as received.
+  forward with 503 (`POST .../refuse`, with `X-Requested-With`), until
+  `POST .../accept` or `POST .../reset`. Any caller may post the reset, as
+  in a test module. A refused forward is not counted as received.
 - **Quarantine test module**: `formidable-test-module-quarantine`. It ships the
   reference hold, the quarantine tree and an inspection of the tree. Never for
   production: its checks are stubs.
@@ -590,14 +591,15 @@ and no byte any more.
 ### Q20 — Only a manager runs an operation, and each leaves an audit record — control
 
 **Steps:**
-1. Create three users: a results reader (editor of the site, and
-   `fmdb-results-reader` on the form), an editor of the site, and a manager
-   (`fmdbquar-quarantine-manager` on the form, and no role on the site).
+1. Create four users: a results reader (editor of the site, and
+   `fmdb-results-reader` on the form), an editor of the site, a site
+   administrator of the site, and a manager (`fmdbquar-quarantine-manager` on
+   the form, and no role on the site).
    Publish the form.
 2. Submit the form three times with an `INCONCLUSIVE` file, and run the
    checks: each submission is `needsReview`.
-3. As the reader, then as the editor, run each operation on each submission,
-   and run the retention.
+3. As the reader, then as the editor, then as the site administrator, run
+   each operation on each submission, and run the retention.
 4. As the manager, release the first submission, reject the second, and retry
    the third. Then release the first again, and run the retention.
 

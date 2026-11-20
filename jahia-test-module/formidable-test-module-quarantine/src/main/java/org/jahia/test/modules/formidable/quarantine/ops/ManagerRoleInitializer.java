@@ -47,6 +47,7 @@ public class ManagerRoleInitializer {
             List<String> names = permissionNames(role);
             if (!names.contains(Managers.PERMISSION)) {
                 names.add(Managers.PERMISSION);
+                session.checkout(role);
                 role.setProperty(PERMISSION_NAMES, names.toArray(String[]::new));
                 session.save();
                 log.info("Gave the permission {} to the role {}", Managers.PERMISSION, Managers.ROLE);

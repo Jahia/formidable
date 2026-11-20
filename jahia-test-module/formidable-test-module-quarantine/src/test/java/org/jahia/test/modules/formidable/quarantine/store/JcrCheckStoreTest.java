@@ -1,6 +1,7 @@
 package org.jahia.test.modules.formidable.quarantine.store;
 
 import org.jahia.services.content.JCRCallback;
+import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -9,9 +10,11 @@ import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
 import java.time.Instant;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -103,6 +106,63 @@ class JcrCheckStoreTest {
 
         verify(other, never()).addNode(anyString(), anyString());
         verify(session, never()).save();
+    }
+
+    private static JCRNodeIteratorWrapper children(JCRNodeWrapper... nodes) {
+        JCRNodeIteratorWrapper iterator = mock(JCRNodeIteratorWrapper.class);
+        when(iterator.iterator()).thenReturn(List.of(nodes).iterator());
+        return iterator;
+    }
+
+    private static JCRNodeWrapper outcome(String value) throws RepositoryException {
+        JCRNodeWrapper outcome = mock(JCRNodeWrapper.class);
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(outcome.isNodeType(JcrCheckStore.OUTCOME_TYPE)).thenReturn(true);
+        when(outcome.hasProperty(JcrCheckStore.OUTCOME)).thenReturn(true);
+        when(outcome.getProperty(JcrCheckStore.OUTCOME)).thenReturn(property);
+        when(property.getString()).thenReturn(value);
+        return outcome;
+    }
+
+    @Test
+    void aRetryKeepsThePassOutcomesAloneAndRemovesTheOthersAfterTheWalk() throws Exception {
+        JCRNodeWrapper pass = outcome(OutcomeRecord.PASS);
+        JCRNodeWrapper failed = outcome(OutcomeRecord.FAILED);
+        JCRNodeWrapper inconclusive = outcome(OutcomeRecord.INCONCLUSIVE);
+        JCRNodeWrapper item = mock(JCRNodeWrapper.class);
+        when(item.isNodeType(JcrCheckStore.ITEM_OUTCOMES_TYPE)).thenReturn(true);
+        JCRNodeIteratorWrapper outcomes = children(pass, failed, inconclusive);
+        when(item.getNodes()).thenReturn(outcomes);
+        JCRNodeWrapper decision = mock(JCRNodeWrapper.class);
+        JCRNodeIteratorWrapper items = children(item, decision);
+        when(checks.getNodes()).thenReturn(items);
+
+        store.keepPassedOutcomesOnly(HELD_PATH);
+
+        verify(pass, never()).remove();
+        verify(failed).remove();
+        verify(inconclusive).remove();
+        verify(decision, never()).remove();
+        verify(session).save();
+    }
+
+    @Test
+    void anAuditRecordTakesTheFirstFreeNameAndNamesNoValue() throws Exception {
+        JCRNodeWrapper audit = mock(JCRNodeWrapper.class);
+        JCRNodeWrapper record = mock(JCRNodeWrapper.class);
+        when(held.hasNode(QuarantineTree.AUDIT)).thenReturn(true);
+        when(held.getNode(QuarantineTree.AUDIT)).thenReturn(audit);
+        when(audit.hasNode("record1")).thenReturn(true);
+        when(audit.hasNode("record2")).thenReturn(true);
+        when(audit.addNode("record3", JcrCheckStore.AUDIT_TYPE)).thenReturn(record);
+
+        store.writeAudit(HELD_PATH, new AuditRecord(AuditRecord.RUN, null, "checking", "needsReview", AT));
+
+        verify(record).setProperty(JcrCheckStore.OPERATION, AuditRecord.RUN);
+        verify(record).setProperty(JcrCheckStore.FROM_STATE, "checking");
+        verify(record).setProperty(JcrCheckStore.TO_STATE, "needsReview");
+        verify(record, never()).setProperty(eq(JcrCheckStore.USER_NAME), anyString());
+        verify(session).save();
     }
 
     @Test

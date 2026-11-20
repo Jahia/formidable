@@ -26,7 +26,8 @@ import java.util.function.Supplier;
  * the JVM) takes a resume or a reject only. Each operation checks, in this order, that a held submission is at the path, that the user of the
  * request is a manager of its form ({@link Managers}), and that the state machine and the decision allow it. A refused
  * operation changes nothing. An operation that ran writes one audit record: the operation, the name of the user, the
- * state before and after, and when. No value.
+ * state before and after, and when. No value. An operation that failed after it moved the state writes one too, with
+ * the state reached.
  *
  * <ul>
  * <li>retry: the attempts start over, every outcome that is not a {@code PASS} is dropped, and the state moves to
@@ -50,6 +51,8 @@ public class QuarantineOperations {
     private QuarantineStore store;
     private CheckStore checkStore;
     private Supplier<Release> release;
+    /** The lock of the run: an operation never runs while the run checks or releases a submission. */
+    private Object lock = this;
 
     public QuarantineOperations() {
         this(Managers.ofThePlatform(), Clock.systemUTC());
@@ -73,6 +76,7 @@ public class QuarantineOperations {
     @Reference
     public void setRun(QuarantineRun run) {
         this.release = run::release;
+        this.lock = run;
     }
 
     /** The release the operations call, for a test that builds it from the stores in memory. */
@@ -81,12 +85,21 @@ public class QuarantineOperations {
     }
 
     /**
-     * Runs the operation on the held submission, for the user of the current request. One operation at a time.
+     * Runs the operation on the held submission, for the user of the current request. One operation at a time, and
+     * never while the run checks or releases submissions: the operation takes the lock of the run, so a submission in
+     * {@code releasing} is a release that stopped, not one under way.
      *
      * @throws OperationRefusedException when the user is not a manager of the form, when no held submission is at the
      *                                   path, or when the state does not allow the operation: nothing changed
      */
-    public synchronized OperationResult apply(String path, Operation operation)
+    public OperationResult apply(String path, Operation operation)
+            throws OperationRefusedException, QuarantineStoreException {
+        synchronized (lock) {
+            return applyLocked(path, operation);
+        }
+    }
+
+    private OperationResult applyLocked(String path, Operation operation)
             throws OperationRefusedException, QuarantineStoreException {
         Optional<HeldRecord> found = store.record(path);
         if (found.isEmpty()) {
@@ -107,11 +120,34 @@ public class QuarantineOperations {
             throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                     "The operation " + operation.value() + " is not allowed in state " + from.value());
         }
-        HeldState to = run(path, operation, from);
         String user = managers.currentUserName();
+        HeldState to;
+        try {
+            to = run(path, operation, from);
+        } catch (QuarantineStoreException | RuntimeException e) {
+            auditStopped(path, operation, user, from);
+            throw e;
+        }
         checkStore.writeAudit(path, new AuditRecord(operation.value(), user, from.value(), to.value(), clock.instant()));
         log.info("Held submission {}: {} by {}, from {} to {}", path, operation.value(), user, from.value(), to.value());
         return new OperationResult(path, operation, from, to);
+    }
+
+    /**
+     * An operation that failed after it moved the state, such as a release whose action threw: one audit record names
+     * the user and the state reached, so a stopped release says who started it. A failure to write it is logged.
+     */
+    private void auditStopped(String path, Operation operation, String user, HeldState from) {
+        try {
+            String reached = store.record(path).map(HeldRecord::state).orElse(null);
+            if (reached != null && !reached.equals(from.value())) {
+                checkStore.writeAudit(path, new AuditRecord(operation.value(), user, from.value(), reached,
+                        clock.instant()));
+            }
+        } catch (QuarantineStoreException | RuntimeException e) {
+            log.warn("Held submission {}: the audit record of a failed {} could not be written: {}", path,
+                    operation.value(), e.getMessage());
+        }
     }
 
     /**

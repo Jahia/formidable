@@ -13,7 +13,9 @@ import java.io.StringWriter;
 import java.util.List;
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -86,6 +88,16 @@ class RetentionServletTest {
 
         assertEquals(HttpServletResponse.SC_FORBIDDEN, call.status());
         verify(retention, never()).purge(anyString(), any());
+    }
+
+    @Test
+    void anUnexpectedErrorOfTheRetentionAnswersTheJsonOfTheModule() throws Exception {
+        when(retention.purge(anyString(), any())).thenThrow(new IllegalStateException("The tree broke"));
+
+        Call call = assertDoesNotThrow(() -> post(retentionServlet(true), Map.of("site", SITE)));
+
+        assertEquals(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, call.status());
+        assertTrue(new JSONObject(call.body()).has("error"), call.body());
     }
 
     @Test

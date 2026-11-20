@@ -77,8 +77,8 @@ public class RetentionServlet extends HttpServlet {
                     .put("retentionDays", report.retentionDays())
                     .put("purged", new JSONArray(report.purged()))
                     .put("failed", new JSONArray(report.failed())));
-        } catch (QuarantineStoreException e) {
-            log.warn("The retention of the quarantine of site {} failed: {}", site, e.getMessage());
+        } catch (QuarantineStoreException | RuntimeException e) {
+            log.warn("The retention of the quarantine of site {} failed: {}", site, e.toString());
             JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     JsonAnswers.error("the quarantine tree could not be read"));
         }

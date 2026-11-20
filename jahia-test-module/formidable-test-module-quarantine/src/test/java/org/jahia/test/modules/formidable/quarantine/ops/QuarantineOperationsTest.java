@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.api.DeferredActionException;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.test.modules.formidable.quarantine.run.InMemoryQuarantine;
 import org.jahia.test.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
+import org.jahia.test.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.test.modules.formidable.quarantine.run.Release;
 import org.jahia.test.modules.formidable.quarantine.run.Transitions;
 import org.jahia.test.modules.formidable.quarantine.state.HeldState;
@@ -19,6 +20,11 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 /**
  * The operations of a manager, with the two stores in memory and the release of the module over a recording double of
@@ -61,6 +68,7 @@ class QuarantineOperationsTest {
         }
     }
 
+    private final Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
     private InMemoryQuarantine stores;
     private FakeManagers managers;
     private QuarantineOperations operations;
@@ -72,7 +80,6 @@ class QuarantineOperationsTest {
     void setUp() {
         stores = new InMemoryQuarantine();
         managers = new FakeManagers();
-        Clock clock = Clock.fixed(NOW, ZoneOffset.UTC);
         operations = new QuarantineOperations(managers, clock);
         operations.setStore(stores);
         operations.setCheckStore(stores);
@@ -259,6 +266,43 @@ class QuarantineOperationsTest {
         assertFalse(held.anyBytes(), "bytes deleted");
         assertTrue(releasedFrom.isEmpty(), "no action after release ran");
         assertEquals(List.of(new AuditRecord("reject", MANAGER, "releasing", "rejected", NOW)), held.audit);
+    }
+
+    /** A run that releases a submission holds the lock of the run: a resume of that submission waits for it. */
+    @Test
+    void anOperationWaitsForTheRunThatHoldsItsLock() throws Exception {
+        QuarantineRun run = mock(QuarantineRun.class);
+        operations.setRun(run);
+        operations.setRelease(() -> new Release(stores, stores, twoActions(), new Transitions(stores), clock));
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<OperationResult> resumed;
+            synchronized (run) {
+                resumed = executor.submit(() -> operations.apply(held.path, Operation.RESUME));
+                assertThrows(TimeoutException.class, () -> resumed.get(300, TimeUnit.MILLISECONDS),
+                        "the resume ran while the run held its lock");
+                assertTrue(releasedFrom.isEmpty(), "no action after release ran while the run held its lock");
+            }
+            assertEquals(HeldState.COMPLETED, resumed.get(5, TimeUnit.SECONDS).to());
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void aReleaseThatFailsPartWayStillNamesTheManagerInTheAudit() {
+        Held held = inReview("INCONCLUSIVE");
+        DeferredActions broken = (submission, from, completed) -> {
+            throw new IllegalStateException("The action broke");
+        };
+        operations.setRelease(() -> new Release(stores, stores, broken, new Transitions(stores), clock));
+
+        assertThrows(IllegalStateException.class, () -> operations.apply(held.path, Operation.RELEASE));
+
+        assertEquals("releasing", held.state, "a release that stopped half way");
+        assertEquals(List.of(new AuditRecord("release", MANAGER, "needsReview", "releasing", NOW)), held.audit);
     }
 
     @Test

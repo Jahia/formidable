@@ -700,6 +700,19 @@ class QuarantineRunTest {
         assertTrue(held.audit.isEmpty());
     }
 
+    @Test
+    void aReleaseThatStopsHalfWayGetsAnAuditRecordOfTheRun() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        actions = (submission, from, completed) -> {
+            throw new IllegalStateException("The action broke");
+        };
+
+        RunReport report = runNow();
+
+        assertEquals("releasing", report.processed().get(0).state(), "a release that stopped half way");
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "releasing", NOW)), held.audit);
+    }
+
     private HeldRecord recordOf(Held held) {
         try {
             return stores.heldRecord(held.path).orElseThrow();

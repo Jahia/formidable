@@ -112,7 +112,8 @@ public class QuarantineRun {
     }
 
     /**
-     * Makes one pass over the due held submissions of the site. One run at a time.
+     * Makes one pass over the due held submissions of the site. One run at a time, under the lock of this run, which
+     * the operations of a manager take too: no operation runs while the run releases a submission.
      *
      * @param siteKey        the key of the site
      * @param formId         the identifier of the one form to run, or {@code null} for every form of the site
@@ -163,7 +164,12 @@ public class QuarantineRun {
     }
 
     private RunReport.Processed failed(HeldRecord held, String error) {
-        return new RunReport.Processed(held.path(), held.formId(), held.state(), stateOf(held.path()), error);
+        String reached = stateOf(held.path());
+        if (HeldStates.RELEASING.equals(reached)) {
+            // a release that stopped half way: a manager resumes or rejects it, and the audit says how it got there
+            writeRunAudit(held, reached);
+        }
+        return new RunReport.Processed(held.path(), held.formId(), held.state(), reached, error);
     }
 
     /**
@@ -172,11 +178,14 @@ public class QuarantineRun {
      * already moved.
      */
     private void auditIfStopped(HeldRecord record, HeldState state) {
-        if (state != HeldState.COMPLETED && state != HeldState.REJECTED && state != HeldState.NEEDS_REVIEW) {
-            return;
+        if (state == HeldState.COMPLETED || state == HeldState.REJECTED || state == HeldState.NEEDS_REVIEW) {
+            writeRunAudit(record, state.value());
         }
+    }
+
+    private void writeRunAudit(HeldRecord record, String reached) {
         try {
-            checkStore.writeAudit(record.path(), new AuditRecord(AuditRecord.RUN, null, record.state(), state.value(),
+            checkStore.writeAudit(record.path(), new AuditRecord(AuditRecord.RUN, null, record.state(), reached,
                     clock.instant()));
         } catch (QuarantineStoreException e) {
             log.warn("Held submission {}: the audit record of the run could not be written: {}", record.path(),

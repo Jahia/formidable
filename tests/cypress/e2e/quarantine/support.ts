@@ -107,11 +107,11 @@ export const resetForwardSink = (): Cypress.Chainable =>
 	cy.request({method: 'POST', url: `${FORWARD_SINK_PATH}/reset`, headers: {Origin: SAME_ORIGIN}});
 
 /**
- * Makes the sink answer each forward with 503, so a forward action fails, or lifts it. Server administrators only: the
- * spec sets it logged in as root.
+ * Makes the sink answer each forward with 503, so a forward action fails, or lifts it. Server administrators only, with
+ * X-Requested-With: the spec sets it logged in as root.
  */
 export const setForwardSinkRefusal = (refuse: boolean): Cypress.Chainable =>
-	cy.request({method: 'POST', url: `${FORWARD_SINK_PATH}/${refuse ? 'refuse' : 'accept'}`, headers: {Origin: SAME_ORIGIN}});
+	cy.request({method: 'POST', url: `${FORWARD_SINK_PATH}/${refuse ? 'refuse' : 'accept'}`, headers: QUARANTINE_POST_HEADERS});
 
 /** What the last forward carried: the number of forwards since the reset, and the names of its value and file parts. */
 export const readForwardSink = (): Cypress.Chainable<ForwardSinkState> =>

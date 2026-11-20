@@ -29,9 +29,16 @@ class ForwardSinkServletTest {
     private record Call(int status, JSONObject body) {
     }
 
+    /** A call of the specs: a POST of the refusal carries the header that a cross-site form cannot send. */
     private static Call call(ForwardSinkServlet sink, String method, String operation) throws IOException {
+        return call(sink, method, operation, "XMLHttpRequest");
+    }
+
+    private static Call call(ForwardSinkServlet sink, String method, String operation, String requestedWith)
+            throws IOException {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getMethod()).thenReturn(method);
+        when(request.getHeader("X-Requested-With")).thenReturn(requestedWith);
         when(request.getPathInfo()).thenReturn(operation);
         ByteArrayInputStream bytes = new ByteArrayInputStream(FORWARD.getBytes(StandardCharsets.ISO_8859_1));
         when(request.getInputStream()).thenReturn(new ServletInputStream() {
@@ -95,6 +102,19 @@ class ForwardSinkServletTest {
         assertEquals(1, call(sink, "GET", "/").body().getInt("count"));
     }
 
+    @Test
+    void aRefusalPostedWithoutTheRequestedWithHeaderIsRefusedAndChangesNothing() throws IOException {
+        ForwardSinkServlet sink = new ForwardSinkServlet(() -> true);
+
+        assertEquals(403, call(sink, "POST", "/refuse", null).status());
+        assertFalse(call(sink, "GET", "/").body().getBoolean("refusing"), "refusing after a cross-site refuse");
+
+        call(sink, "POST", "/refuse");
+        assertEquals(403, call(sink, "POST", "/accept", null).status());
+        assertTrue(call(sink, "GET", "/").body().getBoolean("refusing"), "refusing after a cross-site accept");
+    }
+
+    /** Open to any caller, as the class states: a visitor lifts the refusal, which a test module accepts. */
     @Test
     void aResetLiftsTheRefusal() throws IOException {
         ForwardSinkServlet sink = new ForwardSinkServlet(() -> true);

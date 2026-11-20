@@ -56,7 +56,7 @@ The store writes the tree in live, with a system session:
 - The SHA-256 of a file is computed once at intake, from the bytes read once from `SubmittedFile.data()`.
 - The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `finish` writes the final state, `completed` or `rejected`, and removes both nodes and the bytes of every item, in one save. A failure writes neither, so a final state never keeps its data: a release stays `releasing` and a rejection by the checks stays `checking`. The record stays: the state, the field names, and of each item its name, size and SHA-256.
 - An outcome records the SHA-256 of the bytes it was given for, never a byte. The run reads an outcome only for the bytes of that SHA-256.
-- `checks` and `audit` accept any `jnt:content`. A later part of the module adds its own record types there with no change to the types above, so a lab that runs this version takes the next one without a refused CND change.
+- `checks` and `audit` accept any `jnt:content`: the outcomes, the decision and the audit records (`fmdbquar:auditRecord`) live there, and a new record type needs no change to the types above, so a lab takes it without a refused CND change.
 
 ## The inspection
 
@@ -142,7 +142,7 @@ We chose the simplest model that a Jahia module ships and that a spec grants wit
 
 ## The operations
 
-An operation runs on a held submission in state `needsReview`, and a resume or a reject also on a release that stopped half way in `releasing`. It checks, in this order, that a held submission is at the path, that the user is a manager of its form, and that the state and the decision allow the operation. A refused operation changes nothing.
+An operation runs on a held submission in state `needsReview`, and a resume or a reject also on a release that stopped half way in `releasing`. It checks, in this order, that a held submission is at the path, that the user is a manager of its form, and that the state and the decision allow the operation. A refused operation changes nothing. An operation takes the lock of the run: it never runs while the run checks or releases submissions, so a submission in `releasing` is a release that stopped, not one under way.
 
 | Operation | Allowed when | What it does |
 |---|---|---|
@@ -155,7 +155,7 @@ A release after a failed action is refused: it would run the actions again from 
 
 ## The audit
 
-Each operation that ran writes one audit record under `audit`: the operation, the name of the user, the state before and after, and the time. The run also writes one when it releases, rejects or sends a submission to review, with the operation `run` and no user. A submission that keeps checking gets none, so a run that waits for a back-off adds nothing. No audit record holds a value, a file name or a byte. A failure to write the audit record of the run is logged, and the run goes on: the state already moved.
+Each operation that ran writes one audit record under `audit`: the operation, the name of the user, the state before and after, and the time. The run also writes one when it releases, rejects or sends a submission to review, with the operation `run` and no user. An operation or a run whose release stops half way writes one too, with the state reached, `releasing`, so the audit names who started the release that a manager then resumes or rejects. A submission that keeps checking gets none, so a run that waits for a back-off adds nothing. No audit record holds a value, a file name or a byte. A failure to write the audit record of the run is logged, and the run goes on: the state already moved.
 
 ## The retention
 
@@ -180,7 +180,7 @@ The operations answer managers too, not server administrators alone:
 
 | Endpoint | Answer |
 |---|---|
-| `POST /modules/formidable-quarantine/operations?path=<held>&operation=<retry\|release\|resume\|reject>` | `{"path", "operation", "from", "state"}`: the state before and after the operation. 400 for a path that names no held submission or an unknown operation; 403 for a user who does not manage the form (and for a path that names nothing, but to a server administrator, who gets 404); 409 when the state or the decision does not allow the operation |
+| `POST /modules/formidable-quarantine/operations?path=<held>&operation=<retry\|release\|resume\|reject>` | `{"path", "operation", "from", "state"}`: the state before and after the operation. 400 for a path that does not have the shape of a held submission, or an unknown operation; 403 for a user who does not manage the form (and for a path that names nothing, but to a server administrator, who gets 404); 409 when the state or the decision does not allow the operation |
 
 ## Configuration
 

@@ -32,8 +32,9 @@ import java.util.regex.Pattern;
  * The {@code GET} also answers whether the sink refuses, and how many forwards it refused.</p>
  *
  * <p>Open to any caller, on purpose, as the doubles of the providers are: it holds nothing real. The refusal is the
- * exception: only a server administrator sets it or lifts it, so no visitor can make a forward of the platform
- * fail.</p>
+ * exception: only a server administrator sets it, with a {@code POST} that carries {@code X-Requested-With}, which a
+ * cross-site form cannot send, so no visitor can make a forward of the platform fail. Any caller lifts it with
+ * {@code /reset}, as any caller resets the sink: a test module accepts that.</p>
  */
 @Component(
     service = { HttpServlet.class, Servlet.class },
@@ -48,6 +49,8 @@ public class ForwardSinkServlet extends ProviderStubServlet {
     static final String RESET_OPERATION = "/reset";
     static final String REFUSE_OPERATION = "/refuse";
     static final String ACCEPT_OPERATION = "/accept";
+    /** The header a cross-site form or a simple request cannot send: a POST of the refusal needs it. */
+    static final String REQUESTED_WITH = "X-Requested-With";
     /** The most the sink reads of one forwarded submission: the suite forwards small files. */
     static final int MAX_BODY_BYTES = 1024 * 1024;
     /** The header line that opens a part: its name, and its file name when the part is a file. */
@@ -80,7 +83,7 @@ public class ForwardSinkServlet extends ProviderStubServlet {
     @Override
     protected void post(HttpServletRequest req, HttpServletResponse resp, String operation) throws IOException {
         if (REFUSE_OPERATION.equals(operation) || ACCEPT_OPERATION.equals(operation)) {
-            switchRefusal(resp, REFUSE_OPERATION.equals(operation));
+            switchRefusal(req, resp, REFUSE_OPERATION.equals(operation));
             return;
         }
         if (!RESET_OPERATION.equals(operation) && refusing.get()) {
@@ -102,10 +105,18 @@ public class ForwardSinkServlet extends ProviderStubServlet {
         answer(resp, HttpServletResponse.SC_OK, json(received));
     }
 
-    /** Sets or lifts the refusal: server administrators only, any other caller gets 403 and nothing changes. */
-    private void switchRefusal(HttpServletResponse resp, boolean refuse) throws IOException {
+    /**
+     * Sets or lifts the refusal: server administrators only, with {@link #REQUESTED_WITH}. Any other call gets 403 and
+     * nothing changes.
+     */
+    private void switchRefusal(HttpServletRequest req, HttpServletResponse resp, boolean refuse) throws IOException {
         if (!administrators.currentUserIsOne()) {
             answer(resp, HttpServletResponse.SC_FORBIDDEN, new JSONObject().put("error", "server administrators only"));
+            return;
+        }
+        if (req.getHeader(REQUESTED_WITH) == null) {
+            answer(resp, HttpServletResponse.SC_FORBIDDEN, new JSONObject().put("error",
+                    "a POST needs the header " + REQUESTED_WITH));
             return;
         }
         refusing.set(refuse);
