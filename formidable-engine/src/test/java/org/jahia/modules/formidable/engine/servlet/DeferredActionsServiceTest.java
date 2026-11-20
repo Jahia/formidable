@@ -340,7 +340,8 @@ class DeferredActionsServiceTest {
         assertEquals(List.of("zeta", "alpha", "mid", "beta", "omega", "gamma"), List.copyOf(held.parameters().keySet()));
         assertEquals(List.of("zeta", "alpha", "mid", "beta", "omega", "gamma"), List.copyOf(held.sensitiveParameters().keySet()));
         Map<String, List<String>> parameters = held.parameters();
-        assertThrows(UnsupportedOperationException.class, () -> parameters.put("extra", List.of()));
+        List<String> extra = List.of();
+        assertThrows(UnsupportedOperationException.class, () -> parameters.put("extra", extra));
     }
 
     @Test
