@@ -324,11 +324,11 @@ class QuarantineOperationsTest {
         assertEquals(List.of(new AuditRecord("resume", MANAGER, "releasing", "releasing", NOW)), held.audit);
     }
 
-    /** The stores in memory, but a move of the state fails, as a store that is down. */
+    /** The stores in memory, but a move of the state fails, as a store that is down: to any state, final or not. */
     private QuarantineStore storeThatCannotMove() {
         return (QuarantineStore) Proxy.newProxyInstance(QuarantineStore.class.getClassLoader(),
                 new Class<?>[]{QuarantineStore.class}, (proxy, method, arguments) -> {
-                    if (method.getName().equals("setState")) {
+                    if (method.getName().equals("setState") || method.getName().equals("finish")) {
                         throw new QuarantineStoreException("The store is down");
                     }
                     try {
@@ -350,6 +350,34 @@ class QuarantineOperationsTest {
         assertEquals("releasing", held.state);
         assertTrue(held.valuesPresent, "values kept: the reject did not happen");
         assertTrue(held.audit.isEmpty(), "audit of a reject that changed nothing");
+    }
+
+    @Test
+    void aRejectWhoseDeletionFailsKeepsTheStateAndTheData() {
+        Held held = inReview("INCONCLUSIVE");
+        stores.failingDeletion.add(held.path);
+
+        assertThrows(QuarantineStoreException.class, () -> operations.apply(held.path, Operation.REJECT));
+
+        // never rejected with its data: the manager rejects it again
+        assertEquals("needsReview", held.state);
+        assertFalse(held.states.contains("rejected"), held.states.toString());
+        assertTrue(held.valuesPresent, "values kept: the reject did not happen");
+        assertTrue(held.anyBytes(), "bytes kept: the reject did not happen");
+        assertTrue(held.audit.isEmpty(), "audit of a reject that changed nothing");
+    }
+
+    @Test
+    void aRejectOfAStoppedReleaseWhoseDeletionFailsStaysReleasingWithItsData() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        stores.failingDeletion.add(held.path);
+
+        assertThrows(QuarantineStoreException.class, () -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals("releasing", held.state);
+        assertTrue(held.valuesPresent, "values kept: the reject did not happen");
+        assertTrue(held.anyBytes(), "bytes kept: the reject did not happen");
     }
 
     @Test

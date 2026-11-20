@@ -54,7 +54,7 @@ The store writes the tree in live, with a system session:
 - `changedAt` records the last change of the state; the retention reads it.
 - No node of the tree is a file. An item holds its bytes in its own binary property, never in `jcr:data` on a `jnt:resource`. No core listener, no `/files` servlet and no text extraction reads it.
 - The SHA-256 of a file is computed once at intake, from the bytes read once from `SubmittedFile.data()`.
-- The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `finish` writes the final state, `completed` or `rejected`, and removes both nodes and the bytes of every item, in one save. A failure writes neither, so a final state never keeps its data: a release stays `releasing` and a rejection by the checks stays `checking`. The record stays: the state, the field names, and of each item its name, size and SHA-256.
+- The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `finish` writes the final state, `completed` or `rejected`, with its `changedAt`, and removes both nodes and the bytes of every item, in one save. A failure writes neither, so a final state never keeps its data: a release stays `releasing` and a rejection by the checks stays `checking`. The record stays: the state, the field names, and of each item its name, size and SHA-256.
 - An outcome records the SHA-256 of the bytes it was given for, never a byte. The run reads an outcome only for the bytes of that SHA-256.
 - `checks` and `audit` accept any `jnt:content`: the outcomes, the decision and the audit records (`fmdbquar:auditRecord`) live there, and a new record type needs no change to the types above, so a lab takes it without a refused CND change.
 
@@ -149,7 +149,7 @@ An operation runs on a held submission in state `needsReview`, and a resume or a
 | `retry` | `needsReview` | Sets the attempts to 0, removes every outcome that is not a `PASS` (with its count of failures), and moves to `checking`. The next run calls those checks again |
 | `release` | `needsReview`, and the decision is not `ACTION_FAILED` | Moves to `releasing`, then runs the release: the SHA-256 is computed again, then the actions after release run. The state is `completed`, or `needsReview` again |
 | `resume` | `needsReview`, and the decision is `ACTION_FAILED`; or `releasing` | The same, from the index `completedActions`: the actions that ran do not run again |
-| `reject` | `needsReview` or `releasing` | Moves to `rejected`, and deletes the values, the sensitive values and the bytes. The outcomes and the decision stay |
+| `reject` | `needsReview` or `releasing` | Moves to `rejected`, and deletes the values, the sensitive values and the bytes, in one save. The outcomes and the decision stay. If the save fails, the state and the data stay, and the manager rejects again |
 
 A release after a failed action is refused: a failed action takes a resume. The release starts at `completedActions` in any case, so this is a rule of the module, not of the release.
 

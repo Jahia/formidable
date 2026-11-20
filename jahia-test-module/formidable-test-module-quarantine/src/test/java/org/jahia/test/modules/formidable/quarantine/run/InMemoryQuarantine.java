@@ -205,6 +205,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         }
         one.state = state;
         one.states.add(state);
+        one.changedAt = changedAt;
         one.valuesPresent = false;
         for (int i = 0; i < one.bytes.size(); i++) {
             one.bytes.set(i, null);

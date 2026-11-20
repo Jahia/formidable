@@ -664,6 +664,23 @@ class JcrQuarantineStoreTest {
     }
 
     @Test
+    void aFinalStateWritesItsTimeAsTheLastChangeInTheSameSave() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+        JCRNodeIteratorWrapper children = mock(JCRNodeIteratorWrapper.class);
+        when(children.iterator()).thenReturn(List.<JCRNodeWrapper>of().iterator());
+        when(held.getNodes()).thenReturn(children);
+
+        store.finish(path, HeldStates.REJECTED);
+
+        // the retention reads changedAt: a rejection by the run or by a manager starts its period
+        verify(held).setProperty(QuarantineTree.STATE, HeldStates.REJECTED);
+        verify(held).setProperty(eq(QuarantineTree.CHANGED_AT),
+                argThat((Calendar at) -> at.toInstant().equals(NOW)));
+        verify(session, times(1)).save();
+    }
+
+    @Test
     void aPurgeRemovesTheWholeHeldSubmissionAndRefusesAnyOtherNode() throws Exception {
         String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
         JCRNodeWrapper held = heldAt(path);

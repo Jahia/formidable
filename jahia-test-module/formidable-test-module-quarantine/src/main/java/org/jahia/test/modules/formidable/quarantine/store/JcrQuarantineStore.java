@@ -324,6 +324,7 @@ public class JcrQuarantineStore implements QuarantineStore {
         if (!HeldStates.COMPLETED.equals(state) && !HeldStates.REJECTED.equals(state)) {
             throw new QuarantineStoreException("Not a final state of a held submission: " + state);
         }
+        Instant at = clock.instant();
         change(path, "set the state " + state + " and delete the values and the bytes", held -> {
             removeChildIfPresent(held, QuarantineTree.VALUES);
             removeChildIfPresent(held, QuarantineTree.SENSITIVE);
@@ -331,6 +332,7 @@ public class JcrQuarantineStore implements QuarantineStore {
                 removeIfPresent(item, QuarantineTree.DATA);
             }
             held.setProperty(QuarantineTree.STATE, state);
+            held.setProperty(QuarantineTree.CHANGED_AT, calendar(at));
         });
         log.info("Held submission {} is {}: its values and bytes are deleted", path, state);
     }

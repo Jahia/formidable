@@ -38,8 +38,8 @@ import java.util.function.Supplier;
  * <li>resume: the same, allowed in {@code needsReview} only when an action after release failed
  * ({@code ACTION_FAILED}), and always in {@code releasing}. The release starts at the index {@code completedActions},
  * so the actions that ran do not run again;</li>
- * <li>reject: the state moves to {@code rejected}, and the values, the sensitive values and the bytes are deleted.
- * The outcomes and the decision stay.</li>
+ * <li>reject: the state moves to {@code rejected}, and the values, the sensitive values and the bytes are deleted,
+ * in one save: a failure keeps the state and the data. The outcomes and the decision stay.</li>
  * </ul>
  */
 @Component(service = QuarantineOperations.class, immediate = true)
@@ -174,9 +174,8 @@ public class QuarantineOperations {
                 checkStore.keepPassedOutcomesOnly(path);
                 return transitions.move(path, from, operation.event());
             case REJECT:
-                HeldState rejected = transitions.move(path, from, operation.event());
-                store.finish(path, rejected.value());
-                return rejected;
+                // one save: a failure keeps the state and the data, and the manager rejects again
+                return transitions.finish(path, from, operation.event());
             default:
                 HeldState releasing = transitions.move(path, from, operation.event());
                 return release.get().release(path, releasing);
