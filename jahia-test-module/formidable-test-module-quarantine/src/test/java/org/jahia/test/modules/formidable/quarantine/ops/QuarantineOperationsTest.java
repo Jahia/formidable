@@ -306,6 +306,21 @@ class QuarantineOperationsTest {
     }
 
     @Test
+    void aResumeOfAStoppedReleaseThatFailsAgainStillNamesTheManagerInTheAudit() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        DeferredActions broken = (submission, from, completed) -> {
+            throw new IllegalStateException("The action broke");
+        };
+        operations.setRelease(() -> new Release(stores, stores, broken, new Transitions(stores), clock));
+
+        assertThrows(IllegalStateException.class, () -> operations.apply(held.path, Operation.RESUME));
+
+        assertEquals("releasing", held.state);
+        assertEquals(List.of(new AuditRecord("resume", MANAGER, "releasing", "releasing", NOW)), held.audit);
+    }
+
+    @Test
     void resumeIsRefusedWhenNoActionFailed() {
         Held held = inReview("INCONCLUSIVE");
 

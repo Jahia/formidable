@@ -134,13 +134,14 @@ public class QuarantineOperations {
     }
 
     /**
-     * An operation that failed after it moved the state, such as a release whose action threw: one audit record names
-     * the user and the state reached, so a stopped release says who started it. A failure to write it is logged.
+     * An operation that failed after it moved the state, such as a release whose action threw, or a resume of a
+     * stopped release that stopped again: one audit record names the user and the state reached, so a stopped release
+     * says who started it. A failure to write it is logged.
      */
     private void auditStopped(String path, Operation operation, String user, HeldState from) {
         try {
             String reached = store.record(path).map(HeldRecord::state).orElse(null);
-            if (reached != null && !reached.equals(from.value())) {
+            if (reached != null && (!reached.equals(from.value()) || from == HeldState.RELEASING)) {
                 checkStore.writeAudit(path, new AuditRecord(operation.value(), user, from.value(), reached,
                         clock.instant()));
             }
