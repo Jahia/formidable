@@ -7,11 +7,10 @@ its actions after release.
 Decision: [ADR 0002](../../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-No scenario of this document is automated yet, except a part of Q16:
-`tests/cypress/e2e/security/45-read-only-maintenance.cy.ts` covers its gate for a
-submission with no file and for the form view. A scenario moves to
+No scenario of this document is automated yet. A scenario moves to
 [`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
-it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1 moved there.
+it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1, and those of the
+intake (Q01, Q10, Q11, Q16), moved there.
 
 The scenarios of M1 are final. Those of a later milestone are the acceptance
 list that its pull request starts from: that pull request completes their steps
@@ -73,8 +72,8 @@ Each milestone is one pull request, and delivers the specs of its scenarios.
 
 ## The check double
 
-No scenario calls a real engine. The samples module registers a stub check
-(M3), which applies to text files alone. The stub reads its outcome from a
+No scenario calls a real engine. The quarantine test module registers a stub
+check (M3), which applies to text files alone. The stub reads its outcome from a
 marker in the uploaded text file:
 
 | Marker | The stub answers |
@@ -107,7 +106,6 @@ the scenario proves:
 
 | Scenario | The control build |
 |---|---|
-| Q10 | leaves the ACL inheritance of the quarantine root in place |
 | Q09 | releases without computing the hash again |
 | Q21 | runs every check, whatever the outcome of an earlier one |
 | Q23 | runs a list whose first check is in-process |
@@ -123,73 +121,9 @@ scenarios moved to [`../quarantine.md`](../quarantine.md).
 
 ## 2. Intake (M2)
 
-### Q01 — A submission with a file is held
-
-**Steps:**
-1. Add Save to JCR and an e-mail content action to "Actions after release".
-2. Submit the form with a file.
-
-**Expected:**
-- HTTP 200 to the visitor
-- A held submission exists, with state `held` and the field values
-- One item exists in the quarantine tree, with the SHA-256 of the upload
-- No submission is stored in the results of the form, and no mail is sent
-
-### Q10 — No reader role reads the quarantine tree — control
-
-The quarantine root cuts the ACL inheritance and holds no access control entry,
-so a role granted on the site, the site administrator included, gives nothing
-on it. A system session, and a member of the server `administrators` group such
-as `root`, are outside this scenario: the Jahia core grants them every
-permission, whatever the ACL says.
-
-`docs/administration/results-permissions.md` says that site administrators read
-the results of a form, whose entry cuts the inheritance too. The core, as read
-in its access manager and not run, gives a site administrator no such bypass.
-This scenario is the check of that case on a live Jahia: if the site
-administrator reads the item, the quarantine root needs another guard, and M2
-does not ship without it.
-
-**Steps:**
-1. Submit the form with a file.
-2. As the results reader, then the editor, then the site administrator, read the
-   held submission and its item through GraphQL, through `/files/live/...` and
-   through the JCR REST API.
-
-**Expected:**
-- Each read is refused or answers not found
-
-### Q11 — The quarantine tree is inert
-
-**Steps:**
-1. Submit the form with a PDF and with an image.
-2. Submit the same PDF to a form with the switch off and Save to JCR. Poll its
-   file node until it carries `j:extractedText` (Groovy): the extraction of the
-   core has then run. A platform that extracts no text fails this step, and the
-   scenario says that it proved nothing there.
-3. Read the quarantine tree with a system session (Groovy).
-
-**Expected:**
-- Two items exist, one for each upload, and each holds its binary
-- No `jnt:resource` node
-- No `j:extractedText` property
-- No thumbnail node
-
-### Q16 — Read-only maintenance
-
-A form answers `FMDB-014` in read-only maintenance when it is presumed to
-write. A form with the switch on is presumed to write, whatever its actions:
-the hold stores a submission with a file, and the gate runs before the body
-says whether a file came.
-
-**Steps:**
-1. Keep only actions that never write in both lists of the form.
-2. Put the platform in read-only maintenance.
-3. Submit the form with a file, then with no file.
-
-**Expected:**
-- `FMDB-014` each time
-- No held submission, no item and no stored submission is written
+The scenarios Q01, Q10, Q11 and Q16 moved to
+[`../quarantine.md`](../quarantine.md), with the reference hold of the
+quarantine test module.
 
 ---
 
@@ -320,8 +254,8 @@ covers the exhaustion of the attempts.
 
 ### Q23 — An in-process check placed first — control
 
-The samples module registers a second stub check, which declares that it reads
-the bytes inside Jahia.
+The quarantine test module registers a second stub check, which declares that
+it reads the bytes inside Jahia.
 
 **Steps:**
 1. Put the in-process stub check first in "Checks", and the stub check second.
@@ -434,16 +368,12 @@ the bytes inside Jahia.
 
 | Scenario | Proves |
 |---|---|
-| Q01 | the intake always succeeds, and nothing runs after it before a release |
 | Q02 | the bytes released are the bytes checked |
 | Q03 | a file that failed a check never reaches an analyst |
 | Q04, Q05 | an outage of a check loses no claim |
 | Q09 | a file whose bytes changed after intake is never released |
-| Q10 | no reader opens a file before its release |
-| Q11 | no parser of the platform reads a held file |
 | Q12 | the form is no test bench for a malware author |
 | Q13 | a file that no check applied to is not released by default |
-| Q16 | read-only maintenance |
 | Q17, Q18 | no rejected file is kept forever |
 | Q19 | no active content in the analyst's browser |
 | Q20 | a release is the act of a named manager |

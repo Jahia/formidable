@@ -55,6 +55,7 @@
         <module>formidable-test-module-templateset-tsx</module>
         <module>formidable-test-module-samples-tsx</module>
         <module>formidable-test-module-samples-java</module>
+        <module>formidable-test-module-quarantine</module>
     </modules>
 
     <properties>

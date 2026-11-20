@@ -16,6 +16,11 @@ interface CreateFormNodeOptions {
 	 * "Actions after release" list; an empty array turns the switch on with an empty list.
 	 */
 	deferredActions?: JahiaNode[];
+	/**
+	 * The nodes of the "Checks" list of a form whose switch is on (fmdbmix:quarantine, set by deferredActions): each
+	 * a type that carries fmdbmix:qualifier, such as the stub checks of the quarantine test module.
+	 */
+	qualifiers?: JahiaNode[];
 	mixins?: string[];
 	/** Parent of the form node; the site's contents folder by default. */
 	parentPath?: string;
@@ -74,7 +79,8 @@ const buildFormChildren = (
 	actions: JahiaNode[] = [],
 	fieldListProperties: NodeProperty[] = [],
 	actionListProperties: NodeProperty[] = [],
-	deferredActions?: JahiaNode[]
+	deferredActions?: JahiaNode[],
+	qualifiers?: JahiaNode[]
 ): JahiaNode[] => ([
 	{
 		name: 'fields',
@@ -97,6 +103,14 @@ const buildFormChildren = (
 			properties: [],
 			children: deferredActions
 		}]
+		: []),
+	...(qualifiers
+		? [{
+			name: 'qualifiers',
+			primaryNodeType: 'fmdb:qualifierList',
+			properties: [],
+			children: qualifiers
+		}]
 		: [])
 ]);
 
@@ -116,7 +130,7 @@ export const createFormNode = (
 			...(options.properties || [])
 		],
 		children: buildFormChildren(formElements, options.actions, options.fieldListProperties, options.actionListProperties,
-			options.deferredActions)
+			options.deferredActions, options.qualifiers)
 	});
 };
 
