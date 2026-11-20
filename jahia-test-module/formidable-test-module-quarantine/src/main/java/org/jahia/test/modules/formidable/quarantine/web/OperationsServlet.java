@@ -68,8 +68,13 @@ public class OperationsServlet extends HttpServlet {
                     .put("state", result.to().value()));
         } catch (OperationRefusedException e) {
             JsonAnswers.answer(resp, statusOf(e.reason()), JsonAnswers.error(e.getMessage()));
-        } catch (QuarantineStoreException | RuntimeException e) {
+        } catch (QuarantineStoreException e) {
             log.warn("The operation {} on {} failed: {}", operation.value(), path, e.toString());
+            JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    JsonAnswers.error("the operation failed"));
+        } catch (RuntimeException e) {
+            // the class alone: the message of an action that a release or a resume ran may quote a held value
+            log.warn("The operation {} on {} failed with {}", operation.value(), path, e.getClass().getName());
             JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     JsonAnswers.error("the operation failed"));
         }

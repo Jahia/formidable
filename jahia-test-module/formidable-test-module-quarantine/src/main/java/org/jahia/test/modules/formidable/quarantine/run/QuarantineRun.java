@@ -190,6 +190,10 @@ public class QuarantineRun {
         } catch (QuarantineStoreException e) {
             log.warn("Held submission {}: the audit record of the run could not be written: {}", record.path(),
                     e.getMessage());
+        } catch (RuntimeException e) {
+            // the state already moved: the run reports the submission as it is, and logs the class alone
+            log.warn("Held submission {}: the audit record of the run could not be written: {}", record.path(),
+                    e.getClass().getName());
         }
     }
 

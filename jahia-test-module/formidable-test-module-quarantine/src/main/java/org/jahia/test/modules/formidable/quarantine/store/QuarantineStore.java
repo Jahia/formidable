@@ -64,8 +64,9 @@ public interface QuarantineStore {
     void setCompletedActions(String path, int completedActions) throws QuarantineStoreException;
 
     /**
-     * Writes a final state, {@link HeldStates#COMPLETED} or {@link HeldStates#REJECTED}, and deletes the public
-     * values, the sensitive values and the bytes of every item, in one save: a failure writes neither, so a final
+     * Writes a final state, {@link HeldStates#COMPLETED} or {@link HeldStates#REJECTED}, with the time of the change
+     * ({@link HeldRecord#changedAt()}, which the retention reads), and deletes the public values, the sensitive
+     * values and the bytes of every item, in one save: a failure writes neither, so a final
      * state never keeps its data. The record stays: the state, the names of the fields, and of each item its name,
      * size and SHA-256.
      *

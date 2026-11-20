@@ -129,9 +129,22 @@ public class QuarantineOperations {
             auditStopped(path, operation, user, from);
             throw e;
         }
-        checkStore.writeAudit(path, new AuditRecord(operation.value(), user, from.value(), to.value(), clock.instant()));
+        writeAudit(path, new AuditRecord(operation.value(), user, from.value(), to.value(), clock.instant()));
         log.info("Held submission {}: {} by {}, from {} to {}", path, operation.value(), user, from.value(), to.value());
         return new OperationResult(path, operation, from, to);
+    }
+
+    /** The operation already ran: a failure to write its audit record is logged, and the result stands. */
+    private void writeAudit(String path, AuditRecord audit) {
+        try {
+            checkStore.writeAudit(path, audit);
+        } catch (QuarantineStoreException e) {
+            log.warn("Held submission {}: the audit record of {} could not be written: {}", path, audit.operation(),
+                    e.getMessage());
+        } catch (RuntimeException e) {
+            log.warn("Held submission {}: the audit record of {} could not be written: {}", path, audit.operation(),
+                    e.getClass().getName());
+        }
     }
 
     /**
@@ -146,24 +159,29 @@ public class QuarantineOperations {
                 checkStore.writeAudit(path, new AuditRecord(operation.value(), user, from.value(), reached,
                         clock.instant()));
             }
-        } catch (QuarantineStoreException | RuntimeException e) {
+        } catch (QuarantineStoreException e) {
             log.warn("Held submission {}: the audit record of a failed {} could not be written: {}", path,
                     operation.value(), e.getMessage());
+        } catch (RuntimeException e) {
+            log.warn("Held submission {}: the audit record of a failed {} could not be written: {}", path,
+                    operation.value(), e.getClass().getName());
         }
     }
 
     /**
      * In {@code needsReview}, a resume needs an action after release that failed, and a release needs any other reason
-     * of review. A release that stopped half way in {@code releasing} resumes whatever the decision says.
+     * of review but a form that is gone, whose actions after release cannot run. A release that stopped half way in
+     * {@code releasing} resumes whatever the decision says.
      */
     private boolean fitsTheDecision(String path, HeldState from, Operation operation) throws QuarantineStoreException {
         if (from != HeldState.NEEDS_REVIEW || operation != Operation.RESUME && operation != Operation.RELEASE) {
             return true;
         }
-        boolean actionFailed = checkStore.decision(path)
-                .map(decision -> DecisionRecord.ACTION_FAILED.equals(decision.reason()))
-                .orElse(false);
-        return operation == Operation.RESUME ? actionFailed : !actionFailed;
+        String reason = checkStore.decision(path).map(DecisionRecord::reason).orElse(null);
+        if (operation == Operation.RESUME) {
+            return DecisionRecord.ACTION_FAILED.equals(reason);
+        }
+        return !DecisionRecord.ACTION_FAILED.equals(reason) && !DecisionRecord.FORM_GONE.equals(reason);
     }
 
     private HeldState run(String path, Operation operation, HeldState from) throws QuarantineStoreException {

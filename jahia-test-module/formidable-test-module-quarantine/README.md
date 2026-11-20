@@ -147,11 +147,15 @@ An operation runs on a held submission in state `needsReview`, and a resume or a
 | Operation | Allowed when | What it does |
 |---|---|---|
 | `retry` | `needsReview` | Sets the attempts to 0, removes every outcome that is not a `PASS` (with its count of failures), and moves to `checking`. The next run calls those checks again |
-| `release` | `needsReview`, and the decision is not `ACTION_FAILED` | Moves to `releasing`, then runs the release: the SHA-256 is computed again, then the actions after release run. The state is `completed`, or `needsReview` again |
+| `release` | `needsReview`, and the decision is neither `ACTION_FAILED` nor `FORM_GONE` | Moves to `releasing`, then runs the release: the SHA-256 is computed again, then the actions after release run. The state is `completed`, or `needsReview` again |
 | `resume` | `needsReview`, and the decision is `ACTION_FAILED`; or `releasing` | The same, from the index `completedActions`: the actions that ran do not run again |
 | `reject` | `needsReview` or `releasing` | Moves to `rejected`, and deletes the values, the sensitive values and the bytes, in one save. The outcomes and the decision stay. If the save fails, the state and the data stay, and the manager rejects again |
 
 A release after a failed action is refused: a failed action takes a resume. The release starts at `completedActions` in any case, so this is a rule of the module, not of the release.
+
+A submission whose form is gone (`FORM_GONE`) cannot be released: its actions after release cannot run. The permission of a manager is checked on the form, so only a server administrator manages such a submission, and a reject ends it. Until then it keeps its data, because the retention purges `rejected` submissions only.
+
+An operation that ran answers its result even when its audit record cannot be written: the failure is logged. A log line of a failed operation names the class of an unexpected failure, never its message, which can quote a held value.
 
 ## The audit
 

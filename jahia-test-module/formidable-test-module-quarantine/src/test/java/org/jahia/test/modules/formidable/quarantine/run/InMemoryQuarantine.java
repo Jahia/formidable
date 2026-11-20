@@ -73,6 +73,8 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     public final Set<String> broken = new HashSet<>();
     /** The paths whose values and bytes the store fails to delete, as a repository that refuses the save. */
     public final Set<String> failingDeletion = new HashSet<>();
+    /** The paths whose audit records the store fails to write. */
+    public final Set<String> failingAudit = new HashSet<>();
     private int count;
 
     /** Holds a submission of the form with one file per text, each a text file. */
@@ -255,6 +257,9 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
 
     @Override
     public void writeAudit(String path, AuditRecord audit) throws QuarantineStoreException {
+        if (failingAudit.contains(path)) {
+            throw new QuarantineStoreException("Could not write the audit record at " + path);
+        }
         get(path).audit.add(audit);
     }
 

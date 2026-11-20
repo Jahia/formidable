@@ -381,6 +381,40 @@ class QuarantineOperationsTest {
     }
 
     @Test
+    void anOperationThatRanAnswersItsResultWhenItsAuditRecordCannotBeWritten() throws Exception {
+        Held held = inReview("INCONCLUSIVE");
+        stores.failingAudit.add(held.path);
+
+        OperationResult result = operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(HeldState.REJECTED, result.to());
+        assertEquals("rejected", held.state);
+        assertFalse(held.valuesPresent);
+    }
+
+    @Test
+    void releaseAndResumeAreRefusedWhenTheFormIsGone() {
+        Held held = inReview(DecisionRecord.FORM_GONE);
+
+        assertEquals(OperationRefusedException.Reason.CONFLICT,
+                refusal(() -> operations.apply(held.path, Operation.RELEASE)));
+        assertEquals(OperationRefusedException.Reason.CONFLICT,
+                refusal(() -> operations.apply(held.path, Operation.RESUME)));
+        assertEquals("needsReview", held.state);
+        assertEquals(DecisionRecord.FORM_GONE, held.decision.reason());
+        assertTrue(releasedFrom.isEmpty());
+    }
+
+    @Test
+    void aSubmissionWhoseFormIsGoneIsRejected() throws Exception {
+        Held held = inReview(DecisionRecord.FORM_GONE);
+
+        assertEquals(HeldState.REJECTED, operations.apply(held.path, Operation.REJECT).to());
+        assertFalse(held.valuesPresent);
+        assertFalse(held.anyBytes());
+    }
+
+    @Test
     void resumeIsRefusedWhenNoActionFailed() {
         Held held = inReview("INCONCLUSIVE");
 
