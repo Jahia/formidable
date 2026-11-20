@@ -165,7 +165,7 @@ The repository frees the bytes of a purged item only when the garbage collection
 
 ## The endpoints for the specs
 
-Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, the run and the stub control answer 403. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
+Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, every `POST` below answers 403, and nothing runs or changes. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
 
 | Endpoint | Answer |
 |---|---|

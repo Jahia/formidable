@@ -307,7 +307,7 @@ export const operateHeldSubmission = (path: string, operation: QuarantineOperati
 	cy.request<QuarantineOperationAnswer>({
 		method: 'POST',
 		url: QUARANTINE_OPERATIONS_PATH,
-		headers: {Origin: SAME_ORIGIN},
+		headers: QUARANTINE_POST_HEADERS,
 		qs: {path, operation},
 		failOnStatusCode
 	});
@@ -328,7 +328,7 @@ export const runQuarantineRetention = (olderThanDays?: number, failOnStatusCode 
 	cy.request<QuarantineRetentionAnswer>({
 		method: 'POST',
 		url: QUARANTINE_RETENTION_PATH,
-		headers: {Origin: SAME_ORIGIN},
+		headers: QUARANTINE_POST_HEADERS,
 		qs: {site: FORMIDABLE_TEST_SITE.key, ...(olderThanDays === undefined ? {} : {olderThanDays: String(olderThanDays)})},
 		failOnStatusCode
 	});

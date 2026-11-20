@@ -23,7 +23,8 @@ import java.util.regex.Pattern;
  * {@code {"path", "operation", "from", "state"}}: the state before and after. Never a value, a byte or a ticket.
  *
  * <p>A manager of the form, or a server administrator, may run an operation: any other caller gets 403, and nothing
- * changes. A state that does not allow the operation gets 409. {@link QuarantineOperations} makes these checks.</p>
+ * changes. A state that does not allow the operation gets 409. {@link QuarantineOperations} makes these checks. A POST
+ * without the header {@code X-Requested-With} gets 403 first.</p>
  */
 @Component(service = {HttpServlet.class, Servlet.class}, property = {"alias=" + OperationsServlet.ALIAS},
         immediate = true)
@@ -48,6 +49,9 @@ public class OperationsServlet extends HttpServlet {
 
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) {
+        if (JsonAnswers.refusedAsCrossSite(req, resp)) {
+            return;
+        }
         String path = req.getParameter(PATH_PARAMETER);
         Operation operation = Operation.fromValue(req.getParameter(OPERATION_PARAMETER));
         if (path == null || !HELD_PATH.matcher(path).matches() || operation == null) {

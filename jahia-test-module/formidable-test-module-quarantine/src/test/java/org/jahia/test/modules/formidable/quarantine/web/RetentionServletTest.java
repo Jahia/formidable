@@ -43,9 +43,16 @@ class RetentionServletTest {
                 List.of()));
     }
 
+    /** A call of the specs: a POST carries the header that a cross-site form or a simple request cannot send. */
     private static Call post(HttpServlet servlet, Map<String, String> parameters) throws Exception {
+        return post(servlet, parameters, "XMLHttpRequest");
+    }
+
+    private static Call post(HttpServlet servlet, Map<String, String> parameters, String requestedWith)
+            throws Exception {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getMethod()).thenReturn("POST");
+        when(request.getHeader(JsonAnswers.REQUESTED_WITH)).thenReturn(requestedWith);
         parameters.forEach((name, value) -> when(request.getParameter(name)).thenReturn(value));
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter out = new StringWriter();
@@ -70,6 +77,14 @@ class RetentionServletTest {
         Call call = post(retentionServlet(false), Map.of("site", SITE, "olderThanDays", "0"));
 
         assertEquals(403, call.status());
+        verify(retention, never()).purge(anyString(), any());
+    }
+
+    @Test
+    void aPostWithoutTheRequestedWithHeaderIsRefusedAndPurgesNothing() throws Exception {
+        Call call = post(retentionServlet(true), Map.of("site", SITE, "olderThanDays", "0"), null);
+
+        assertEquals(HttpServletResponse.SC_FORBIDDEN, call.status());
         verify(retention, never()).purge(anyString(), any());
     }
 

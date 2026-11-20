@@ -21,7 +21,8 @@ import java.util.regex.Pattern;
  * {@code {"site", "retentionDays", "purged": [<path>], "failed": [<path>]}}. {@code olderThanDays} replaces the setting
  * {@code retentionDays} for this call only.
  *
- * <p>Server administrators only: any other caller gets 403, and nothing is purged.</p>
+ * <p>Server administrators only: any other caller gets 403, and nothing is purged. A POST also needs the header
+ * {@code X-Requested-With}.</p>
  */
 @Component(service = {HttpServlet.class, Servlet.class}, property = {"alias=" + RetentionServlet.ALIAS},
         immediate = true)
@@ -57,6 +58,9 @@ public class RetentionServlet extends HttpServlet {
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) {
         if (!administrators.currentUserIsOne()) {
             JsonAnswers.answer(resp, HttpServletResponse.SC_FORBIDDEN, JsonAnswers.error(JsonAnswers.FORBIDDEN));
+            return;
+        }
+        if (JsonAnswers.refusedAsCrossSite(req, resp)) {
             return;
         }
         String site = req.getParameter(SITE_PARAMETER);
