@@ -13,6 +13,7 @@ import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -39,7 +40,8 @@ public class RetentionServlet extends HttpServlet {
     private static final Pattern DAYS = Pattern.compile("\\d{1,5}");
 
     private final transient ServerAdministrators administrators;
-    private transient QuarantineRetention retention;
+    /** Bound once by DS, read by every request thread: a final holder, not a mutable field of the servlet. */
+    private final transient AtomicReference<QuarantineRetention> retention = new AtomicReference<>();
 
     public RetentionServlet() {
         this(ServerAdministrators.ofThePlatform());
@@ -51,7 +53,7 @@ public class RetentionServlet extends HttpServlet {
 
     @Reference
     public void setRetention(QuarantineRetention retention) {
-        this.retention = retention;
+        this.retention.set(retention);
     }
 
     @Override
@@ -71,9 +73,10 @@ public class RetentionServlet extends HttpServlet {
             return;
         }
         try {
-            QuarantineRetention.Report report = retention.purge(site, days == null ? null : Integer.valueOf(days));
+            QuarantineRetention.Report report = retention.get().purge(site,
+                    days == null ? null : Integer.valueOf(days));
             JsonAnswers.answer(resp, HttpServletResponse.SC_OK, new JSONObject()
-                    .put("site", site)
+                    .put(SITE_PARAMETER, site)
                     .put("retentionDays", report.retentionDays())
                     .put("purged", new JSONArray(report.purged()))
                     .put("failed", new JSONArray(report.failed())));

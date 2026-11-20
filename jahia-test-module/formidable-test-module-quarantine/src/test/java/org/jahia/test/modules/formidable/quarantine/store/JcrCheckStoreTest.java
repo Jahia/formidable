@@ -153,19 +153,19 @@ class JcrCheckStoreTest {
     @Test
     void anAuditRecordTakesTheFirstFreeNameAndNamesNoValue() throws Exception {
         JCRNodeWrapper audit = mock(JCRNodeWrapper.class);
-        JCRNodeWrapper record = mock(JCRNodeWrapper.class);
+        JCRNodeWrapper entry = mock(JCRNodeWrapper.class);
         when(held.hasNode(QuarantineTree.AUDIT)).thenReturn(true);
         when(held.getNode(QuarantineTree.AUDIT)).thenReturn(audit);
         when(audit.hasNode("record1")).thenReturn(true);
         when(audit.hasNode("record2")).thenReturn(true);
-        when(audit.addNode("record3", JcrCheckStore.AUDIT_TYPE)).thenReturn(record);
+        when(audit.addNode("record3", JcrCheckStore.AUDIT_TYPE)).thenReturn(entry);
 
         store.writeAudit(HELD_PATH, new AuditRecord(AuditRecord.RUN, null, "checking", "needsReview", AT));
 
-        verify(record).setProperty(JcrCheckStore.OPERATION, AuditRecord.RUN);
-        verify(record).setProperty(JcrCheckStore.FROM_STATE, "checking");
-        verify(record).setProperty(JcrCheckStore.TO_STATE, "needsReview");
-        verify(record, never()).setProperty(eq(JcrCheckStore.USER_NAME), anyString());
+        verify(entry).setProperty(JcrCheckStore.OPERATION, AuditRecord.RUN);
+        verify(entry).setProperty(JcrCheckStore.FROM_STATE, "checking");
+        verify(entry).setProperty(JcrCheckStore.TO_STATE, "needsReview");
+        verify(entry, never()).setProperty(eq(JcrCheckStore.USER_NAME), anyString());
         verify(session).save();
     }
 

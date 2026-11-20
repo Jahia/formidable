@@ -51,6 +51,7 @@ public class ForwardSinkServlet extends ProviderStubServlet {
     static final String ACCEPT_OPERATION = "/accept";
     /** The header a cross-site form or a simple request cannot send: a POST of the refusal needs it. */
     static final String REQUESTED_WITH = "X-Requested-With";
+    private static final String ERROR = "error";
     /** The most the sink reads of one forwarded submission: the suite forwards small files. */
     static final int MAX_BODY_BYTES = 1024 * 1024;
     /** The header line that opens a part: its name, and its file name when the part is a file. */
@@ -88,7 +89,7 @@ public class ForwardSinkServlet extends ProviderStubServlet {
         }
         if (!RESET_OPERATION.equals(operation) && refusing.get()) {
             refused.incrementAndGet();
-            answer(resp, HttpServletResponse.SC_SERVICE_UNAVAILABLE, new JSONObject().put("error", "the sink refuses"));
+            answer(resp, HttpServletResponse.SC_SERVICE_UNAVAILABLE, new JSONObject().put(ERROR, "the sink refuses"));
             return;
         }
         Received received;
@@ -111,11 +112,11 @@ public class ForwardSinkServlet extends ProviderStubServlet {
      */
     private void switchRefusal(HttpServletRequest req, HttpServletResponse resp, boolean refuse) throws IOException {
         if (!administrators.currentUserIsOne()) {
-            answer(resp, HttpServletResponse.SC_FORBIDDEN, new JSONObject().put("error", "server administrators only"));
+            answer(resp, HttpServletResponse.SC_FORBIDDEN, new JSONObject().put(ERROR, "server administrators only"));
             return;
         }
         if (req.getHeader(REQUESTED_WITH) == null) {
-            answer(resp, HttpServletResponse.SC_FORBIDDEN, new JSONObject().put("error",
+            answer(resp, HttpServletResponse.SC_FORBIDDEN, new JSONObject().put(ERROR,
                     "a POST needs the header " + REQUESTED_WITH));
             return;
         }

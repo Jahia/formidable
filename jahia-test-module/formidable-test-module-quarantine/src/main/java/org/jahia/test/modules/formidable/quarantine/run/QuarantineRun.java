@@ -177,22 +177,22 @@ public class QuarantineRun {
      * the state, not a manager. A submission that keeps checking gets none. A failure to write it is logged: the state
      * already moved.
      */
-    private void auditIfStopped(HeldRecord record, HeldState state) {
+    private void auditIfStopped(HeldRecord held, HeldState state) {
         if (state == HeldState.COMPLETED || state == HeldState.REJECTED || state == HeldState.NEEDS_REVIEW) {
-            writeRunAudit(record, state.value());
+            writeRunAudit(held, state.value());
         }
     }
 
-    private void writeRunAudit(HeldRecord record, String reached) {
+    private void writeRunAudit(HeldRecord held, String reached) {
         try {
-            checkStore.writeAudit(record.path(), new AuditRecord(AuditRecord.RUN, null, record.state(), reached,
+            checkStore.writeAudit(held.path(), new AuditRecord(AuditRecord.RUN, null, held.state(), reached,
                     clock.instant()));
         } catch (QuarantineStoreException e) {
-            log.warn("Held submission {}: the audit record of the run could not be written: {}", record.path(),
+            log.warn("Held submission {}: the audit record of the run could not be written: {}", held.path(),
                     e.getMessage());
         } catch (RuntimeException e) {
             // the state already moved: the run reports the submission as it is, and logs the class alone
-            log.warn("Held submission {}: the audit record of the run could not be written: {}", record.path(),
+            log.warn("Held submission {}: the audit record of the run could not be written: {}", held.path(),
                     e.getClass().getName());
         }
     }

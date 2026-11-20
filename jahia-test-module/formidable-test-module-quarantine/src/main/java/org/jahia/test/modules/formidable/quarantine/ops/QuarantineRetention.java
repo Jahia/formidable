@@ -95,9 +95,9 @@ public class QuarantineRetention {
         List<String> purged = new ArrayList<>();
         List<String> failed = new ArrayList<>();
         for (String form : checkStore.forms(siteKey)) {
-            for (HeldRecord record : store.list(siteKey, form)) {
-                if (isExpired(record, limit)) {
-                    purgeOne(record.path(), purged, failed);
+            for (HeldRecord held : store.list(siteKey, form)) {
+                if (isExpired(held, limit)) {
+                    purgeOne(held.path(), purged, failed);
                 }
             }
         }
@@ -106,9 +106,9 @@ public class QuarantineRetention {
         return new Report(days, purged, failed);
     }
 
-    static boolean isExpired(HeldRecord record, Instant limit) {
-        return HeldStates.REJECTED.equals(record.state()) && record.changedAt() != null
-                && record.changedAt().isBefore(limit);
+    static boolean isExpired(HeldRecord held, Instant limit) {
+        return HeldStates.REJECTED.equals(held.state()) && held.changedAt() != null
+                && held.changedAt().isBefore(limit);
     }
 
     private void purgeOne(String path, List<String> purged, List<String> failed) {

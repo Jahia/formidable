@@ -15,6 +15,7 @@ import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -40,11 +41,12 @@ public class OperationsServlet extends HttpServlet {
     static final Pattern HELD_PATH = Pattern.compile(
             "/sites/[A-Za-z0-9_-]{1,64}/formidable-quarantine/[A-Fa-f0-9-]{1,64}/\\d{4}/\\d{2}/\\d{2}/held-[A-Fa-f0-9-]{36}");
 
-    private transient QuarantineOperations operations;
+    /** Bound once by DS, read by every request thread: a final holder, not a mutable field of the servlet. */
+    private final transient AtomicReference<QuarantineOperations> operations = new AtomicReference<>();
 
     @Reference
     public void setOperations(QuarantineOperations operations) {
-        this.operations = operations;
+        this.operations.set(operations);
     }
 
     @Override
@@ -60,10 +62,10 @@ public class OperationsServlet extends HttpServlet {
             return;
         }
         try {
-            OperationResult result = operations.apply(path, operation);
+            OperationResult result = operations.get().apply(path, operation);
             JsonAnswers.answer(resp, HttpServletResponse.SC_OK, new JSONObject()
                     .put("path", result.path())
-                    .put("operation", result.operation().value())
+                    .put(OPERATION_PARAMETER, result.operation().value())
                     .put("from", result.from().value())
                     .put("state", result.to().value()));
         } catch (OperationRefusedException e) {

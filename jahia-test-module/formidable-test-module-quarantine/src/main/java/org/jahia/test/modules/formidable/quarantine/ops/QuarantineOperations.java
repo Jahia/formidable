@@ -102,21 +102,23 @@ public class QuarantineOperations {
 
     private OperationResult applyLocked(String path, Operation operation)
             throws OperationRefusedException, QuarantineStoreException {
-        Optional<HeldRecord> found = store.record(path);
+        Optional<HeldRecord> found = store.heldRecord(path);
         if (found.isEmpty()) {
             // only a server administrator learns that a path names nothing
             throw new OperationRefusedException(managers.isServerAdministrator()
                     ? OperationRefusedException.Reason.NOT_FOUND : OperationRefusedException.Reason.FORBIDDEN,
                     "No held submission that the user manages at " + path);
         }
-        HeldRecord record = found.get();
-        if (!managers.mayManage(record.formId())) {
-            log.info("Held submission {}: {} refused to {}, who does not manage form {}", path, operation.value(),
-                    managers.currentUserName(), record.formId());
+        HeldRecord held = found.get();
+        if (!managers.mayManage(held.formId())) {
+            if (log.isInfoEnabled()) {
+                log.info("Held submission {}: {} refused to {}, who does not manage form {}", path, operation.value(),
+                        managers.currentUserName(), held.formId());
+            }
             throw new OperationRefusedException(OperationRefusedException.Reason.FORBIDDEN,
                     "The user does not manage the quarantine of the form");
         }
-        HeldState from = HeldState.fromValue(record.state());
+        HeldState from = HeldState.fromValue(held.state());
         if (!StateMachine.allows(from, operation.event()) || !fitsTheDecision(path, from, operation)) {
             throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                     "The operation " + operation.value() + " is not allowed in state " + from.value());
@@ -130,7 +132,10 @@ public class QuarantineOperations {
             throw e;
         }
         writeAudit(path, new AuditRecord(operation.value(), user, from.value(), to.value(), clock.instant()));
-        log.info("Held submission {}: {} by {}, from {} to {}", path, operation.value(), user, from.value(), to.value());
+        if (log.isInfoEnabled()) {
+            log.info("Held submission {}: {} by {}, from {} to {}", path, operation.value(), user, from.value(),
+                    to.value());
+        }
         return new OperationResult(path, operation, from, to);
     }
 
@@ -154,7 +159,7 @@ public class QuarantineOperations {
      */
     private void auditStopped(String path, Operation operation, String user, HeldState from) {
         try {
-            String reached = store.record(path).map(HeldRecord::state).orElse(null);
+            String reached = store.heldRecord(path).map(HeldRecord::state).orElse(null);
             if (reached != null && (!reached.equals(from.value()) || operation == Operation.RESUME)) {
                 checkStore.writeAudit(path, new AuditRecord(operation.value(), user, from.value(), reached,
                         clock.instant()));

@@ -157,13 +157,13 @@ public class InspectionServlet extends HttpServlet {
     /** Who changed the state, how and when: the name of the user, never a value. */
     private static JSONArray audit(List<AuditRecord> records) {
         JSONArray audit = new JSONArray();
-        for (AuditRecord record : records) {
+        for (AuditRecord entry : records) {
             audit.put(new JSONObject()
-                    .put("operation", record.operation())
-                    .put("user", nullable(record.userName()))
-                    .put("from", record.fromState())
-                    .put("to", record.toState())
-                    .put("at", instant(record.at())));
+                    .put("operation", entry.operation())
+                    .put("user", nullable(entry.userName()))
+                    .put("from", entry.fromState())
+                    .put("to", entry.toState())
+                    .put("at", instant(entry.at())));
         }
         return audit;
     }
