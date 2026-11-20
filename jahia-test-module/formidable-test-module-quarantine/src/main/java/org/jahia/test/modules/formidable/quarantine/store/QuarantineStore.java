@@ -42,7 +42,7 @@ public interface QuarantineStore {
      *
      * @return empty when no held submission is at this path
      */
-    Optional<HeldRecord> record(String path) throws QuarantineStoreException;
+    Optional<HeldRecord> heldRecord(String path) throws QuarantineStoreException;
 
     /** The held submissions of a form, oldest first. Empty when the site or the form has none. */
     List<HeldRecord> list(String siteKey, String formId) throws QuarantineStoreException;

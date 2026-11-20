@@ -66,6 +66,11 @@ public final class QuarantineTree {
         return sitePath(siteKey) + "/" + ROOT_NAME;
     }
 
+    /** The path of the folder of a form, below the root of the tree of a site. */
+    public static String formPath(String siteKey, String formId) {
+        return rootPath(siteKey) + "/" + formId;
+    }
+
     /** The path of the site node. */
     public static String sitePath(String siteKey) {
         return "/sites/" + siteKey;

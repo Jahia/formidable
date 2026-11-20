@@ -177,6 +177,6 @@ class ReferenceSubmissionHoldTest {
     @Test
     void theReferenceHoldRanksAboveTheSampleHoldWhichDeclaresNoRanking() {
         assertTrue(ReferenceSubmissionHold.RANKING > 0);
-        assertEquals(ReferenceSubmissionHold.class.getName(), ReferenceSubmissionHold.COMPONENT_NAME);
+        assertEquals(ReferenceSubmissionHold.COMPONENT_NAME, ReferenceSubmissionHold.class.getName());
     }
 }

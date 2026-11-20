@@ -81,9 +81,8 @@ public class JcrQuarantineStore implements QuarantineStore {
         try {
             path = inLiveSystemSession(session -> write(session, submission, files, at));
         } catch (RefusedRootException refused) {
-            log.warn("Refused to hold a submission of form {}: {}", submission.formId(), refused.getMessage());
-            throw new QuarantineStoreException("Could not hold the submission of form " + submission.formId()
-                    + " in site " + submission.siteKey(), refused);
+            throw new QuarantineStoreException("Refused to hold the submission of form " + submission.formId()
+                    + " in site " + submission.siteKey() + ": " + refused.getMessage(), refused);
         } catch (RepositoryException first) {
             // two intakes of one form on one day may create the same folder at once: the second write sees it
             log.debug("First write of a held submission of form {} failed, written again", submission.formId(), first);
@@ -244,7 +243,7 @@ public class JcrQuarantineStore implements QuarantineStore {
             binary.dispose();
         }
         item.setProperty(QuarantineTree.SHA256, file.sha256());
-        item.setProperty(QuarantineTree.SIZE, (long) file.bytes().length);
+        item.setProperty(QuarantineTree.SIZE, file.bytes().length);
         setIfPresent(item, QuarantineTree.FILE_NAME, file.fileName());
         setIfPresent(item, QuarantineTree.FIELD_NAME, file.fieldName());
         setIfPresent(item, QuarantineTree.MIME_TYPE, file.mimeType());
@@ -259,7 +258,7 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     @Override
-    public Optional<HeldRecord> record(String path) throws QuarantineStoreException {
+    public Optional<HeldRecord> heldRecord(String path) throws QuarantineStoreException {
         return inSession("read the record of the held submission at " + path, session -> {
             JCRNodeWrapper held = heldOrNull(session, path);
             return held == null ? Optional.empty() : Optional.of(recordOf(held));
@@ -269,7 +268,7 @@ public class JcrQuarantineStore implements QuarantineStore {
     @Override
     public List<HeldRecord> list(String siteKey, String formId) throws QuarantineStoreException {
         return inSession("list the held submissions of form " + formId, session -> {
-            String path = QuarantineTree.rootPath(siteKey) + "/" + formId;
+            String path = QuarantineTree.formPath(siteKey, formId);
             List<HeldRecord> records = new ArrayList<>();
             if (session.nodeExists(path)) {
                 collect(session.getNode(path), records);
@@ -300,7 +299,7 @@ public class JcrQuarantineStore implements QuarantineStore {
     @Override
     public void setAttempts(String path, int attempts, Instant nextAttempt) throws QuarantineStoreException {
         change(path, "set the attempts", held -> {
-            held.setProperty(QuarantineTree.ATTEMPTS, (long) attempts);
+            held.setProperty(QuarantineTree.ATTEMPTS, attempts);
             if (nextAttempt == null) {
                 removeIfPresent(held, QuarantineTree.NEXT_ATTEMPT);
             } else {
@@ -312,7 +311,7 @@ public class JcrQuarantineStore implements QuarantineStore {
     @Override
     public void setCompletedActions(String path, int completedActions) throws QuarantineStoreException {
         change(path, "set the completed actions",
-                held -> held.setProperty(QuarantineTree.COMPLETED_ACTIONS, (long) completedActions));
+                held -> held.setProperty(QuarantineTree.COMPLETED_ACTIONS, completedActions));
     }
 
     @Override

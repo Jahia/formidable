@@ -116,12 +116,6 @@ class JcrQuarantineStoreTest {
         return new SubmittedFile("supportingDocument", "claim-note.txt", "text/plain", BYTES);
     }
 
-    private JCRNodeWrapper createdEndingWith(String suffix) {
-        return created.entrySet().stream().filter(entry -> entry.getKey().endsWith(suffix)).findFirst()
-                .orElseThrow(() -> new AssertionError("no node created at */" + suffix + " in " + created.keySet()))
-                .getValue();
-    }
-
     @Test
     void theHashIsTheSha256OfTheBytes() {
         assertEquals(BYTES_SHA256, Sha256.hex(BYTES));
@@ -541,7 +535,7 @@ class JcrQuarantineStoreTest {
     @Test
     void aPathWithNoHeldSubmissionReadsAsEmpty() throws Exception {
         assertTrue(store.read("/sites/" + SITE + "/formidable-quarantine/nothing").isEmpty());
-        assertTrue(store.record("/sites/" + SITE + "/formidable-quarantine/nothing").isEmpty());
+        assertTrue(store.heldRecord("/sites/" + SITE + "/formidable-quarantine/nothing").isEmpty());
     }
 
     /** A held submission at the path, which the session finds. */
@@ -599,16 +593,16 @@ class JcrQuarantineStoreTest {
         when(children.iterator()).thenReturn(List.of(item).iterator());
         when(held.getNodes()).thenReturn(children);
 
-        HeldRecord record = store.record(path).orElseThrow();
+        HeldRecord heldRecord = store.heldRecord(path).orElseThrow();
 
-        assertEquals(path, record.path());
-        assertEquals(HeldStates.HELD, record.state());
-        assertEquals(List.of("fullName"), record.valueFields());
-        assertEquals(List.of("password"), record.sensitiveFields());
-        assertTrue(record.valuesPresent());
-        assertEquals(1, record.items().size());
-        assertEquals(BYTES_SHA256, record.items().get(0).sha256());
-        assertFalse(record.items().get(0).binaryPresent());
+        assertEquals(path, heldRecord.path());
+        assertEquals(HeldStates.HELD, heldRecord.state());
+        assertEquals(List.of("fullName"), heldRecord.valueFields());
+        assertEquals(List.of("password"), heldRecord.sensitiveFields());
+        assertTrue(heldRecord.valuesPresent());
+        assertEquals(1, heldRecord.items().size());
+        assertEquals(BYTES_SHA256, heldRecord.items().get(0).sha256());
+        assertFalse(heldRecord.items().get(0).binaryPresent());
     }
 
     @Test

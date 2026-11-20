@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
@@ -44,7 +45,7 @@ public class InspectionServlet extends HttpServlet {
     private static final Pattern FORM_ID = Pattern.compile("[A-Fa-f0-9-]{1,64}");
 
     private final transient ServerAdministrators administrators;
-    private transient QuarantineStore store;
+    private final transient AtomicReference<QuarantineStore> store = new AtomicReference<>();
 
     public InspectionServlet() {
         this(ServerAdministrators.ofThePlatform());
@@ -56,7 +57,7 @@ public class InspectionServlet extends HttpServlet {
 
     @Reference
     public void setStore(QuarantineStore store) {
-        this.store = store;
+        this.store.set(store);
     }
 
     @Override
@@ -72,7 +73,7 @@ public class InspectionServlet extends HttpServlet {
                 answer(resp, HttpServletResponse.SC_BAD_REQUEST, error("the parameters site and form are required"));
                 return;
             }
-            answer(resp, HttpServletResponse.SC_OK, inspection(site, form, store.list(site, form)));
+            answer(resp, HttpServletResponse.SC_OK, inspection(site, form, store.get().list(site, form)));
         } catch (QuarantineStoreException e) {
             log.warn("Could not inspect the quarantine tree: {}", e.getMessage());
             answerQuietly(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error("the quarantine tree could not be read"));
