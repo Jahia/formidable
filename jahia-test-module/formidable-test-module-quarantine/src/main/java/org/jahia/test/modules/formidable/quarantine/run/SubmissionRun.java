@@ -36,7 +36,8 @@ import java.util.function.Function;
  * One pass of the run over one held submission: the chain decides, the run calls the checks of each step, records
  * each answer under the SHA-256 of intake of the file, and asks the chain again. A pass calls each check at most once
  * for each file: when a pass of steps brings no new {@code PASS} and no terminal decision, the submission waits for
- * the back-off, in state {@code checking}, until the attempts are exhausted. A terminal decision moves the state through the state machine.
+ * the back-off, in state {@code checking}, until the attempts are exhausted. A terminal decision moves the state
+ * through the state machine.
  */
 final class SubmissionRun {
 

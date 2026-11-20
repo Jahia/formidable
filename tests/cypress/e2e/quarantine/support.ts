@@ -10,7 +10,7 @@ import {SAME_ORIGIN} from '../security/support';
 
 const BOUNDARY = '----FormidableCypressBoundary';
 /** A POST to an endpoint of the quarantine test module: the module refuses one without X-Requested-With. */
-export const QUARANTINE_POST_HEADERS ={Origin: SAME_ORIGIN, 'X-Requested-With': 'XMLHttpRequest'};
+export const QUARANTINE_POST_HEADERS = {Origin: SAME_ORIGIN, 'X-Requested-With': 'XMLHttpRequest'};
 export const FILE_FIELD = 'supportingDocument';
 export const FILE_NAME = 'claim-note.txt';
 /** The text of the file of submissionWithAFile. */
