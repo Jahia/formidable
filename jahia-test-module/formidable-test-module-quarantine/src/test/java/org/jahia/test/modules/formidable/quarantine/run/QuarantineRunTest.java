@@ -656,6 +656,18 @@ class QuarantineRunTest {
     }
 
     @Test
+    void aReleaseWhoseRunAuditCannotBeWrittenIsStillReportedCompleted() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        stores.failingAudit.add(held.path);
+
+        RunReport report = runNow();
+
+        assertNull(report.processed().get(0).error());
+        assertEquals(HeldStates.COMPLETED, report.processed().get(0).state());
+        assertEquals(HeldStates.COMPLETED, held.state);
+    }
+
+    @Test
     void aRunRestrictedToOneFormLeavesTheOthers() throws Exception {
         lists.put(OTHER_FORM, List.of(remote("remoteCheck")));
         Held mine = stores.hold(FORM, "VERDICT:PASS");
