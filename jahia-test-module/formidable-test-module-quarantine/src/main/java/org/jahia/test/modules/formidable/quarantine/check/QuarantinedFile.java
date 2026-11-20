@@ -4,7 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 
 /**
- * One held upload, as a check sees it. The bytes are read through {@link #open()}, never held in an array.
+ * One held upload, as a check sees it. A check reads the bytes through {@link #open()}. The contract promises a
+ * stream, not streaming: the store of the module reads the whole item into memory on each call of {@link #open()},
+ * so a check that opens the file twice reads it twice. A check that must not hold a large file in memory needs
+ * another store.
  */
 public interface QuarantinedFile {
 
@@ -21,7 +24,7 @@ public interface QuarantinedFile {
     String fileName();
 
     /**
-     * @return a new stream over the bytes; the caller closes it
+     * @return a new stream over the bytes, read into memory for this call; the caller closes it
      * @throws IOException when the bytes cannot be read
      */
     InputStream open() throws IOException;

@@ -34,8 +34,9 @@ public interface CheckStore {
     void writeDecision(String path, DecisionRecord decision) throws QuarantineStoreException;
 
     /**
-     * The bytes of one item, for a check. The bytes are read inside the system session and handed back as a stream
-     * the caller closes: the session is closed when this method returns.
+     * The bytes of one item, for a check. The whole item is read into memory inside the system session, once per
+     * call, and handed back as a stream over that copy, which the caller closes: the session is closed when this
+     * method returns. Nothing is streamed from the repository.
      *
      * @throws QuarantineStoreException when the item does not exist, or holds no bytes any more
      */
