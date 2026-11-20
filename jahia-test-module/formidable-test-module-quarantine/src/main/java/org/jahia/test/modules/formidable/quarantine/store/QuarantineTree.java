@@ -30,7 +30,7 @@ public final class QuarantineTree {
     public static final String SENSITIVE = "sensitive";
     /** Under a held submission, the outcomes of the checks and the decision of the run. */
     public static final String CHECKS = "checks";
-    /** Under a held submission, the audit records, which a later part of the module writes. */
+    /** Under a held submission, the audit records of the operations and of the run. */
     public static final String AUDIT = "audit";
     /** The prefix of the name of an item: {@code item0}, {@code item1}, in the order of the files. */
     public static final String ITEM_PREFIX = "item";
@@ -41,6 +41,8 @@ public final class QuarantineTree {
     public static final String ATTEMPTS = "attempts";
     public static final String NEXT_ATTEMPT = "nextAttempt";
     public static final String COMPLETED_ACTIONS = "completedActions";
+    /** The last change of the state: the retention reads it. */
+    public static final String CHANGED_AT = "changedAt";
     public static final String FORM_ID = "formId";
     public static final String SITE_KEY = "siteKey";
     public static final String LOCALE = "locale";

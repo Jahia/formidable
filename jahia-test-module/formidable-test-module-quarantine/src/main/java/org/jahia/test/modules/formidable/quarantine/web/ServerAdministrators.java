@@ -6,10 +6,10 @@ import org.jahia.services.usermanager.JahiaUser;
 
 /**
  * Whether the user of the current request is a server administrator: {@code root}, or a member of the server group
- * {@code administrators}. A site administrator is not one.
+ * {@code administrators}. A site administrator is not one. The one rule of the module: the operations read it too.
  */
 @FunctionalInterface
-interface ServerAdministrators {
+public interface ServerAdministrators {
 
     boolean currentUserIsOne();
 

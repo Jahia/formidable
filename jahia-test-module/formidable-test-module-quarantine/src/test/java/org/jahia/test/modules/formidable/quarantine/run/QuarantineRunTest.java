@@ -17,6 +17,7 @@ import org.jahia.test.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
 import org.jahia.test.modules.formidable.quarantine.state.Backoff;
 import org.jahia.test.modules.formidable.quarantine.state.HeldState;
 import org.jahia.test.modules.formidable.quarantine.state.IllegalTransitionException;
+import org.jahia.test.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.test.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldStates;
@@ -655,6 +656,18 @@ class QuarantineRunTest {
     }
 
     @Test
+    void aReleaseWhoseRunAuditCannotBeWrittenIsStillReportedCompleted() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        stores.failingAudit.add(held.path);
+
+        RunReport report = runNow();
+
+        assertNull(report.processed().get(0).error());
+        assertEquals(HeldStates.COMPLETED, report.processed().get(0).state());
+        assertEquals(HeldStates.COMPLETED, held.state);
+    }
+
+    @Test
     void aRunRestrictedToOneFormLeavesTheOthers() throws Exception {
         lists.put(OTHER_FORM, List.of(remote("remoteCheck")));
         Held mine = stores.hold(FORM, "VERDICT:PASS");
@@ -674,6 +687,42 @@ class QuarantineRunTest {
             held.state = state;
             assertFalse(QuarantineRun.isDue(recordOf(held), NOW, true), state);
         }
+    }
+
+    @Test
+    void theRunWritesOneAuditRecordWithNoUserWhenItReleasesRejectsOrSendsToReview() throws Exception {
+        Held completed = stores.hold(FORM, "VERDICT:PASS\nOne");
+        Held rejected = stores.hold(FORM, "VERDICT:FAIL\nTwo");
+        Held inReview = stores.hold(FORM, "INCONCLUSIVE\nThree");
+
+        runNow();
+
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "completed", NOW)), completed.audit);
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "rejected", NOW)), rejected.audit);
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "needsReview", NOW)), inReview.audit);
+    }
+
+    @Test
+    void aSubmissionThatKeepsCheckingGetsNoAuditRecord() throws Exception {
+        Held held = stores.hold(FORM, "DOWN");
+
+        runNow();
+
+        assertEquals(HeldStates.CHECKING, held.state);
+        assertTrue(held.audit.isEmpty());
+    }
+
+    @Test
+    void aReleaseThatStopsHalfWayGetsAnAuditRecordOfTheRun() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        actions = (submission, from, completed) -> {
+            throw new IllegalStateException("The action broke");
+        };
+
+        RunReport report = runNow();
+
+        assertEquals("releasing", report.processed().get(0).state(), "a release that stopped half way");
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "releasing", NOW)), held.audit);
     }
 
     private HeldRecord recordOf(Held held) {

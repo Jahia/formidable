@@ -3,6 +3,7 @@ package org.jahia.test.modules.formidable.quarantine.run;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.test.modules.formidable.quarantine.check.Qualifier;
 import org.jahia.test.modules.formidable.quarantine.state.HeldState;
+import org.jahia.test.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.test.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.test.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.test.modules.formidable.quarantine.store.HeldStates;
@@ -111,7 +112,8 @@ public class QuarantineRun {
     }
 
     /**
-     * Makes one pass over the due held submissions of the site. One run at a time.
+     * Makes one pass over the due held submissions of the site. One run at a time, under the lock of this run, which
+     * the operations of a manager take too: no operation runs while the run releases a submission.
      *
      * @param siteKey        the key of the site
      * @param formId         the identifier of the one form to run, or {@code null} for every form of the site
@@ -148,6 +150,7 @@ public class QuarantineRun {
     private RunReport.Processed process(SubmissionRun submissionRun, HeldRecord held) {
         try {
             HeldState state = submissionRun.run(held);
+            auditIfStopped(held, state);
             return new RunReport.Processed(held.path(), held.formId(), held.state(), state.value(), null);
         } catch (QuarantineStoreException | RepositoryException e) {
             log.warn("Held submission {}: the run failed, the pass goes on: {}", held.path(), e.toString());
@@ -161,7 +164,37 @@ public class QuarantineRun {
     }
 
     private RunReport.Processed failed(HeldRecord held, String error) {
-        return new RunReport.Processed(held.path(), held.formId(), held.state(), stateOf(held.path()), error);
+        String reached = stateOf(held.path());
+        if (HeldStates.RELEASING.equals(reached)) {
+            // a release that stopped half way: a manager resumes or rejects it, and the audit says how it got there
+            writeRunAudit(held, reached);
+        }
+        return new RunReport.Processed(held.path(), held.formId(), held.state(), reached, error);
+    }
+
+    /**
+     * One audit record when the run released, rejected or sent the submission to review, with no user: the run moved
+     * the state, not a manager. A submission that keeps checking gets none. A failure to write it is logged: the state
+     * already moved.
+     */
+    private void auditIfStopped(HeldRecord held, HeldState state) {
+        if (state == HeldState.COMPLETED || state == HeldState.REJECTED || state == HeldState.NEEDS_REVIEW) {
+            writeRunAudit(held, state.value());
+        }
+    }
+
+    private void writeRunAudit(HeldRecord held, String reached) {
+        try {
+            checkStore.writeAudit(held.path(), new AuditRecord(AuditRecord.RUN, null, held.state(), reached,
+                    clock.instant()));
+        } catch (QuarantineStoreException e) {
+            log.warn("Held submission {}: the audit record of the run could not be written: {}", held.path(),
+                    e.getMessage());
+        } catch (RuntimeException e) {
+            // the state already moved: the run reports the submission as it is, and logs the class alone
+            log.warn("Held submission {}: the audit record of the run could not be written: {}", held.path(),
+                    e.getClass().getName());
+        }
     }
 
     private String stateOf(String path) {

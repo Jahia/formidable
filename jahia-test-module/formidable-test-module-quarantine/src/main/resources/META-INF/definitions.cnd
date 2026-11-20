@@ -52,6 +52,7 @@
  - attempts (long) = 0 autocreated indexed=no
  - nextAttempt (date)
  - completedActions (long) = 0 autocreated indexed=no
+ - changedAt (date) indexed=no
  - formId (string) mandatory
  - siteKey (string) indexed=no
  - locale (string) indexed=no
@@ -123,4 +124,16 @@
  - checkName (string) indexed=no
  - sha256 (string) indexed=no
  - failedAction (long) indexed=no
+ - at (date) indexed=no
+
+// --- The audit of a held submission, under audit ---
+
+// One audit record (audit/record1, record2, ...): an operation of a manager (retry, release, resume, reject) or the
+// run of the checks (run), the user that asked for it (none for the run), the state before and after, and when. No
+// value and no byte.
+[fmdbquar:auditRecord] > jnt:content
+ - operation (string) mandatory indexed=no
+ - userName (string) indexed=no
+ - fromState (string) mandatory indexed=no
+ - toState (string) mandatory indexed=no
  - at (date) indexed=no

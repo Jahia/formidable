@@ -1,7 +1,7 @@
 package org.jahia.test.modules.formidable.quarantine.chain;
 
 /**
- * Why the chain stopped with a rejection or a review. A log line or an audit record names it.
+ * Why the chain stopped with a rejection or a review. A log line or the decision names it.
  */
 public enum ChainReason {
 

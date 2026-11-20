@@ -65,7 +65,8 @@ class InspectionServletTest {
         HeldRecord heldRecord = new HeldRecord(HELD_PATH, FORM_ID, SITE, HeldStates.HELD,
                 Instant.parse("2026-11-19T18:30:00Z"), 0, null, 0, List.of("fullName"), List.of("password"), true,
                 List.of(new ItemRecord("item0", "supportingDocument", "claim-note.txt", "text/plain", 41,
-                        "f7c11b5f5115eb9d0f4f8619af8870daf212b37948739f8534e4088a078e7ffd", true)));
+                        "f7c11b5f5115eb9d0f4f8619af8870daf212b37948739f8534e4088a078e7ffd", true)),
+                Instant.parse("2026-11-19T18:30:00Z"));
         when(store.list(SITE, FORM_ID)).thenReturn(List.of(heldRecord));
         // what a read would answer: the servlet must never ask for it
         HeldSubmission held = new HeldSubmission(FORM_ID, SITE, Locale.ENGLISH, Map.of("fullName", List.of(PUBLIC_VALUE)),
@@ -173,7 +174,8 @@ class InspectionServletTest {
     void anItemWithNoFieldNameNorFileNameKeepsBothKeysAsNull() throws Exception {
         HeldRecord heldRecord = new HeldRecord(HELD_PATH, FORM_ID, SITE, HeldStates.HELD,
                 Instant.parse("2026-11-19T18:30:00Z"), 0, null, 0, List.of(), List.of(), true,
-                List.of(new ItemRecord("item0", null, null, null, 0, "e3b0", true)));
+                List.of(new ItemRecord("item0", null, null, null, 0, "e3b0", true)),
+                Instant.parse("2026-11-19T18:30:00Z"));
         InspectionServlet servlet = new InspectionServlet(() -> true);
         servlet.setStore(store);
         servlet.setCheckStore(checkStore);
