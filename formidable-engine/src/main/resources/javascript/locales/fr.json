@@ -123,6 +123,10 @@
 		"nav": {
 			"title": "Résultats de formulaires"
 		},
+		"views": {
+			"submissions": "Soumissions",
+			"analytics": "Statistiques"
+		},
 		"sidebar": {
 			"title": "Formulaires avec résultats",
 			"formDeleted": "Formulaire supprimé",
@@ -218,6 +222,67 @@
 				"noResults": "Aucune soumission ne correspond à la plage sélectionnée.",
 				"confirmationMismatch": "Saisissez le nom attendu du formulaire pour confirmer la suppression.",
 				"unexpectedError": "Échec de la suppression."
+			}
+		},
+		"analytics": {
+			"unknown": "Inconnu",
+			"loading": "Lecture des soumissions : {{loaded}} sur {{total}}",
+			"capped": "La période compte {{total}} soumissions : les chiffres portent sur les {{analysed}} plus récentes.",
+			"period": {
+				"label": "Période",
+				"7d": "7 derniers jours",
+				"30d": "30 derniers jours",
+				"90d": "90 derniers jours",
+				"12m": "12 derniers mois",
+				"all": "Toutes les soumissions"
+			},
+			"empty": {
+				"title": "Aucune soumission sur cette période",
+				"description": "Choisissez une période plus longue pour voir les statistiques de ce formulaire."
+			},
+			"kpi": {
+				"submissions": "Soumissions",
+				"dailyAverage": "Par jour, en moyenne",
+				"pages": "Pages d'où le formulaire a été soumis",
+				"last": "Dernière soumission"
+			},
+			"timeline": {
+				"title": "Soumissions dans le temps",
+				"day": "Par jour",
+				"month": "Par mois"
+			},
+			"pages": {
+				"title": "Soumissions par page",
+				"hint": "La page d'où le formulaire a été soumis, toutes langues confondues."
+			},
+			"languages": {
+				"title": "Soumissions par langue"
+			},
+			"completion": {
+				"title": "Champs laissés vides",
+				"hint": "Soumissions qui ont laissé le champ vide, en part des soumissions où il était affiché : un champ masqué par son affichage conditionnel n'est pas compté. Les moins remplis d'abord.",
+				"empty": "Vide",
+				"shown": "Affiché",
+				"shownIn": "Affichage conditionnel : affiché dans {{shown}} soumissions sur {{total}}",
+				"removed": "N'est plus dans le formulaire : renseigné dans {{shown}} soumissions sur {{total}}"
+			},
+			"answers": {
+				"title": "Réponses",
+				"yes": "Oui",
+				"no": "Non",
+				"answered": "{{answered}} soumissions sur {{total}} ont répondu",
+				"multiple": "plusieurs réponses possibles, les parts dépassent donc 100 %",
+				"average": "moyenne {{average}}",
+				"averageLabel": "Moyenne"
+			},
+			"export": {
+				"csv": "Exporter en CSV",
+				"json": "Exporter en JSON",
+				"section": "Section",
+				"field": "Champ",
+				"item": "Élément",
+				"count": "Nombre",
+				"share": "Part (%)"
 			}
 		}
 	},

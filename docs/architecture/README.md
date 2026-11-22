@@ -7,6 +7,7 @@ For the maintainer: how the modules work, and why they are built this way.
 - [Form submission flow](form-submission-flow.md) — the request lifecycle, the twelve-step pipeline (plus the field actions' step 11b), the trust model and the server-side safeguards
 - [Save to JCR](save-to-jcr.md) — how submissions and uploaded files are stored, the results tree, personal data
 - [Export](export.md) — the multi-format export of the results (CSV, JSON) and how to add a format
+- [Results analytics](results-analytics.md) — the Analytics tab of the Results page: what it counts, how a page and an answer are read, the export
 - [Content Editor layout](content-editor-layout.md) — what a field's editor shows where: Content for the essentials, the Field settings section for everything else; the section ranks, the jContent merge rules the form overrides rely on, the CI check that keeps every property placed
 - [Custom validation](custom-validation.md) — inline validation messages replacing the native browser tooltips, with per-field contributor overrides
 - [One-at-a-time](one-at-a-time.md) — one field or fieldset per screen, inside the steps: what a screen is, why its hiding stays apart from the conditional logic, the Enter key, and the attribute a field type sets to move on with a pick
