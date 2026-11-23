@@ -187,7 +187,7 @@ of it exists in live, preview or the `cm` view. See [Field actions](../architect
 
 | Class | Element |
 |---|---|
-| `fmdb-authoring-field-actions` | The field's zone, next to `fmdb-authoring-actions` on the same `aside` — the hook that tells the two zones apart |
+| `fmdb-authoring-field-actions` | The field's zone, next to `fmdb-authoring-actions` on the same `aside` — the hook that tells a field's zone apart from the zones of the form (the actions zone, and `fmdb-authoring-checks` and `fmdb-authoring-deferred-actions` on a form that holds its uploads) |
 | `fmdb-authoring-actions-unavailable` | Added to the call-out (`fmdb-authoring-actions-empty`) drawn in the create button's place when no type of the list (a field-action type, or a check type) is enabled on the site, with `data-fmdb-authoring-state="no-type"`; coloured by `--fmdb-zone-actions-error-*` |
 
 ## Hidden field (edit mode)
