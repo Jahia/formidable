@@ -246,15 +246,10 @@
 	padding: var(--fmdb-zone-field-actions-padding, 0.5rem 0.625rem);
 }
 
-/* Actions after release zone (edit mode only): the last zone of a form that holds its uploads in
-   quarantine, under its checks zone. Same chrome; the space above tells the lists apart. */
+/* The checks zone and the actions after release zone of a form that holds its uploads in quarantine (edit
+   mode only), under the actions zone in the order the lists run. Same chrome; the space above tells them apart. */
+.fmdb-authoring-checks,
 .fmdb-authoring-deferred-actions {
-	margin-top: var(--fmdb-zone-actions-margin, 1rem);
-}
-
-/* Quarantine checks zone (edit mode only): between the actions zone and the actions after release, the
-   order in which they run. Same chrome; the space above sets it apart. */
-.fmdb-authoring-checks {
 	margin-top: var(--fmdb-zone-actions-margin, 1rem);
 }
 
