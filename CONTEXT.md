@@ -265,6 +265,7 @@ org.jahia.modules.formidable.engine
 ├── servlet/                             ← the submission: its entry point, its pipeline, what reads the request
 │   ├── FormSubmitServlet.java           ← whiteboard entry point
 │   ├── FormSubmissionPipeline.java      ← the 12 steps, plus 9a (separateSensitiveValues) and 11b (runFieldActions)
+│   ├── DeferredActionsService.java, DetachedRequest.java  ← the run of the actions after release, for a hold, with no HTTP request
 │   └── FormDataParser.java, FieldValidator.java, FormFieldMetadataCollector.java
 ├── files/                              ← file types, from Apache Tika's registry only (docs/architecture/form-submission-flow.md)
 │   └── AllowedTypes (what a file field accepts, for its view and the parser), FileTypeService (extensions, labels)
@@ -284,7 +285,7 @@ org.jahia.modules.formidable.engine
 │   ├── v04/      0.3 → 0.4 content: ChoiceOptionsContentMigration, DateBoundsContentMigration, TranslationFieldKeyCleanup, ListTitlesContentMigration, ElementsSiteReactivation
 │   └── v05/      0.4 → 0.5: MixinPropertyNamesMigration, RedundantMixinMigration (content); LegacyConfigurationMigration (single PID → theme files), FormerListLines (list lines → entry files)
 └── actions/                             ← one folder per kind, and what the two kinds share
-    ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator
+    ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator, OfferedTypes (the types a site offers under a list, shared by field actions and checks), QualifierTypesService
     ├── form/     ContentDispositionUtils
     │   ├── email/   SendEmailNotificationFormAction, SendEmailContentFormAction, EmailAddresses (the addresses the mail service would refuse, left out and logged before the send)
     │   ├── forward/ ForwardSubmissionFormAction, HostnameResolutionService

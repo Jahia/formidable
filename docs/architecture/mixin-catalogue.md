@@ -254,9 +254,9 @@ Jahia's own mixins, where a Formidable type uses them and what each one buys.
 | `jmix:droppableContent`, `jmix:editorialContent`, `jmix:accessControllableContent` | `fmdbmix:component` | the form and the reference can be created in an area, are listed as editorial content, and can carry an ACL of their own |
 | `jmix:visibleInContentTree` | `fmdb:form` | the form shows in jContent's tree, its lists and fields under it |
 | `mix:title` | `fmdbmix:formElement`, the lists, the actions, `fmdb:step` | `jcr:title`, the i18n label the editor and the Page Builder show |
-| `jmix:list` | `fmdb:fieldList`, `fmdb:actionList`, `fmdb:fieldActionList`, `fmdb:logicList` | jContent treats the node as a list: list rendering, the **Content list & ordering** block |
-| `jmix:systemNameReadonly` | the three lists | `fields`, `actions` are structure the code walks by name: never renamed |
-| `jmix:hideDeleteAction` | the three lists | jContent hides Delete and Cut and the Page Builder refuses to drag: the form creates and removes its two lists, the field-actions switch its list, never a contributor |
+| `jmix:list` | each list of a form or of a field | jContent treats the node as a list: list rendering, the **Content list & ordering** block |
+| `jmix:systemNameReadonly` | each list of a form or of a field | the lists are structure the code walks by name: never renamed |
+| `jmix:hideDeleteAction` | each list of a form or of a field | jContent hides Delete and Cut and the Page Builder refuses to drag: the form creates and removes its two lists, the quarantine switch its two lists, the field-actions switch its list, never a contributor |
 | `jmix:dynamicFieldset` | the options modes, the bound modes | the editor adds and removes the mixin with the mode, the "mode fieldset" use above; never through `jmix:templateMixin`, which renders without a switch |
 | `jmix:nodeReference` | `fmdb:formReference` | `j:node`, the platform's reference contract: the form renders where the reference is placed |
 | `jmix:accessControlled` | `fmdb:resultsFolder`, `fmdb:formResults`, `fmdb:importJobs` | an ACL of their own: who reads which results ([Results permissions](../administration/results-permissions.md)) |
@@ -271,6 +271,8 @@ What to take from the tables, by kind of type; the how-to is in the extension gu
 - **A container**: `fmdbmix:formContainer`, with `fmdbmix:formElement` when it has a title and sits in a list as the fieldset does, and child rendering delegated to the `hidden.logic` view.
 - **A form type**: `> fmdbmix:formRoot`, never `addMixin`; its own switches over `fmdbmix:captchaProtectedForm` and `fmdbmix:authenticatedOnlyForm` when it offers those features.
 - **A form action type**: `fmdbmix:formAction`, plus `fmdbmix:readOnlyCompatibleAction` when it never writes to the repository. No mixin says that it receives sensitive values: that opt-in is the Java handler's `sensitiveFieldsConsumed` ([How to create a form action](../extension/how-to-create-form-action.md#step-6c-receive-sensitive-values)).
+- **An action after release**: the form action type takes `fmdbmix:deferrableAction` too, when its code reads nothing of the request but what the engine keeps for a held submission ([The hold of the uploads](form-submission-flow.md#the-hold-of-the-uploads)).
+- **A check type**: `fmdbmix:qualifier`, the only kind of node the **Quarantine checks** list accepts. The module that runs the checks declares it; the engine ships none.
 - **A field action type**: `fmdbmix:fieldAction`, which brings `fmdbmix:fieldActionFeedback`. Running on a sensitive field is the Java handler's `consumesSensitiveValues()`, never a mixin.
 - **A setting on a built-in field**: a mixin of your own with `extends` naming the types and an `itemtype`, placed by a `forms/` override ([Case 4](../extension/how-to-extend-views-and-elements-from-third-party-module.md#case-4-add-a-contributor-setting-to-a-built-in-field-in-the-fields-own-form)).
 - **A form-level feature**: a switch extending `fmdb:form`, over an engine semantic when the engine must enforce it, as the two wrappers do.
