@@ -1,5 +1,7 @@
+import {disableModule, enableModule} from '@jahia/cypress';
 import {CONTENT_PATH} from '../../support/constants';
 import {
+	FORMIDABLE_TEST_SITE,
 	FORWARD_SINK_TARGET_ID,
 	createPublishedLiveFormPage,
 	getForwardActionNode,
@@ -27,6 +29,10 @@ import {
 	submissionWithAFile,
 	submissionWithNoFile
 } from './support';
+
+const SAMPLES_MODULE = 'formidable-test-module-samples-java';
+/** The samples' check type: the one type of the repository that the "Quarantine checks" list accepts. */
+const SAMPLE_CHECK = 'fmdbsample:sampleCheck';
 
 /** The body of a GraphQL answer: the data of the query, or the errors that refused it. */
 interface GraphqlBody {
@@ -231,29 +237,55 @@ describe('Quarantine - 95 A form with the switch on holds its uploads until rele
 	});
 
 	it('the Page Builder shows the checks between the two action zones, with their create button', () => {
-		createPublishedLiveFormPage('checks-zone-form', 'Checks zone form', fields(), undefined, undefined,
-			{deferredActions: [], qualifiers: []})
-			.then(({pagePath, livePath}) => {
-				visitEditForm(pagePath);
-				// the order in which the lists run: on submission, the checks, after release
-				cy.get('.fmdb-authoring-actions').should('have.length', 3).then($zones => {
-					expect($zones.eq(1).hasClass('fmdb-authoring-checks'), 'second zone: the checks').to.equal(true);
-					expect($zones.eq(2).hasClass('fmdb-authoring-deferred-actions'), 'third zone: after release').to.equal(true);
-				});
-				cy.get('.fmdb-authoring-checks').within(() => {
-					cy.get('.fmdb-authoring-actions-title').should('contain.text', 'Quarantine checks · 0');
-					cy.get('.fmdb-authoring-actions-empty').should('be.visible');
-				});
-				// the list's own module declares the accepted type, which jContent turns into its create button
-				cy.get('[jahiatype="module"][path$="/qualifiers"]')
-					.should('have.length', 1)
-					.should('have.attr', 'nodetypes', 'fmdbmix:qualifier')
-					.find('[jahiatype="module"][type="placeholder"]')
-					.should('have.length', 1);
-
-				visitLiveForm(livePath);
-				cy.get('.fmdb-authoring-checks').should('not.exist');
+		createPublishedLiveFormPage('checks-zone-form', 'Checks zone form', fields(), undefined, undefined, {
+			deferredActions: [],
+			qualifiers: [{name: 'virusScan', primaryNodeType: SAMPLE_CHECK, properties: [{name: 'jcr:title', value: 'Virus scan', language: 'en'}]}]
+		}).then(({pagePath, livePath, formPath}) => {
+			visitEditForm(pagePath);
+			// the order in which the lists run: on submission, the checks, after release
+			cy.get('.fmdb-authoring-actions').should('have.length', 3).then($zones => {
+				expect($zones.eq(1).hasClass('fmdb-authoring-checks'), 'second zone: the checks').to.equal(true);
+				expect($zones.eq(2).hasClass('fmdb-authoring-deferred-actions'), 'third zone: after release').to.equal(true);
 			});
+			cy.get('.fmdb-authoring-checks').within(() => {
+				cy.get('.fmdb-authoring-action').should('have.length', 1)
+					.should('have.attr', 'data-fmdb-action-type', SAMPLE_CHECK)
+					.find('.fmdb-authoring-action-title').should('have.text', 'Virus scan');
+				cy.get('.fmdb-authoring-actions-empty').should('not.exist');
+			});
+			// the list's own module declares the accepted type, which jContent turns into its create button
+			cy.get('[jahiatype="module"][path$="/qualifiers"]')
+				.should('have.length', 1)
+				.should('have.attr', 'nodetypes', 'fmdbmix:qualifier')
+				.find('[jahiatype="module"][type="placeholder"]')
+				.should('have.length', 1);
+
+			// the views guard themselves: asked for directly in live or in preview, as fragments, they render nothing
+			[
+				{mode: 'live', base: '/cms/render/live/en'},
+				{mode: 'preview', base: '/cms/preview/default/en'}
+			].forEach(({mode, base}) => {
+				[`${formPath}/qualifiers`, `${formPath}/qualifiers/virusScan`].forEach(path => {
+					cy.request(`${base}${path}.hidden.authoring.html.ajax`).then(response => {
+						expect(response.status, `${mode} render of ${path}`).to.equal(200);
+						expect(response.body, `${mode} body of ${path}`).not.to.contain('fmdb-authoring-action');
+					});
+				});
+			});
+
+			visitLiveForm(livePath);
+			cy.get('.fmdb-authoring-checks').should('not.exist');
+
+			// a site where no module provides a check type: a call-out in place of a button that would open on nothing
+			disableModule(SAMPLES_MODULE, FORMIDABLE_TEST_SITE.key);
+			visitEditForm(pagePath);
+			cy.get('.fmdb-authoring-checks').within(() => {
+				cy.get('.fmdb-authoring-actions-unavailable').should('be.visible')
+					.and('have.attr', 'data-fmdb-authoring-state', 'no-type');
+				cy.get('[jahiatype="module"][type="placeholder"]').should('not.exist');
+			});
+			enableModule(SAMPLES_MODULE, FORMIDABLE_TEST_SITE.key);
+		});
 
 		// the create buttons are named after these labels: without one, jContent shows the bare mixin name
 		graphql(

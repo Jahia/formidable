@@ -13,8 +13,8 @@ export interface AuthoringActionsZoneProps {
 	/** The call-out drawn when the list is empty. */
 	empty: string;
 	/**
-	 * The call-out drawn, in the colours of a fault, when nothing can be added to the list — the field zone's,
-	 * on a site where no module enabled provides a field-action type. It takes the create button's place, since
+	 * The call-out drawn, in the colours of a fault, when nothing can be added to the list — the field zone's
+	 * or the checks zone's, on a site where no module enabled provides a type of the list. It takes the create button's place, since
 	 * the chooser would open on nothing, and the empty call-out gives way to it: there is no "below" to add from.
 	 */
 	unavailable?: string;
@@ -25,8 +25,9 @@ export interface AuthoringActionsZoneProps {
 }
 
 /**
- * The chrome the two actions zones share — the form's, under the buttons, and a field's, under the
- * field (ActionList and FieldActionList `hidden.authoring` views): a header with the list's icon and
+ * The chrome the authoring zones share — the form's lists under the buttons (its actions, and for a form
+ * that holds its uploads its checks and its actions after release) and a field's actions under the field
+ * (the `hidden.authoring` views of ActionList, QualifierList, DeferredActionList and FieldActionList): a header with the list's icon and
  * count, the call-out of an empty list, the ordered cards — an ordered list, since the execution order
  * is the meaning and assistive technology gets it too — and the list's own create button, whose module
  * declares the accepted type to jContent, or the call-out that says why there is none. Authoring chrome,

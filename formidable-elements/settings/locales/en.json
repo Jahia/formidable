@@ -60,7 +60,8 @@
 		"heading": "Quarantine checks · {{count}}",
 		"inOrder": "Run in this order on every uploaded file, before the actions after release. Not shown to visitors.",
 		"notLive": "Not shown to visitors.",
-		"empty": "No check yet: add the checks a file must pass before it is released."
+		"empty": "No check yet: add the checks a file must pass before it is released.",
+		"noType": "No check type is enabled on this site: ask your administrator to enable a module that provides one."
 	},
 	"fmdb_deferredActionList": {
 		"heading": "Actions after release · {{count}}",
