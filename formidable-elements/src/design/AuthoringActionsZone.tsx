@@ -4,7 +4,7 @@ import type {JCRNodeWrapper} from "org.jahia.services.content";
 import AlertIcon from "./AlertIcon";
 
 export interface AuthoringActionsZoneProps {
-	/** The variant class next to `fmdb-authoring-actions`: the field zone's, when this is one. */
+	/** The variant class next to `fmdb-authoring-actions`: `fmdb-authoring-field-actions`, `fmdb-authoring-checks` or `fmdb-authoring-deferred-actions`. */
 	className?: string;
 	/** The header's title, also the zone's accessible name. */
 	heading: string;

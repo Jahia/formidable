@@ -4,7 +4,6 @@
  * fake node drives the unit test.
  */
 
-import type {JCRNodeWrapper} from "org.jahia.services.content";
 import {SENSITIVE_FIELD_MIXIN} from "~/utils/sensitiveFields";
 
 /** The javax.jcr surface read here; a JCRNodeWrapper satisfies it. */
@@ -41,9 +40,8 @@ export type SensitiveValueConsumers = (fieldActionNodeType: string) => boolean;
 
 export const FIELD_ACTION_TYPES_SERVICE = "org.jahia.modules.formidable.engine.api.FieldActionTypes";
 
-// The engine's service, reached over OSGi; offeredUnder answers a java.util.List.
+// The engine's service, reached over OSGi (offeredUnder is read through offeredTypes.server.ts).
 export interface FieldActionTypesLike {
-	offeredUnder(actionList: JCRNodeWrapper): {isEmpty(): boolean};
 	consumesSensitiveValues(fieldActionNodeType: string): boolean;
 }
 
