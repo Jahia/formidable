@@ -6,7 +6,9 @@ import {
 	getLatestLiveFormSubmission,
 	getLatestLiveSubmissionValues,
 	getSaveToJcrActionNode,
-	getUploadObserverActionNode
+	getUploadObserverActionNode,
+	visitEditForm,
+	visitLiveForm
 } from '../../support/fixtures';
 import {SAME_ORIGIN, postDirectMultipartSubmission, withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
@@ -226,6 +228,48 @@ describe('Quarantine - 95 A form with the switch on holds its uploads until rele
 			{name: 'fmdbmix:quarantine', dynamic: true, activated: false, displayName: 'Hold uploads in quarantine'});
 		editorSwitch(`${CONTENT_PATH}/switch-on-form`).should('deep.equal',
 			{name: 'fmdbmix:quarantine', dynamic: true, activated: true, displayName: 'Hold uploads in quarantine'});
+	});
+
+	it('the Page Builder shows the checks between the two action zones, with their create button', () => {
+		createPublishedLiveFormPage('checks-zone-form', 'Checks zone form', fields(), undefined, undefined,
+			{deferredActions: [], qualifiers: []})
+			.then(({pagePath, livePath}) => {
+				visitEditForm(pagePath);
+				// the order in which the lists run: on submission, the checks, after release
+				cy.get('.fmdb-authoring-actions').should('have.length', 3).then($zones => {
+					expect($zones.eq(1).hasClass('fmdb-authoring-checks'), 'second zone: the checks').to.equal(true);
+					expect($zones.eq(2).hasClass('fmdb-authoring-deferred-actions'), 'third zone: after release').to.equal(true);
+				});
+				cy.get('.fmdb-authoring-checks').within(() => {
+					cy.get('.fmdb-authoring-actions-title').should('contain.text', 'Quarantine checks · 0');
+					cy.get('.fmdb-authoring-actions-empty').should('be.visible');
+				});
+				// the list's own module declares the accepted type, which jContent turns into its create button
+				cy.get('[jahiatype="module"][path$="/qualifiers"]')
+					.should('have.length', 1)
+					.should('have.attr', 'nodetypes', 'fmdbmix:qualifier')
+					.find('[jahiatype="module"][type="placeholder"]')
+					.should('have.length', 1);
+
+				visitLiveForm(livePath);
+				cy.get('.fmdb-authoring-checks').should('not.exist');
+			});
+
+		// the create buttons are named after these labels: without one, jContent shows the bare mixin name
+		graphql(
+			'{ jcr { nodeTypes(filter: {includeTypes: ["fmdbmix:qualifier", "fmdbmix:deferrableAction"]}) { nodes { name displayName(language: "en") } } } }',
+			{}
+		).then(response => {
+			expect(response.body.errors, 'errors of the query').to.equal(undefined);
+			// the filter answers the subtypes too (each action and check type): keep the two mixins
+			const labels = Object.fromEntries((response.body.data.jcr.nodeTypes.nodes as Array<{name: string; displayName: string}>)
+				.filter(type => type.name.startsWith('fmdbmix:'))
+				.map(type => [type.name, type.displayName]));
+			expect(labels, 'labels of the two mixins').to.deep.equal({
+				'fmdbmix:qualifier': 'Quarantine check',
+				'fmdbmix:deferrableAction': 'Action after release'
+			});
+		});
 	});
 
 	it('Q26: a type that is not deferrable stays out of the actions after release', () => {

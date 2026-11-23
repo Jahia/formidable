@@ -252,6 +252,12 @@
 	margin-top: var(--fmdb-zone-actions-margin, 1rem);
 }
 
+/* Quarantine checks zone (edit mode only): between the actions zone and the actions after release, the
+   order in which they run. Same chrome; the space above sets it apart. */
+.fmdb-authoring-checks {
+	margin-top: var(--fmdb-zone-actions-margin, 1rem);
+}
+
 /* Hidden field (edit mode only): the visitor never sees it, so without a drawn line its Page
    Builder box has no height and cannot be clicked. One dashed line, the zones' chrome and
    variables: the eye crossed out, "Hidden field", the field's title, and the value it sends.
