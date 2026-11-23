@@ -110,6 +110,7 @@ The public API — custom actions, the submission response, the names of the con
 - `SubmittedFile.java` — file upload abstraction
 - `FieldAction.java` + `FieldActionRequest.java` + `FieldActionResult.java` — one field's value judged server-side, at the pre-check and at submission (`getNodeType()` + `execute()`); `consumesSensitiveValues()` (default `false`) is the opt-in to run on a sensitive field
 - `FieldActionTypes.java` — the field-action types a site offers, and `consumesSensitiveValues(type)` (a default method, `false`): whether the Java action registered for a type runs on a sensitive field, which the views ask
+- `QualifierTypes.java` — the check types a site offers under the **Quarantine checks** list, which the checks zone of the Page Builder reads
 - `FieldActionGateway.java` — the one way a field action reaches its service, handed an `Endpoint` read from its module's own configuration
 - `ProviderFieldAction.java` + `EmailVerificationFieldAction.java` + `EmailAddress.java` — the shape of an action behind a provider, its email specialisation, the address parsing
 - `ChoiceOptionsResolver.java` — how many choices a choice field offers, counted as the views render it

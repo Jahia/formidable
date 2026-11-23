@@ -100,6 +100,8 @@ describe('Quarantine - 95 A form with the switch on holds its uploads until rele
 	});
 
 	after(() => {
+		// the checks zone test disables the samples module on the site: enabled again even when it failed
+		enableModule(SAMPLES_MODULE, FORMIDABLE_TEST_SITE.key);
 		setUploadsRequireQuarantine(false);
 		setDevelopmentForwardTargets(false);
 		setForwardTargets([]);

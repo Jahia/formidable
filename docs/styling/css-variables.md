@@ -261,7 +261,7 @@ and dashed; these variables are the intended surface for a site that wants it to
 | `--fmdb-zone-actions-warning-bg` | `#fff7ed` | Background of the "no action" warning, and of the warning of a redirect card |
 | `--fmdb-zone-actions-warning-border` | `#f59e0b` | Left border of both warnings |
 | `--fmdb-zone-actions-warning-color` | `#9a3412` | Text colour of both warnings |
-| `--fmdb-zone-actions-error-bg` | `#fef2f2` | Background of the captcha line while the instance has no captcha set up (the form cannot be sent), and of a field zone's call-out while the site has no field-action type enabled (nothing can be added) |
+| `--fmdb-zone-actions-error-bg` | `#fef2f2` | Background of the captcha line while the instance has no captcha set up (the form cannot be sent), and of the call-out of a field zone or of the checks zone while the site has no type of that list enabled (nothing can be added) |
 | `--fmdb-zone-actions-error-border` | `#dc2626` | Border colour of that line, left border of that call-out |
 | `--fmdb-zone-actions-error-color` | `#991b1b` | Text colour of both |
 | `--fmdb-zone-field-actions-margin` | `0.5rem 0 0 1.25rem` | Margin of a field's zone, inset under the field |

@@ -165,7 +165,7 @@ Its structure, for the rare rule that must reach inside it — the
 | `fmdb-authoring-deferred-actions` | The last zone of a form that holds its uploads in quarantine, the **Actions after release** list, next to `fmdb-authoring-actions` on the same `aside`; it sits under the checks zone |
 | `fmdb-authoring-actions-header`, `fmdb-authoring-actions-title`, `fmdb-authoring-actions-hint` | The header row: the title (list icon and count) and the hint on the right |
 | `fmdb-authoring-actions-glyph` | The list's type icon in the title, and the triangle of the warning |
-| `fmdb-authoring-actions-empty` | The "no action" warning — and, with `fmdb-authoring-actions-unavailable`, the field zone's "no type" call-out |
+| `fmdb-authoring-actions-empty` | The "no action" warning — and, with `fmdb-authoring-actions-unavailable`, the "no type" call-out of a field zone or of the checks zone |
 | `fmdb-authoring-actions-list`, `fmdb-authoring-actions-item` | The ordered list of cards and each of its items |
 | `fmdb-authoring-action` | One action card; carries `data-fmdb-action-type` with the action's node type |
 | `fmdb-authoring-action-icon`, `fmdb-authoring-action-body` | The type icon and the text column beside it |
@@ -188,7 +188,7 @@ of it exists in live, preview or the `cm` view. See [Field actions](../architect
 | Class | Element |
 |---|---|
 | `fmdb-authoring-field-actions` | The field's zone, next to `fmdb-authoring-actions` on the same `aside` — the hook that tells the two zones apart |
-| `fmdb-authoring-actions-unavailable` | Added to the call-out (`fmdb-authoring-actions-empty`) drawn in the create button's place when no field-action type is enabled on the site, with `data-fmdb-authoring-state="no-type"`; coloured by `--fmdb-zone-actions-error-*` |
+| `fmdb-authoring-actions-unavailable` | Added to the call-out (`fmdb-authoring-actions-empty`) drawn in the create button's place when no type of the list (a field-action type, or a check type) is enabled on the site, with `data-fmdb-authoring-state="no-type"`; coloured by `--fmdb-zone-actions-error-*` |
 
 ## Hidden field (edit mode)
 
