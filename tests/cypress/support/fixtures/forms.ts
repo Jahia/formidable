@@ -4,6 +4,7 @@ import {JContent} from '@jahia/jcontent-cypress/dist/page-object/jcontent';
 import {FORMIDABLE_TEST_SITE} from "./site";
 import {Form, FORM_HYDRATION_TIMEOUT_MS, isFormHydrated} from '../../page-object';
 import {JahiaNode, NodeProperty} from './types';
+import {getSampleCheckNode} from './quarantine';
 
 interface CreateFormNodeOptions {
 	actions?: JahiaNode[];
@@ -19,7 +20,8 @@ interface CreateFormNodeOptions {
 	/**
 	 * The nodes of the "Checks" list of a form, which turns the switch on (fmdbmix:quarantine) as deferredActions does:
 	 * each a type that carries fmdbmix:qualifier, such as the samples' fmdbsample:sampleCheck or the stub checks of the
-	 * quarantine test module.
+	 * quarantine test module. A form with the switch on and no list given gets one sample check, so the sample hold
+	 * claims it (getSampleCheckNode); an empty array gives an empty list.
 	 */
 	qualifiers?: JahiaNode[];
 	mixins?: string[];
@@ -121,18 +123,20 @@ export const createFormNode = (
 	formElements: JahiaNode[] = [],
 	options: CreateFormNodeOptions = {}
 ) => {
+	// the sample hold claims only a form whose list holds a sample check; any other form goes to formidable-quarantine
+	const qualifiers = options.qualifiers ?? (options.deferredActions ? [getSampleCheckNode()] : undefined);
 	return addNode({
 		parentPathOrId: options.parentPath ?? CONTENT_PATH,
 		name: formName,
 		primaryNodeType: 'fmdb:form',
 		// either list of the switch turns it on: without the mixin, fmdb:form accepts neither child
-		mixins: [...(options.mixins || []), ...(options.deferredActions || options.qualifiers ? ['fmdbmix:quarantine'] : [])],
+		mixins: [...(options.mixins || []), ...(options.deferredActions || qualifiers ? ['fmdbmix:quarantine'] : [])],
 		properties: [
 			{name: 'jcr:title', value: formTitle, language: 'en'},
 			...(options.properties || [])
 		],
 		children: buildFormChildren(formElements, options.actions, options.fieldListProperties, options.actionListProperties,
-			options.deferredActions, options.qualifiers)
+			options.deferredActions, qualifiers)
 	});
 };
 
