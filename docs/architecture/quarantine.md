@@ -102,8 +102,11 @@ repository to decide whether it owns a form. The check services that are registe
   the time of the run, because the run never skips a check type.
 - A check module that redeploys changes the owner of no form. Its submissions stay held, and a manager retries them
   once the check service is back.
-- A hold that wants some forms ranks above 100, such as the sample hold of `formidable-test-module-samples-java`
-  or a broker outside Jahia. It claims a form by the check types of its list, and hands any other form to the next hold.
+- A hold that wants some forms ranks above 100, such as a broker outside Jahia. It claims a form by the check
+  types of its list, and hands any other form to the next hold.
+- The sample hold of `formidable-test-module-samples-java` declares no ranking today, so it ranks 0. With this
+  module on a site, it must rank above 100 and claim only the forms whose list holds `fmdbsample:sampleCheck`.
+  Otherwise its specs lose their forms to this hold.
 
 ## Runtime
 

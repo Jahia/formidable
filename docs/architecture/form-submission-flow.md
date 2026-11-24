@@ -178,7 +178,7 @@ Step 12 reads the switch once, before it runs the first action, and then decides
 The engine ships no hold. An extension module registers a `SubmissionHold` OSGi service, and the engine binds the
 one with the highest service ranking.
 [ADR 0003](../adr/0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md) decides that Jahia ships one such
-module, `formidable-quarantine`, which [Quarantine of the uploads](quarantine.md) designs. The service receives a `HeldSubmission`: the identifier of the form, the key
+module. That module is `formidable-quarantine`, which [Quarantine of the uploads](quarantine.md) designs. The service receives a `HeldSubmission`: the identifier of the form, the key
 of its site, the locale, the public values, the sensitive values, the uploads, and the `SubmissionOrigin`.
 
 - `hold` stores the submission and returns. The request waits for the call, so no check runs in it.
