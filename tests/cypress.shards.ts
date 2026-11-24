@@ -1,9 +1,9 @@
 import {defineConfig} from 'cypress'
 import base from './cypress.config'
 
-// The PR workflow (on-code-change.yml) splits the suite over three runners, one config file each,
-// passed as tests_profile. The first two shards name their folders of cypress/e2e/; the last one
-// runs everything else, so a new folder always runs somewhere.
+// on-code-change.yml, on-merge.yml and manual-run.yml split the suite over three runners, one
+// config file each, passed as tests_profile. The first two shards name their folders of
+// cypress/e2e/; the last one runs everything else, so a new folder always runs somewhere.
 const SHARDS = {
 	fields: ['fields', 'migrations'],
 	validation: ['validation', 'security'],

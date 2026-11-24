@@ -15,7 +15,14 @@ on:
         default: "provisioning-manifest-snapshot.yml"
 
 jobs:
+  # The suite runs on three runners, one Jahia each: the shards are the config files of tests/cypress.shards.ts.
+  # Each shard keeps its own artifact prefix and report name, or the three would overwrite one another.
   integration-tests:
+    name: Integration Tests (${{ matrix.shard }})
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [ fields, validation, rest ]
     uses: Jahia/jahia-modules-action/.github/workflows/reusable-integration-tests.yml@v2
     secrets: inherit
     with:
@@ -25,4 +32,6 @@ jobs:
       module_branch: ${{ github.ref }}
       pagerduty_skip_notification: true
       provisioning_manifest: ${{ github.event.inputs.manifest }}
-      artifact_prefix: fmb
+      tests_profile: cypress.shard-${{ matrix.shard }}.config.ts
+      artifact_prefix: fmb-${{ matrix.shard }}
+      test_report_name: Tests Report (${{ matrix.shard }})
