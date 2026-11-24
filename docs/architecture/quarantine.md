@@ -185,7 +185,8 @@ stateDiagram-v2
 The events `RELEASE_VALUES` and `MANAGER_RELEASE_VALUES` serve a form with `onFail=releaseValues`:
 
 - `RELEASE_VALUES` follows a `FAIL` verdict, and `MANAGER_RELEASE_VALUES` follows a reject by a manager.
-- Both events lead to `releasing` with the values alone. The run never releases a file after them.
+- Both events delete the bytes of every file before they lead to `releasing` with the values alone. A later
+  event, such as a release by a manager after a failed action, then has no file to release.
 - The submission ends in `completed`, and its decision record keeps the failed verdict or the reject of the
   manager. The audit never states that every check passed.
 
@@ -264,9 +265,9 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
   path.
 - The scan status is a value that the run adds to the values of the actions after release, and not a field of the
   form. The engine skips a posted value whose name is not a field of the form
-  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). The policy refuses a name of the scan
-  status that is the name of a field of the form. So the visitor cannot set the scan status, and no action on
-  submission receives one.
+  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). Each time the form is published, the module
+  checks that no field of the form has the name of the scan status. It refuses the publication otherwise. At
+  release, the run writes the scan status over any value of that name. So the visitor cannot set the scan status.
 - `showValues` shows the public values of a held submission in the detail view. The sensitive values never appear.
 
 ## Deployment
