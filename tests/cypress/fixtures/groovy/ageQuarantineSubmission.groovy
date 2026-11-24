@@ -7,7 +7,7 @@ def path = "__PATH__"
 def days = Integer.parseInt("__DAYS__")
 def session = JCRSessionFactory.getInstance().getCurrentSystemSession("live", null, null)
 def held = session.getNode(path)
-if (!held.isNodeType("fmdbquar:heldSubmission")) {
+if (!held.isNodeType("fmdbq:heldSubmission")) {
     throw new IllegalStateException("${path} is no held submission")
 }
 def changedAt = Calendar.getInstance(TimeZone.getTimeZone("UTC"))

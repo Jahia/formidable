@@ -256,7 +256,7 @@ export const readQuarantineRunSettings = (): Cypress.Chainable<QuarantineRunSett
  */
 export const setQuarantineRunSettings = (settings: Partial<QuarantineRunSettings>): Cypress.Chainable => {
 	const properties = Object.fromEntries(Object.entries(settings).map(([key, value]) => [key, String(value)]));
-	editConfiguration('org.jahia.test.modules.formidable.quarantine.run', properties);
+	editConfiguration('org.jahia.modules.formidable.quarantine.run', properties);
 	return cy.waitUntil(() => readQuarantineRunSettings().then(current =>
 		Object.entries(settings).every(([key, value]) => current[key as keyof QuarantineRunSettings] === value)),
 	{timeout: 30000, interval: 500, errorMsg: 'The run of the quarantine test module did not read its new settings'});
