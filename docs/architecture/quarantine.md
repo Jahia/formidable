@@ -11,7 +11,7 @@ The design rests on two decisions:
 - [ADR 0003](../adr/0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md): Jahia ships that hold as an
   optional module, and a customer writes only a check.
 
-The repository does not hold the module yet, so this document is its design. Its code comes from the hold of the
+The repository does not hold the module yet. Its code comes from the hold of the
 test module `formidable-test-module-quarantine`. Once the module holds that code, the test module keeps no hold and
 writes no quarantine tree. It keeps only its stub checks and its test endpoints.
 
@@ -88,7 +88,7 @@ implements the types marked `@ConsumerType`. The build compares the exported pac
 
 ## Ownership of a form
 
-The engine binds the hold with the highest service ranking. The hold of this module ranks 100. It reads only the
+The hold of this module ranks 100 ([The hold service](form-submission-flow.md#the-hold-service)). It reads only the
 repository to decide whether it owns a form. The check services that are registered at that moment play no part:
 
 | The form | The hold of the module |
@@ -109,8 +109,7 @@ repository to decide whether it owns a form. The check services that are registe
 
 ### Intake
 
-The request of the visitor waits for the hold, so the hold only writes. It stores the public values, the sensitive
-values, each file and the SHA-256 of each file, then returns. No check runs on the request thread.
+The hold stores the public values, the sensitive values, each file and the SHA-256 of each file, then returns.
 
 ### The scheduled run
 
@@ -247,8 +246,7 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 | Site | A property of the site | A lower `fileAccess`, the retention of the site, and the addresses of the review digest. |
 | Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
 
-- `onFail=reject` rejects the submission. The store deletes its values and its bytes, and keeps its record and its
-  audit until the retention.
+- `onFail=reject` rejects the submission ([The scheduled run](#the-scheduled-run) states what the store keeps).
 - `onFail=releaseValues` runs the actions after release with the values alone, with no file, and adds the scan
   status to the values. [The states of a held submission](#the-states-of-a-held-submission) give the two events of this
   path.
