@@ -182,9 +182,9 @@ module. That module is `formidable-quarantine`, which [Quarantine of the uploads
 of its site, the locale, the public values, the sensitive values, the uploads, and the `SubmissionOrigin`.
 
 - `hold` stores the submission and returns. The request waits for the call, so no check runs in it.
-- The hold keeps the bytes where no reader, no parser and no action reaches them until every check passed them.
-  The engine cannot enforce that duty. One exception is the choice of the hold: it can let a reviewer with an
-  explicit permission download a file under review
+- The hold keeps the bytes where no reader, no parser and no action reaches them until every check passed them,
+  or until a manager with an explicit permission releases them. The engine cannot enforce that duty.
+- A hold can also let a reviewer with an explicit permission download a file under review
   ([File access by a reviewer](quarantine.md#file-access-by-a-reviewer)).
 - The sensitive values wait with the others, because the actions that consume them run after release. The hold
   returns them through no read API, and deletes them when the submission is released or rejected.

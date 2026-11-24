@@ -74,7 +74,10 @@ A check module provides both, and nothing else:
 - The service registers under the check API and names the node type it serves.
 - A check receives the metadata of the file, a stream of its bytes and its settings. It never receives a node of
   the repository.
-- A check answers with a verdict (`PASS`, `FAIL` or `INCONCLUSIVE`), or with a ticket that the run polls later.
+- A check gives one of three answers:
+  - a verdict, `PASS`, `FAIL` or `INCONCLUSIVE`;
+  - a ticket that the run polls later;
+  - a failure, retryable or not, when the check could not answer. Its setting `onUnavailable` then decides.
 - A check declares its scope:
   - A `METADATA` check reads the name, the declared MIME type and the size of the file, and never a byte.
   - A `REMOTE` check sends the bytes out of the JVM.
