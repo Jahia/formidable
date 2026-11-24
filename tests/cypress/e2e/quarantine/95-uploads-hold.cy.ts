@@ -1,12 +1,16 @@
+import {disableModule, enableModule} from '@jahia/cypress';
 import {CONTENT_PATH} from '../../support/constants';
 import {
+	FORMIDABLE_TEST_SITE,
 	FORWARD_SINK_TARGET_ID,
 	createPublishedLiveFormPage,
 	getForwardActionNode,
 	getLatestLiveFormSubmission,
 	getLatestLiveSubmissionValues,
 	getSaveToJcrActionNode,
-	getUploadObserverActionNode
+	getUploadObserverActionNode,
+	visitEditForm,
+	visitLiveForm
 } from '../../support/fixtures';
 import {SAME_ORIGIN, postDirectMultipartSubmission, withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
@@ -25,6 +29,10 @@ import {
 	submissionWithAFile,
 	submissionWithNoFile
 } from './support';
+
+const SAMPLES_MODULE = 'formidable-test-module-samples-java';
+/** The samples' check type: the one type of the repository that the "Quarantine checks" list accepts. */
+const SAMPLE_CHECK = 'fmdbsample:sampleCheck';
 
 /** The body of a GraphQL answer: the data of the query, or the errors that refused it. */
 interface GraphqlBody {
@@ -92,6 +100,8 @@ describe('Quarantine - 95 A form with the switch on holds its uploads until rele
 	});
 
 	after(() => {
+		// the checks zone test disables the samples module on the site: enabled again even when it failed
+		enableModule(SAMPLES_MODULE, FORMIDABLE_TEST_SITE.key);
 		setUploadsRequireQuarantine(false);
 		setDevelopmentForwardTargets(false);
 		setForwardTargets([]);
@@ -226,6 +236,74 @@ describe('Quarantine - 95 A form with the switch on holds its uploads until rele
 			{name: 'fmdbmix:quarantine', dynamic: true, activated: false, displayName: 'Hold uploads in quarantine'});
 		editorSwitch(`${CONTENT_PATH}/switch-on-form`).should('deep.equal',
 			{name: 'fmdbmix:quarantine', dynamic: true, activated: true, displayName: 'Hold uploads in quarantine'});
+	});
+
+	it('the Page Builder shows the checks between the two action zones, with their create button', () => {
+		createPublishedLiveFormPage('checks-zone-form', 'Checks zone form', fields(), undefined, undefined, {
+			deferredActions: [],
+			qualifiers: [{name: 'virusScan', primaryNodeType: SAMPLE_CHECK, properties: [{name: 'jcr:title', value: 'Virus scan', language: 'en'}]}]
+		}).then(({pagePath, livePath, formPath}) => {
+			visitEditForm(pagePath);
+			// the order in which the lists run: on submission, the checks, after release
+			cy.get('.fmdb-authoring-actions').should('have.length', 3).then($zones => {
+				expect($zones.eq(1).hasClass('fmdb-authoring-checks'), 'second zone: the checks').to.equal(true);
+				expect($zones.eq(2).hasClass('fmdb-authoring-deferred-actions'), 'third zone: after release').to.equal(true);
+			});
+			cy.get('.fmdb-authoring-checks').within(() => {
+				cy.get('.fmdb-authoring-action').should('have.length', 1)
+					.should('have.attr', 'data-fmdb-action-type', SAMPLE_CHECK)
+					.find('.fmdb-authoring-action-title').should('have.text', 'Virus scan');
+				cy.get('.fmdb-authoring-actions-empty').should('not.exist');
+			});
+			// the list's own module declares the accepted type, which jContent turns into its create button
+			cy.get('[jahiatype="module"][path$="/qualifiers"]')
+				.should('have.length', 1)
+				.should('have.attr', 'nodetypes', 'fmdbmix:qualifier')
+				.find('[jahiatype="module"][type="placeholder"]')
+				.should('have.length', 1);
+
+			// the views guard themselves: asked for directly in live or in preview, as fragments, they render nothing
+			[
+				{mode: 'live', base: '/cms/render/live/en'},
+				{mode: 'preview', base: '/cms/preview/default/en'}
+			].forEach(({mode, base}) => {
+				[`${formPath}/qualifiers`, `${formPath}/qualifiers/virusScan`].forEach(path => {
+					cy.request(`${base}${path}.hidden.authoring.html.ajax`).then(response => {
+						expect(response.status, `${mode} render of ${path}`).to.equal(200);
+						expect(response.body, `${mode} body of ${path}`).not.to.contain('fmdb-authoring-action');
+					});
+				});
+			});
+
+			visitLiveForm(livePath);
+			cy.get('.fmdb-authoring-checks').should('not.exist');
+
+			// a site where no module provides a check type: a call-out in place of a button that would open on nothing
+			disableModule(SAMPLES_MODULE, FORMIDABLE_TEST_SITE.key);
+			visitEditForm(pagePath);
+			cy.get('.fmdb-authoring-checks').within(() => {
+				cy.get('.fmdb-authoring-actions-unavailable').should('be.visible')
+					.and('have.attr', 'data-fmdb-authoring-state', 'no-type');
+				cy.get('[jahiatype="module"][type="placeholder"]').should('not.exist');
+			});
+			enableModule(SAMPLES_MODULE, FORMIDABLE_TEST_SITE.key);
+		});
+
+		// the create buttons are named after these labels: without one, jContent shows the bare mixin name
+		graphql(
+			'{ jcr { nodeTypes(filter: {includeTypes: ["fmdbmix:qualifier", "fmdbmix:deferrableAction"]}) { nodes { name displayName(language: "en") } } } }',
+			{}
+		).then(response => {
+			expect(response.body.errors, 'errors of the query').to.equal(undefined);
+			// the filter answers the subtypes too (each action and check type): keep the two mixins
+			const labels = Object.fromEntries((response.body.data.jcr.nodeTypes.nodes as Array<{name: string; displayName: string}>)
+				.filter(type => type.name.startsWith('fmdbmix:'))
+				.map(type => [type.name, type.displayName]));
+			expect(labels, 'labels of the two mixins').to.deep.equal({
+				'fmdbmix:qualifier': 'Quarantine check',
+				'fmdbmix:deferrableAction': 'Action after release'
+			});
+		});
 	});
 
 	it('Q26: a type that is not deferrable stays out of the actions after release', () => {

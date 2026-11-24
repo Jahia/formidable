@@ -115,6 +115,7 @@ jahiaComponent(
 		const actionListNode = childNodeOrNull(currentNode, "actions");
 		// present while the switch "Hold uploads in quarantine" of the form is on (fmdbmix:quarantine)
 		const deferredActionListNode = childNodeOrNull(currentNode, "deferredActions");
+		const qualifierListNode = childNodeOrNull(currentNode, "qualifiers");
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		// The form's UUID is its one identity: the DOM id and name, what a visitor-profile integration calls the form
 		// (goals, mapping rules, the submission event) and the value of its data-form-id opt-out.
@@ -282,8 +283,13 @@ jahiaComponent(
 				{isEditMode && actionListNode && (
 					<Render node={actionListNode} view="hidden.authoring"/>
 				)}
+				{/* The checks of a form that holds its uploads, between the two action zones: they run
+				    after the actions on submission and before the actions after release. */}
+				{isEditMode && qualifierListNode && (
+					<Render node={qualifierListNode} view="hidden.authoring"/>
+				)}
 				{/* The actions that receive the released files of a form that holds its uploads:
-				    a second zone, after the first, in the order the two lists run. */}
+				    the last zone, in the order the lists run. */}
 				{isEditMode && deferredActionListNode && (
 					<Render node={deferredActionListNode} view="hidden.authoring"/>
 				)}
