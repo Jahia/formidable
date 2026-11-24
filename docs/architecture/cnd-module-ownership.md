@@ -10,6 +10,10 @@ The goal is to keep the model readable, extensible, and aligned with runtime dep
 
 - `formidable-elements` owns the form rendering model and editor-facing content structure
 - `formidable-engine` owns the server-side contracts that the engine interprets at runtime
+- A check module owns its check type, which declares the engine's `fmdbmix:qualifier`. Today the quarantine test
+  module declares the quarantine tree and its stub checks under `fmdbquar`. Once the module `formidable-quarantine`
+  exists, it owns the tree and its form policy under `fmdbq` and `fmdbqmix`. The test module then keeps `fmdbquar`
+  for its stub checks only ([Quarantine of the uploads](quarantine.md))
 
 This document says why the split and gives examples; the complete list, mixin by mixin, is the
 [Mixin catalogue](mixin-catalogue.md).

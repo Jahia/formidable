@@ -7,8 +7,8 @@ release receive the released files.
 Decision: [ADR 0002](../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-This document holds the scenarios that a spec covers. The plan of the test
-module dropped two scenarios, Q17 and Q19:
+This document holds the scenarios that a spec covers. Two scenarios, Q17 and
+Q19, wait for a spec of the module `formidable-quarantine`:
 [`todo/quarantine.md`](./todo/quarantine.md) says why. A scenario keeps its
 identifier wherever it moves, so the identifiers of this document are not in
 order.

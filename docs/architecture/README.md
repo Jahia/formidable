@@ -5,6 +5,7 @@ For the maintainer: how the modules work, and why they are built this way.
 ## How it works
 
 - [Form submission flow](form-submission-flow.md) — the request lifecycle, the twelve-step pipeline (plus the field actions' step 11b), the trust model and the server-side safeguards
+- [Quarantine of the uploads](quarantine.md) — the optional module `formidable-quarantine`: the hold, the check API a customer implements, the ownership of a form, the scheduled run and its states, the manager screen, the permissions per site and the file access of a reviewer
 - [Save to JCR](save-to-jcr.md) — how submissions and uploaded files are stored, the results tree, personal data
 - [Export](export.md) — the multi-format export of the results (CSV, JSON) and how to add a format
 - [Content Editor layout](content-editor-layout.md) — what a field's editor shows where: Content for the essentials, the Field settings section for everything else; the section ranks, the jContent merge rules the form overrides rely on, the CI check that keeps every property placed
