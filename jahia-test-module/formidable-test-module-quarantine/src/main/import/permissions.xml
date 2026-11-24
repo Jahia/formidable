@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The permission of a manager of the quarantine of a form: retry, release, resume or reject a held submission.
+     The role fmdbquar-quarantine-manager grants it (created at activation, see ManagerRoleInitializer). The operations
+     check it on the live form. Test module: never deploy it in production. -->
+<permissions xmlns:jcr="http://www.jcp.org/jcr/1.0">
+    <fmdbquarManageQuarantine jcr:primaryType="jnt:permission"/>
+</permissions>

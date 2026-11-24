@@ -49,6 +49,10 @@ export const QUARANTINE_INSPECTION_PATH = '/modules/formidable-quarantine/inspec
 export const QUARANTINE_RUN_PATH = '/modules/formidable-quarantine/run'
 /** The quarantine test module's control of its stub checks: their call log and their outage. Server administrators only. */
 export const QUARANTINE_STUB_PATH = '/modules/formidable-quarantine/stub'
+/** The quarantine test module's operations of a manager: retry, release, resume, reject. Managers of the form only. */
+export const QUARANTINE_OPERATIONS_PATH = '/modules/formidable-quarantine/operations'
+/** The quarantine test module's retention: purges the old rejected held submissions. Server administrators only. */
+export const QUARANTINE_RETENTION_PATH = '/modules/formidable-quarantine/retention'
 export const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State'
 
 /**

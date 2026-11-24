@@ -1,6 +1,7 @@
 package org.jahia.test.modules.formidable.quarantine.store;
 
 import org.jahia.services.content.JCRCallback;
+import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
@@ -9,9 +10,15 @@ import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -103,6 +110,102 @@ class JcrCheckStoreTest {
 
         verify(other, never()).addNode(anyString(), anyString());
         verify(session, never()).save();
+    }
+
+    private static JCRNodeIteratorWrapper children(JCRNodeWrapper... nodes) {
+        JCRNodeIteratorWrapper iterator = mock(JCRNodeIteratorWrapper.class);
+        when(iterator.iterator()).thenReturn(List.of(nodes).iterator());
+        return iterator;
+    }
+
+    private static JCRNodeWrapper outcome(String value) throws RepositoryException {
+        JCRNodeWrapper outcome = mock(JCRNodeWrapper.class);
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(outcome.isNodeType(JcrCheckStore.OUTCOME_TYPE)).thenReturn(true);
+        when(outcome.hasProperty(JcrCheckStore.OUTCOME)).thenReturn(true);
+        when(outcome.getProperty(JcrCheckStore.OUTCOME)).thenReturn(property);
+        when(property.getString()).thenReturn(value);
+        return outcome;
+    }
+
+    @Test
+    void aRetryKeepsThePassOutcomesAloneAndRemovesTheOthersAfterTheWalk() throws Exception {
+        JCRNodeWrapper pass = outcome(OutcomeRecord.PASS);
+        JCRNodeWrapper failed = outcome(OutcomeRecord.FAILED);
+        JCRNodeWrapper inconclusive = outcome(OutcomeRecord.INCONCLUSIVE);
+        JCRNodeWrapper item = mock(JCRNodeWrapper.class);
+        when(item.isNodeType(JcrCheckStore.ITEM_OUTCOMES_TYPE)).thenReturn(true);
+        JCRNodeIteratorWrapper outcomes = children(pass, failed, inconclusive);
+        when(item.getNodes()).thenReturn(outcomes);
+        JCRNodeWrapper decision = mock(JCRNodeWrapper.class);
+        JCRNodeIteratorWrapper items = children(item, decision);
+        when(checks.getNodes()).thenReturn(items);
+
+        store.keepPassedOutcomesOnly(HELD_PATH);
+
+        verify(pass, never()).remove();
+        verify(failed).remove();
+        verify(inconclusive).remove();
+        verify(decision, never()).remove();
+        verify(session).save();
+    }
+
+    @Test
+    void anAuditRecordTakesTheFirstFreeNameAndNamesNoValue() throws Exception {
+        JCRNodeWrapper audit = mock(JCRNodeWrapper.class);
+        JCRNodeWrapper entry = mock(JCRNodeWrapper.class);
+        when(held.hasNode(QuarantineTree.AUDIT)).thenReturn(true);
+        when(held.getNode(QuarantineTree.AUDIT)).thenReturn(audit);
+        when(audit.hasNode("record1")).thenReturn(true);
+        when(audit.hasNode("record2")).thenReturn(true);
+        when(audit.addNode("record3", JcrCheckStore.AUDIT_TYPE)).thenReturn(entry);
+
+        store.writeAudit(HELD_PATH, new AuditRecord(AuditRecord.RUN, null, "checking", "needsReview", AT));
+
+        verify(entry).setProperty(JcrCheckStore.OPERATION, AuditRecord.RUN);
+        verify(entry).setProperty(JcrCheckStore.FROM_STATE, "checking");
+        verify(entry).setProperty(JcrCheckStore.TO_STATE, "needsReview");
+        verify(entry, never()).setProperty(eq(JcrCheckStore.USER_NAME), anyString());
+        verify(session).save();
+    }
+
+    private static JCRPropertyWrapper property(JCRNodeWrapper node, String name) throws RepositoryException {
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(node.hasProperty(name)).thenReturn(true);
+        when(node.getProperty(name)).thenReturn(property);
+        return property;
+    }
+
+    @Test
+    void theAuditIsReadInOrderAndSkipsANodeOfAnotherType() throws Exception {
+        JCRNodeWrapper first = mock(JCRNodeWrapper.class);
+        when(first.isNodeType(JcrCheckStore.AUDIT_TYPE)).thenReturn(true);
+        when(property(first, JcrCheckStore.OPERATION).getString()).thenReturn("retry");
+        when(property(first, JcrCheckStore.USER_NAME).getString()).thenReturn("quarManager");
+        when(property(first, JcrCheckStore.FROM_STATE).getString()).thenReturn("needsReview");
+        when(property(first, JcrCheckStore.TO_STATE).getString()).thenReturn("checking");
+        Calendar at = GregorianCalendar.from(AT.atZone(ZoneOffset.UTC));
+        when(property(first, JcrCheckStore.AT).getDate()).thenReturn(at);
+        JCRNodeWrapper second = mock(JCRNodeWrapper.class);
+        when(second.isNodeType(JcrCheckStore.AUDIT_TYPE)).thenReturn(true);
+        when(property(second, JcrCheckStore.OPERATION).getString()).thenReturn(AuditRecord.RUN);
+        when(property(second, JcrCheckStore.FROM_STATE).getString()).thenReturn("checking");
+        when(property(second, JcrCheckStore.TO_STATE).getString()).thenReturn("completed");
+        when(property(second, JcrCheckStore.AT).getDate()).thenReturn(at);
+        JCRNodeWrapper other = mock(JCRNodeWrapper.class);
+        JCRNodeWrapper audit = mock(JCRNodeWrapper.class);
+        JCRNodeIteratorWrapper records = children(first, other, second);
+        when(audit.getNodes()).thenReturn(records);
+        when(held.hasNode(QuarantineTree.AUDIT)).thenReturn(true);
+        when(held.getNode(QuarantineTree.AUDIT)).thenReturn(audit);
+
+        assertEquals(List.of(new AuditRecord("retry", "quarManager", "needsReview", "checking", AT),
+                new AuditRecord(AuditRecord.RUN, null, "checking", "completed", AT)), store.audit(HELD_PATH));
+    }
+
+    @Test
+    void aHeldSubmissionWithNoAuditHasAnEmptyAudit() throws Exception {
+        assertEquals(List.of(), store.audit(HELD_PATH));
     }
 
     @Test

@@ -28,6 +28,8 @@ import java.util.TimeZone;
  *   ├─ item0             fmdbquar:itemOutcomes
  *   │    └─ remoteCheck  fmdbquar:outcome    outcome, reason, retryable, at, ticket, attempts, sha256
  *   └─ decision          fmdbquar:decision   reason, itemName, checkName, sha256, failedAction, at
+ * audit                  fmdbquar:records
+ *   └─ record1, ...      fmdbquar:auditRecord  operation, userName, fromState, toState, at
  * </pre>
  */
 @Component(service = CheckStore.class, immediate = true)
@@ -48,6 +50,14 @@ public class JcrCheckStore implements CheckStore {
     static final String ITEM_NAME = "itemName";
     static final String CHECK_NAME = "checkName";
     static final String FAILED_ACTION = "failedAction";
+
+    static final String AUDIT_TYPE = "fmdbquar:auditRecord";
+    static final String AUDIT_PREFIX = "record";
+    // the properties of an audit record; at is shared with the outcome
+    static final String OPERATION = "operation";
+    static final String USER_NAME = "userName";
+    static final String FROM_STATE = "fromState";
+    static final String TO_STATE = "toState";
 
     /** Runs the callback in a system session of the live workspace. A unit test overrides it with a mocked session. */
     <T> T inLiveSystemSession(JCRCallback<T> callback) throws RepositoryException {
@@ -149,6 +159,75 @@ public class JcrCheckStore implements CheckStore {
             }
             node.setProperty(AT, calendar(decision.at()));
         });
+    }
+
+    @Override
+    public void keepPassedOutcomesOnly(String path) throws QuarantineStoreException {
+        change(path, "drop the outcomes that are not a PASS", held -> {
+            JCRNodeWrapper checks = checksOrNull(held);
+            if (checks == null) {
+                return;
+            }
+            List<JCRNodeWrapper> dropped = new ArrayList<>();
+            for (JCRNodeWrapper item : checks.getNodes()) {
+                if (item.isNodeType(ITEM_OUTCOMES_TYPE)) {
+                    collectUnpassed(item, dropped);
+                }
+            }
+            // removed once the walk ends: removing while iterating is undefined
+            for (JCRNodeWrapper outcome : dropped) {
+                outcome.remove();
+            }
+        });
+    }
+
+    private static void collectUnpassed(JCRNodeWrapper item, List<JCRNodeWrapper> dropped) throws RepositoryException {
+        for (JCRNodeWrapper check : item.getNodes()) {
+            if (check.isNodeType(OUTCOME_TYPE) && !OutcomeRecord.PASS.equals(string(check, OUTCOME))) {
+                dropped.add(check);
+            }
+        }
+    }
+
+    @Override
+    public List<AuditRecord> audit(String path) throws QuarantineStoreException {
+        return inSession("read the audit of the held submission at " + path, session -> {
+            JCRNodeWrapper held = held(session, path);
+            List<AuditRecord> records = new ArrayList<>();
+            if (!held.hasNode(QuarantineTree.AUDIT)) {
+                return records;
+            }
+            for (JCRNodeWrapper node : held.getNode(QuarantineTree.AUDIT).getNodes()) {
+                if (node.isNodeType(AUDIT_TYPE)) {
+                    records.add(new AuditRecord(string(node, OPERATION), string(node, USER_NAME),
+                            string(node, FROM_STATE), string(node, TO_STATE), instant(node, AT)));
+                }
+            }
+            return records;
+        });
+    }
+
+    @Override
+    public void writeAudit(String path, AuditRecord audit) throws QuarantineStoreException {
+        change(path, "write the audit record of " + audit.operation(), held -> {
+            JCRNodeWrapper container = held.hasNode(QuarantineTree.AUDIT) ? held.getNode(QuarantineTree.AUDIT)
+                    : held.addNode(QuarantineTree.AUDIT, QuarantineTree.RECORDS_TYPE);
+            JCRNodeWrapper node = container.addNode(nextAuditName(container), AUDIT_TYPE);
+            node.setProperty(OPERATION, audit.operation());
+            setOrRemove(node, USER_NAME, audit.userName());
+            node.setProperty(FROM_STATE, audit.fromState());
+            node.setProperty(TO_STATE, audit.toState());
+            node.setProperty(AT, calendar(audit.at()));
+        });
+    }
+
+    /** {@code record1}, {@code record2}, and so on: the first name that no record holds. */
+    static String nextAuditName(JCRNodeWrapper container) throws RepositoryException {
+        int next = 1;
+        while (container.hasNode(AUDIT_PREFIX + next)) {
+            next++;
+        }
+        return AUDIT_PREFIX + next;
     }
 
     @Override

@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -647,5 +648,52 @@ class JcrQuarantineStoreTest {
                 () -> store.finish("/sites/" + SITE + "/held", HeldStates.NEEDS_REVIEW));
         verify(session, never()).getNode(anyString());
         verify(session, never()).save();
+    }
+
+    @Test
+    void aMoveOfTheStateWritesItsTimeAsTheLastChange() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+
+        store.setState(path, HeldStates.REJECTED);
+
+        verify(held).setProperty(QuarantineTree.STATE, HeldStates.REJECTED);
+        verify(held).setProperty(eq(QuarantineTree.CHANGED_AT),
+                argThat((Calendar at) -> at.toInstant().equals(NOW)));
+        verify(session).save();
+    }
+
+    @Test
+    void aFinalStateWritesItsTimeAsTheLastChangeInTheSameSave() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+        JCRNodeIteratorWrapper children = mock(JCRNodeIteratorWrapper.class);
+        when(children.iterator()).thenReturn(List.<JCRNodeWrapper>of().iterator());
+        when(held.getNodes()).thenReturn(children);
+
+        store.finish(path, HeldStates.REJECTED);
+
+        // the retention reads changedAt: a rejection by the run or by a manager starts its period
+        verify(held).setProperty(QuarantineTree.STATE, HeldStates.REJECTED);
+        verify(held).setProperty(eq(QuarantineTree.CHANGED_AT),
+                argThat((Calendar at) -> at.toInstant().equals(NOW)));
+        verify(session, times(1)).save();
+    }
+
+    @Test
+    void aPurgeRemovesTheWholeHeldSubmissionAndRefusesAnyOtherNode() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+        JCRNodeWrapper other = mock(JCRNodeWrapper.class);
+        String otherPath = "/sites/" + SITE + "/home";
+        when(session.nodeExists(otherPath)).thenReturn(true);
+        when(session.getNode(otherPath)).thenReturn(other);
+
+        store.purge(path);
+        assertThrows(QuarantineStoreException.class, () -> store.purge(otherPath));
+
+        verify(held).remove();
+        verify(other, never()).remove();
+        verify(session, times(1)).save();
     }
 }

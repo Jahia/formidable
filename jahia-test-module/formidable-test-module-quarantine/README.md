@@ -13,8 +13,9 @@ A reference hold for the tests of the quarantine contract of `formidable-engine`
 - The chain of the checks and the state machine, as pure classes.
 - The run of the checks over the due held submissions, started by a spec through "run now".
 - The release: the SHA-256 computed again, then the actions after release, with a checkpoint after each one.
-
-The operations by hand (retry, release, resume, reject), the audit and the retention come with the next part of the module.
+- The operations of a manager (retry, release, resume, reject), checked against a permission of the module.
+- The audit of each operation, and of each final decision of the run.
+- The retention of the rejected held submissions.
 
 ## Which forms the module owns
 
@@ -34,7 +35,7 @@ The store writes the tree in live, with a system session:
   └─ <formId>                                    fmdbquar:formQuarantine
        └─ YYYY/MM/DD                             fmdbquar:dateFolder (UTC date of intake)
             └─ held-<uuid>                       fmdbquar:heldSubmission
-                 - state, createdAt, attempts, nextAttempt, completedActions
+                 - state, createdAt, changedAt, attempts, nextAttempt, completedActions
                  - formId, siteKey, locale, originLanguage, originReferer, originTimeZone
                  - valueFields, sensitiveFields   the field names, in the order of the submission
                  ├─ values                       fmdbquar:values           the public values
@@ -45,15 +46,17 @@ The store writes the tree in live, with a system session:
                  │    ├─ item0                   fmdbquar:itemOutcomes
                  │    │    └─ <check>            fmdbquar:outcome          outcome, reason, retryable, at, ticket, attempts, sha256
                  │    └─ decision                fmdbquar:decision         reason, itemName, checkName, sha256, failedAction, at
-                 └─ audit                        fmdbquar:records          added by the operations
+                 └─ audit                        fmdbquar:records          added by the operations and the run
+                      └─ record1, record2, ...   fmdbquar:auditRecord      operation, userName, fromState, toState, at
 ```
 
 - The store creates the root on first use and cuts its ACL inheritance. It uses a node that already exists at `/sites/<site>/formidable-quarantine` only when the node is a `fmdbquar:quarantineRoot`, its `j:acl` has `j:inherit=false`, and its `j:acl` holds no access control entry. It uses a form folder or a date folder that already exists only when the folder is of the type of the store and has no `j:acl` of its own. Any other node refuses the hold: the message of the refusal names its path, the engine logs it, and the visitor gets FMDB-018. A node that someone else created there could give its readers the held values and bytes.
+- `changedAt` records the last change of the state; the retention reads it.
 - No node of the tree is a file. An item holds its bytes in its own binary property, never in `jcr:data` on a `jnt:resource`. No core listener, no `/files` servlet and no text extraction reads it.
 - The SHA-256 of a file is computed once at intake, from the bytes read once from `SubmittedFile.data()`.
-- The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `finish` writes the final state, `completed` or `rejected`, and removes both nodes and the bytes of every item, in one save. A failure writes neither, so a final state never keeps its data: a release stays `releasing` and a rejection by the checks stays `checking`. The record stays: the state, the field names, and of each item its name, size and SHA-256.
+- The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `finish` writes the final state, `completed` or `rejected`, with its `changedAt`, and removes both nodes and the bytes of every item, in one save. A failure writes neither, so a final state never keeps its data: a release stays `releasing` and a rejection by the checks stays `checking`. The record stays: the state, the field names, and of each item its name, size and SHA-256.
 - An outcome records the SHA-256 of the bytes it was given for, never a byte. The run reads an outcome only for the bytes of that SHA-256.
-- `checks` and `audit` accept any `jnt:content`. A later part of the module adds its own record types there with no change to the types above, so a lab that runs this version takes the next one without a refused CND change.
+- `checks` and `audit` accept any `jnt:content`: the outcomes, the decision and the audit records (`fmdbquar:auditRecord`) live there, and a new record type needs no change to the types above, so a lab takes it without a refused CND change.
 
 ## The inspection
 
@@ -67,6 +70,7 @@ The store writes the tree in live, with a system session:
     "path": "/sites/.../held-<uuid>",
     "state": "held",
     "createdAt": "2026-11-19T18:30:00Z",
+    "changedAt": "2026-11-19T18:30:00Z",
     "attempts": 0,
     "nextAttempt": null,
     "completedActions": 0,
@@ -78,12 +82,14 @@ The store writes the tree in live, with a system session:
     "checks": [{"item": "item0", "check": "remoteCheck", "outcome": "PASS", "reason": "stub.marker",
                 "retryable": false, "ticketPresent": false, "attempts": 0, "sha256": "<hex>",
                 "at": "2026-11-19T18:31:00Z"}],
-    "decision": null
+    "decision": null,
+    "audit": [{"operation": "run", "user": null, "from": "checking", "to": "needsReview",
+               "at": "2026-11-19T18:31:00Z"}]
   }]
 }
 ```
 
-`checks` holds the last outcome of each check for each item: `PASS`, `FAIL`, `INCONCLUSIVE`, `PENDING` or `FAILED`. It never answers the ticket of a pending outcome. `decision` says why the run stopped the submission, or is `null`: `{"reason", "item", "check", "sha256", "failedAction", "at"}`.
+`checks` holds the last outcome of each check for each item: `PASS`, `FAIL`, `INCONCLUSIVE`, `PENDING` or `FAILED`. It never answers the ticket of a pending outcome. `decision` says why the run stopped the submission, or is `null`: `{"reason", "item", "check", "sha256", "failedAction", "at"}`. `audit` holds the audit records, oldest first: see "The audit" below.
 
 It answers server administrators alone: `root` and the members of the server group `administrators`. Any other caller, a site administrator included, gets 403. It never answers a value, a sensitive value or a byte.
 
@@ -126,9 +132,44 @@ Every move of the state goes through the state machine. Each submission is read 
 
 A release that stops half way, on a failure of the store, an error of an action or a stop of the JVM, leaves the submission in `releasing`. The run never takes it. A manager resumes it, from `completedActions`, so no action runs twice, or rejects it: the state machine lets resume and reject leave `releasing` as they leave `needsReview`.
 
+## The permission of a manager
+
+A manager of the quarantine of a form holds the permission `fmdbquarManageQuarantine` on the form. The module declares the permission in `src/main/import/permissions.xml`, and creates the role `fmdbquar-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`). The engine creates its role `fmdb-results-reader` the same way. An administrator grants the role to a user or a group on the form, then publishes the form. The operations check the permission on the live form, in a session of the user of the request, so the ACL of the form decides.
+
+A server administrator (`root`, or a member of the server group `administrators`) is a manager of every form. No other role gives the permission: a results reader, an editor or a site administrator of the site is not a manager.
+
+We chose the simplest model that a Jahia module ships and that a spec grants with `grantRoles`. A permission of the module, and not the role alone, lets the check use `hasPermission` on the form.
+
+## The operations
+
+An operation runs on a held submission in state `needsReview`, and a resume or a reject also on a release that stopped half way in `releasing`. It checks, in this order, that a held submission is at the path, that the user is a manager of its form, and that the state and the decision allow the operation. A refused operation changes nothing. An operation takes the lock of the run: it never runs while the run checks or releases submissions, so a submission in `releasing` is a release that stopped, not one under way.
+
+| Operation | Allowed when | What it does |
+|---|---|---|
+| `retry` | `needsReview` | Sets the attempts to 0, removes every outcome that is not a `PASS` (with its count of failures), and moves to `checking`. The next run calls those checks again |
+| `release` | `needsReview`, and the decision is neither `ACTION_FAILED` nor `FORM_GONE` | Moves to `releasing`, then runs the release: the SHA-256 is computed again, then the actions after release run. The state is `completed`, or `needsReview` again |
+| `resume` | `needsReview`, and the decision is `ACTION_FAILED`; or `releasing` | The same, from the index `completedActions`: the actions that ran do not run again |
+| `reject` | `needsReview` or `releasing` | Moves to `rejected`, and deletes the values, the sensitive values and the bytes, in one save. The outcomes and the decision stay. If the save fails, the state and the data stay, and the manager rejects again |
+
+A release after a failed action is refused: a failed action takes a resume. The release starts at `completedActions` in any case, so this is a rule of the module, not of the release.
+
+A submission whose form is gone (`FORM_GONE`) cannot be released: its actions after release cannot run. The permission of a manager is checked on the form, so only a server administrator manages such a submission, and a reject ends it. Until then it keeps its data, because the retention purges `rejected` submissions only.
+
+An operation that ran answers its result even when its audit record cannot be written: the failure is logged. A log line of a failed operation names the class of an unexpected failure, never its message, which can quote a held value.
+
+## The audit
+
+Each operation that ran writes one audit record under `audit`: the operation, the name of the user, the state before and after, and the time. The run also writes one when it releases, rejects or sends a submission to review, with the operation `run` and no user. An operation or a run whose release stops half way writes one too, with the state reached, `releasing`, so the audit names who started the release that a manager then resumes or rejects. A submission that keeps checking gets none, so a run that waits for a back-off adds nothing. No audit record holds a value, a file name or a byte. A failure to write the audit record of the run is logged, and the run goes on: the state already moved.
+
+## The retention
+
+The retention purges each `rejected` held submission of a site whose last change (`changedAt`) is older than `retentionDays`: the whole node, with its items, its values, the outcomes, the decision and the audit. It keeps every other state. A `completed` submission holds no value and no byte any more, so the retention keeps its record. It has no scheduler: a spec starts it through its endpoint.
+
+The repository frees the bytes of a purged item only when the garbage collection of its datastore runs.
+
 ## The endpoints for the specs
 
-Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, the run and the stub control answer 403. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
+Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, every `POST` below answers 403, and nothing runs or changes. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
 
 | Endpoint | Answer |
 |---|---|
@@ -137,6 +178,13 @@ Each endpoint answers server administrators alone, as the inspection does: any o
 | `GET /modules/formidable-quarantine/stub/calls[?check=<name>]` | `{"outage", "calls": [{"nodeType", "checkName", "sha256", "kind"}]}`: the calls of the stubs, oldest first, all or those of one check node; `kind` is `SUBMIT` or `POLL` |
 | `POST /modules/formidable-quarantine/stub/calls/clear` | Forgets the calls |
 | `POST /modules/formidable-quarantine/stub/outage/lift`, `.../outage/set` | Lifts or sets the outage of the stubs. It is on when the module starts |
+| `POST /modules/formidable-quarantine/retention?site=<siteKey>[&olderThanDays=<n>]` | Purges the rejected held submissions of the site older than the limit. `olderThanDays` replaces `retentionDays` for this call. `{"site", "retentionDays", "purged": [<path>], "failed": [<path>]}` |
+
+The operations answer managers too, not server administrators alone:
+
+| Endpoint | Answer |
+|---|---|
+| `POST /modules/formidable-quarantine/operations?path=<held>&operation=<retry\|release\|resume\|reject>` | `{"path", "operation", "from", "state"}`: the state before and after the operation. 400 for a path that does not have the shape of a held submission, or an unknown operation; 403 for a user who does not manage the form (and for a path that names nothing, but to a server administrator, who gets 404); 409 when the state or the decision does not allow the operation |
 
 ## Configuration
 
@@ -148,6 +196,12 @@ Each endpoint answers server administrators alone, as the inspection does: any o
 | `backoffInitialSeconds` | `60` | The delay after the first attempt; it doubles at each attempt |
 | `backoffCapSeconds` | `3600` | The longest delay |
 | `maxAttempts` | `10` | The count after which the submission goes to `needsReview`: the retryable failures of a check on a file until it answers a result, or the passes in a row that bring no new `PASS` |
+
+`org.jahia.test.modules.formidable.quarantine.retention.cfg`, deployed the same way:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `retentionDays` | `30` | The number of days a rejected held submission is kept after its last change. A negative value falls back to 30 |
 
 A setting the back-off cannot use, such as a cap below the initial delay, falls back to the defaults with a warning. A spec that needs few attempts edits `maxAttempts` through the provisioning API (`editConfiguration`), then waits until `GET /modules/formidable-quarantine/run` answers the new value, and sets the default back when it ends. No request parameter changes a limit: the run reads its limits from the configuration only.
 
@@ -170,7 +224,8 @@ The base package is `org.jahia.test.modules.formidable.quarantine`. The module c
 | `state` | The state machine and the back-off, pure classes |
 | `stub` | The two stub checks and the control of their outage |
 | `run` | The run of the checks and the release |
-| `web` | The inspection of the tree, "run now" and the control of the stubs |
+| `ops` | The operations of a manager, the permission, the role, and the retention |
+| `web` | The endpoints: the inspection, "run now", the control of the stubs, the operations and the retention |
 
 ## Build and test
 
@@ -178,4 +233,4 @@ The base package is `org.jahia.test.modules.formidable.quarantine`. The module c
 mvn test -pl jahia-test-module/formidable-test-module-quarantine -am
 ```
 
-The spec `tests/cypress/e2e/quarantine/97-quarantine-intake.cy.ts` covers the intake, and `tests/cypress/e2e/quarantine/98-quarantine-checks.cy.ts` the checks and the release. `tests/scenarios/quarantine.md` states their scenarios.
+The spec `tests/cypress/e2e/quarantine/97-quarantine-intake.cy.ts` covers the intake, `tests/cypress/e2e/quarantine/98-quarantine-checks.cy.ts` the checks and the release, and `tests/cypress/e2e/quarantine/99-quarantine-operations.cy.ts` the operations, the audit and the retention. `tests/scenarios/quarantine.md` states their scenarios.
