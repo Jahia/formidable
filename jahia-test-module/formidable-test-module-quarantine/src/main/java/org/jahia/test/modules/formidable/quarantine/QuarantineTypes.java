@@ -3,8 +3,8 @@ package org.jahia.test.modules.formidable.quarantine;
 import java.util.Set;
 
 /**
- * The names of the node types this module declares in its CND. The reference hold owns a form only when the
- * "Checks" list of the form holds at least one node of a type of {@link #CHECK_TYPES}.
+ * The names of the node types this module declares in its CND: its stub checks. The quarantine tree and its types
+ * belong to {@code formidable-quarantine}.
  */
 public final class QuarantineTypes {
 

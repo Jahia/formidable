@@ -1,0 +1,119 @@
+<jnt = 'http://www.jahia.org/jahia/nt/1.0'>
+<jmix = 'http://www.jahia.org/jahia/mix/1.0'>
+<fmdbq = 'http://www.jahia.org/jahia/fmdbq/nt/1.0'>
+
+// --- The quarantine tree: /sites/<site>/formidable-quarantine/<form>/YYYY/MM/DD/<held>, in live ---
+// The hold of the module writes it with a system session. No type of the tree is a file: no jnt:file, no
+// jnt:resource, no jcr:data. No core listener, no /files servlet and no text extraction reads it.
+
+// The root of the tree of a site, named formidable-quarantine. It cuts the ACL inheritance (j:acl with
+// j:inherit=false) and holds no access control entry: a role granted on the site gives nothing here.
+[fmdbq:quarantineRoot] > jnt:content, jmix:accessControlled
+ + * (fmdbq:formQuarantine) = fmdbq:formQuarantine
+
+// The held submissions of one form, named after the identifier of the form in live.
+[fmdbq:formQuarantine] > jnt:content
+ - formId (string) mandatory
+ + * (fmdbq:dateFolder) = fmdbq:dateFolder
+
+// A year, a month or a day of the date of intake.
+[fmdbq:dateFolder] > jnt:content
+ + * (fmdbq:dateFolder) = fmdbq:dateFolder
+ + * (fmdbq:heldSubmission) = fmdbq:heldSubmission
+
+// One held submission. The state is one of six strings; the state machine moves it. The names of the fields keep
+// the order of the submission: valueFields for the public values, sensitiveFields for the sensitive ones. The
+// values live in the two children values and sensitive, apart, and go with the bytes once the submission is
+// completed or rejected. checks holds the records of the run, and audit those of the operations: each accepts any
+// jnt:content, so a new type of record needs no change here.
+[fmdbq:heldSubmission] > jnt:content
+ - state (string) = 'held' mandatory autocreated < 'held', 'checking', 'releasing', 'completed', 'rejected', 'needsReview'
+ - createdAt (date) mandatory
+ - attempts (long) = 0 autocreated indexed=no
+ - nextAttempt (date)
+ - completedActions (long) = 0 autocreated indexed=no
+ - changedAt (date) indexed=no
+ - formId (string) mandatory
+ - siteKey (string) indexed=no
+ - locale (string) indexed=no
+ - originLanguage (string) indexed=no
+ - originReferer (string) indexed=no
+ - originTimeZone (string) indexed=no
+ - valueFields (string) multiple indexed=no
+ - sensitiveFields (string) multiple indexed=no
+ + values (fmdbq:values) = fmdbq:values
+ + sensitive (fmdbq:sensitiveValues) = fmdbq:sensitiveValues
+ + checks (fmdbq:records) = fmdbq:records
+ + audit (fmdbq:records) = fmdbq:records
+ + * (fmdbq:item) = fmdbq:item
+
+// The public values of a held submission: one multiple string property per field, named after the field.
+// The single residual is there for Jahia: setProperty(name, Value[]) of a JCR node wrapper looks up a single
+// definition first and refuses the write without one. The repository then stores the property as multiple.
+[fmdbq:values] > jnt:content
+ - * (string) indexed=no
+ - * (string) multiple indexed=no
+
+// The sensitive values of a held submission, apart from the public ones. No endpoint of the module reads them,
+// no log line names them, and they are deleted with the public values. Two residuals, as fmdbq:values.
+[fmdbq:sensitiveValues] > jnt:content
+ - * (string) indexed=no
+ - * (string) multiple indexed=no
+
+// One upload of a held submission. Its bytes are a binary property of this type, never jcr:data on a jnt:resource,
+// and never indexed. sha256 is computed once at intake; the release computes it again and compares.
+[fmdbq:item] > jnt:content
+ - data (binary) indexed=no
+ - sha256 (string) mandatory indexed=no
+ - size (long) indexed=no
+ - fileName (string) indexed=no
+ - fieldName (string) indexed=no
+ - mimeType (string) indexed=no
+
+// The container of the records under a held submission: the outcomes of the checks and the decision of the run
+// (checks/<item>/<check>, checks/decision), and the audit (audit/<n>). Ordered, as an audit is.
+[fmdbq:records] > jnt:content
+ orderable
+ + * (jnt:content)
+
+// --- The records of the run of the checks, under checks of a held submission ---
+
+// The outcomes of one item, named after the item (checks/item0): one child per check of the list.
+[fmdbq:itemOutcomes] > jnt:content
+ + * (fmdbq:outcome) = fmdbq:outcome
+
+// The last outcome of one check for one item, named after the check node (checks/item0/remoteCheck). sha256 is the
+// SHA-256 of the bytes the outcome was given for: an outcome given for other bytes never counts. No byte here.
+// outcome is PASS, FAIL or INCONCLUSIVE (an answer), PENDING (a ticket to poll) or FAILED (the check could not
+// answer; retryable says whether a later attempt may). attempts counts the retryable failures since the last answer.
+[fmdbq:outcome] > jnt:content
+ - outcome (string) mandatory < 'PASS', 'FAIL', 'INCONCLUSIVE', 'PENDING', 'FAILED'
+ - reason (string) indexed=no
+ - retryable (boolean) indexed=no
+ - at (date) indexed=no
+ - ticket (string) indexed=no
+ - attempts (long) = 0 autocreated indexed=no
+ - sha256 (string) mandatory indexed=no
+
+// Why the run stopped a held submission (checks/decision): a reason of the chain such as CHECK_FAILED or
+// FILE_WITHHELD, or INTEGRITY_FAILED, or ACTION_FAILED with the index of the action to resume from. The item, the
+// check and the SHA-256 name what the reason is about, when it is about one. The last decision replaces the one before.
+[fmdbq:decision] > jnt:content
+ - reason (string) mandatory indexed=no
+ - itemName (string) indexed=no
+ - checkName (string) indexed=no
+ - sha256 (string) indexed=no
+ - failedAction (long) indexed=no
+ - at (date) indexed=no
+
+// --- The audit of a held submission, under audit ---
+
+// One audit record (audit/record1, record2, ...): an operation of a manager (retry, release, resume, reject) or the
+// run of the checks (run), the user that asked for it (none for the run), the state before and after, and when. No
+// value and no byte.
+[fmdbq:auditRecord] > jnt:content
+ - operation (string) mandatory indexed=no
+ - userName (string) indexed=no
+ - fromState (string) mandatory indexed=no
+ - toState (string) mandatory indexed=no
+ - at (date) indexed=no

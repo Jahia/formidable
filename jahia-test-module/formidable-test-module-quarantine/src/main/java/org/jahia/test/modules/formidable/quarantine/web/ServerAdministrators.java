@@ -6,7 +6,8 @@ import org.jahia.services.usermanager.JahiaUser;
 
 /**
  * Whether the user of the current request is a server administrator: {@code root}, or a member of the server group
- * {@code administrators}. A site administrator is not one. The one rule of the module: the operations read it too.
+ * {@code administrators}. A site administrator is not one. A copy of the rule of {@code formidable-quarantine},
+ * whose package {@code web} is private: "run now" and the control of the stubs read it.
  */
 @FunctionalInterface
 public interface ServerAdministrators {

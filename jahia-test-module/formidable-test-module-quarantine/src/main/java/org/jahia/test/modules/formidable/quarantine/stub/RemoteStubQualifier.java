@@ -1,7 +1,7 @@
 package org.jahia.test.modules.formidable.quarantine.stub;
 
 import org.jahia.test.modules.formidable.quarantine.QuarantineTypes;
-import org.jahia.test.modules.formidable.quarantine.check.Scope;
+import org.jahia.modules.formidable.quarantine.api.Scope;
 
 /**
  * The stub of a check that asks a remote service, for the type {@code fmdbquar:remoteStubCheck}.

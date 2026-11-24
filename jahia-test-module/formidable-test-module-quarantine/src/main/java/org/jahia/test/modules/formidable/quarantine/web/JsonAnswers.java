@@ -9,7 +9,10 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-/** What the endpoints of the module share: a JSON answer that no cache keeps, and the operation past the alias. */
+/**
+ * What the endpoints of the module share: a JSON answer that no cache keeps, and the operation past the alias. A copy
+ * of the helper of {@code formidable-quarantine}, whose package {@code web} is private.
+ */
 final class JsonAnswers {
 
     private static final Logger log = LoggerFactory.getLogger(JsonAnswers.class);

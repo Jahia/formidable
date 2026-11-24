@@ -1,6 +1,6 @@
 package org.jahia.test.modules.formidable.quarantine.stub;
 
-import org.jahia.test.modules.formidable.quarantine.check.Qualifier;
+import org.jahia.modules.formidable.quarantine.api.Qualifier;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 
