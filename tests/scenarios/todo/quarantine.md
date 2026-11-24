@@ -10,8 +10,8 @@ Every other scenario, `Q01` to `Q26`, moved to
 it. Two scenarios read parts of a product module. The plan of 2026-11-19
 shipped none, so they were dropped.
 [ADR 0003](../../../docs/adr/0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md)
-now ships the product module `formidable-quarantine`, so both scenarios are
-open again. They wait here until a spec of that module covers them, and they
+proposes that Jahia ships a product module, `formidable-quarantine`, which
+later work builds. So both scenarios are open again. They wait here until a spec of that module covers them, and they
 keep their identifiers.
 
 ## Q17 — Deleting results deletes the held submissions
@@ -21,6 +21,7 @@ tree. The design of `formidable-quarantine` does not connect them yet.
 
 ## Q19 — What an analyst sees
 
-Open: the manager screen of `formidable-quarantine` shows the held submissions
-of a site ([Quarantine of the uploads](../../../docs/architecture/quarantine.md)).
-A spec of that screen covers it.
+Open: the design of `formidable-quarantine` shows a held submission to a
+quarantine manager only
+([Quarantine of the uploads](../../../docs/architecture/quarantine.md)).
+No part of it shows a held submission to a results reader yet.

@@ -13,7 +13,13 @@ The design rests on two decisions:
 
 The repository does not hold the module yet. Its code comes from the hold of the
 test module `formidable-test-module-quarantine`. Once the module holds that code, the test module keeps no hold and
-writes no quarantine tree. It keeps only its stub checks and its test endpoints.
+writes no quarantine tree. The endpoints of the test suite then split in two:
+
+- The inspection, the operations and the retention endpoints move into the module, under the same paths. The
+  GraphQL API of the manager screen replaces them later.
+- The test module keeps its stub checks, the control of the stubs, and a run-now endpoint. The exported package of
+  the module offers a runner next to the check API. The run-now endpoint starts a run through it, and writes nothing
+  under the tree itself.
 
 ## Building blocks
 
@@ -147,6 +153,9 @@ sequenceDiagram
 - A pass that brings no new verdict waits for the back-off. When the attempts are exhausted, the submission goes to
   review with the reason `ATTEMPTS_EXHAUSTED`.
 - A file that no check of the list applies to goes to review with the reason `FILE_WITHHELD`.
+- After a run, the module sends one review digest per site whose submissions entered `needsReview` in that run.
+  The digest goes to the addresses of the site settings. It carries the count per form and a link to the manager
+  screen, and never a value or a file name of a submission.
 - After `completed` or `rejected`, the store deletes the values and the bytes. The record of the submission and its
   audit stay until the retention deletes them.
 
@@ -255,8 +264,9 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
   path.
 - The scan status is a value that the run adds to the values of the actions after release, and not a field of the
   form. The engine skips a posted value whose name is not a field of the form
-  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). So the visitor cannot set the scan
-  status, and no action on submission receives one.
+  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). The policy refuses a name of the scan
+  status that is the name of a field of the form. So the visitor cannot set the scan status, and no action on
+  submission receives one.
 - `showValues` shows the public values of a held submission in the detail view. The sensitive values never appear.
 
 ## Deployment
