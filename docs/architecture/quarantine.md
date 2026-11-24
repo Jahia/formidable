@@ -57,7 +57,7 @@ flowchart LR
 | Manager operations | Retry, release, resume and reject, each allowed by the state machine and written to the audit. |
 | GraphQL API and download | The API of the manager screen. A resolver checks the permission of the user on the site before every read and every operation. |
 | Manager screen | A jContent route of the site: the list, the detail of a submission, the operations and the download. |
-| Allow-list check | The check that the module ships. It applies to every file and reads only its metadata. It answers `FAIL` for an extension or a declared MIME type outside its list, and `PASS` for one on its list. |
+| Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `FAIL` for a type outside its list, and `PASS` for a type on it. |
 
 ## The check API
 
@@ -88,18 +88,22 @@ implements the types marked `@ConsumerType`. The build compares the exported pac
 
 ## Ownership of a form
 
-The engine binds the hold with the highest service ranking. The hold of this module ranks 100, above the sample hold
-of the test modules, which ranks 0. The hold then decides whether it owns the form:
+The engine binds the hold with the highest service ranking. The hold of this module ranks 100. It reads only the
+repository to decide whether it owns a form. The check services that are registered at that moment play no part:
 
-| The "Quarantine checks" list of the form | The hold of the module |
+| The form | The hold of the module |
 |---|---|
-| It holds a check that a registered check service serves. | It owns the form and stores the submission. |
-| It is empty. | It owns the form. The run finds no check and sends the submission to review. |
-| It holds only check types that no registered check service serves, and another hold is registered. | It hands the submission to the next hold by ranking. |
-| It holds only check types that no registered check service serves, and no other hold is registered. | It owns the form. The run sends the submission to review. |
-| The hold cannot read it. | It refuses the submission. |
+| The site of the form has the module. | It owns the form and stores the submission, whatever the "Quarantine checks" list holds. |
+| The site of the form does not have the module, and another hold is registered. | It hands the submission to the next hold by ranking. |
+| The site of the form does not have the module, and no other hold is registered. | It refuses the submission with FMDB-018. |
+| The hold cannot read the form or its site. | It refuses the submission. |
 
-A check type in the list that no check service serves stops the run at review. The run never skips it.
+- An empty list sends the submission to review at the run. So does a check type that no check service serves at
+  the time of the run, because the run never skips a check type.
+- A check module that redeploys changes the owner of no form. Its submissions stay held, and a manager retries them
+  once the check service is back.
+- A hold that wants some forms ranks above 100, such as the sample hold of the test modules or a broker outside
+  Jahia. It claims a form by the check types of its list, and hands any other form to the next hold.
 
 ## Runtime
 
@@ -241,14 +245,17 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 |---|---|---|
 | Platform | The OSGi configuration of the module | The period of the run, the back-off, the retention, and the ceiling of `fileAccess`. |
 | Site | A property of the site | A lower `fileAccess`, the retention of the site, and the addresses of the review digest. |
-| Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the scan status field and its two values, `showValues`, and a lower `fileAccess`. |
+| Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
 
 - `onFail=reject` rejects the submission. The store deletes its values and its bytes, and keeps its record and its
   audit until the retention.
-- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and writes the scan
-  status field. [The states of a held submission](#the-states-of-a-held-submission) give the two events of this
+- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and adds the scan
+  status to the values. [The states of a held submission](#the-states-of-a-held-submission) give the two events of this
   path.
-- The visitor cannot choose the scan status: the run writes the field over the value that the visitor sent.
+- The scan status is a value that the run adds to the values of the actions after release, and not a field of the
+  form. The engine skips a posted value whose name is not a field of the form
+  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). So the visitor cannot set the scan
+  status, and no action on submission receives one.
 - `showValues` shows the public values of a held submission in the detail view. The sensitive values never appear.
 
 ## Deployment
