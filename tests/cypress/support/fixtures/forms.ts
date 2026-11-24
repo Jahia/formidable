@@ -17,8 +17,9 @@ interface CreateFormNodeOptions {
 	 */
 	deferredActions?: JahiaNode[];
 	/**
-	 * The nodes of the "Checks" list of a form whose switch is on (fmdbmix:quarantine, set by deferredActions): each
-	 * a type that carries fmdbmix:qualifier, such as the stub checks of the quarantine test module.
+	 * The nodes of the "Checks" list of a form, which turns the switch on (fmdbmix:quarantine) as deferredActions does:
+	 * each a type that carries fmdbmix:qualifier, such as the samples' fmdbsample:sampleCheck or the stub checks of the
+	 * quarantine test module.
 	 */
 	qualifiers?: JahiaNode[];
 	mixins?: string[];
@@ -124,7 +125,8 @@ export const createFormNode = (
 		parentPathOrId: options.parentPath ?? CONTENT_PATH,
 		name: formName,
 		primaryNodeType: 'fmdb:form',
-		mixins: [...(options.mixins || []), ...(options.deferredActions ? ['fmdbmix:quarantine'] : [])],
+		// either list of the switch turns it on: without the mixin, fmdb:form accepts neither child
+		mixins: [...(options.mixins || []), ...(options.deferredActions || options.qualifiers ? ['fmdbmix:quarantine'] : [])],
 		properties: [
 			{name: 'jcr:title', value: formTitle, language: 'en'},
 			...(options.properties || [])

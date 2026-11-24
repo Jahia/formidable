@@ -101,6 +101,8 @@ form.fmdb-form [data-fmdb-edit-mode="true"]             the form; a div [data-fm
    └─ button.fmdb-btn.fmdb-btn-{primary|secondary}      submit, reset; .fmdb-prev-btn and .fmdb-next-btn on a multi-step or One-at-a-time form;
                                                         in One-at-a-time without steps, reset sits next to submit on the last screen
 aside.fmdb-authoring-actions                            edit mode only: the form actions zone, after the form
+aside.fmdb-authoring-actions.fmdb-authoring-checks      edit mode only, a form that holds its uploads: the Quarantine checks zone
+aside.fmdb-authoring-actions.fmdb-authoring-deferred-actions   edit mode only, a form that holds its uploads: the Actions after release zone
 ```
 
 `┆` marks alternatives for the control of a field. The full list of hooks, with what each one

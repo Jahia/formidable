@@ -56,6 +56,13 @@
 		"notLive": "Invisible pour les visiteurs.",
 		"empty": "Aucune action : les soumissions ne seront ni enregistrées ni transmises."
 	},
+	"fmdb_qualifierList": {
+		"heading": "Vérifications de quarantaine · {{count}}",
+		"inOrder": "Exécutées dans cet ordre sur chaque fichier envoyé, avant les actions après libération. Invisibles pour les visiteurs.",
+		"notLive": "Invisible pour les visiteurs.",
+		"empty": "Aucune vérification : ajoutez celles qu’un fichier doit passer avant d’être libéré.",
+		"noType": "Aucun type de vérification n’est activé sur ce site : demandez à votre administrateur d’activer un module qui en fournit."
+	},
 	"fmdb_deferredActionList": {
 		"heading": "Actions après libération · {{count}}",
 		"inOrder": "Exécutées dans cet ordre une fois les fichiers envoyés libérés. Invisibles pour les visiteurs.",

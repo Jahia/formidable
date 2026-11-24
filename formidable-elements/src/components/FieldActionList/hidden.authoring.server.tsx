@@ -1,30 +1,9 @@
-import {jahiaComponent, server} from "@jahia/javascript-modules-library";
-import type {JCRNodeWrapper} from "org.jahia.services.content";
+import {jahiaComponent} from "@jahia/javascript-modules-library";
 import {useTranslation} from "react-i18next";
 import AuthoringActionsZone from "~/design/AuthoringActionsZone";
 import {nodeTypeIconUrl} from "~/utils/actionTypeInfo";
-import {FIELD_ACTION_TYPES_SERVICE, type FieldActionTypesLike} from "~/utils/fieldActions.server";
-
-/**
- * Whether the site offers a field-action type to add under this list: what the chooser behind the create
- * button would list, as the engine reads it from the modules enabled on the site — the engine ships no
- * concrete type, so a site where no module providing one is enabled has none, and the button would open
- * on nothing and vanish (#404). A question the engine cannot answer counts as yes: the button then shows
- * as it always did, and the log says why.
- */
-const siteOffersAType = (actionList: JCRNodeWrapper): boolean => {
-	try {
-		const service = server.osgi.getService(FIELD_ACTION_TYPES_SERVICE) as FieldActionTypesLike | null;
-		if (!service) {
-			console.warn("[Formidable] The engine's FieldActionTypes service is not available: the create button shows regardless");
-			return true;
-		}
-		return !service.offeredUnder(actionList).isEmpty();
-	} catch (error) {
-		console.error(`[Formidable] Could not list the field-action types offered under ${actionList.getPath()}`, error);
-		return true;
-	}
-};
+import {FIELD_ACTION_TYPES_SERVICE} from "~/utils/fieldActions.server";
+import {siteOffersAType} from "~/utils/offeredTypes.server";
 
 /**
  * A field's actions, as a zone of the Page Builder under the field (edit mode only — the element
@@ -57,7 +36,7 @@ jahiaComponent(
 				heading={t("heading", {count})}
 				hint={count > 0 ? t("inOrder") : t("notLive")}
 				empty={t("empty")}
-				unavailable={siteOffersAType(currentNode) ? undefined : t("noType")}
+				unavailable={siteOffersAType(FIELD_ACTION_TYPES_SERVICE, "field-action", currentNode) ? undefined : t("noType")}
 				iconUrl={nodeTypeIconUrl(currentNode, renderContext)}
 				actionNodes={actionNodes}
 			/>

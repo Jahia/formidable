@@ -23,7 +23,8 @@ import java.util.function.IntConsumer;
  *   <li>a node of the list has a type that does not declare {@code fmdbmix:deferrableAction};</li>
  *   <li>the form has no list any more, because its quarantine switch was turned off since the submission was
  *       held;</li>
- *   <li>{@code from} is outside the list.</li>
+ *   <li>{@code from} is below 0 or above the size of the list. A {@code from} equal to the size, the index that
+ *       follows the last action, is accepted and runs no action.</li>
  * </ul>
  * <p>A run that returns normally ran every action from {@code from} to the end of the list.</p>
  *
