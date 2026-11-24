@@ -39,6 +39,10 @@ export const FIELD_ACTION_PATH = '/modules/formidable-engine/field-action'
 export const EXPERIAN_STUB_PATH = '/modules/formidable-samples/experian-stub'
 /** The samples module's double of ZeroBounce, a provider that reads its key off the URL. */
 export const ZEROBOUNCE_STUB_PATH = '/modules/formidable-samples/zerobounce-stub'
+/** The samples module's receiver of a forward target: it answers the names of the parts the last forward carried. */
+export const FORWARD_SINK_PATH = '/modules/formidable-samples/forward-sink'
+/** The samples module's record of what its upload observer and its sample hold saw since the last reset. */
+export const UPLOAD_OBSERVATIONS_PATH = '/modules/formidable-samples/upload-observations'
 export const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State'
 
 /**

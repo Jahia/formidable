@@ -123,7 +123,7 @@
 	font-size: 12px;
 }
 
-/* A field zone on a site where no module enabled provides a field-action type: nothing can be added, so
+/* A field zone or a checks zone on a site where no module enabled provides a type of its list: nothing can be added, so
    the zone draws this call-out in the create button's place, in the colours of a fault rather than a
    warning (the captcha line's) — a contributor cannot fix it, an administrator enabling a module can.
    Last in the zone, it keeps no bottom margin: the button it replaces had none. */
@@ -244,6 +244,13 @@
 .fmdb-authoring-field-actions {
 	margin: var(--fmdb-zone-field-actions-margin, 0.5rem 0 0 1.25rem);
 	padding: var(--fmdb-zone-field-actions-padding, 0.5rem 0.625rem);
+}
+
+/* The checks zone and the actions after release zone of a form that holds its uploads in quarantine (edit
+   mode only), under the actions zone in the order the lists run. Same chrome; the space above tells them apart. */
+.fmdb-authoring-checks,
+.fmdb-authoring-deferred-actions {
+	margin-top: var(--fmdb-zone-actions-margin, 1rem);
 }
 
 /* Hidden field (edit mode only): the visitor never sees it, so without a drawn line its Page

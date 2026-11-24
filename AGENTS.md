@@ -19,7 +19,7 @@ Yarn 4 workspaces + Maven multi-module. Toolchain: Java 17 (Temurin), Node LTS, 
 | `formidable-jexperience-engine/` | jExperience integration: the profile mapping of fields (editor section fed by jCustomer's profile properties), the mapping rule kept in sync with publication, the submission event sent by the browser through jExperience's tracker; later the prefill — see `docs/architecture/jexperience-integration.md` | Maven bundle, depends on `formidable-engine` and `jexperience` |
 | `formidable-forms-import/` | The import of the forms and results of Jahia Forms (Java + a jContent app): the Import button and dialog of the Results page, the dry run and import jobs, the converters of the export; compiles against the engine's api only | Maven bundle, `@jahia/vite-federation-plugin` |
 | `packages/formidable/` | The npm package `@jahia/formidable-library`: the rendering contract (help text, validation attributes, input mask, choice options — the latter's resolution under the `/server` entry point) every view is built on. Consumed as `workspace:*` inside the monorepo (a plain version range would still resolve to the workspace), published to npm by the release workflow | TypeScript (tsc, nodenext), vitest |
-| `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, two contextual form actions on either side of the sensitive-value boundary — `SensitiveConsumerFormAction` opts in, `SensitiveNonConsumerFormAction` does not —, five field actions — blocked words, email domain, Experian, ZeroBounce, and a password policy that runs on a sensitive field (`PasswordPolicyFieldAction`) — with the two providers' doubles registered as servlets, a choicelist initializer, content-integrity checks) | Maven, Vite |
+| `jahia-test-module/` | Test modules for Cypress: a JSP template set (Java), a tsx template set, and the two third-party extension examples: `formidable-test-module-samples-tsx` (definitions, editor overrides, views — copyable, its README says what to change) and `formidable-test-module-samples-java` (an external `FormAction`, two contextual form actions on either side of the sensitive-value boundary — `SensitiveConsumerFormAction` opts in, `SensitiveNonConsumerFormAction` does not —, the samples of the hold of the uploads — `SampleSubmissionHold`, a hold that releases at once, and `UploadObserverFormAction`, a deferrable action —, the receiver of a forward target for the suite (`ForwardSinkServlet`), five field actions — blocked words, email domain, Experian, ZeroBounce, and a password policy that runs on a sensitive field (`PasswordPolicyFieldAction`) — with the two providers' doubles registered as servlets, a choicelist initializer, content-integrity checks) | Maven, Vite |
 | `tests/` | Cypress E2E suite (not a Maven module) | Cypress 14, `@jahia/cypress` |
 
 ### Key Documentation
@@ -110,6 +110,7 @@ The public API — custom actions, the submission response, the names of the con
 - `SubmittedFile.java` — file upload abstraction
 - `FieldAction.java` + `FieldActionRequest.java` + `FieldActionResult.java` — one field's value judged server-side, at the pre-check and at submission (`getNodeType()` + `execute()`); `consumesSensitiveValues()` (default `false`) is the opt-in to run on a sensitive field
 - `FieldActionTypes.java` — the field-action types a site offers, and `consumesSensitiveValues(type)` (a default method, `false`): whether the Java action registered for a type runs on a sensitive field, which the views ask
+- `QualifierTypes.java` — the check types a site offers under the **Quarantine checks** list, which the checks zone of the Page Builder reads
 - `FieldActionGateway.java` — the one way a field action reaches its service, handed an `Endpoint` read from its module's own configuration
 - `ProviderFieldAction.java` + `EmailVerificationFieldAction.java` + `EmailAddress.java` — the shape of an action behind a provider, its email specialisation, the address parsing
 - `ChoiceOptionsResolver.java` — how many choices a choice field offers, counted as the views render it
@@ -117,6 +118,8 @@ The public API — custom actions, the submission response, the names of the con
 - `CaptchaSetup.java` — whether the captcha widget and its verification are both configured
 - `ChoiceOptionsSources.java` — whether the configuration declares an options source under a key
 - `ContextualFormAction.java` + `FormActionContext.java` + `FormActionResult.java` — a `FormAction` that gets the response, the locale and site, and may return a redirect (a path of this server, or an http(s) URL read from the configuration) or a message for the browser. `ContextualFormAction#sensitiveFieldsConsumed(actionNode)` (default `SensitiveFields.none()`) returning `SensitiveFields.all()` is the only way a form action receives the values of `fmdbmix:sensitiveField` fields, in `FormActionContext.sensitiveParameters()` and `sensitiveParameter(name)`
+- `SubmissionHold.java` + `HeldSubmission.java` + `SubmissionOrigin.java` + `SubmissionHoldException.java` — the extension point of a module that holds a submission with its uploads, on a form whose switch `fmdbmix:quarantine` is on, and what the module receives
+- `DeferredActions.java` + `DeferredActionException.java` + `DetachedRequestException.java` — the service that runs the actions after release of a form for the hold that releases a submission, the failure that names the action to resume from, and the failure of an action that asks the stand-in of the request for what it does not have (`docs/architecture/form-submission-flow.md`, "The hold of the uploads", and ADR 0002)
 - `SensitiveFields.java` — the closed type of that opt-in: a final class with a private constructor, built only by `none()` and `all()`; a module reads a selection (`selectsAll()`) and never builds one
 - `RedirectTargets.java` — the two rules of a redirect target: a path of this server, or an absolute http(s) URL read from the configuration
 - `PageLinks.java` — the URL of a page as the platform prints it (URL rewriting, vanity URLs), for an action that sends the visitor to a page
@@ -139,6 +142,17 @@ A sensitive value is the value of a field whose type declares `fmdbmix:sensitive
 - A log line names fields, never values.
 - On a sensitive field, the engine renders `${value}` in a field action's rejection message as the empty string: the engine writes that message from the contributor's text, so it never prints the password. The verdict cache keeps no entry keyed by the value. A field action that opts in is trusted with how it calls its service.
 - **Review check**: a change that adds a field type, a form action, a field action, a response enricher or a log line on the submission path keeps sensitive values out of it: a secret type carries the marker; nothing new reads the raw parsed map; a new opt-in is justified and keeps the value to itself; nothing that has not opted in echoes a value into a message, a cache key, a header or a log.
+
+### The hold of the uploads
+
+A form whose switch **Hold uploads in quarantine** is on (`fmdbmix:quarantine`) hands its uploads to no action of the request (`docs/architecture/form-submission-flow.md`, "The hold of the uploads").
+- The switch decides, never the code of an action: no action opts in to the uploads of such a form.
+- The pipeline reads the switch once, before it runs the first action. Never move that decision into the loop.
+- The hold fails closed: a submission with an upload is refused with FMDB-018 when no `SubmissionHold` service is installed, and `uploadsRequireQuarantine=true` hands the uploads of a form with the switch off to no action.
+- In read-only maintenance, a form with the switch on answers FMDB-014 whatever its actions: the hold writes, and step 5 runs before the body says whether an upload came. The pipeline and the form view (`readOnlyActions.server.ts`) decide it the same way.
+- An action type runs after release only when it declares `fmdbmix:deferrableAction`. Its code reads nothing of the request but the three values of `SubmissionOrigin`, and writes nothing to the response.
+- A hold keeps the bytes outside the file model until a file is qualified, and sends them nowhere but to the checks.
+- **Review check**: a change on the dispatch of the actions keeps `FormSubmissionPipelineHoldTest` and `DeferredActionsServiceTest` green, and a new built-in action declares `fmdbmix:deferrableAction` only with a test that runs it against `DetachedRequest`.
 
 ### Reading a Jahia Forms export
 

@@ -28,6 +28,18 @@ export function getEmailNotificationActionNode(data: EmailNotificationActionData
 	};
 }
 
+/** The e-mail content action (fmdb:emailContentAction): the values of the submission, and its files when asked. */
+export function getEmailContentActionNode(data: {name?: string; to: string; attachFiles?: boolean}): JahiaNode {
+	return {
+		name: data.name || 'emailContent',
+		primaryNodeType: 'fmdb:emailContentAction',
+		properties: [
+			{name: 'to', value: data.to},
+			{name: 'attachFiles', value: String(data.attachFiles ?? false), type: 'BOOLEAN'}
+		]
+	};
+}
+
 export function getSaveToJcrActionNode(name: string = 'storeSubmission'): JahiaNode {
 	return {
 		name,
@@ -76,6 +88,18 @@ export const SENSITIVE_NON_CONSUMER_HEADERS = {
 	sensitiveFields: 'x-fmdb-sample-non-consumer-sensitive-fields',
 	fields: 'x-fmdb-sample-non-consumer-fields'
 } as const;
+
+/**
+ * The test module's contextual action that records the number of files it received (fmdbsample:uploadObserverAction).
+ * A spec reads its calls from the samples module, through readUploadObservations: the action may run after release,
+ * where it has no response to write a header on.
+ */
+export function getUploadObserverActionNode(name: string = 'uploadObserver'): JahiaNode {
+	return {name, primaryNodeType: 'fmdbsample:uploadObserverAction', properties: []};
+}
+
+/** The forward target a spec declares on the samples module's receiver, FORWARD_SINK_PATH. */
+export const FORWARD_SINK_TARGET_ID = 'samplesink';
 
 /**
  * A forward action pointing at a configured forward target (fmdb:forwardAction, targetId is a

@@ -95,8 +95,47 @@ orderable
 // safety: an action type WITHOUT this mixin — including any third-party action that
 // never considered read-only mode — is presumed to write, and blocks its form during
 // maintenance windows. Worst case an unaffected form is over-blocked; a submission is
-// never lost to a mid-pipeline repository rejection.
+// never lost to a mid-pipeline repository rejection. The mixin does not help a form that
+// holds its uploads (fmdbmix:quarantine): such a form is presumed to write, whatever its actions.
 [fmdbmix:readOnlyCompatibleAction] mixin
+
+// --- The quarantine of the uploads (docs/adr/0002, docs/architecture/form-submission-flow.md) ---
+
+// Declares that an action type may run after the release of a held submission, with no HTTP request: the only
+// kind of node the "Actions after release" list accepts. A supertype of the type, never a mixin a contributor adds:
+// the developer of a type says that its code runs without a request, and content cannot say it. Save to JCR, the
+// two e-mail actions and the forward action declare it; the redirect action does not, no browser waits at release.
+[fmdbmix:deferrableAction] > fmdbmix:formAction mixin
+
+// Marker of a check of a held file, the only kind of node the "Checks" list accepts. The engine declares the
+// marker and the list, so that a form keeps one content model whatever module holds its uploads; the module that
+// runs the checks declares the types.
+[fmdbmix:qualifier] mixin
+
+// The "Checks" list of a form that holds its uploads. Orderable: a check receives a file once every check before
+// it passed the file. jmix:hideDeleteAction as on the other lists of a form: the switch creates and removes it.
+[fmdb:qualifierList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly, jmix:hideDeleteAction
+ orderable
+ - jcr:title (string) = resourceBundle('fmdb_qualifierList') autocreated i18n
+ + * (fmdbmix:qualifier) = fmdbmix:qualifier version
+
+// The "Actions after release" list of a form that holds its uploads: the actions that receive the released files.
+// It runs once a hold releases the submission, and inside the request when the submission carries no upload.
+[fmdb:deferredActionList] > jnt:content, jmix:list, mix:title, jmix:systemNameReadonly, jmix:hideDeleteAction
+ orderable
+ - jcr:title (string) = resourceBundle('fmdb_deferredActionList') autocreated i18n
+ + * (fmdbmix:deferrableAction) = fmdbmix:deferrableAction version
+
+// The switch "Hold uploads in quarantine" of a form. On, it adds the mixin, which autocreates the two lists; off,
+// it removes both, as the field-actions switch does. While it is on, the pipeline hands the uploads of the form to
+// no action of the request: it hands them to the SubmissionHold service, and refuses a submission with an upload
+// when no such service is installed. `extends` the marker of a form root, not fmdb:form, so that a third-party form
+// type gets the switch.
+[fmdbmix:quarantine] mixin
+ extends = fmdbmix:formRoot
+ itemtype = content
+ + qualifiers (fmdb:qualifierList) = fmdb:qualifierList autocreated
+ + deferredActions (fmdb:deferredActionList) = fmdb:deferredActionList autocreated
 
 // --- Field actions (docs/architecture/field-actions.md) ---
 
@@ -326,7 +365,7 @@ orderable
 
 // Sends a notification email after a successful form submission.
 // Subject and body support ${fieldName} interpolation from the submitted form data.
-[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+[fmdb:emailNotificationAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, fmdbmix:deferrableAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_emailNotificationAction') autocreated i18n
  - to (string) indexed=no
  - from (string) indexed=no
@@ -335,7 +374,7 @@ orderable
 
 // Sends the submitted form content by email. The subject comes from the submitted form title.
 // Can optionally attach the validated uploaded files.
-[fmdb:emailContentAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+[fmdb:emailContentAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, fmdbmix:deferrableAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_emailContentAction') autocreated i18n
  - to (string) indexed=no
  - from (string) indexed=no
@@ -346,12 +385,12 @@ orderable
 // targetId references a named target, an entry file of the formActions theme:
 // karaf/etc/org.jahia.modules.formidable.formActions.target-<id>.cfg.
 // The actual URL is never stored in JCR; it is resolved server-side from the operator configuration.
-[fmdb:forwardAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, mix:title
+[fmdb:forwardAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, fmdbmix:deferrableAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_forwardAction') autocreated i18n
  - targetId (string, choicelist[formidableForwardTargets]) indexed=no mandatory
 
 // Saves the submitted form data as child nodes under a designated JCR path.
-[fmdb:save2jcrAction] > jnt:content, fmdbmix:formAction, mix:title
+[fmdb:save2jcrAction] > jnt:content, fmdbmix:formAction, fmdbmix:deferrableAction, mix:title
  - jcr:title (string) = resourceBundle('fmdb_save2jcrAction') autocreated i18n
 
 // Sends the visitor to a page or to a web address once the submission is accepted, instead of the submission message

@@ -15,14 +15,11 @@ import LockIcon from "~/design/LockIcon";
 import ShieldCheckIcon from "~/design/ShieldCheckIcon";
 import Form from "./Form.client";
 import {type FormServerProps} from "./types";
+import {isPresumedToWrite} from "~/utils/readOnlyActions.server";
 import {resolveUrlPlaceholders, styleTagCss} from "~/utils/richTextUtils";
 
 const SETTINGS_BEAN_SERVICE = "org.jahia.api.settings.SettingsBean";
 const CAPTCHA_CONFIG_SERVICE = "org.jahia.modules.formidable.engine.config.captcha.CaptchaConfigService";
-// Absence of the mixin = the action is presumed to write to the repository (the
-// declaration is inverted on purpose; see the engine CND). The submission pipeline
-// reads the same mixin on the same nodes, so render and submit cannot disagree.
-const READ_ONLY_COMPATIBLE_ACTION_MIXIN = "fmdbmix:readOnlyCompatibleAction";
 
 // Fail-open: if the platform state cannot be read, render the form normally — the
 // submission pipeline remains the correctness boundary (FMDB-014).
@@ -52,20 +49,6 @@ const isCaptchaSetUp = (): boolean => {
 		return true;
 	}
 };
-
-const hasRepositoryWritingAction = (formNode: JCRNodeWrapper): boolean => {
-	try {
-		const actionListNode = formNode.getNode("actions");
-		if (!actionListNode) return false;
-		return Array.from(actionListNode.getNodes())
-			.some((action) => !action.isNodeType(READ_ONLY_COMPATIBLE_ACTION_MIXIN));
-	} catch (error) {
-		console.error(`[Formidable] Could not inspect the actions of form ${formNode.getPath()}`, error);
-		// Fail-closed on the scoping side: an unreadable action list is presumed writing.
-		return true;
-	}
-};
-
 
 /**
  * The captcha settings CaptchaRenderFilter (Java) sets as request attributes on a form carrying the
@@ -97,6 +80,9 @@ const ensureCaptchaExplicit = (url: string): string => {
 	return url + (url.includes('?') ? '&' : '?') + 'render=explicit';
 };
 
+const childNodeOrNull = (node: JCRNodeWrapper, name: string): JCRNodeWrapper | null =>
+	node.hasNode(name) ? node.getNode(name) : null;
+
 jahiaComponent(
 	{
 		componentType: "view",
@@ -126,7 +112,10 @@ jahiaComponent(
 	) => {
 		const {t} = useTranslation("formidable-elements", {keyPrefix: "fmdb_form"});
 		const fieldListNode = currentNode.getNode("fields");
-		const actionListNode = currentNode.hasNode("actions") ? currentNode.getNode("actions") : null;
+		const actionListNode = childNodeOrNull(currentNode, "actions");
+		// present while the switch "Hold uploads in quarantine" of the form is on (fmdbmix:quarantine)
+		const deferredActionListNode = childNodeOrNull(currentNode, "deferredActions");
+		const qualifierListNode = childNodeOrNull(currentNode, "qualifiers");
 		const formElements = fieldListNode ? Array.from(fieldListNode.getNodes()) : [];
 		// The form's UUID is its one identity: the DOM id and name, what a visitor-profile integration calls the form
 		// (goals, mapping rules, the submission event) and the value of its data-form-id opt-out.
@@ -167,11 +156,12 @@ jahiaComponent(
 		// language is always sent — the engine renders the contributor's message in it.
 		const fieldActionUrl = `${renderContext.getRequest().getContextPath()}/modules/formidable-engine/field-action?fid=${currentNode.getIdentifier()}&lang=${currentNode.getLanguage()}`;
 
-		// Maintenance state: only for forms whose actions write to the repository, and only
-		// in live (contributors keep seeing the real form in edit/preview). Render-time
-		// detection is a UX layer — cached fragments can be stale in both directions, so the
-		// maintenance fragment gets a short TTL and the submission pipeline stays authoritative.
-		const isMaintenance = !isSubmitDisabled && isPlatformReadOnly() && hasRepositoryWritingAction(currentNode);
+		// Maintenance state: only for forms presumed to write to the repository (an action presumed
+		// to write, or the quarantine switch on), and only in live (contributors keep seeing the
+		// real form in edit/preview). Render-time detection is a UX layer — cached fragments can be
+		// stale in both directions, so the maintenance fragment gets a short TTL and the submission
+		// pipeline stays authoritative.
+		const isMaintenance = !isSubmitDisabled && isPlatformReadOnly() && isPresumedToWrite(currentNode);
 		if (isMaintenance) {
 			// The Java request exposes setAttribute; the TS stub only types the getters.
 			(renderContext.getRequest() as unknown as {setAttribute(name: string, value: string): void})
@@ -292,6 +282,16 @@ jahiaComponent(
 				    authoring.css. Nothing of it exists in live or preview. */}
 				{isEditMode && actionListNode && (
 					<Render node={actionListNode} view="hidden.authoring"/>
+				)}
+				{/* The checks of a form that holds its uploads, between the two action zones: they run
+				    after the actions on submission and before the actions after release. */}
+				{isEditMode && qualifierListNode && (
+					<Render node={qualifierListNode} view="hidden.authoring"/>
+				)}
+				{/* The actions that receive the released files of a form that holds its uploads:
+				    the last zone, in the order the lists run. */}
+				{isEditMode && deferredActionListNode && (
+					<Render node={deferredActionListNode} view="hidden.authoring"/>
 				)}
 				</Island>
 			</>

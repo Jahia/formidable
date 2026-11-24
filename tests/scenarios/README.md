@@ -21,6 +21,8 @@ This directory contains two kinds of documents:
   invariants across logic, submissions, deletion, and targeted corruption
   scenarios.
 - `permissions.md` - results access-control and ACL propagation scenarios.
+- `quarantine.md` - the hold of the uploads of a form whose quarantine switch
+  is on: which actions receive the files, and when.
 - `security.md` - submission security and fail-closed behavior scenarios.
 
 ## Todo scenarios

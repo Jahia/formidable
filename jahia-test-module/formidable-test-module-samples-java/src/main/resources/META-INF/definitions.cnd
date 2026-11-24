@@ -6,6 +6,10 @@
 
 [fmdbsample:logSubmissionAction] > jnt:content, fmdbmix:formAction, mix:title
 
+// A check of the "Quarantine checks" list, for the authoring tests of the list only: no Qualifier service reads it,
+// and the sample hold of this module releases a held submission at once, whatever its checks.
+[fmdbsample:sampleCheck] > jnt:content, fmdbmix:qualifier, mix:title
+
 // The opt-in of the sample response enricher: only a form carrying this mixin gets the sample block
 // in the JSON body of an accepted submission. An enricher is asked for every submission of the
 // platform, so gating on something the author set is what keeps a module's key out of every other
@@ -64,6 +68,11 @@
 [fmdbsample:sensitiveConsumerAction] > jnt:content, fmdbmix:formAction, mix:title
 
 [fmdbsample:sensitiveNonConsumerAction] > jnt:content, fmdbmix:formAction, mix:title
+
+// A contextual form action that records the number of files it was handed, for the test suite to read which actions
+// of a form receive its uploads (UploadObservationsServlet). Deferrable: it reads nothing of the request and writes
+// nothing to the response, so the "Actions after release" list of a form accepts it.
+[fmdbsample:uploadObserverAction] > jnt:content, fmdbmix:formAction, fmdbmix:readOnlyCompatibleAction, fmdbmix:deferrableAction, mix:title
 
 // A field action that opts in to sensitive values from its Java class (consumesSensitiveValues): the only kind the
 // engine runs on a sensitive field, such as the password input. A password policy, refusing a value without a digit.

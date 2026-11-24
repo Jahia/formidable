@@ -38,7 +38,8 @@ public class UploadsConfigService {
     @RemovedIn("0.6")
     static final String FORMER_ALLOWED_TYPES = "uploadAllowedMimeTypes";
 
-    private record Snapshot(long maxFileSizeBytes, long maxRequestSizeBytes, int maxFileCount, Set<String> allowedTypes) {}
+    private record Snapshot(long maxFileSizeBytes, long maxRequestSizeBytes, int maxFileCount, Set<String> allowedTypes,
+                            boolean requireQuarantine) {}
 
     private static final Logger log = LoggerFactory.getLogger(UploadsConfigService.class);
 
@@ -81,13 +82,16 @@ public class UploadsConfigService {
                 ConfigurationValues.positiveLong("uploadMaxFileSizeBytes", config.uploadMaxFileSizeBytes(), UploadsConfig.DEFAULT_UPLOAD_MAX_FILE_SIZE_BYTES),
                 ConfigurationValues.positiveLong("uploadMaxRequestSizeBytes", config.uploadMaxRequestSizeBytes(), UploadsConfig.DEFAULT_UPLOAD_MAX_REQUEST_SIZE_BYTES),
                 (int) ConfigurationValues.positiveLong("uploadMaxFileCount", config.uploadMaxFileCount(), UploadsConfig.DEFAULT_UPLOAD_MAX_FILE_COUNT),
-                allowedTypes(config.uploadAllowedTypes())
+                allowedTypes(config.uploadAllowedTypes()),
+                config.uploadsRequireQuarantine()
         );
-        log.info("UploadsConfigService configured: maxFileSize={}MB, maxRequest={}MB, maxFileCount={}, allowedTypes={}",
+        log.info("UploadsConfigService configured: maxFileSize={}MB, maxRequest={}MB, maxFileCount={}, allowedTypes={}, "
+                        + "requireQuarantine={}",
                 snapshot.maxFileSizeBytes() / 1_048_576,
                 snapshot.maxRequestSizeBytes() / 1_048_576,
                 snapshot.maxFileCount(),
-                snapshot.allowedTypes().size());
+                snapshot.allowedTypes().size(),
+                snapshot.requireQuarantine());
         return snapshot;
     }
 
@@ -96,6 +100,8 @@ public class UploadsConfigService {
     public int  getUploadMaxFileCount()        { return lifecycle.current().maxFileCount(); }
     /** The MIME types and wildcards a file field may accept; empty means no file is accepted. */
     public Set<String> getUploadAllowedTypes() { return lifecycle.current().allowedTypes(); }
+    /** Whether a form whose quarantine switch is off hands its uploads to no action. */
+    public boolean isUploadsRequireQuarantine() { return lifecycle.current().requireQuarantine(); }
 
     /**
      * The configured tokens as MIME types: an extension or an alias is resolved by Tika — the resolutions logged once,

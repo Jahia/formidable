@@ -56,6 +56,19 @@
 		"notLive": "Not shown to visitors.",
 		"empty": "No action yet: submissions will be neither stored nor sent."
 	},
+	"fmdb_qualifierList": {
+		"heading": "Quarantine checks · {{count}}",
+		"inOrder": "Run in this order on every uploaded file, before the actions after release. Not shown to visitors.",
+		"notLive": "Not shown to visitors.",
+		"empty": "No check yet: add the checks a file must pass before it is released.",
+		"noType": "No check type is enabled on this site: ask your administrator to enable a module that provides one."
+	},
+	"fmdb_deferredActionList": {
+		"heading": "Actions after release · {{count}}",
+		"inOrder": "Run in this order once the uploaded files are released. Not shown to visitors.",
+		"notLive": "Not shown to visitors.",
+		"empty": "No action yet: a released file will be neither stored nor sent."
+	},
 	"fmdb_redirectAction": {
 		"overridden": "Multiple redirect actions detected. Only the first valid redirect in the list is applied.",
 		"unusableUrl": "Visitors are not sent to this address: it is not a full http or https address with a host and no user name in it."

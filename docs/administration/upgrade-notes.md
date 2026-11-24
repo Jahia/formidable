@@ -31,6 +31,7 @@ the settings it adds, file by file, so that you know which lines to review after
 
 | Version | File (`karaf/etc/`) | Settings added |
 |---|---|---|
+| 0.7.0 | `org.jahia.modules.formidable.uploads.cfg` | `uploadsRequireQuarantine`, at `false`: nothing changes until you set it — [A mandatory quarantine](configuration.md#a-mandatory-quarantine) |
 | 0.6.0 | `org.jahia.modules.formidable.formsImport.cfg` | A new file, shipped by `formidable-forms-import` and present only where that module is installed: `maxFileSizeMb`. Read as it stands — the module appends nothing to it at start |
 | 0.5.0 | — | None: the five files are new in this version and ship every setting |
 

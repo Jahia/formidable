@@ -32,8 +32,9 @@ Browser
          Step 2   readRoutingParams       fid (UUID-validated) + lang read from URL query params  — 0 byte read
          Step 3   guardContentLength      early reject if Content-Length > max                    — 0 byte read
          Step 4   resolveFormNode         JCR getNodeByIdentifier(fid) in "live"                 — 0 byte read
-         Step 5   verifyPlatformWritable  if the platform is in read-only mode and an action
-                                          lacks fmdbmix:readOnlyCompatibleAction → FMDB-014      — 0 byte read
+         Step 5   verifyPlatformWritable  if the platform is in read-only mode and the form has
+                                          fmdbmix:quarantine, or an action lacks
+                                          fmdbmix:readOnlyCompatibleAction → FMDB-014            — 0 byte read
          Step 6   verifyAuthentication    if fmdbmix:authenticatedOnlyForm → reject Guest
          Step 7   verifyCaptcha           if fmdbmix:captchaProtectedForm → verify CAPTCHA header — 0 byte read
          Step 8   collectFormFieldInfo    walk form node: build the field whitelist —
@@ -70,7 +71,8 @@ Browser
                                           the shared verdict cache;
                                           the first refusal → FMDB-015 with messages[] anchored on the
                                           field (see field-actions.md)
-         Step 12  dispatchActions         execute fmdb:actionList nodes in order
+         Step 12  dispatchActions         decide once who receives the uploads (see "The hold of the
+                                          uploads" below), then execute fmdb:actionList nodes in order
                    ├─ fmdb:save2jcrAction:
                    │    - stores the submission under the site's formidable-results
                    │      (system session — see save-to-jcr.md)
@@ -137,6 +139,86 @@ edit time.
 Two duties stay out of reach of the code, and the guides state them: an extension type that holds a secret must
 declare the marker ([third-party fields](../extension/how-to-extend-views-and-elements-from-third-party-module.md)),
 and an action or a field action that opts in must keep the value to itself.
+
+### The hold of the uploads
+
+A form can hold its uploads in quarantine until checks qualify them
+([ADR 0002](../adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md)). The contributor turns on the
+switch **Hold uploads in quarantine** of the form, which is the mixin `fmdbmix:quarantine`. The switch creates two
+lists under the form, and the form then has three:
+
+| List | Child of the form | Runs | Receives |
+|---|---|---|---|
+| Actions on submission | `actions` | In the request. | The values, and never a file. |
+| Checks | `qualifiers` | After the request, in the module that holds the uploads. | One held file at a time. |
+| Actions after release | `deferredActions` | Once a submission is released. | The values and the released files. |
+
+Step 12 reads the switch once, before it runs the first action, and then decides who receives the uploads:
+
+| The form and the submission | Who receives the uploads |
+|---|---|
+| The switch is off, and `uploadsRequireQuarantine=false`, which is the default | Every action of `actions`, as before. |
+| The switch is off, and `uploadsRequireQuarantine=true` | No action. The pipeline logs one warning for a submission that carries an upload. |
+| The switch is on, and the submission carries an upload | The `SubmissionHold` service, once the actions of `actions` ran with no file. |
+| The switch is on, the submission carries an upload, and no `SubmissionHold` service is installed | Nobody. The pipeline refuses the submission with FMDB-018 before it runs an action. |
+| The switch is on, and the submission carries no upload | Nobody. The actions of `deferredActions` run in the request, after the actions of `actions`. |
+
+- No action of `actions` receives an upload of a form with the switch on, whatever its place in the list and
+  whatever its code declares.
+- The upload of a sensitive field still reaches nobody, the hold included (decision D4). A submission whose only
+  upload is the one of a sensitive field is not held.
+- The values of the fields are not held back: the actions of `actions` receive the public values, as before.
+- In read-only maintenance, a form with the switch on answers FMDB-014, whatever its actions
+  ([Read-only maintenance mode](#read-only-maintenance-mode)).
+- `uploadsRequireQuarantine` is a setting of `org.jahia.modules.formidable.uploads.cfg`, for every form of the
+  platform ([Configuration files](../administration/configuration.md#a-mandatory-quarantine)).
+
+#### The hold service
+
+The engine ships no hold. An extension module registers a `SubmissionHold` OSGi service, and the engine binds the
+one with the highest service ranking. The service receives a `HeldSubmission`: the identifier of the form, the key
+of its site, the locale, the public values, the sensitive values, the uploads, and the `SubmissionOrigin`.
+
+- `hold` stores the submission and returns. The request waits for the call, so no check runs in it.
+- The hold keeps the bytes where no reader, no parser and no action reaches them until every check passed them.
+  The engine cannot enforce that duty.
+- The sensitive values wait with the others, because the actions that consume them run after release. The hold
+  returns them through no read API, and deletes them when the submission is released or rejected.
+- A hold that fails refuses the submission with FMDB-018. The engine removes the text of an exception that the
+  hold did not write, because the hold was handed every value.
+
+#### The actions after release
+
+A hold releases a submission through the `DeferredActions` service of the engine, with the files that the checks
+passed. The service runs the nodes of `deferredActions` in order, through the dispatch of step 12. The sensitive
+values reach only the action that opts in, and a contextual action receives its context.
+
+Three things differ from a request, because the HTTP request is gone:
+
+- The request that an action receives is a stand-in. It answers the three values of `SubmissionOrigin`: the `lang`
+  parameter, the `Referer` header and the `X-Formidable-Time-Zone` header. Any other call throws
+  `DetachedRequestException`, and so does any call on the response.
+- The session of the visitor is `null`.
+- The result of a contextual action, a redirect or a message, is dropped.
+
+The second list receives the same stand-in when it runs in the request, so an action behaves the same at both
+moments.
+
+- The `deferredActions` list accepts only a node whose type declares `fmdbmix:deferrableAction`. The developer of
+  a type declares the marker, and content cannot. Save to JCR, the two e-mail actions and the forward action
+  declare it, and the redirect action does not.
+- A node of the list without the marker refuses the whole run, before the first action. The repository refuses to
+  create such a node, so the node was written around the repository. Step 12 reads the list for a held submission
+  too, so the pipeline refuses such a list at intake, with FMDB-012.
+- A form with no `deferredActions` list refuses the run too. The contributor turned the switch off after the
+  submission was held, and a run of no action would read as a release that delivered the files.
+- A failure stops the run. `DeferredActionException` carries the index of the action that failed, and
+  `DeferredActions#run` takes the index to resume from, so a resumed run repeats no action. The service calls a
+  checkpoint after each action, which the hold records. A checkpoint that fails stops the run, and the exception
+  then carries the index of the next action.
+- An index names a place in the list as the list stands when the run starts. A resumed run on a list that the
+  contributor reordered runs the action that now stands at that place.
+
 
 ### Response enrichers
 
@@ -267,6 +349,9 @@ repository level. Formidable handles this natively for forms whose actions persi
   is deliberately inverted: an action type **without** the mixin — including any third-party
   action that never considered read-only mode — is presumed to write and blocks its form during
   maintenance. Worst case an unaffected form is over-blocked; a submission is never lost.
+- **A form that holds its uploads writes.** A form with the switch `fmdbmix:quarantine` on is
+  presumed to write, whatever its actions, because the hold stores a submission with an upload
+  ([The hold of the uploads](#the-hold-of-the-uploads)).
 - **Render time (UX layer):** `default.server.tsx` reads the platform state (`SettingsBean`)
   and the form's action nodes. A repository-writing form in live renders as the maintenance
   message alone — the form markup is not emitted at all, no island is mounted — and the
@@ -288,7 +373,7 @@ module resource bundle (`maintenanceMessage.default`), so contributors can rewor
 The client maps `FMDB-014` to the same message, never to the generic error banner — forms
 created before the property existed fall back to the bundled text
 (`fmdb_form.maintenanceUnavailable`). Forms whose actions all carry the mixin (e.g. email-only
-forms) keep working normally during maintenance.
+forms) keep working normally during maintenance, unless they hold their uploads.
 
 ---
 
@@ -554,7 +639,9 @@ As a consequence:
 - there is **nothing to delete on disk** from `FormDataParser` itself
 
 After parsing, the validated uploads remain in memory as `List<FormFile>` and are converted
-to the SPI-level `List<SubmittedFile>` passed to each `FormAction`.
+to the SPI-level `List<SubmittedFile>`. On a form with the switch off, and with the default
+`uploadsRequireQuarantine=false`, that list goes to each `FormAction` of the form.
+[The hold of the uploads](#the-hold-of-the-uploads) states who receives it in the other cases.
 
 Actions that need uploaded files reuse that in-memory list:
 
@@ -698,6 +785,9 @@ the same-origin `formidable-submit` Security Filter is the CSRF control for this
 | `formidable-engine/.../actions/form/email/SendEmailContentFormAction.java` | Sends the submitted form content by email; can optionally attach validated uploaded files, capped by action-level and global upload limits |
 | `formidable-engine/.../api/FormAction.java` | Interface implemented by each action type |
 | `formidable-engine/.../api/ContextualFormAction.java` | An action with the context and a result; `sensitiveFieldsConsumed(actionNode)`, which returns a `SensitiveFields`, is its opt-in to sensitive values |
+| `formidable-engine/.../api/SubmissionHold.java` | The extension point of a module that holds a submission with its uploads; `HeldSubmission` and `SubmissionOrigin` are what it receives |
+| `formidable-engine/.../api/DeferredActions.java` | Runs the actions after release of a form for the hold that releases a submission |
+| `formidable-engine/.../servlet/DetachedRequest.java` | The stand-ins of the request and of the response that an action receives after release |
 | `formidable-engine/.../api/SensitiveFields.java` | The sensitive fields an action reads: `none()`, the default, or `all()`. A final class with a private constructor, so no module builds a selection of its own |
 | `formidable-engine/.../config/formactions/FormActionsConfigService.java` | Reads the form actions theme; resolves forward targets by ID (CAPTCHA verification is `CaptchaConfigService.verifyCaptcha`)
 

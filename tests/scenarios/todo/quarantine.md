@@ -7,9 +7,11 @@ its actions after release.
 Decision: [ADR 0002](../../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-Nothing here is automated yet. A scenario moves to
-`tests/scenarios/quarantine.md` with the spec that covers it, under
-`tests/cypress/e2e/quarantine/`.
+No scenario of this document is automated yet, except a part of Q16:
+`tests/cypress/e2e/security/45-read-only-maintenance.cy.ts` covers its gate for a
+submission with no file and for the form view. A scenario moves to
+[`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
+it, under `tests/cypress/e2e/quarantine/`. The scenarios of M1 moved there.
 
 The scenarios of M1 are final. Those of a later milestone are the acceptance
 list that its pull request starts from: that pull request completes their steps
@@ -105,8 +107,6 @@ the scenario proves:
 
 | Scenario | The control build |
 |---|---|
-| Q06, Q07, Q08 | hands the uploads to the actions on submission, whatever the switch says |
-| Q15 | ignores `uploadsRequireQuarantine` |
 | Q10 | leaves the ACL inheritance of the quarantine root in place |
 | Q09 | releases without computing the hash again |
 | Q21 | runs every check, whatever the outcome of an earlier one |
@@ -116,100 +116,8 @@ the scenario proves:
 
 ## 1. The hold and the actions after release (M1)
 
-The scenarios of this section use the sample hold, which releases a submission
-inside the request: when the response arrives, the actions after release have
-run, and a spec reads their effects with no wait.
-
-### Q06 — An e-mail action on submission sends no file — control
-
-**Steps:**
-1. Add an e-mail content action that attaches the files (`attachFiles` set,
-   which is not its default) to "Actions on submission",
-   and a second one, with the same setting and another recipient, to "Actions
-   after release".
-2. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The mail of the action on submission carries the field values and no
-  attachment
-- The mail of the action after release carries the attachment
-
-### Q07 — A forward action on submission sends no file — control
-
-**Steps:**
-1. Declare a forward target that points at the forward sink of the samples
-   module (M1), and add a forward action on that target to "Actions on
-   submission".
-2. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The target receives the values and no file part
-
-### Q08 — A third-party action on submission receives no file — control
-
-**Steps:**
-1. Add the observer action of the samples module to "Actions on submission".
-2. Submit the form with a file.
-
-**Expected:**
-- The action reports zero files
-- The sample hold reports one file
-
-### Q14 — A form with the switch off is unchanged
-
-**Steps:**
-1. Use a form with the switch off, Save to JCR and an e-mail content action
-   that attaches the files (`attachFiles` set).
-2. Submit the form with a file.
-
-**Expected:**
-- The file is stored under the submission, as before
-- The mail carries the attachment, as before
-- The sample hold reports no call
-
-### Q15 — The quarantine is mandatory, and the switch is off — control
-
-`uploadsRequireQuarantine` is an operator setting of the engine, in
-`org.jahia.modules.formidable.uploads.cfg`. It applies to every form of the
-platform, and it is `false` by default: Q14 runs with the default.
-
-**Steps:**
-1. Set `uploadsRequireQuarantine=true`.
-2. Use the form of Q14: the switch off, Save to JCR and an e-mail content
-   action that attaches the files.
-3. Submit the form with a file.
-
-**Expected:**
-- HTTP 200
-- The submission is stored with its values and no file
-- The mail carries no attachment
-
-### Q25 — The switch is on, and the submission has no file
-
-**Steps:**
-1. Add Save to JCR and the observer action to "Actions after release".
-2. Submit the form with a value and no file.
-
-**Expected:**
-- HTTP 200
-- When the response arrives, the submission is stored and the observer action
-  has reported its call
-- The sample hold reports no call
-
-### Q26 — A type that is not deferrable stays out of the actions after release
-
-**Steps:**
-1. Open the form in the editor, and list the types that "Actions after
-   release" offers.
-2. Create a redirect action under `deferredActions` through a GraphQL
-   mutation.
-
-**Expected:**
-- The list of step 1 holds Save to JCR, the two e-mail actions and the forward
-  action, and no redirect action
-- The mutation of step 2 is refused, and the list holds no redirect action
+The specs of M1 cover the scenarios Q06, Q07, Q08, Q14, Q15, Q25 and Q26. These
+scenarios moved to [`../quarantine.md`](../quarantine.md).
 
 ---
 
@@ -270,13 +178,12 @@ does not ship without it.
 ### Q16 — Read-only maintenance
 
 A form answers `FMDB-014` in read-only maintenance when it is presumed to
-write. A form with the switch on writes whatever its actions, because the hold
-stores the submission. Save to JCR in "Actions after release" makes a
-submission with no file a write too, because that list then runs in the request
-(Q25).
+write. A form with the switch on is presumed to write, whatever its actions:
+the hold stores a submission with a file, and the gate runs before the body
+says whether a file came.
 
 **Steps:**
-1. Add Save to JCR to "Actions after release".
+1. Keep only actions that never write in both lists of the form.
 2. Put the platform in read-only maintenance.
 3. Submit the form with a file, then with no file.
 
@@ -531,13 +438,11 @@ the bytes inside Jahia.
 | Q02 | the bytes released are the bytes checked |
 | Q03 | a file that failed a check never reaches an analyst |
 | Q04, Q05 | an outage of a check loses no claim |
-| Q06, Q07, Q08, Q15 | no file leaves through an action of the request |
 | Q09 | a file whose bytes changed after intake is never released |
 | Q10 | no reader opens a file before its release |
 | Q11 | no parser of the platform reads a held file |
 | Q12 | the form is no test bench for a malware author |
 | Q13 | a file that no check applied to is not released by default |
-| Q14 | no regression on a form with the switch off |
 | Q16 | read-only maintenance |
 | Q17, Q18 | no rejected file is kept forever |
 | Q19 | no active content in the analyst's browser |
@@ -546,5 +451,3 @@ the bytes inside Jahia.
 | Q22 | the actions after release run once, in order |
 | Q23 | no in-process check parses a file that no remote check passed |
 | Q24 | a failure after release sends no mail twice and stores nothing twice |
-| Q25 | a submission with no file waits for nothing |
-| Q26 | no action that cannot run after release enters that list |

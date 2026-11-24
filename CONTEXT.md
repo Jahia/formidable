@@ -48,7 +48,7 @@ default.server.tsx        ← jahiaComponent() for fmdb:form, reads JCR props
 | `src/hooks/useFieldActions.ts` | The field actions asked about a field's value as the visitor leaves it, and settled before the submission; the refused controls the buttons read, re-read after the logic pass (`docs/architecture/field-actions.md`) |
 | `src/utils/fieldActionMessages.ts` | The engine's `messages` array shown under the fields: the pre-check's answer and a refused submission (`FMDB-015`) alike; announces every write and lift of a refusal (`formidable:fieldActionValidity`) and lists the refusals on screen |
 | `src/components/FormContainer/LogicAwareRender.tsx` | The element wrapper: node name/id/type, the conditional-logic state, the field-actions marker `data-fmdb-field-action`, and the field's actions zone in edit mode — attached to the field's Page Builder module by a parse-time script, since jContent would otherwise count it among the fields |
-| `src/components/FieldActionList/hidden.authoring.server.tsx`, `src/components/FieldAction/hidden.authoring.server.tsx` | The zone under a field while authoring and its cards; the chrome is `src/design/AuthoringActionsZone.tsx` and `AuthoringActionCard.tsx`, shared with the form's zone (`ActionList/`, `FormAction/`): one card, one hint, no badge |
+| `src/components/FieldActionList/hidden.authoring.server.tsx`, `src/components/FieldAction/hidden.authoring.server.tsx` | The zone under a field while authoring and its cards; the chrome is `src/design/AuthoringActionsZone.tsx` and `AuthoringActionCard.tsx`, shared with the zones of the form (`ActionList/` and `FormAction/`, and for a form that holds its uploads `QualifierList/`, `Qualifier/` and `DeferredActionList/`): one card, one hint, no badge |
 | `src/components/Form/Captcha.client.tsx` | Renders the captcha widget via the provider's native API |
 | `src/components/Form/types.ts` | `FormServerProps`, `FormProps`, `CaptchaProvider` |
 | `src/components/Form/definition.cnd` | Mixins `fmdbmix:responses`, `fmdbmix:buttons`, `fmdbmix:multiStep`, `fmdbmix:style`, `fmdbmix:captcha`, `fmdbmix:requireAuthentication`, the `fmdb:actionList`/`fmdb:fieldList` lists and the `fmdb:form` type |
@@ -229,6 +229,16 @@ value out of its logs; how the action that opts in calls its service is its own.
 `docs/architecture/form-submission-flow.md`, "Sensitive fields" and its decision log (D1 the
 type-level marker, D2 the Java opt-in, D3 the deferred edit-time alert, D4 never a file field).
 
+### The hold of the uploads: who receives the files
+
+A form whose switch `fmdbmix:quarantine` is on has three lists: `actions`, `qualifiers` and
+`deferredActions`. Step 12 reads the switch once, before the first action runs. With the switch on,
+no action of `actions` receives an upload: the pipeline hands the submission to the
+`SubmissionHold` service, and the `DeferredActions` service runs `deferredActions` when the hold
+releases it. A type enters the second list only when its developer declares
+`fmdbmix:deferrableAction`. See `docs/architecture/form-submission-flow.md`, "The hold of the
+uploads", for the rules, and ADR 0002.
+
 ### Java class layout
 
 ```
@@ -255,6 +265,7 @@ org.jahia.modules.formidable.engine
 ├── servlet/                             ← the submission: its entry point, its pipeline, what reads the request
 │   ├── FormSubmitServlet.java           ← whiteboard entry point
 │   ├── FormSubmissionPipeline.java      ← the 12 steps, plus 9a (separateSensitiveValues) and 11b (runFieldActions)
+│   ├── DeferredActionsService.java, DetachedRequest.java  ← the run of the actions after release, for a hold, with no HTTP request
 │   └── FormDataParser.java, FieldValidator.java, FormFieldMetadataCollector.java
 ├── files/                              ← file types, from Apache Tika's registry only (docs/architecture/form-submission-flow.md)
 │   └── AllowedTypes (what a file field accepts, for its view and the parser), FileTypeService (extensions, labels)
@@ -274,7 +285,7 @@ org.jahia.modules.formidable.engine
 │   ├── v04/      0.3 → 0.4 content: ChoiceOptionsContentMigration, DateBoundsContentMigration, TranslationFieldKeyCleanup, ListTitlesContentMigration, ElementsSiteReactivation
 │   └── v05/      0.4 → 0.5: MixinPropertyNamesMigration, RedundantMixinMigration (content); LegacyConfigurationMigration (single PID → theme files), FormerListLines (list lines → entry files)
 └── actions/                             ← one folder per kind, and what the two kinds share
-    ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator
+    ├── common/   ActionSummaryService (a type's label, tooltip and icon), FieldEscaper, TemplateInterpolator, OfferedTypes (the types a site offers under a list, shared by field actions and checks), QualifierTypesService
     ├── form/     ContentDispositionUtils
     │   ├── email/   SendEmailNotificationFormAction, SendEmailContentFormAction, EmailAddresses (the addresses the mail service would refuse, left out and logged before the send)
     │   ├── forward/ ForwardSubmissionFormAction, HostnameResolutionService
