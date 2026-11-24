@@ -18,7 +18,8 @@ interface CreateFormNodeOptions {
 	deferredActions?: JahiaNode[];
 	/**
 	 * The nodes of the "Checks" list of a form, which turns the switch on (fmdbmix:quarantine) as deferredActions does:
-	 * each a type that carries fmdbmix:qualifier, such as the samples' fmdbsample:sampleCheck.
+	 * each a type that carries fmdbmix:qualifier, such as the samples' fmdbsample:sampleCheck or the stub checks of the
+	 * quarantine test module.
 	 */
 	qualifiers?: JahiaNode[];
 	mixins?: string[];

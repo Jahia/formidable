@@ -43,6 +43,8 @@ export const ZEROBOUNCE_STUB_PATH = '/modules/formidable-samples/zerobounce-stub
 export const FORWARD_SINK_PATH = '/modules/formidable-samples/forward-sink'
 /** The samples module's record of what its upload observer and its sample hold saw since the last reset. */
 export const UPLOAD_OBSERVATIONS_PATH = '/modules/formidable-samples/upload-observations'
+/** The quarantine test module's inspection of its tree: server administrators only, names and hashes, never a value. */
+export const QUARANTINE_INSPECTION_PATH = '/modules/formidable-quarantine/inspection'
 export const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State'
 
 /**

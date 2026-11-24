@@ -1,10 +1,14 @@
-import {FORWARD_SINK_PATH, UPLOAD_OBSERVATIONS_PATH} from '../../support/constants';
-import {FORWARD_SINK_TARGET_ID, getInputFileNode, getInputTextNode} from '../../support/fixtures';
+import {FORWARD_SINK_PATH, QUARANTINE_INSPECTION_PATH, UPLOAD_OBSERVATIONS_PATH} from '../../support/constants';
+import {FORMIDABLE_TEST_SITE, FORWARD_SINK_TARGET_ID, getInputFileNode, getInputTextNode} from '../../support/fixtures';
 import {SAME_ORIGIN} from '../security/support';
 
 const BOUNDARY = '----FormidableCypressBoundary';
 export const FILE_FIELD = 'supportingDocument';
 export const FILE_NAME = 'claim-note.txt';
+/** The text of the file of submissionWithAFile. */
+export const FILE_TEXT = 'A note attached to the claim.';
+/** The SHA-256 of FILE_TEXT, computed outside Jahia (`shasum -a 256`). */
+export const FILE_SHA256 = 'f7c11b5f5115eb9d0f4f8619af8870daf212b37948739f8534e4088a078e7ffd';
 
 /** A submission of the text field and one small text file, as a browser posts it. */
 export const submissionWithAFile = (fullName: string): string =>
@@ -14,7 +18,7 @@ export const submissionWithAFile = (fullName: string): string =>
 	+ `--${BOUNDARY}\r\n`
 	+ `Content-Disposition: form-data; name="${FILE_FIELD}"; filename="${FILE_NAME}"\r\n`
 	+ 'Content-Type: text/plain\r\n\r\n'
-	+ 'A note attached to the claim.\r\n'
+	+ `${FILE_TEXT}\r\n`
 	+ `--${BOUNDARY}--\r\n`;
 
 /** A submission of the text field alone: the file field is left empty. */
@@ -95,3 +99,38 @@ export const resetUploadObservations = (): Cypress.Chainable =>
 /** What the upload observer and the sample hold of the samples module saw since the last reset. */
 export const readUploadObservations = (): Cypress.Chainable<UploadObservations> =>
 	cy.request<UploadObservations>(UPLOAD_OBSERVATIONS_PATH).its('body');
+
+/** One item of a held submission, as the inspection of the quarantine test module answers it: never its bytes. */
+export interface HeldItem {
+	name: string;
+	fieldName: string;
+	fileName: string;
+	mimeType: string | null;
+	size: number;
+	sha256: string;
+	binaryPresent: boolean;
+}
+
+/** One held submission, as the inspection answers it: the names of its fields, never a value. */
+export interface HeldSubmissionRecord {
+	path: string;
+	state: 'held' | 'checking' | 'releasing' | 'completed' | 'rejected' | 'needsReview';
+	createdAt: string;
+	attempts: number;
+	nextAttempt: string | null;
+	completedActions: number;
+	fields: string[];
+	sensitiveFields: string[];
+	valuesPresent: boolean;
+	items: HeldItem[];
+}
+
+/**
+ * The held submissions of a form in the quarantine tree of the test site, oldest first. The inspection answers server
+ * administrators alone: the spec reads it logged in as root.
+ */
+export const readHeldSubmissions = (formId: string): Cypress.Chainable<HeldSubmissionRecord[]> =>
+	cy.request<{submissions: HeldSubmissionRecord[]}>({
+		url: QUARANTINE_INSPECTION_PATH,
+		qs: {site: FORMIDABLE_TEST_SITE.key, form: formId}
+	}).its('body.submissions');
