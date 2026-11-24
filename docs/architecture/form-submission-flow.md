@@ -176,14 +176,16 @@ Step 12 reads the switch once, before it runs the first action, and then decides
 #### The hold service
 
 The engine ships no hold. An extension module registers a `SubmissionHold` OSGi service, and the engine binds the
-one with the highest service ranking. Jahia ships one such module, `formidable-quarantine`
-([ADR 0003](../adr/0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md),
-[Quarantine of the uploads](quarantine.md)). The service receives a `HeldSubmission`: the identifier of the form, the key
+one with the highest service ranking.
+[ADR 0003](../adr/0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md) decides that Jahia ships one such
+module, `formidable-quarantine`, which [Quarantine of the uploads](quarantine.md) designs. The service receives a `HeldSubmission`: the identifier of the form, the key
 of its site, the locale, the public values, the sensitive values, the uploads, and the `SubmissionOrigin`.
 
 - `hold` stores the submission and returns. The request waits for the call, so no check runs in it.
 - The hold keeps the bytes where no reader, no parser and no action reaches them until every check passed them.
-  The engine cannot enforce that duty.
+  The engine cannot enforce that duty. One exception is the choice of the hold: it can let a reviewer with an
+  explicit permission download a file under review
+  ([File access by a reviewer](quarantine.md#file-access-by-a-reviewer)).
 - The sensitive values wait with the others, because the actions that consume them run after release. The hold
   returns them through no read API, and deletes them when the submission is released or rejected.
 - A hold that fails refuses the submission with FMDB-018. The engine removes the text of an exception that the

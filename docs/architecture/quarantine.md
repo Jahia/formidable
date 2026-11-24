@@ -11,8 +11,9 @@ The design rests on two decisions:
 - [ADR 0003](../adr/0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md): Jahia ships that hold as an
   optional module, and a customer writes only a check.
 
-The module is built on the branch `develop-quarantine`. Its code comes from the hold of the test module
-`formidable-test-module-quarantine`, which keeps only its stub checks and its test endpoints.
+The repository does not hold the module yet, so this document is its design. Its code comes from the hold of the
+test module `formidable-test-module-quarantine`. Once the module holds that code, the test module keeps no hold and
+writes no quarantine tree. It keeps only its stub checks and its test endpoints.
 
 ## Building blocks
 
@@ -56,7 +57,7 @@ flowchart LR
 | Manager operations | Retry, release, resume and reject, each allowed by the state machine and written to the audit. |
 | GraphQL API and download | The API of the manager screen. A resolver checks the permission of the user on the site before every read and every operation. |
 | Manager screen | A jContent route of the site: the list, the detail of a submission, the operations and the download. |
-| Allow-list check | The check that the module ships. It refuses a file whose extension or declared MIME type is not on its list. |
+| Allow-list check | The check that the module ships. It applies to every file and reads only its metadata. It answers `FAIL` for an extension or a declared MIME type outside its list, and `PASS` for one on its list. |
 
 ## The check API
 
@@ -68,9 +69,16 @@ A check module provides both, and nothing else:
 - A check receives the metadata of the file, a stream of its bytes and its settings. It never receives a node of
   the repository.
 - A check answers with a verdict (`PASS`, `FAIL` or `INCONCLUSIVE`), or with a ticket that the run polls later.
-- A check declares its scope. A `REMOTE` check sends the bytes out of the JVM, and an `IN_PROCESS` check reads
-  them inside it. The chain refuses a list where an `IN_PROCESS` check reads a file before a `REMOTE` check passed
-  it.
+- A check declares its scope:
+  - A `METADATA` check reads the name, the declared MIME type and the size of the file, and never a byte.
+  - A `REMOTE` check sends the bytes out of the JVM.
+  - An `IN_PROCESS` check reads the bytes inside the JVM.
+- The chain refuses a list where an `IN_PROCESS` check reads a file before a `REMOTE` check passed it. A `METADATA`
+  check can stand at any place in the list.
+
+The allow-list check has the scope `METADATA`. Its `PASS` means only that the type of the file is allowed. With the
+allow-list check alone in the list, every file of an allowed type is released with no scan. A scanner therefore
+comes after the allow-list check.
 
 The settings of a check come from its node. The run reads the node and gives the check its common settings
 (`onInconclusive`, `onUnavailable`) and its own properties as a map of strings.
@@ -133,7 +141,8 @@ sequenceDiagram
 - A pass that brings no new verdict waits for the back-off. When the attempts are exhausted, the submission goes to
   review with the reason `ATTEMPTS_EXHAUSTED`.
 - A file that no check of the list applies to goes to review with the reason `FILE_WITHHELD`.
-- After `completed` or `rejected`, the store deletes the values and the bytes.
+- After `completed` or `rejected`, the store deletes the values and the bytes. The record of the submission and its
+  audit stay until the retention deletes them.
 
 ### The states of a held submission
 
@@ -152,9 +161,18 @@ stateDiagram-v2
     releasing --> releasing: MANAGER_RESUME
     needsReview --> rejected: MANAGER_REJECT
     releasing --> rejected: MANAGER_REJECT
+    checking --> releasing: RELEASE_VALUES
+    needsReview --> releasing: MANAGER_RELEASE_VALUES
     completed --> [*]
     rejected --> [*]
 ```
+
+The events `RELEASE_VALUES` and `MANAGER_RELEASE_VALUES` serve a form with `onFail=releaseValues`:
+
+- `RELEASE_VALUES` follows a `FAIL` verdict, and `MANAGER_RELEASE_VALUES` follows a reject by a manager.
+- Both events lead to `releasing` with the values alone. The run never releases a file after them.
+- The submission ends in `completed`, and its decision record keeps the failed verdict or the reject of the
+  manager. The audit never states that every check passed.
 
 ### An operation of a manager
 
@@ -183,8 +201,10 @@ A user without the permission gets the same answer as for a submission that does
   inheritance of the ACL and has no entry, so no site role reads it.
 - The bytes of a file are a binary property of the item. They are never `jcr:data` of a file node, so no file
   servlet serves them, and no text extraction or listener reads them.
-- The store computes the SHA-256 again before a release and before a download. A mismatch moves the submission to
-  review with the reason `INTEGRITY_FAILED`.
+- The store computes the SHA-256 again before a release and before a download:
+  - A mismatch before a release moves the submission to review with the reason `INTEGRITY_FAILED`.
+  - A mismatch before a download refuses the download and writes an audit record. The submission stays in
+    `needsReview`.
 - The module reads the tree with a system session, and only after the permission check on the site node.
 - No value of a submission appears in a log line or in an error message.
 
@@ -223,8 +243,11 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 | Site | A property of the site | A lower `fileAccess`, the retention of the site, and the addresses of the review digest. |
 | Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the scan status field and its two values, `showValues`, and a lower `fileAccess`. |
 
-- `onFail=reject` deletes a rejected submission. `onFail=releaseValues` runs the actions after release with the
-  values alone, with no file, and writes the scan status field.
+- `onFail=reject` rejects the submission. The store deletes its values and its bytes, and keeps its record and its
+  audit until the retention.
+- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and writes the scan
+  status field. [The states of a held submission](#the-states-of-a-held-submission) give the two events of this
+  path.
 - The visitor cannot choose the scan status: the run writes the field over the value that the visitor sent.
 - `showValues` shows the public values of a held submission in the detail view. The sensitive values never appear.
 
@@ -232,6 +255,8 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 
 - The run starts on the processing server only.
 - A lock in the repository keeps one run at a time across the cluster.
+- The module owns the root of the quarantine tree, `/sites/<site>/formidable-quarantine/`, of the type
+  `fmdbq:quarantineRoot`. No other module writes under it.
 - The module installs on the platform, and a site turns it on. The manager screen appears only on a site that has
   the module.
 - The node types of the module use the prefixes `fmdbq` and `fmdbqmix`. The test module keeps `fmdbquar` for its
