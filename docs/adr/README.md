@@ -6,3 +6,4 @@ Each record states one decision of architecture, in the [MADR 4.0.0](https://git
 |---|---|---|
 | [0001](0001-extension-modules-register-logic-sources.md) | Extension modules register their conditional-logic sources | proposed |
 | [0002](0002-a-switch-on-the-form-holds-its-uploads-until-release.md) | A switch on the form holds its uploads until release | proposed |
+| [0003](0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md) | Jahia ships the quarantine hold as an optional module | proposed |
