@@ -315,15 +315,19 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     @Override
-    public void deleteValues(String path) throws QuarantineStoreException {
-        change(path, "delete the values and the bytes", held -> {
+    public void finish(String path, String state) throws QuarantineStoreException {
+        if (!HeldStates.COMPLETED.equals(state) && !HeldStates.REJECTED.equals(state)) {
+            throw new QuarantineStoreException("Not a final state of a held submission: " + state);
+        }
+        change(path, "set the state " + state + " and delete the values and the bytes", held -> {
             removeChildIfPresent(held, QuarantineTree.VALUES);
             removeChildIfPresent(held, QuarantineTree.SENSITIVE);
             for (JCRNodeWrapper item : items(held)) {
                 removeIfPresent(item, QuarantineTree.DATA);
             }
+            held.setProperty(QuarantineTree.STATE, state);
         });
-        log.info("Deleted the values and the bytes of the held submission at {}", path);
+        log.info("Held submission {} is {}: its values and bytes are deleted", path, state);
     }
 
     /** A change of one held submission, saved at once. */
