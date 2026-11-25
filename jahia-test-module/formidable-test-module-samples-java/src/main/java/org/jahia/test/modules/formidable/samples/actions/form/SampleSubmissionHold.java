@@ -41,7 +41,7 @@ public class SampleSubmissionHold implements SubmissionHold {
 
     private final LowerHolds lowerHolds = new LowerHolds();
     /** The ranking the component is bound with, which a configuration of the component may change. */
-    private final AtomicInteger ranking = new AtomicInteger(RANKING);
+    private final AtomicInteger boundRanking = new AtomicInteger(RANKING);
     private final SampleChecks sampleChecks;
     private DeferredActions deferredActions;
 
@@ -57,7 +57,7 @@ public class SampleSubmissionHold implements SubmissionHold {
     @Activate
     @Modified
     public void configure(Map<String, Object> properties) {
-        ranking.set(LowerHolds.ranking(properties.get(LowerHolds.SERVICE_RANKING)));
+        boundRanking.set(LowerHolds.ranking(properties.get(LowerHolds.SERVICE_RANKING)));
     }
 
     @Reference
@@ -86,7 +86,7 @@ public class SampleSubmissionHold implements SubmissionHold {
     public void hold(HeldSubmission submission) throws SubmissionHoldException {
         String formId = submission.formId();
         if (!claims(formId)) {
-            SubmissionHold next = lowerHolds.nextBelow(ranking.get()).orElseThrow(() -> new SubmissionHoldException(
+            SubmissionHold next = lowerHolds.nextBelow(boundRanking.get()).orElseThrow(() -> new SubmissionHoldException(
                     "Form " + formId + " has no " + SampleChecks.SAMPLE_CHECK + " in its checks, and no other hold "
                             + "ranks below the sample hold"));
             next.hold(submission);
