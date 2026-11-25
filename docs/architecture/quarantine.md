@@ -271,7 +271,7 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 |---|---|---|
 | Platform | The OSGi configuration of the module | The period of the run, the back-off, the retention, and the ceiling of `fileAccess`. |
 | Site | A property of the site | A lower `fileAccess`, the retention of the site, and the addresses of the review digest. |
-| Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
+| Form | The mixin `fmdbqmix:quarantinePolicy`, a switch of the form next to the quarantine switch. It applies only while the quarantine switch is on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
 
 - A form without the mixin has the default policy, `onFail=reject` and no scan status. The run reads the policy of
   the form in live each time it concludes, and so does an operation of a manager.

@@ -16,8 +16,8 @@ order.
 Specs:
 
 - `tests/cypress/e2e/quarantine/92-quarantine-release-values.cy.ts` covers Q40,
-  Q41, Q42 and Q43: the policy of a form, which releases the values alone on a
-  fail.
+  Q41, Q42, Q43 and Q44: the policy of a form, which releases the values alone
+  on a fail, and its switch in the editor.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -751,6 +751,19 @@ submission also posts a forged value named `documentScanStatus`.
 - The stored submission holds the name and the failed scan status, and no file
 - The observer action reports one call with no file
 
+### Q44 — The editor offers the policy
+
+**Steps:**
+1. Create a form with the quarantine switch on and no policy, and a form with
+   the switch on and the policy.
+2. Read the edit form of each through `forms.editForm`, as root.
+
+**Expected:**
+- In the section of the quarantine switch, the fieldset
+  `fmdbqmix:quarantinePolicy` "Quarantine policy" is a switch: off on the first
+  form, on on the second
+- It comes after the quarantine switch
+
 ---
 
 ## Coverage map
@@ -782,3 +795,4 @@ submission also posts a forged value named `documentScanStatus`.
 | Q40, Q43 | a file that failed a check, or that a manager rejected, never leaves with the values |
 | Q40, Q41 | the visitor cannot set the scan status |
 | Q42 | the default policy still rejects a fail |
+| Q44 | an author can set the policy of a form |

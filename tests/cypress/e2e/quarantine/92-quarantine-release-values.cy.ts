@@ -1,4 +1,5 @@
 import {enableModule} from '@jahia/cypress';
+import {CONTENT_PATH} from '../../support/constants';
 import {
 	FORMIDABLE_TEST_SITE,
 	NodeProperty,
@@ -38,6 +39,33 @@ interface GraphqlBody {
 	data?: any;
 	errors?: Array<{message?: string}>;
 }
+
+interface EditorFieldSet {
+	name: string;
+	dynamic: boolean;
+	activated: boolean;
+	displayName: string;
+}
+
+/**
+ * The fieldsets of the section of Content Editor that holds the quarantine switch, in their order, for the form at the
+ * path, read as root.
+ */
+const switchSection = (path: string): Cypress.Chainable<EditorFieldSet[]> => cy.request<GraphqlBody>({
+	method: 'POST',
+	url: '/modules/graphql',
+	headers: {Origin: SAME_ORIGIN},
+	body: {
+		query: 'query($path: String!) { forms { editForm(uuidOrPath: $path, uiLocale: "en", locale: "en") { sections { fieldSets { name dynamic activated displayName } } } } }',
+		variables: {path}
+	}
+}).then(response => {
+	expect(response.body.errors, 'errors of the query').to.equal(undefined);
+	const sections = response.body.data.forms.editForm.sections as Array<{fieldSets: EditorFieldSet[]}>;
+	const section = sections.find(one => one.fieldSets.some(fieldSet => fieldSet.name === 'fmdbmix:quarantine'));
+	expect(section, 'the section of the quarantine switch').to.not.equal(undefined);
+	return section?.fieldSets ?? [];
+});
 
 /** Whether a live node exists, read as root through GraphQL. */
 const liveNodeExists = (path: string): Cypress.Chainable<boolean> => cy.request<GraphqlBody>({
@@ -111,7 +139,7 @@ const runOnce = (formId: string, state: HeldSubmissionRecord['state']): void => 
 };
 
 /**
- * The policy of a form (tests/scenarios/quarantine.md, Q40 to Q43): with onFail=releaseValues, a FAIL verdict, and a
+ * The policy of a form (tests/scenarios/quarantine.md, Q40 to Q44): with onFail=releaseValues, a FAIL verdict, and a
  * reject by a manager, delete the bytes first, then run the actions after release with the values alone and the failed
  * scan status. A release of the files gets the clean scan status. The scan status is a value that the run adds, not a
  * field of the form: a value the visitor sends with its name is skipped by the engine, and written over by the run.
@@ -234,5 +262,27 @@ describe('Quarantine - 92 The policy of a form releases the values alone on a fa
 		readUploadObservations().its('observer').should('deep.equal', [
 			{action: 'afterRelease', list: 'deferredActions', files: 0}
 		]);
+	});
+
+	it('Q44: the editor of a form offers the policy as a switch in the section of the quarantine switch', () => {
+		const policyOf = (fieldSets: EditorFieldSet[]) => fieldSets.find(fieldSet => fieldSet.name === 'fmdbqmix:quarantinePolicy');
+		createPublishedLiveFormPage('policy-editor-off-form', 'Policy editor off form', fields(), undefined, undefined, {
+			qualifiers: [getRemoteStubCheckNode()],
+			deferredActions: []
+		});
+		createForm('policy-editor-on-form', 'releaseValues');
+
+		switchSection(`${CONTENT_PATH}/policy-editor-off-form`).then(fieldSets => {
+			expect(policyOf(fieldSets), 'the policy on a form with the switch on and no policy').to.deep.equal(
+				{name: 'fmdbqmix:quarantinePolicy', dynamic: true, activated: false, displayName: 'Quarantine policy'});
+		});
+		switchSection(`${CONTENT_PATH}/policy-editor-on-form`).then(fieldSets => {
+			expect(policyOf(fieldSets), 'the policy on a form that has it').to.deep.equal(
+				{name: 'fmdbqmix:quarantinePolicy', dynamic: true, activated: true, displayName: 'Quarantine policy'});
+			const names = fieldSets.map(fieldSet => fieldSet.name);
+			cy.log(`fieldsets of the section: ${names.join(', ')}`);
+			expect(names.indexOf('fmdbqmix:quarantinePolicy'), 'the policy comes after the quarantine switch')
+				.to.be.greaterThan(names.indexOf('fmdbmix:quarantine'));
+		});
 	});
 });
