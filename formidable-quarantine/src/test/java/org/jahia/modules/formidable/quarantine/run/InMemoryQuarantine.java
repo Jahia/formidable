@@ -53,6 +53,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         public boolean valuesPresent = true;
         final List<String> itemNames = new ArrayList<>();
         final List<String> mimeTypes = new ArrayList<>();
+        final List<String> fileNames = new ArrayList<>();
         final List<String> sha256s = new ArrayList<>();
         public final List<byte[]> bytes = new ArrayList<>();
         public final Map<String, OutcomeRecord> outcomes = new LinkedHashMap<>();
@@ -93,6 +94,12 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     }
 
     void addItem(Held one, String mimeType, byte[] data) {
+        addItem(one, "item" + one.itemNames.size() + ".txt", mimeType, data);
+    }
+
+    /** Adds an item of that name and declared type. */
+    void addItem(Held one, String fileName, String mimeType, byte[] data) {
+        one.fileNames.add(fileName);
         one.itemNames.add("item" + one.itemNames.size());
         one.mimeTypes.add(mimeType);
         one.sha256s.add(Sha256.hex(data));
@@ -121,7 +128,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         List<SubmittedFile> files = new ArrayList<>();
         for (int i = 0; i < one.bytes.size(); i++) {
             if (one.bytes.get(i) != null && !lostOnRead.contains(one.path + "/" + one.itemNames.get(i))) {
-                files.add(new SubmittedFile("document", one.itemNames.get(i) + ".txt", one.mimeTypes.get(i),
+                files.add(new SubmittedFile("document", one.fileNames.get(i), one.mimeTypes.get(i),
                         bytesOf(one, i)));
             }
         }
@@ -152,7 +159,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         Held one = get(path);
         List<ItemRecord> items = new ArrayList<>();
         for (int i = 0; i < one.itemNames.size(); i++) {
-            items.add(new ItemRecord(one.itemNames.get(i), "document", one.itemNames.get(i) + ".txt",
+            items.add(new ItemRecord(one.itemNames.get(i), "document", one.fileNames.get(i),
                     one.mimeTypes.get(i), 10, one.sha256s.get(i), one.bytes.get(i) != null));
         }
         return Optional.of(new HeldRecord(one.path, one.formId, SITE, one.state, one.createdAt, one.attempts,
@@ -373,6 +380,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     public Held holdLarge(String formId, LargeBytes bytes) {
         Held one = hold(formId);
         one.itemNames.add("item0");
+        one.fileNames.add("item0.bin");
         one.mimeTypes.add("application/octet-stream");
         one.sha256s.add(bytes.sha256());
         // a marker: the bytes are present; the stream of the large item and read() serve them

@@ -169,7 +169,7 @@ public final class CheckChain {
     private ChainDecision frontier(QuarantinedFile file, List<ChainCheck> checks,
                                    Map<OutcomeKey, RecordedOutcome> recorded) {
         for (ChainCheck check : checks) {
-            RecordedOutcome outcome = recorded.get(new OutcomeKey(file.sha256(), check.name()));
+            RecordedOutcome outcome = recorded.get(OutcomeKey.of(file, check));
             if (outcome == null) {
                 return proceed(new Step.Submit(file, check));
             }

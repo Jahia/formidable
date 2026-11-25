@@ -6,6 +6,8 @@ import org.jahia.modules.formidable.engine.api.HeldSubmission;
 import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
 import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.quarantine.check.AllowListQualifier;
+import org.jahia.modules.formidable.quarantine.chain.ChainCheck;
+import org.jahia.modules.formidable.quarantine.chain.OutcomeKey;
 import org.jahia.modules.formidable.quarantine.chain.RecordedOutcome;
 import org.jahia.modules.formidable.quarantine.api.CheckSettings;
 import org.jahia.modules.formidable.quarantine.api.OnInconclusive;
@@ -396,16 +398,20 @@ class QuarantineRunTest {
     void aMetadataCheckReadsTheMetadataAndNoByte() throws Exception {
         MetadataProbe probe = new MetadataProbe();
         run.addQualifier(probe);
-        lists.put(FORM, List.of(CheckSettings.withDefaults(MetadataProbe.NODE_TYPE, "metadataCheck"),
-                remote("remoteCheck")));
+        // the remote check applies to the text file alone: its submit of the text shares a batch, and so the open
+        // session of the bytes, with the submit of the metadata check for the image
+        lists.put(FORM, List.of(remote("remoteCheck"),
+                CheckSettings.withDefaults(MetadataProbe.NODE_TYPE, "metadataCheck")));
         Held held = stores.hold(FORM, "VERDICT:PASS");
+        stores.addItem(held, "scan.png", "image/png", new byte[]{(byte) 0x89, 'P', 'N', 'G'});
 
         runNow();
 
         assertEquals(HeldStates.COMPLETED, held.state);
-        assertEquals(List.of("item0.txt text/plain 10"), probe.seen);
-        assertEquals(1, probe.refusedOpens);
+        assertEquals(List.of("scan.png image/png 10", "item0.txt text/plain 10"), probe.seen);
+        assertEquals(2, probe.refusedOpens, "a metadata check read a byte while the session of the batch was open");
         assertEquals(OutcomeRecord.PASS, held.outcomes.get("item0/metadataCheck").outcome());
+        assertEquals(OutcomeRecord.PASS, held.outcomes.get("item1/metadataCheck").outcome());
     }
 
     @Test
@@ -469,6 +475,55 @@ class QuarantineRunTest {
         QuarantinedFile metadataOnly = SubmissionRun.fileFor(new MetadataProbe(), file);
         assertEquals("item0.txt", metadataOnly.fileName());
         assertThrows(IOException.class, metadataOnly::open);
+    }
+
+    @Test
+    void anAllowListJudgesEachFileOfTheSameBytesByItsOwnNameAndType() throws Exception {
+        run.addQualifier(new AllowListQualifier());
+        Map<String, List<String>> allowed = Map.of("extensions", List.of("pdf"), "mimeTypes", List.of("application/pdf"));
+        lists.put(FORM, List.of(new CheckSettings(AllowListQualifier.NODE_TYPE, "allowList", OnInconclusive.REVIEW,
+                OnUnavailable.RETRY, allowed)));
+        Held held = stores.hold(FORM);
+        byte[] same = "%PDF-1.7 the same bytes".getBytes(StandardCharsets.UTF_8);
+        stores.addItem(held, "doc.pdf", "application/pdf", same);
+        stores.addItem(held, "doc.exe", "application/x-msdownload", same);
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state);
+        assertEquals("CHECK_FAILED", held.decision.reason());
+        assertEquals("item1", held.decision.itemName());
+        assertEquals(OutcomeRecord.PASS, held.outcomes.get("item0/allowList").outcome());
+        assertEquals(OutcomeRecord.FAIL, held.outcomes.get("item1/allowList").outcome());
+        assertTrue(released.isEmpty());
+    }
+
+    @Test
+    void aStoredMetadataVerdictCountsOnlyForTheItemItWasRecordedUnder() throws Exception {
+        Held held = stores.hold(FORM);
+        byte[] same = "the same bytes".getBytes(StandardCharsets.UTF_8);
+        stores.addItem(held, "doc.pdf", "application/pdf", same);
+        stores.addItem(held, "doc.exe", "application/x-msdownload", same);
+        ItemAccess access = new ItemAccess();
+        List<ItemFile> files = new ArrayList<>();
+        for (ItemRecord item : stores.heldRecord(held.path).orElseThrow().items()) {
+            files.add(new ItemFile(held.path, item, access));
+        }
+        ChainCheck allowList = new ChainCheck(CheckSettings.withDefaults(AllowListQualifier.NODE_TYPE, "allowList"),
+                new AllowListQualifier());
+        ChainCheck scan = new ChainCheck(remote("remoteCheck"), MarkerQualifier.remote(calls, outage));
+        String sha256 = held.sha256s.get(0);
+        List<OutcomeRecord> stored = List.of(
+                new OutcomeRecord("item0", "allowList", sha256, OutcomeRecord.PASS, "allowList.allowed", false, null, 0,
+                        NOW),
+                new OutcomeRecord("item0", "remoteCheck", sha256, OutcomeRecord.PASS, "stub.marker", false, null, 0,
+                        NOW));
+
+        Map<OutcomeKey, RecordedOutcome> recorded = OutcomeCodec.recorded(stored, files, List.of(allowList, scan));
+
+        assertNotNull(recorded.get(OutcomeKey.of(files.get(0), allowList)));
+        assertNull(recorded.get(OutcomeKey.of(files.get(1), allowList)), "doc.exe took the verdict of doc.pdf");
+        assertNotNull(recorded.get(OutcomeKey.of(files.get(1), scan)), "the same bytes share a verdict on the bytes");
     }
 
     @Test

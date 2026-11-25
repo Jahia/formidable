@@ -72,11 +72,14 @@ A check module provides both, and nothing else:
 
 - The node type declares `fmdbmix:qualifier`, so the Page Builder offers it in the checks zone.
 - The service registers under the check API and names the node type it serves.
-- A check receives the metadata of the file, a stream of its bytes and its settings. It never receives a node of
-  the repository.
+- A check receives the metadata of the file and its settings. A check that reads bytes also receives a stream of
+  the bytes, and a `METADATA` check receives no stream. A check never receives a node of the repository.
 - The stream reads the binary of the repository as the check reads it, with no copy of the file in memory. The run
-  opens one session for a batch of calls, with at most one call for each file. The stream reads until the last call
-  of the batch returns. A stream or a file that the check keeps cannot be read once the batch ended.
+  calls the checks in batches, with at most one call for each file in a batch. When a batch holds a call that reads
+  bytes, the run opens a session of the repository for the whole batch. The run closes the session after the last
+  call.
+- A file opens a stream only while the session of a batch is open. A stream reads only until its batch ends. A file
+  that the check keeps can open a new stream during a later batch of the same run that opens a session.
 - A check gives one of three answers:
   - a verdict, `PASS`, `FAIL` or `INCONCLUSIVE`;
   - a ticket that the run polls later;
@@ -88,6 +91,9 @@ A check module provides both, and nothing else:
   - An `IN_PROCESS` check reads the bytes inside the JVM.
 - The chain refuses a list where an `IN_PROCESS` check reads a file before a `REMOTE` check passed it. A `METADATA`
   check can stand at any place in the list.
+- The run records an outcome for the bytes it was given for. A check that reads bytes judges the bytes, so two files
+  with the same bytes share its outcome. A `METADATA` check judges the name and the type. Its outcome counts
+  only for a file of the same bytes, the same name and the same declared MIME type.
 
 The settings of a check come from its node. The run reads the node and gives the check its common settings
 (`onInconclusive`, `onUnavailable`) and its own properties as a map:

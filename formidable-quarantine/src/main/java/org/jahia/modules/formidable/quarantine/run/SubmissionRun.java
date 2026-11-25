@@ -77,6 +77,7 @@ final class SubmissionRun {
         final Set<OutcomeKey> called = new HashSet<>();
         final ItemAccess access = new ItemAccess();
         Map<OutcomeKey, RecordedOutcome> recorded;
+        List<ChainCheck> checks = List.of();
         HeldState state;
 
         Pass(HeldRecord held) {
@@ -109,7 +110,8 @@ final class SubmissionRun {
                 pass.files.add(new ItemFile(pass.path(), item, pass.access));
             }
         }
-        pass.recorded = OutcomeCodec.recorded(checkStore.outcomes(pass.path()));
+        pass.checks = checks;
+        pass.recorded = OutcomeCodec.recorded(checkStore.outcomes(pass.path()), pass.files, checks);
         CheckChain chain = new CheckChain(settings.allowInProcessFirst(), settings.backoff().maxAttempts());
         ChainDecision decision = chain.decide(checks, pass.files, pass.recorded);
         boolean progressedOnce = false;
@@ -174,14 +176,14 @@ final class SubmissionRun {
     private boolean callSteps(Pass pass, List<Step> steps) throws QuarantineStoreException {
         boolean progressed = false;
         for (Step step : steps) {
-            OutcomeKey key = new OutcomeKey(step.file().sha256(), step.check().name());
+            OutcomeKey key = OutcomeKey.of(step.file(), step.check());
             if (!pass.called.add(key)) {
                 continue;
             }
             RecordedOutcome next = call(pass.path(), step, pass.recorded.get(key));
             pass.recorded.put(key, next);
-            write(pass, key, next);
-            progressed |= next.outcome() instanceof Outcome.Result result && result.verdict() == Outcome.Verdict.PASS;
+            write(pass, step.check(), key, next);
+            progressed |= passed(next);
         }
         return progressed;
     }
@@ -226,11 +228,15 @@ final class SubmissionRun {
         return new RecordedOutcome(outcome, ticket, attempts);
     }
 
-    /** Writes the outcome under every item whose bytes have the SHA-256 of the key. */
-    private void write(Pass pass, OutcomeKey key, RecordedOutcome outcome) throws QuarantineStoreException {
+    /**
+     * Writes the outcome under every item of the same key: every item whose bytes have the SHA-256 of the key, and for a
+     * metadata check, the same name and type too.
+     */
+    private void write(Pass pass, ChainCheck check, OutcomeKey key, RecordedOutcome outcome)
+            throws QuarantineStoreException {
         Instant at = clock.instant();
         for (ItemFile file : pass.files) {
-            if (file.sha256().equals(key.sha256())) {
+            if (OutcomeKey.of(file, check).equals(key)) {
                 checkStore.writeOutcome(pass.path(),
                         OutcomeCodec.encode(file.itemName(), key.checkName(), key.sha256(), outcome, at));
             }
@@ -267,14 +273,33 @@ final class SubmissionRun {
         return release.release(pass.path(), pass.state);
     }
 
-    private void writeDecision(Pass pass, String reason, String sha256, String checkName)
-            throws QuarantineStoreException {
-        String itemName = null;
+    /**
+     * The item a decision is about: among the items of those bytes, the first whose outcome of the check is not a
+     * {@code PASS}, since a metadata check judges each item apart; else the first item of those bytes.
+     */
+    private static String itemNameOf(Pass pass, String sha256, String checkName) {
+        ChainCheck check = pass.checks.stream().filter(c -> c.name().equals(checkName)).findFirst().orElse(null);
+        String first = null;
         for (ItemFile file : pass.files) {
-            if (itemName == null && file.sha256().equals(sha256)) {
-                itemName = file.itemName();
+            if (!file.sha256().equals(sha256)) {
+                continue;
+            }
+            first = first == null ? file.itemName() : first;
+            if (check != null && !passed(pass.recorded.get(OutcomeKey.of(file, check)))) {
+                return file.itemName();
             }
         }
+        return first;
+    }
+
+    private static boolean passed(RecordedOutcome outcome) {
+        return outcome != null && outcome.outcome() instanceof Outcome.Result result
+                && result.verdict() == Outcome.Verdict.PASS;
+    }
+
+    private void writeDecision(Pass pass, String reason, String sha256, String checkName)
+            throws QuarantineStoreException {
+        String itemName = itemNameOf(pass, sha256, checkName);
         String path = pass.path();
         log.info("Held submission {}: the checks stopped on {} (item {}, check {})", path, reason, itemName,
                 checkName);

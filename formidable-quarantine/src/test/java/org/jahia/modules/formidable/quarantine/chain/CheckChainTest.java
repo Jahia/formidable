@@ -232,6 +232,29 @@ class CheckChainTest {
                 decide(allowList, first));
     }
 
+    @Test
+    void aMetadataVerdictNeverCountsForAFileOfTheSameBytesAndAnotherType() {
+        ChainCheck allowList = metadata("allowList");
+        // the same bytes, declared as two types: the outcome of one is no outcome of the other
+        ChainFixtures.TestFile asText = text("aaa");
+        ChainFixtures.TestFile asImage = image("aaa");
+        recorded.put(key(asText, allowList), passed());
+
+        assertEquals(proceed(new Step.Submit(asImage, allowList)),
+                chain.decide(List.of(allowList), List.of(asText, asImage), recorded));
+        assertEquals(new OutcomeKey("aaa", "allowList", "aaa.bin", TEXT), key(asText, allowList));
+    }
+
+    @Test
+    void aVerdictOnTheBytesCountsForEveryFileOfTheSameBytes() {
+        ChainFixtures.TestFile asText = text("aaa");
+        ChainFixtures.TestFile alsoText = text("aaa");
+        recorded.put(key(asText, first), passed());
+
+        assertEquals(ChainDecision.RELEASE, chain.decide(List.of(first), List.of(asText, alsoText), recorded));
+        assertEquals(new OutcomeKey("aaa", "first"), key(asText, first));
+    }
+
     private static ChainCheck metadata(String name) {
         return check(name, Scope.METADATA, null, OnInconclusive.REVIEW, OnUnavailable.RETRY);
     }

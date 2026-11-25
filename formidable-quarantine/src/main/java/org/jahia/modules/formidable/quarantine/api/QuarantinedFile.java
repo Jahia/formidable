@@ -10,12 +10,17 @@ import java.io.InputStream;
  * that the repository stores, read as the check reads it, with no copy of the file in memory. A check that opens the
  * file twice reads it twice.
  * <p>
- * The stream reads only while the run holds its session open. The run opens one session for a batch of calls of
- * {@link Qualifier#submit}, at most one call for each file of the submission, and closes it once the last call of the
- * batch returns. A file or a stream that a check keeps can thus still be read during a later call of the same batch,
- * and cannot be read once the batch ended. {@link #open()} throws in {@link Qualifier#appliesTo} and
- * {@link Qualifier#poll}, which no session surrounds. A {@link Scope#METADATA} check is handed a file whose
- * {@link #open()} always throws.
+ * The run calls the checks in batches, at most one call for each file in a batch. When a batch holds a
+ * {@link Qualifier#submit} of a check that reads bytes, the run opens a session for the whole batch and closes it once
+ * the last call of the batch returns. {@link #open()} works only while such a session is open:
+ * <ul>
+ * <li>A stream reads until its batch ends. A file that a check keeps opens a new stream during any later batch of the
+ * same run that opens a session, and throws in any other batch.</li>
+ * <li>{@link Qualifier#appliesTo} runs outside every batch, so {@link #open()} throws there.</li>
+ * <li>{@link Qualifier#poll} receives no file. A file kept from {@code submit} opens in a poll only when the poll
+ * shares its batch with a submit that reads bytes.</li>
+ * <li>A {@link Scope#METADATA} check is handed a file whose {@link #open()} always throws, whatever the batch.</li>
+ * </ul>
  */
 @ProviderType
 public interface QuarantinedFile {

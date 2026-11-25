@@ -11,8 +11,8 @@ import java.util.Optional;
  * live, with a system session, as the store does. A held submission is named
  * by its path; every method refuses a path that names no held submission.
  *
- * <p>No record holds a byte or a value. {@link #withItems} reads the bytes of the items for a check and for the
- * SHA-256 of the release, and for nothing else.</p>
+ * <p>No record holds a byte or a value. {@link #withItems} reads the bytes of the items for the checks, and for nothing
+ * else: the release reads the files through {@link QuarantineStore#read}.</p>
  */
 public interface CheckStore {
 
