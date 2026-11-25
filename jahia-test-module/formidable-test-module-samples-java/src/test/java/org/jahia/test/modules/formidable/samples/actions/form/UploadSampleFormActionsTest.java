@@ -84,7 +84,7 @@ class UploadSampleFormActionsTest {
         // Verifies the double: it records the count of the files it was handed, then runs the actions after release
         // of the same submission, from the first one.
         DeferredActions deferredActions = mock(DeferredActions.class);
-        SampleSubmissionHold hold = new SampleSubmissionHold();
+        SampleSubmissionHold hold = new SampleSubmissionHold(formId -> true);
         hold.setDeferredActions(deferredActions);
         HeldSubmission held = submission(List.of(file()));
 
@@ -100,7 +100,7 @@ class UploadSampleFormActionsTest {
         DeferredActions deferredActions = mock(DeferredActions.class);
         DeferredActionException failure = new DeferredActionException("Action 't:mail' failed", 0, 1, null);
         doThrow(failure).when(deferredActions).run(any(), eq(0), any(IntConsumer.class));
-        SampleSubmissionHold hold = new SampleSubmissionHold();
+        SampleSubmissionHold hold = new SampleSubmissionHold(formId -> true);
         hold.setDeferredActions(deferredActions);
 
         SubmissionHoldException error = assertThrows(SubmissionHoldException.class,

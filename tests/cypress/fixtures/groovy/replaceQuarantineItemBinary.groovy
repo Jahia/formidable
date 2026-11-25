@@ -9,7 +9,7 @@ def path = "__PATH__"
 def text = "__TEXT__".replace("\\n", "\n")
 def session = JCRSessionFactory.getInstance().getCurrentSystemSession("live", null, null)
 def item = session.getNode(path)
-if (!item.isNodeType("fmdbquar:item") || !item.hasProperty("data")) {
+if (!item.isNodeType("fmdbq:item") || !item.hasProperty("data")) {
     throw new IllegalStateException("${path} is no quarantine item with bytes")
 }
 def binary = session.getValueFactory().createBinary(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)))

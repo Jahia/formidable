@@ -1,8 +1,8 @@
 package org.jahia.test.modules.formidable.quarantine.web;
 
-import org.jahia.test.modules.formidable.quarantine.run.QuarantineRun;
-import org.jahia.test.modules.formidable.quarantine.run.RunReport;
-import org.jahia.test.modules.formidable.quarantine.run.RunSettings;
+import org.jahia.modules.formidable.quarantine.api.QuarantineRunner;
+import org.jahia.modules.formidable.quarantine.api.RunReport;
+import org.jahia.modules.formidable.quarantine.api.RunnerSettings;
 import org.jahia.test.modules.formidable.quarantine.stub.StubCallLog;
 import org.jahia.test.modules.formidable.quarantine.stub.StubControl;
 import org.json.JSONObject;
@@ -40,7 +40,7 @@ class RunAndStubServletTest {
     private static final String FORM_ID = "6a1f0c3e-0000-4000-8000-000000000001";
     private static final String HELD_PATH = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
 
-    private QuarantineRun run;
+    private QuarantineRunner run;
     private StubControl control;
 
     private record Call(int status, String body) {
@@ -48,9 +48,9 @@ class RunAndStubServletTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        run = mock(QuarantineRun.class);
-        when(run.settings()).thenReturn(RunSettings.DEFAULT);
-        when(run.run(anyString(), any(), anyBoolean())).thenReturn(new RunReport(SITE, FORM_ID,
+        run = mock(QuarantineRunner.class);
+        when(run.runnerSettings()).thenReturn(new RunnerSettings(false, 10, 60, 3600));
+        when(run.runNow(anyString(), any(), anyBoolean())).thenReturn(new RunReport(SITE, FORM_ID,
                 List.of(new RunReport.Processed(HELD_PATH, FORM_ID, "held", "completed", null))));
         control = new StubControl();
         control.log().add(new StubCallLog.StubCall("fmdbquar:remoteStubCheck", "remoteCheck", "abc",
@@ -102,7 +102,7 @@ class RunAndStubServletTest {
         assertEquals(HttpServletResponse.SC_FORBIDDEN, post.status());
         assertEquals(HttpServletResponse.SC_FORBIDDEN, get.status());
         assertFalse(post.body().contains(HELD_PATH), post.body());
-        verify(run, never()).run(anyString(), any(), anyBoolean());
+        verify(run, never()).runNow(anyString(), any(), anyBoolean());
     }
 
     @Test
@@ -114,7 +114,7 @@ class RunAndStubServletTest {
         assertEquals(HttpServletResponse.SC_FORBIDDEN, post.status());
         assertEquals(HttpServletResponse.SC_FORBIDDEN, lift.status());
         assertEquals(HttpServletResponse.SC_FORBIDDEN, clear.status());
-        verify(run, never()).run(anyString(), any(), anyBoolean());
+        verify(run, never()).runNow(anyString(), any(), anyBoolean());
         assertTrue(control.outage().isDown());
         assertEquals(1, control.log().calls().size());
     }
@@ -124,7 +124,7 @@ class RunAndStubServletTest {
         Call post = call(runServlet(true), "POST", null, Map.of("site", SITE, "form", FORM_ID, "ignoreSchedule", "true"));
 
         assertEquals(HttpServletResponse.SC_OK, post.status());
-        verify(run).run(SITE, FORM_ID, true);
+        verify(run).runNow(SITE, FORM_ID, true);
         JSONObject processed = new JSONObject(post.body()).getJSONArray("processed").getJSONObject(0);
         assertEquals(HELD_PATH, processed.getString("path"));
         assertEquals("held", processed.getString("from"));
@@ -134,7 +134,7 @@ class RunAndStubServletTest {
 
     @Test
     void aRunThatFailsWithARuntimeExceptionAnswersAJsonError() throws Exception {
-        when(run.run(anyString(), any(), anyBoolean())).thenThrow(new IllegalStateException("a bug of the run"));
+        when(run.runNow(anyString(), any(), anyBoolean())).thenThrow(new IllegalStateException("a bug of the run"));
 
         Call post = call(runServlet(true), "POST", null, Map.of("site", SITE));
 
@@ -149,7 +149,7 @@ class RunAndStubServletTest {
                 call(runServlet(true), "POST", null, Map.of("site", "../users")).status());
         assertEquals(HttpServletResponse.SC_BAD_REQUEST,
                 call(runServlet(true), "POST", null, Map.of("site", SITE, "form", FORM_ID + "/2026")).status());
-        verify(run, never()).run(anyString(), any(), anyBoolean());
+        verify(run, never()).runNow(anyString(), any(), anyBoolean());
     }
 
     @Test

@@ -15,12 +15,14 @@ order.
 
 Specs:
 
+- `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
+  Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
   Q15, Q25 and Q26.
 - `tests/cypress/e2e/quarantine/96-uploads-hold-email.cy.ts` covers Q06, and
   the mail of Q14 and of Q15.
 - `tests/cypress/e2e/quarantine/97-quarantine-intake.cy.ts` covers Q01, Q10,
-  Q11 and Q16, with the reference hold of the quarantine test module.
+  Q11 and Q16, with the module hold.
 - `tests/cypress/e2e/quarantine/98-quarantine-checks.cy.ts` covers Q02, Q03,
   Q04, Q09, Q12, Q13, Q21, Q22 and Q23: the run of the checks and the release.
 - `tests/cypress/e2e/quarantine/99-quarantine-operations.cy.ts` covers Q05,
@@ -47,15 +49,24 @@ Specs:
   forward with 503 (`POST .../refuse`, with `X-Requested-With`), until
   `POST .../accept` or `POST .../reset`. Any caller may post the reset, as
   in a test module. A refused forward is not counted as received.
+- **Quarantine module**: `formidable-quarantine`. It ships the module hold,
+  the quarantine tree, the run of the checks, the operations of a manager and
+  an inspection of the tree.
 - **Quarantine test module**: `formidable-test-module-quarantine`. It ships the
-  reference hold, the quarantine tree and an inspection of the tree. Never for
-  production: its checks are stubs.
+  stub checks, the stub control and "run now". It keeps no hold. It depends on
+  the quarantine module, so a site that enables it has the quarantine module
+  too. Never for production: its checks are stubs.
 - **Check of the module**: a node of `fmdbquar:remoteStubCheck` or
   `fmdbquar:inProcessStubCheck` in the list "Checks" (`qualifiers`) of a form.
-- **Reference hold**: the hold of the quarantine test module. It ranks above the
-  sample hold. It owns a form whose list "Checks" holds a check of the module,
-  and stores its submissions in the quarantine tree. It hands any other form to
-  the sample hold.
+- **Module hold**: the hold of the quarantine module. It ranks 100. It owns
+  every held form of a site that has the quarantine module, whatever the list
+  "Checks" of the form holds. It stores the submissions of that form in the
+  quarantine tree. It hands a form of any other site to the next hold below its
+  ranking. When no hold ranks below it, it refuses the submission with FMDB-018.
+- **Sample hold**: the hold of the samples module. It ranks 200. It claims
+  only a form whose list "Checks" holds `fmdbsample:sampleCheck`, and hands
+  every other form down to the module hold. The fixtures put a sample check in
+  the list of a held form that names no list.
 - **Quarantine tree**:
   `/sites/<site>/formidable-quarantine/<form>/YYYY/MM/DD/<held>`, in live. The
   root cuts its ACL inheritance and holds no access control entry. The store
@@ -91,9 +102,9 @@ Specs:
 - **Decision**: why the run stopped a held submission, such as `CHECK_FAILED`,
   `FILE_WITHHELD`, `IN_PROCESS_FIRST`, `INTEGRITY_FAILED` or `ACTION_FAILED`.
   The inspection answers the outcomes and the decision.
-- **Manager**: a user that holds the role `fmdbquar-quarantine-manager` on the
-  form, published. The role grants the permission `fmdbquarManageQuarantine`
-  of the quarantine test module. A server administrator is a manager of every
+- **Manager**: a user that holds the role `formidable-quarantine-manager` on
+  the form, published. The role grants the permission
+  `formidableQuarantineManage` of the quarantine module. A server administrator is a manager of every
   form.
 - **Operation**: `POST /modules/formidable-quarantine/operations?path=<held>&operation=<op>`,
   where the operation is `retry`, `release`, `resume` or `reject`. It runs on
@@ -126,7 +137,7 @@ A spec reads the calls of the observer action and of the sample hold from the
 samples module, at `/modules/formidable-samples/upload-observations`, and
 resets them before each test.
 
-The specs of the reference hold (97) also enable the quarantine test module on
+The specs 97, 98 and 99 also enable the quarantine test module on
 the site, and put a remote stub check in the list "Checks" of the form. They
 read the quarantine tree as root, through the inspection, and through Groovy
 with a system session.
@@ -145,11 +156,11 @@ the scenario proves:
 |---|---|
 | Q06, Q07, Q08 | hands the uploads to the actions on submission, whatever the switch says |
 | Q15 | ignores `uploadsRequireQuarantine` |
-| Q10 | leaves the ACL inheritance of the quarantine root in place: the quarantine test module without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf`, and with `root == null` as the condition of `JcrQuarantineStore.closed` |
-| Q09 | releases without computing the hash again: `Release.release` with `firstChanged(record, submission)` replaced by `null` |
+| Q10 | leaves the ACL inheritance of the quarantine root in place: `formidable-quarantine` without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf`, and with `root == null` as the condition of `JcrQuarantineStore.closed` |
+| Q09 | releases without computing the hash again: `Release.release` with `firstChanged(held, submission)` replaced by `null` |
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
-| Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(record.formId())` replaced by `false` |
+| Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(held.formId())` replaced by `false` |
 
 ---
 
@@ -260,10 +271,9 @@ type.
 
 ---
 
-## The intake of the reference hold
+## The intake of the module hold
 
-The scenarios of this section use the reference hold of the quarantine test
-module. The form has a remote stub check in "Checks", unless the scenario says
+The scenarios of this section use the module hold. The form has a remote stub check in "Checks", unless the scenario says
 otherwise. No scenario of this section releases a submission: the next section
 covers the checks and the release.
 
@@ -284,9 +294,9 @@ covers the checks and the release.
 The observer action is deferrable, as an e-mail action is. Its call count proves
 that no action after release ran, with no mailbox.
 
-The spec also submits a file to a form with the switch on and no check of the
-module. The sample hold reports one call with one file, and the quarantine tree
-holds nothing for that form.
+The spec also submits a file to a form with the switch on and a sample check in
+its list "Checks". The sample hold claims that form and reports one call with one
+file, and the quarantine tree holds nothing for that form.
 
 ### Q10 — No reader role reads the quarantine tree — control
 
@@ -297,7 +307,7 @@ as `root`, are outside this scenario: the Jahia core grants them every
 permission, whatever the ACL says.
 
 The store creates the root and cuts its inheritance. It uses a node that
-already exists at that path only when the node is a `fmdbquar:quarantineRoot`
+already exists at that path only when the node is a `fmdbq:quarantineRoot`
 that cuts its inheritance and holds no access control entry. It uses a form
 folder or a date folder that already exists only when the folder is of the type
 of the store and has no ACL of its own. Any other node refuses the hold, and
@@ -334,7 +344,7 @@ administrator reads the item, the quarantine root needs another guard.
 The JCR REST API answers 404 when its module is not installed: that read then
 proves nothing.
 
-**Control build:** the quarantine test module with two changes in
+**Control build:** `formidable-quarantine` with two changes in
 `JcrQuarantineStore`: the line `root.setAclInheritanceBreak(true);` removed
 from `rootOf`, and the condition of `closed` replaced by `root == null`, so
 that the store reuses the root it created. Build it with `package`, deploy it
@@ -388,7 +398,7 @@ says whether a file came.
 
 ## The checks and the release
 
-The scenarios of this section use the reference hold, and start the run of the
+The scenarios of this section use the module hold, and start the run of the
 checks through "run now", restricted to the form of the scenario. The form has
 one remote stub check in "Checks", and Save to JCR in "Actions after release",
 unless the scenario says otherwise. Each scenario submits as a guest, with a
@@ -545,7 +555,7 @@ The plan drops the alert of the editor on the list of checks.
 
 ## The operations and the retention
 
-The scenarios of this section use the reference hold and "run now", as the
+The scenarios of this section use the module hold and "run now", as the
 section before. An operation runs as root unless the scenario names a user. The
 form has one remote stub check in "Checks", and Save to JCR in "Actions after
 release", unless the scenario says otherwise.
@@ -593,7 +603,7 @@ and no byte any more.
 **Steps:**
 1. Create four users: a results reader (editor of the site, and
    `fmdb-results-reader` on the form), an editor of the site, a site
-   administrator of the site, and a manager (`fmdbquar-quarantine-manager` on
+   administrator of the site, and a manager (`formidable-quarantine-manager` on
    the form, and no role on the site).
    Publish the form.
 2. Submit the form three times with an `INCONCLUSIVE` file, and run the
@@ -640,6 +650,42 @@ lab has no mailbox, so the forward sink refuses instead.
 
 ---
 
+## The owner of a form
+
+The scenarios of this section create each form with an empty list "Checks",
+so that the sample hold does not claim the form. The site of the spec starts
+without the quarantine module and without the quarantine test module.
+
+### Q27 — A site without the quarantine module refuses a held form
+
+**Steps:**
+1. Create and publish a form with the switch on, an empty list "Checks", and
+   the observer action in "Actions after release".
+2. Submit the form as a guest, with a file.
+
+**Expected:**
+- The submission answers 503 with the code `FMDB-018`.
+- The inspection answers no held submission for the form.
+- The sample hold and the observer action report no call.
+
+### Q28 — A form with no check is held, then sent to review
+
+**Steps:**
+1. Enable `formidable-quarantine` on the site.
+2. Create and publish a form with the switch on, an empty list "Checks", and
+   the observer action in "Actions after release".
+3. Submit the form as a guest, with a file.
+4. Start "run now" on the form, with `ignoreSchedule=true`.
+
+**Expected:**
+- The submission succeeds, and the inspection answers one held submission in
+  state `held`.
+- After the run, the state is `needsReview`, the decision is `NO_CHECK`, and
+  the values are still there.
+- The sample hold and the observer action report no call.
+
+---
+
 ## Coverage map
 
 | Scenario | Proves |
@@ -664,3 +710,5 @@ lab has no mailbox, so the forward sink refuses instead.
 | Q24 | a failure after release stores nothing twice and forwards nothing twice |
 | Q25 | a submission with no file waits for nothing |
 | Q26 | no action that cannot run after release enters that list |
+| Q27 | a site without the quarantine module never stores a held submission |
+| Q28 | a form with no check is held and goes to review, never released unchecked |

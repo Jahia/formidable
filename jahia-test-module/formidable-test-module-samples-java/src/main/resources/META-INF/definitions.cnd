@@ -6,8 +6,8 @@
 
 [fmdbsample:logSubmissionAction] > jnt:content, fmdbmix:formAction, mix:title
 
-// A check of the "Quarantine checks" list, for the authoring tests of the list only: no Qualifier service reads it,
-// and the sample hold of this module releases a held submission at once, whatever its checks.
+// A check of the "Quarantine checks" list: no Qualifier service reads it. The sample hold of this module claims only a
+// form whose list holds this type, releases its submission at once, and hands any other form down to the next hold.
 [fmdbsample:sampleCheck] > jnt:content, fmdbmix:qualifier, mix:title
 
 // The opt-in of the sample response enricher: only a form carrying this mixin gets the sample block

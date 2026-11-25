@@ -11,15 +11,15 @@ The design rests on two decisions:
 - [ADR 0003](../adr/0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md): Jahia ships that hold as an
   optional module, and a customer writes only a check.
 
-The repository does not hold the module yet. Its code comes from the hold of the
-test module `formidable-test-module-quarantine`. Once the module holds that code, the test module keeps no hold and
-writes no quarantine tree. The endpoints of the test suite then split in two:
+The module `formidable-quarantine` holds the hold, the quarantine tree, the run of the checks, the release and the
+operations of a manager. Its code came from the test module `formidable-test-module-quarantine`, which keeps no hold
+and writes no quarantine tree. The endpoints of the test suite are split in two:
 
-- The inspection, the operations and the retention endpoints move into the module, under the same paths. The
-  GraphQL API of the manager screen replaces them later.
+- The inspection, the operations and the retention endpoints are in the module, under the paths they had in the
+  test module.
 - The test module keeps its stub checks, the control of the stubs, and a run-now endpoint. The exported package of
-  the module offers a runner next to the check API. The run-now endpoint starts a run through it, and writes nothing
-  under the tree itself.
+  the module offers a runner next to the check API. The run-now endpoint starts a run through the runner, and writes
+  nothing under the tree itself.
 
 ## Building blocks
 
@@ -93,7 +93,8 @@ The settings of a check come from its node. The run reads the node and gives the
 (`onInconclusive`, `onUnavailable`) and its own properties as a map of strings.
 
 The check API follows semantic versioning. Jahia implements the types marked `@ProviderType`, and a check module
-implements the types marked `@ConsumerType`. The build compares the exported package with its last release.
+implements the types marked `@ConsumerType`. ADR 0003 decides that the build compares the exported package with its
+last release. The module has no release, so no pom configures that comparison.
 
 ## Ownership of a form
 
@@ -103,19 +104,25 @@ repository to decide whether it owns a form. The check services that are registe
 | The form | The hold of the module |
 |---|---|
 | The site of the form has the module. | It owns the form and stores the submission, whatever the "Quarantine checks" list holds. |
-| The site of the form does not have the module, and another hold is registered. | It hands the submission to the next hold by ranking. |
-| The site of the form does not have the module, and no other hold is registered. | It refuses the submission with FMDB-018. |
+| The site of the form does not have the module, and another hold ranks below it. | It hands the submission to the next hold below its ranking. |
+| The site of the form does not have the module, and no other hold ranks below it. | It refuses the submission with FMDB-018. |
 | The hold cannot read the form or its site. | It refuses the submission. |
 
 - An empty list sends the submission to review at the run. So does a check type that no check service serves at
   the time of the run, because the run never skips a check type.
 - A check module that redeploys changes the owner of no form. Its submissions stay held, and a manager retries them
   once the check service is back.
+- A site that lists this module, or a known module that depends on it, has the module, whatever its other modules.
+  A module of the site that the platform does not know, such as a check module that is not deployed, makes the hold
+  refuse the submission only when no known module of the site brings this module. The hold never hands that
+  submission to another hold, because the unknown module could depend on this module.
 - A hold that wants some forms ranks above 100, such as a broker outside Jahia. It claims a form by the check
   types of its list, and hands any other form to the next hold.
-- The sample hold of `formidable-test-module-samples-java` declares no ranking today, so it ranks 0. With this
-  module on a site, it must rank above 100 and claim only the forms whose list holds `fmdbsample:sampleCheck`.
-  Otherwise its specs lose their forms to this hold.
+- A hold hands a form only to a hold of a lower ranking. A hold of the same ranking never receives a handed-off
+  form, because two holds of one ranking would hand a form to each other. The hold of this module and the sample hold
+  compare with the ranking they are bound with, so a ranking that a configuration sets counts.
+- The sample hold of `formidable-test-module-samples-java` ranks 200. It claims only the forms whose list holds
+  `fmdbsample:sampleCheck`, and hands every other form down to the hold of this module.
 
 ## Runtime
 
@@ -231,11 +238,13 @@ A user without the permission gets the same answer as for a submission that does
 
 | Permission | Grants |
 |---|---|
-| `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on one site. |
-| `formidableQuarantineFileAccess` | The download of a held file, on one site, when the file access allows it. |
+| `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms where it is granted. |
+| `formidableQuarantineFileAccess` | The download of a held file, when the file access allows it. |
 
-The site role `formidable-quarantine-manager` grants the first permission. The second permission is separate,
-because releasing a submission and opening its file are two different rights.
+In this phase, the module declares `formidableQuarantineManage` and checks it on the live form. The role
+`formidable-quarantine-manager`, granted on a form, gives it. The per-site role and `formidableQuarantineFileAccess`
+come in a later phase. The second permission is separate, because releasing a submission and opening its file are
+two different rights.
 
 ### File access by a reviewer
 

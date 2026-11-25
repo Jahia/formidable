@@ -11,7 +11,7 @@ def items = 0
 
 def visit
 visit = { node ->
-    if (node.isNodeType("fmdbquar:item")) {
+    if (node.isNodeType("fmdbq:item")) {
         items++
         if (!node.hasProperty("data")) {
             problems << "the item ${node.getPath()} holds no binary"

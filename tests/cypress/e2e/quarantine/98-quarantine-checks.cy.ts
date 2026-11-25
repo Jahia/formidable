@@ -95,16 +95,16 @@ const runOnce = (formId: string, state: HeldSubmissionRecord['state'], ignoreSch
 };
 
 /**
- * The checks and the release of the reference hold of the quarantine test module (tests/scenarios/quarantine.md, Q02,
- * Q03, Q04, Q09, Q12, Q13, Q21, Q22, Q23). A form whose "Checks" list holds a stub check of the module is owned by the
- * reference hold. The spec starts the run of the checks through "run now" (POST /modules/formidable-quarantine/run),
+ * The checks and the release of the hold of formidable-quarantine (tests/scenarios/quarantine.md, Q02, Q03, Q04,
+ * Q09, Q12, Q13, Q21, Q22, Q23). A form whose "Checks" list holds a stub check of the quarantine test module is owned
+ * by the hold of formidable-quarantine. The spec starts the run of the checks through "run now" (POST /modules/formidable-quarantine/run),
  * restricted to the form of the test, and never waits for time. It reads the held submission, its outcomes and its
  * decision through the inspection, the calls of the stubs through the stub control, and the effects of the actions
  * after release through the samples module and GraphQL, as root.
  *
- * Control scenarios. Each control build is the quarantine test module with one guard removed; build it with
+ * Control scenarios. Each control build is formidable-quarantine with one guard removed; build it with
  * `package`, deploy it in place of the module, run this spec, and the scenario must fail by assertion:
- * - Q09: in Release.release, replace `firstChanged(record, submission)` with `null`, so the release never computes the
+ * - Q09: in Release.release, replace `firstChanged(held, submission)` with `null`, so the release never computes the
  *   SHA-256 again. Q09 fails on the state (`completed`, not `needsReview`) or on the stored results.
  * - Q21: in CheckChain.judgeResult, answer `null` for FAIL as for PASS, so a FAIL no longer rejects. Q21 fails on the
  *   state after the run (`checking`, not `rejected`): the run waits for the back-off before it calls the second check.

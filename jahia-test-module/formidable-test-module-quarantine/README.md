@@ -1,62 +1,61 @@
 # formidable-test-module-quarantine
 
-A reference hold for the tests of the quarantine contract of `formidable-engine`. The engine offers the contract: the switch `fmdbmix:quarantine`, the lists "Checks" and "Actions after release", the extension point `SubmissionHold` and the service `DeferredActions` ([ADR 0002](../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md)). This module implements a whole quarantine on that contract, so that the Cypress and JUnit suites prove the behaviour end to end.
+The stub checks of the tests of `formidable-quarantine`, and the endpoints the specs drive them with. `formidable-quarantine` holds the uploads of a form with the switch `fmdbmix:quarantine` on ([ADR 0003](../../docs/adr/0003-jahia-ships-the-quarantine-hold-as-an-optional-module.md), [the design](../../docs/architecture/quarantine.md)). This module is a client of its check API: it keeps no hold and writes no quarantine tree.
 
 **Never deploy this module in production.** Its checks are stubs: they read their outcome from a marker in the uploaded file. They detect nothing.
 
-## What is built
+## What moved to `formidable-quarantine`
 
-- The intake: the reference hold stores a submission in the quarantine tree and returns. No check runs on the request thread.
-- The quarantine tree and its store, `QuarantineStore`, an OSGi service.
-- The inspection of the tree, for the specs.
-- The two stub checks, as `Qualifier` services, and the control of their outage, for the specs.
-- The chain of the checks and the state machine, as pure classes.
-- The run of the checks over the due held submissions, started by a spec through "run now".
-- The release: the SHA-256 computed again, then the actions after release, with a checkpoint after each one.
-- The operations of a manager (retry, release, resume, reject), checked against a permission of the module.
-- The audit of each operation, and of each final decision of the run.
-- The retention of the rejected held submissions.
+- The hold, the quarantine tree and its types (`fmdbquar:quarantineRoot` … `fmdbquar:auditRecord` became `fmdbq:*`), the chain, the state machine, the run, the release, the operations, the audit and the retention, with their unit tests.
+- The check API (`check` became `org.jahia.modules.formidable.quarantine.api`), and `QuarantineRunner`, which starts a run.
+- The inspection, operations and retention endpoints, under the same paths.
+- The configurations `org.jahia.modules.formidable.quarantine.run` and `.retention` (formerly `org.jahia.test.modules.formidable.quarantine.*`).
+- The permission `formidableQuarantineManage` and the role `formidable-quarantine-manager` (formerly `fmdbquarManageQuarantine` and `fmdbquar-quarantine-manager`).
 
-## Which forms the module owns
+## What stays here
 
-The reference hold ranks above the sample hold of `formidable-test-module-samples-java`, which declares no ranking. The engine binds the hold of the highest ranking, so it binds this one.
+- The two stub checks, `fmdbquar:remoteStubCheck` and `fmdbquar:inProcessStubCheck`, as `Qualifier` services, and the control of their outage.
+- "Run now" (`/modules/formidable-quarantine/run`), which starts a run through the `QuarantineRunner` service, and the control of the stubs (`/modules/formidable-quarantine/stub`).
 
-The reference hold owns a form only when the "Checks" list of the form (`qualifiers`) holds at least one node of `fmdbquar:remoteStubCheck` or `fmdbquar:inProcessStubCheck`. It hands any other form to the next registered `SubmissionHold` by ranking, such as the sample hold. So the specs of the sample hold stay green when both modules are deployed. The reference hold refuses the submission in two cases:
+## Which forms the hold owns
 
-- no other hold is registered;
-- the list of the form cannot be read. The next hold may release the files unchecked, so the reference hold does not hand the form on.
+This module depends on `formidable-quarantine`, so a site that enables this module has it. The ownership rule of the two holds is in [Ownership of a form](../../docs/architecture/quarantine.md#ownership-of-a-form).
+
+## Reference of the moved hold
+
+The sections below describe the hold as it moved, until the documentation of `formidable-quarantine` replaces them.
 
 ## The quarantine tree
 
 The store writes the tree in live, with a system session:
 
 ```text
-/sites/<site>/formidable-quarantine              fmdbquar:quarantineRoot   ACL inheritance cut, no ACE
-  └─ <formId>                                    fmdbquar:formQuarantine
-       └─ YYYY/MM/DD                             fmdbquar:dateFolder (UTC date of intake)
-            └─ held-<uuid>                       fmdbquar:heldSubmission
+/sites/<site>/formidable-quarantine              fmdbq:quarantineRoot   ACL inheritance cut, no ACE
+  └─ <formId>                                    fmdbq:formQuarantine
+       └─ YYYY/MM/DD                             fmdbq:dateFolder (UTC date of intake)
+            └─ held-<uuid>                       fmdbq:heldSubmission
                  - state, createdAt, changedAt, attempts, nextAttempt, completedActions
                  - formId, siteKey, locale, originLanguage, originReferer, originTimeZone
                  - valueFields, sensitiveFields   the field names, in the order of the submission
-                 ├─ values                       fmdbquar:values           the public values
-                 ├─ sensitive                    fmdbquar:sensitiveValues  the sensitive values
-                 ├─ item0, item1, ...            fmdbquar:item             one per upload
+                 ├─ values                       fmdbq:values           the public values
+                 ├─ sensitive                    fmdbq:sensitiveValues  the sensitive values
+                 ├─ item0, item1, ...            fmdbq:item             one per upload
                  │    - data (binary, indexed=no), sha256, size, fileName, fieldName, mimeType
-                 ├─ checks                       fmdbquar:records          added by the run
-                 │    ├─ item0                   fmdbquar:itemOutcomes
-                 │    │    └─ <check>            fmdbquar:outcome          outcome, reason, retryable, at, ticket, attempts, sha256
-                 │    └─ decision                fmdbquar:decision         reason, itemName, checkName, sha256, failedAction, at
-                 └─ audit                        fmdbquar:records          added by the operations and the run
-                      └─ record1, record2, ...   fmdbquar:auditRecord      operation, userName, fromState, toState, at
+                 ├─ checks                       fmdbq:records          added by the run
+                 │    ├─ item0                   fmdbq:itemOutcomes
+                 │    │    └─ <check>            fmdbq:outcome          outcome, reason, retryable, at, ticket, attempts, sha256
+                 │    └─ decision                fmdbq:decision         reason, itemName, checkName, sha256, failedAction, at
+                 └─ audit                        fmdbq:records          added by the operations and the run
+                      └─ record1, record2, ...   fmdbq:auditRecord      operation, userName, fromState, toState, at
 ```
 
-- The store creates the root on first use and cuts its ACL inheritance. It uses a node that already exists at `/sites/<site>/formidable-quarantine` only when the node is a `fmdbquar:quarantineRoot`, its `j:acl` has `j:inherit=false`, and its `j:acl` holds no access control entry. It uses a form folder or a date folder that already exists only when the folder is of the type of the store and has no `j:acl` of its own. Any other node refuses the hold: the message of the refusal names its path, the engine logs it, and the visitor gets FMDB-018. A node that someone else created there could give its readers the held values and bytes.
+- The store creates the root on first use and cuts its ACL inheritance. It uses a node that already exists at `/sites/<site>/formidable-quarantine` only when the node is a `fmdbq:quarantineRoot`, its `j:acl` has `j:inherit=false`, and its `j:acl` holds no access control entry. It uses a form folder or a date folder that already exists only when the folder is of the type of the store and has no `j:acl` of its own. Any other node refuses the hold: the message of the refusal names its path, the engine logs it, and the visitor gets FMDB-018. A node that someone else created there could give its readers the held values and bytes.
 - `changedAt` records the last change of the state; the retention reads it.
 - No node of the tree is a file. An item holds its bytes in its own binary property, never in `jcr:data` on a `jnt:resource`. No core listener, no `/files` servlet and no text extraction reads it.
 - The SHA-256 of a file is computed once at intake, from the bytes read once from `SubmittedFile.data()`.
 - The sensitive values live in the node `sensitive`, apart from the public values in the node `values`. No endpoint reads them, and no log line names them. `finish` writes the final state, `completed` or `rejected`, with its `changedAt`, and removes both nodes and the bytes of every item, in one save. A failure writes neither, so a final state never keeps its data: a release stays `releasing` and a rejection by the checks stays `checking`. The record stays: the state, the field names, and of each item its name, size and SHA-256.
 - An outcome records the SHA-256 of the bytes it was given for, never a byte. The run reads an outcome only for the bytes of that SHA-256.
-- `checks` and `audit` accept any `jnt:content`: the outcomes, the decision and the audit records (`fmdbquar:auditRecord`) live there, and a new record type needs no change to the types above, so a lab takes it without a refused CND change.
+- `checks` and `audit` accept any `jnt:content`: the outcomes, the decision and the audit records (`fmdbq:auditRecord`) live there, and a new record type needs no change to the types above, so a lab takes it without a refused CND change.
 
 ## The inspection
 
@@ -134,7 +133,7 @@ A release that stops half way, on a failure of the store, an error of an action 
 
 ## The permission of a manager
 
-A manager of the quarantine of a form holds the permission `fmdbquarManageQuarantine` on the form. The module declares the permission in `src/main/import/permissions.xml`, and creates the role `fmdbquar-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`). The engine creates its role `fmdb-results-reader` the same way. An administrator grants the role to a user or a group on the form, then publishes the form. The operations check the permission on the live form, in a session of the user of the request, so the ACL of the form decides.
+A manager of the quarantine of a form holds the permission `formidableQuarantineManage` on the form. `formidable-quarantine` declares the permission in `formidable-quarantine/src/main/import/permissions.xml`, and creates the role `formidable-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`). The engine creates its role `fmdb-results-reader` the same way. An administrator grants the role to a user or a group on the form, then publishes the form. The operations check the permission on the live form, in a session of the user of the request, so the ACL of the form decides.
 
 A server administrator (`root`, or a member of the server group `administrators`) is a manager of every form. No other role gives the permission: a results reader, an editor or a site administrator of the site is not a manager.
 
@@ -169,7 +168,7 @@ The repository frees the bytes of a purged item only when the garbage collection
 
 ## The endpoints for the specs
 
-Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, every `POST` below answers 403, and nothing runs or changes. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
+Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, every `POST` below answers 403, and nothing runs or changes. The retention and the operations of `formidable-quarantine` also answer 415 to a `POST` whose `Content-Type` is not `application/json`, and nothing runs or changes. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
 
 | Endpoint | Answer |
 |---|---|
@@ -184,11 +183,11 @@ The operations answer managers too, not server administrators alone:
 
 | Endpoint | Answer |
 |---|---|
-| `POST /modules/formidable-quarantine/operations?path=<held>&operation=<retry\|release\|resume\|reject>` | `{"path", "operation", "from", "state"}`: the state before and after the operation. 400 for a path that does not have the shape of a held submission, or an unknown operation; 403 for a user who does not manage the form (and for a path that names nothing, but to a server administrator, who gets 404); 409 when the state or the decision does not allow the operation |
+| `POST /modules/formidable-quarantine/operations?path=<held>&operation=<retry\|release\|resume\|reject>` | `{"path", "operation", "from", "state"}`: the state before and after the operation. 400 for a path that does not have the shape of a held submission, or an unknown operation; 403 for a user who does not manage the form (and for a path that names nothing, but to a server administrator, who gets 404); 409 when the state or the decision does not allow the operation; 415 when the `Content-Type` is not `application/json` |
 
 ## Configuration
 
-`org.jahia.test.modules.formidable.quarantine.run.cfg`, deployed once with the module, then kept as edited:
+`org.jahia.modules.formidable.quarantine.run.cfg`, deployed once with the module, then kept as edited:
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -197,7 +196,7 @@ The operations answer managers too, not server administrators alone:
 | `backoffCapSeconds` | `3600` | The longest delay |
 | `maxAttempts` | `10` | The count after which the submission goes to `needsReview`: the retryable failures of a check on a file until it answers a result, or the passes in a row that bring no new `PASS` |
 
-`org.jahia.test.modules.formidable.quarantine.retention.cfg`, deployed the same way:
+`org.jahia.modules.formidable.quarantine.retention.cfg`, deployed the same way:
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -207,30 +206,21 @@ A setting the back-off cannot use, such as a cap below the initial delay, falls 
 
 ## Node types
 
-The module declares its types in its own namespace, `fmdbquar` (`http://www.jahia.org/jahia/fmdbquar/nt/1.0`).
-
-Each check type takes the marker of the engine, `fmdbmix:qualifier`, as a supertype. The "Checks" list accepts no other kind of node.
+The module declares its stub checks in its own namespace, `fmdbquar` (`http://www.jahia.org/jahia/fmdbquar/nt/1.0`). Each takes the marker of the engine, `fmdbmix:qualifier`, as a supertype. The "Checks" list accepts no other kind of node.
 
 ## Java packages
 
-The base package is `org.jahia.test.modules.formidable.quarantine`. The module compiles against the `api` package of the engine only.
+The base package is `org.jahia.test.modules.formidable.quarantine`. The module compiles against the exported `api` packages of the engine and of `formidable-quarantine` only.
 
 | Package | Content |
 |---|---|
-| `hold` | The reference hold and its rule of ownership |
-| `store` | The quarantine tree: `QuarantineStore` and its JCR implementation |
-| `check` | The SPI of a check: `Qualifier`, its settings and its outcomes |
-| `chain` | The chain of checks, a pure class |
-| `state` | The state machine and the back-off, pure classes |
 | `stub` | The two stub checks and the control of their outage |
-| `run` | The run of the checks and the release |
-| `ops` | The operations of a manager, the permission, the role, and the retention |
-| `web` | The endpoints: the inspection, "run now", the control of the stubs, the operations and the retention |
+| `web` | "Run now" and the control of the stubs |
 
 ## Build and test
 
 ```
-mvn test -pl jahia-test-module/formidable-test-module-quarantine -am
+mvn test -pl formidable-quarantine,jahia-test-module/formidable-test-module-quarantine -am
 ```
 
 The spec `tests/cypress/e2e/quarantine/97-quarantine-intake.cy.ts` covers the intake, `tests/cypress/e2e/quarantine/98-quarantine-checks.cy.ts` the checks and the release, and `tests/cypress/e2e/quarantine/99-quarantine-operations.cy.ts` the operations, the audit and the retention. `tests/scenarios/quarantine.md` states their scenarios.

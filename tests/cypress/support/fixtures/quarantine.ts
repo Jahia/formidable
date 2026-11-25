@@ -1,18 +1,31 @@
 import {JahiaNode} from './types';
 
-/** The module of the reference hold: a spec of the quarantine enables it on the test site itself. */
+/**
+ * The module of the stub checks: a spec of the quarantine enables it on the test site itself. It depends on
+ * formidable-quarantine, so the site then has the hold of formidable-quarantine too, which owns every held form of the
+ * site that the sample hold does not claim.
+ */
 export const QUARANTINE_MODULE_ID = 'formidable-test-module-quarantine';
 
 /**
- * The role of the quarantine test module that grants its permission fmdbquarManageQuarantine: granted on a form, and
+ * The role of formidable-quarantine that grants its permission formidableQuarantineManage: granted on a form, and
  * published, it lets a user retry, release, resume or reject the held submissions of that form.
  */
-export const QUARANTINE_MANAGER_ROLE = 'fmdbquar-quarantine-manager';
+export const QUARANTINE_MANAGER_ROLE = 'formidable-quarantine-manager';
+
+/**
+ * The samples' check (fmdbsample:sampleCheck, formidable-test-module-samples-java), for the "Checks" list of a form:
+ * the sample hold ranks above the hold of formidable-quarantine and claims only a form whose list holds it, then
+ * releases the submission at once. createFormNode puts one in the list of a held form that names no list.
+ */
+export function getSampleCheckNode(name: string = 'sampleCheck'): JahiaNode {
+	return {name, primaryNodeType: 'fmdbsample:sampleCheck', properties: []};
+}
 
 /**
  * The stub of a remote check of the quarantine test module, for the "Checks" list of a form (the `qualifiers` option
- * of createFormNode), with the CND defaults of its settings (review, retry). A form whose list holds it is owned by the
- * reference hold, which stores its submissions in the quarantine tree; any other form goes to the sample hold.
+ * of createFormNode), with the CND defaults of its settings (review, retry). On a site with the module, the hold of
+ * formidable-quarantine owns the form and stores its submissions in the quarantine tree.
  */
 export function getRemoteStubCheckNode(name: string = 'remoteCheck'): JahiaNode {
 	return {name, primaryNodeType: 'fmdbquar:remoteStubCheck', properties: []};

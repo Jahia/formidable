@@ -5,7 +5,7 @@ Acceptance scenarios for the quarantine of uploads that no spec covers yet.
 Decision: [ADR 0002](../../../docs/adr/0002-a-switch-on-the-form-holds-its-uploads-until-release.md).
 Tracking: [formidable#489](https://github.com/Jahia/formidable/issues/489).
 
-Every other scenario, `Q01` to `Q26`, moved to
+Every other scenario, `Q01` to `Q28`, is in
 [`tests/scenarios/quarantine.md`](../quarantine.md) with the spec that covers
 it. Two scenarios read parts of a product module. The plan of 2026-11-19
 shipped none, so they were dropped.

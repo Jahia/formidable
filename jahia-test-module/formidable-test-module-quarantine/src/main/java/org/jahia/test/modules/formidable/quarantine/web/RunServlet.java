@@ -1,9 +1,9 @@
 package org.jahia.test.modules.formidable.quarantine.web;
 
-import org.jahia.test.modules.formidable.quarantine.run.QuarantineRun;
-import org.jahia.test.modules.formidable.quarantine.run.RunReport;
-import org.jahia.test.modules.formidable.quarantine.run.RunSettings;
-import org.jahia.test.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.jahia.modules.formidable.quarantine.api.QuarantineRunException;
+import org.jahia.modules.formidable.quarantine.api.QuarantineRunner;
+import org.jahia.modules.formidable.quarantine.api.RunReport;
+import org.jahia.modules.formidable.quarantine.api.RunnerSettings;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -47,7 +47,7 @@ public class RunServlet extends HttpServlet {
     private static final Pattern FORM_ID = Pattern.compile("[A-Fa-f0-9-]{1,64}");
 
     private final transient ServerAdministrators administrators;
-    private final transient AtomicReference<QuarantineRun> run = new AtomicReference<>();
+    private final transient AtomicReference<QuarantineRunner> run = new AtomicReference<>();
 
     public RunServlet() {
         this(ServerAdministrators.ofThePlatform());
@@ -58,7 +58,7 @@ public class RunServlet extends HttpServlet {
     }
 
     @Reference
-    public void setRun(QuarantineRun run) {
+    public void setRun(QuarantineRunner run) {
         this.run.set(run);
     }
 
@@ -70,7 +70,7 @@ public class RunServlet extends HttpServlet {
         }
         JSONObject body;
         try {
-            body = new JSONObject().put("settings", settings(run.get().settings()));
+            body = new JSONObject().put("settings", settings(run.get().runnerSettings()));
         } catch (JSONException e) {
             log.error("Could not write the settings of the run: {}", e.getMessage());
             JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
@@ -98,10 +98,10 @@ public class RunServlet extends HttpServlet {
         }
         boolean ignoreSchedule = Boolean.parseBoolean(req.getParameter(IGNORE_SCHEDULE_PARAMETER));
         try {
-            QuarantineRun current = run.get();
-            RunReport report = current.run(site, form, ignoreSchedule);
-            JsonAnswers.answer(resp, HttpServletResponse.SC_OK, report(report, current.settings()));
-        } catch (QuarantineStoreException e) {
+            QuarantineRunner current = run.get();
+            RunReport report = current.runNow(site, form, ignoreSchedule);
+            JsonAnswers.answer(resp, HttpServletResponse.SC_OK, report(report, current.runnerSettings()));
+        } catch (QuarantineRunException e) {
             log.warn("The run of the quarantine of site {} failed: {}", site, e.getMessage());
             JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
                     JsonAnswers.error("the quarantine tree could not be read"));
@@ -113,7 +113,7 @@ public class RunServlet extends HttpServlet {
         }
     }
 
-    static JSONObject report(RunReport report, RunSettings settings) {
+    static JSONObject report(RunReport report, RunnerSettings settings) {
         JSONArray processed = new JSONArray();
         for (RunReport.Processed one : report.processed()) {
             processed.put(new JSONObject()
@@ -130,12 +130,12 @@ public class RunServlet extends HttpServlet {
                 .put("processed", processed);
     }
 
-    static JSONObject settings(RunSettings settings) {
+    static JSONObject settings(RunnerSettings settings) {
         return new JSONObject()
                 .put("allowInProcessFirst", settings.allowInProcessFirst())
-                .put("maxAttempts", settings.backoff().maxAttempts())
-                .put("backoffInitialSeconds", settings.backoff().delay(1).toSeconds())
-                .put("backoffCapSeconds", settings.backoff().delay(Integer.MAX_VALUE).toSeconds());
+                .put("maxAttempts", settings.maxAttempts())
+                .put("backoffInitialSeconds", settings.backoffInitialSeconds())
+                .put("backoffCapSeconds", settings.backoffCapSeconds());
     }
 
     private static Object nullable(String value) {

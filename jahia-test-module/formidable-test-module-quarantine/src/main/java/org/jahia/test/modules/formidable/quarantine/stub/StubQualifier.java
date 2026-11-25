@@ -7,12 +7,12 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.jahia.test.modules.formidable.quarantine.check.CheckSettings;
-import org.jahia.test.modules.formidable.quarantine.check.Outcome;
-import org.jahia.test.modules.formidable.quarantine.check.QuarantinedFile;
-import org.jahia.test.modules.formidable.quarantine.check.Qualifier;
-import org.jahia.test.modules.formidable.quarantine.check.Scope;
-import org.jahia.test.modules.formidable.quarantine.check.Submitted;
+import org.jahia.modules.formidable.quarantine.api.CheckSettings;
+import org.jahia.modules.formidable.quarantine.api.Outcome;
+import org.jahia.modules.formidable.quarantine.api.QuarantinedFile;
+import org.jahia.modules.formidable.quarantine.api.Qualifier;
+import org.jahia.modules.formidable.quarantine.api.Scope;
+import org.jahia.modules.formidable.quarantine.api.Submitted;
 import org.jahia.test.modules.formidable.quarantine.stub.StubCallLog.Kind;
 import org.jahia.test.modules.formidable.quarantine.stub.StubCallLog.StubCall;
 

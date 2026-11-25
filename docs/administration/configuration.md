@@ -139,7 +139,9 @@ The server applies a change at once. Set `true` only when a module that holds th
 option is on for every form that takes a file.
 
 A form with the option on needs a module that holds the uploads. Without one, the form refuses each submission
-that carries a file, with [FMDB-018](error-codes.md).
+that carries a file, with [FMDB-018](error-codes.md). The form refuses it the same way in one other case.
+The module `formidable-quarantine` is installed, but the site of the form does not have it, and no other hold
+ranks below it. Enable the module on the site.
 
 ## The lists: one file per entry
 

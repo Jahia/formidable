@@ -10,7 +10,7 @@
     <artifactId>formidable-test-module-quarantine</artifactId>
     <packaging>bundle</packaging>
     <name>Formidable Test - Quarantine Module</name>
-    <description>Jahia test module: a reference hold for the tests of the quarantine contract of the Formidable engine. Never deploy it in production.</description>
+    <description>Jahia test module: the stub checks and the "run now" endpoint of the tests of formidable-quarantine. Never deploy it in production.</description>
 
     <dependencies>
         <dependency>
@@ -24,10 +24,11 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- The module compiles against the api package of the engine only, never an internal class. -->
+        <!-- The hold: the stub checks implement its check API, and "run now" starts a run through its runner. The
+             module compiles against that exported package only. -->
         <dependency>
             <groupId>org.jahia.modules</groupId>
-            <artifactId>formidable-engine</artifactId>
+            <artifactId>formidable-quarantine</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>
@@ -46,7 +47,7 @@
             <artifactId>slf4j-api</artifactId>
             <scope>provided</scope>
         </dependency>
-        <!-- The JSON of the inspection servlet; the platform exports org.json, as for the samples module. -->
+        <!-- The JSON of RunServlet and StubServlet; the platform exports org.json, as for the samples module. -->
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
@@ -102,8 +103,9 @@
                     <instructions>
                         <_dsannotations>*</_dsannotations>
                         <Jahia-Module-Type>module</Jahia-Module-Type>
-                        <!-- fmdbmix:qualifier, the marker of the check types, comes from formidable-engine -->
-                        <Jahia-Depends>default,formidable-engine</Jahia-Depends>
+                        <!-- fmdbmix:qualifier, the marker of the check types, comes from formidable-engine; the check API
+                             and the hold from formidable-quarantine -->
+                        <Jahia-Depends>default,formidable-engine,formidable-quarantine</Jahia-Depends>
                     </instructions>
                 </configuration>
             </plugin>
