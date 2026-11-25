@@ -238,8 +238,8 @@ A user without the permission gets the same answer as for a submission that does
 
 | Permission | Grants |
 |---|---|
-| `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on one site. |
-| `formidableQuarantineFileAccess` | The download of a held file, on one site, when the file access allows it. |
+| `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms where it is granted. |
+| `formidableQuarantineFileAccess` | The download of a held file, when the file access allows it. |
 
 In this phase, the module declares `formidableQuarantineManage` and checks it on the live form. The role
 `formidable-quarantine-manager`, granted on a form, gives it. The per-site role and `formidableQuarantineFileAccess`
