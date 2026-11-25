@@ -17,6 +17,7 @@
         <!-- The engine: the hold contract (SubmissionHold) and the service that runs the actions after release
              (DeferredActions), both in its api package. -->
         <jahia-depends>formidable-engine</jahia-depends>
+        <jahia-module-signature>MCwCFFlaoE810AG9xmUVpFFS+OsjJzt5AhQSfvCEWub1lsEgdN/LnJtOsLoEcQ==</jahia-module-signature>
     </properties>
 
     <dependencies>
