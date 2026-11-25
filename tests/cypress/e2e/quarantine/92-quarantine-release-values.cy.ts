@@ -283,6 +283,8 @@ describe('Quarantine - 92 The policy of a form releases the values alone on a fa
 			cy.log(`fieldsets of the section: ${names.join(', ')}`);
 			expect(names.indexOf('fmdbqmix:quarantinePolicy'), 'the policy comes after the quarantine switch')
 				.to.be.greaterThan(names.indexOf('fmdbmix:quarantine'));
+			expect(names.slice(0, 3), 'the form, then the quarantine switch, then the policy')
+				.to.deep.equal(['fmdb:form', 'fmdbmix:quarantine', 'fmdbqmix:quarantinePolicy']);
 		});
 	});
 });

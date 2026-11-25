@@ -762,7 +762,8 @@ submission also posts a forged value named `documentScanStatus`.
 - In the section of the quarantine switch, the fieldset
   `fmdbqmix:quarantinePolicy` "Quarantine policy" is a switch: off on the first
   form, on on the second
-- It comes after the quarantine switch
+- The section starts with the fieldset of the form, then the quarantine switch,
+  then the policy
 
 ---
 
