@@ -17,7 +17,8 @@ public interface QuarantineRunner {
      * @param ignoreSchedule true to take every submission in state {@code held} or {@code checking}, whatever its next
      *                       attempt says
      * @return the submissions processed, with the state of each after the run
-     * @throws QuarantineRunException when the quarantine tree of the site cannot be read
+     * @throws QuarantineRunException when the quarantine tree of the site cannot be read, possibly after the pass
+     *                                processed the submissions of earlier forms
      */
     RunReport runNow(String siteKey, String formId, boolean ignoreSchedule) throws QuarantineRunException;
 

@@ -5,7 +5,9 @@ import org.jahia.modules.formidable.engine.api.SubmissionHold;
 import org.jahia.modules.formidable.engine.api.SubmissionHoldException;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
@@ -14,6 +16,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * The hold of the module, at the ranking {@value #RANKING}. A hold that wants some forms, such as the sample hold of
@@ -33,10 +36,12 @@ public class QuarantineSubmissionHold implements SubmissionHold {
     private static final Logger log = LoggerFactory.getLogger(QuarantineSubmissionHold.class);
 
     static final String COMPONENT_NAME = "org.jahia.modules.formidable.quarantine.hold.QuarantineSubmissionHold";
-    /** A hold that claims some forms ranks above it. */
+    /** The ranking it declares. A hold that claims some forms ranks above it. */
     static final int RANKING = 100;
 
     private final OtherHolds otherHolds = new OtherHolds();
+    /** The ranking the component is bound with, which a configuration of the component may change. */
+    private final AtomicInteger ranking = new AtomicInteger(RANKING);
     private final FormSites formSites;
     private QuarantineStore store;
 
@@ -46,6 +51,13 @@ public class QuarantineSubmissionHold implements SubmissionHold {
 
     QuarantineSubmissionHold(FormSites formSites) {
         this.formSites = formSites;
+    }
+
+    /** Reads the ranking the component is bound with: a form goes only to a hold that ranks below it. */
+    @Activate
+    @Modified
+    public void configure(Map<String, Object> properties) {
+        ranking.set(OtherHolds.ranking(properties.get(OtherHolds.SERVICE_RANKING)));
     }
 
     @Reference
@@ -77,7 +89,7 @@ public class QuarantineSubmissionHold implements SubmissionHold {
             store(submission);
             return;
         }
-        SubmissionHold next = otherHolds.nextBelow(RANKING).orElseThrow(() -> new SubmissionHoldException(
+        SubmissionHold next = otherHolds.nextBelow(ranking.get()).orElseThrow(() -> new SubmissionHoldException(
                 "The site of form " + formId + " does not have the module " + JcrFormSites.MODULE_ID
                         + ", and no other hold ranks below it"));
         log.debug("The site of form {} does not have the module: handed to {}", formId, next.getClass().getName());

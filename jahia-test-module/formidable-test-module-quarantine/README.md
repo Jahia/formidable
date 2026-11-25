@@ -211,7 +211,7 @@ The module declares its stub checks in its own namespace, `fmdbquar` (`http://ww
 
 ## Java packages
 
-The base package is `org.jahia.test.modules.formidable.quarantine`. The module compiles against the exported `api` packages of the engine and of `formidable-quarantine` only.
+The base package is `org.jahia.test.modules.formidable.quarantine`. The main code compiles against the exported `api` packages of the engine and of `formidable-quarantine` only. The test `QuarantineRunTest` is in the private package `org.jahia.modules.formidable.quarantine.run`, and compiles against private classes of `formidable-quarantine` and the fixtures of its test jar: it runs the run of the module against the stub checks, which only this module has.
 
 | Package | Content |
 |---|---|

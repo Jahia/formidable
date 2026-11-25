@@ -8,8 +8,9 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
-/** What the endpoints of the module share: a JSON answer that no cache keeps, and the operation past the alias. */
+/** What the endpoints of the module share: a JSON answer that no cache keeps, and the two barriers of a POST. */
 final class JsonAnswers {
 
     private static final Logger log = LoggerFactory.getLogger(JsonAnswers.class);
@@ -17,6 +18,8 @@ final class JsonAnswers {
     static final String FORBIDDEN = "server administrators only";
     /** The header a POST must carry: a cross-site form or a simple request cannot send it with no preflight. */
     static final String REQUESTED_WITH = "X-Requested-With";
+    /** The media type a POST must declare: a browser sends no other type cross-site without a preflight. */
+    static final String JSON_MEDIA_TYPE = "application/json";
 
     private JsonAnswers() {
     }
@@ -30,7 +33,7 @@ final class JsonAnswers {
         try {
             resp.setStatus(status);
             resp.setHeader("Cache-Control", "no-store");
-            resp.setContentType("application/json");
+            resp.setContentType(JSON_MEDIA_TYPE);
             resp.setCharacterEncoding(StandardCharsets.UTF_8.name());
             resp.getWriter().write(body.toString());
         } catch (IOException e) {
@@ -39,26 +42,27 @@ final class JsonAnswers {
     }
 
     /**
-     * Refuses a POST that does not carry {@link #REQUESTED_WITH}, with 403: a cross-site page cannot make the browser
-     * of a connected administrator send it. The POSTs of the module read no body, so no media type is checked.
+     * Refuses a POST that a cross-site page could make the browser of a connected user send. Two barriers, each
+     * enough alone: without {@link #REQUESTED_WITH} the POST gets 403, and with a {@code Content-Type} whose essence
+     * is not {@value #JSON_MEDIA_TYPE} it gets 415. The essence is the type before the first {@code ;}, so
+     * {@code text/plain;application/json}, which a browser sends cross-site, is refused.
      *
      * @return true when the request was refused and answered
      */
     static boolean refusedAsCrossSite(HttpServletRequest req, HttpServletResponse resp) {
-        if (req.getHeader(REQUESTED_WITH) != null) {
-            return false;
+        if (req.getHeader(REQUESTED_WITH) == null) {
+            answer(resp, HttpServletResponse.SC_FORBIDDEN, error("a POST needs the header " + REQUESTED_WITH));
+            return true;
         }
-        answer(resp, HttpServletResponse.SC_FORBIDDEN, error("a POST needs the header " + REQUESTED_WITH));
-        return true;
+        if (!JSON_MEDIA_TYPE.equals(essence(req.getContentType()))) {
+            answer(resp, HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE,
+                    error("a POST declares the media type " + JSON_MEDIA_TYPE));
+            return true;
+        }
+        return false;
     }
 
-    /** The path under the alias: the path info, or the request URI past the alias when the container gives none. */
-    static String operationOf(HttpServletRequest req, String alias) {
-        if (req.getPathInfo() != null) {
-            return req.getPathInfo();
-        }
-        String uri = req.getRequestURI();
-        int at = uri == null ? -1 : uri.indexOf(alias);
-        return at < 0 ? "" : uri.substring(at + alias.length());
+    private static String essence(String contentType) {
+        return contentType == null ? null : contentType.split(";", 2)[0].trim().toLowerCase(Locale.ROOT);
     }
 }

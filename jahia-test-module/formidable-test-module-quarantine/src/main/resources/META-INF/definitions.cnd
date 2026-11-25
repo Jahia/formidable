@@ -3,8 +3,8 @@
 <fmdbquar = 'http://www.jahia.org/jahia/fmdbquar/nt/1.0'>
 
 // The two stub checks of the test suite. Each takes fmdbmix:qualifier as a supertype, the marker of the engine: the
-// "Checks" list of a form accepts no other kind of node. The hold of formidable-quarantine runs them through their
-// Qualifier services. The quarantine tree and its types belong to formidable-quarantine (fmdbq).
+// "Checks" list of a form accepts no other kind of node. The run of the checks of formidable-quarantine calls them
+// through their Qualifier services. The quarantine tree and its types belong to formidable-quarantine (fmdbq).
 
 // Each check carries two settings. onInconclusive: what an INCONCLUSIVE answer means, review (needsReview) or
 // reject. onUnavailable: what a failure of the engine of the check means, retry (later, until the attempts are

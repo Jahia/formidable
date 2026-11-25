@@ -1,12 +1,14 @@
 package org.jahia.modules.formidable.quarantine.hold;
 
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRPropertyWrapper;
+import org.jahia.services.content.JCRValueWrapper;
 import org.jahia.services.content.decorator.JCRSiteNode;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.RepositoryException;
-import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -15,33 +17,58 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** The rule of ownership as it reads the site of a form: the modules of the site, never its "Checks" list. */
+/**
+ * The rule of ownership as it reads the site of a form: the modules of the site and their dependencies, never its
+ * "Checks" list. A site whose modules cannot be read refuses the form.
+ */
 class JcrFormSitesTest {
 
-    private static JCRNodeWrapper formOfASiteWith(String... modules) throws RepositoryException {
+    /** formidable-test-module-quarantine depends on the module, as its Jahia-Depends says. */
+    private static final JcrFormSites SITES = new JcrFormSites(moduleId -> Map.of(
+            "formidable-test-module-quarantine", List.of("formidable-engine", JcrFormSites.MODULE_ID))
+            .getOrDefault(moduleId, List.of()));
+
+    private static JCRSiteNode site() {
         JCRSiteNode site = mock(JCRSiteNode.class);
-        Set<String> installed = new LinkedHashSet<>(List.of(modules));
-        when(site.getInstalledModulesWithAllDependencies()).thenReturn(installed);
+        // what the swallowing getters of the site would answer: a rule read from them hands no form down
+        when(site.getInstalledModules()).thenReturn(List.of());
+        when(site.getInstalledModulesWithAllDependencies()).thenReturn(Set.of());
+        return site;
+    }
+
+    private static JCRNodeWrapper formOf(JCRSiteNode site) throws RepositoryException {
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
         when(form.getResolveSite()).thenReturn(site);
         return form;
     }
 
+    private static JCRNodeWrapper formOfASiteWith(String... modules) throws RepositoryException {
+        JCRValueWrapper[] values = new JCRValueWrapper[modules.length];
+        for (int i = 0; i < modules.length; i++) {
+            values[i] = mock(JCRValueWrapper.class);
+            when(values[i].getString()).thenReturn(modules[i]);
+        }
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(property.getValues()).thenReturn(values);
+        JCRSiteNode site = site();
+        when(site.getProperty(JcrFormSites.INSTALLED_MODULES)).thenReturn(property);
+        return formOf(site);
+    }
+
     @Test
     void aFormOfASiteThatHasTheModuleIsOwned() throws RepositoryException {
-        assertTrue(JcrFormSites.hasTheModule(formOfASiteWith("formidable-engine", JcrFormSites.MODULE_ID)));
+        assertTrue(SITES.hasTheModule(formOfASiteWith("templates-web", "formidable-engine:0.7.0",
+                JcrFormSites.MODULE_ID + ":0.7.0")));
     }
 
     @Test
     void aFormOfASiteWhoseModuleDependsOnTheModuleIsOwned() throws RepositoryException {
-        // the dependencies are resolved by the site: formidable-test-module-quarantine depends on the module
-        assertTrue(JcrFormSites.hasTheModule(formOfASiteWith("formidable-test-module-quarantine",
-                JcrFormSites.MODULE_ID)));
+        assertTrue(SITES.hasTheModule(formOfASiteWith("templates-web", "formidable-test-module-quarantine")));
     }
 
     @Test
     void aFormOfASiteWithoutTheModuleIsNotOwned() throws RepositoryException {
-        assertFalse(JcrFormSites.hasTheModule(formOfASiteWith("formidable-engine",
+        assertFalse(SITES.hasTheModule(formOfASiteWith("templates-web", "formidable-engine",
                 "formidable-test-module-samples-java")));
     }
 
@@ -49,6 +76,22 @@ class JcrFormSitesTest {
     void aFormUnderNoSiteCannotBeRead() {
         JCRNodeWrapper form = mock(JCRNodeWrapper.class);
 
-        assertThrows(RepositoryException.class, () -> JcrFormSites.hasTheModule(form));
+        assertThrows(RepositoryException.class, () -> SITES.hasTheModule(form));
+    }
+
+    @Test
+    void aSiteWhoseModulesCannotBeReadRefusesTheForm() throws RepositoryException {
+        JCRSiteNode site = site();
+        when(site.getProperty(JcrFormSites.INSTALLED_MODULES)).thenThrow(new RepositoryException("unreadable"));
+        JCRNodeWrapper form = formOf(site);
+
+        assertThrows(RepositoryException.class, () -> SITES.hasTheModule(form));
+    }
+
+    @Test
+    void aSiteThatListsNoModuleRefusesTheForm() throws RepositoryException {
+        JCRNodeWrapper form = formOfASiteWith();
+
+        assertThrows(RepositoryException.class, () -> SITES.hasTheModule(form));
     }
 }

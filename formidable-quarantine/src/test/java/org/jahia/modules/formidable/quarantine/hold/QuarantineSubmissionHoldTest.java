@@ -123,6 +123,35 @@ class QuarantineSubmissionHoldTest {
     }
 
     @Test
+    void aHoldOfTheSameRankingNeverReceivesTheForm() throws Exception {
+        SubmissionHold sameRanking = mock(SubmissionHold.class);
+        QuarantineSubmissionHold hold = hold(false);
+        hold.addOtherHold(sameRanking, ranked(QuarantineSubmissionHold.RANKING, 1L));
+        hold.addOtherHold(lowerHold, ranked(QuarantineSubmissionHold.RANKING - 1, 10L));
+        HeldSubmission submission = submission();
+
+        hold.hold(submission);
+
+        verify(lowerHold).hold(submission);
+        verify(sameRanking, never()).hold(any());
+    }
+
+    @Test
+    void theRankingTheComponentIsBoundWithDecidesWhichHoldsAreBelow() throws Exception {
+        SubmissionHold at50 = mock(SubmissionHold.class);
+        QuarantineSubmissionHold hold = hold(false);
+        hold.addOtherHold(at50, ranked(50, 1L));
+        hold.addOtherHold(lowerHold, ranked(0, 10L));
+        HeldSubmission submission = submission();
+
+        hold.configure(Map.of(OtherHolds.SERVICE_RANKING, 50));
+        hold.hold(submission);
+
+        verify(lowerHold).hold(submission);
+        verify(at50, never()).hold(any());
+    }
+
+    @Test
     void aFormIsRefusedOnceTheOtherHoldIsGone() throws Exception {
         QuarantineSubmissionHold hold = hold(false);
         hold.addOtherHold(lowerHold, ranked(0, 10L));

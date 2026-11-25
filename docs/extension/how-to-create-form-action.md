@@ -350,8 +350,10 @@ waits for the result.
   the repository. The mixin counts only for a form with the switch off.
 
 `formidable-test-module-samples-java` holds a sample of each side. `UploadObserverFormAction` is a deferrable
-action that records the number of files it received. `SampleSubmissionHold` is a test double of a hold: it
-releases every submission at once, inside the request, and checks nothing.
+action that records the number of files it received. `SampleSubmissionHold` is a test double of a hold that checks
+nothing. It ranks 200 and claims only a form whose checks list holds `fmdbsample:sampleCheck`, and it releases that
+submission at once, inside the request. It hands every other form to the next hold below its ranking, and it refuses
+the submission when no hold ranks below it.
 
 A module that holds the uploads registers a `SubmissionHold` service, and releases a submission through the
 `DeferredActions` service. [The hold of the uploads](../architecture/form-submission-flow.md#the-hold-of-the-uploads)

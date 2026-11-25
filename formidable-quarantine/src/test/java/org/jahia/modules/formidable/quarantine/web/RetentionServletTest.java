@@ -52,9 +52,15 @@ class RetentionServletTest {
 
     private static Call post(HttpServlet servlet, Map<String, String> parameters, String requestedWith)
             throws Exception {
+        return post(servlet, parameters, requestedWith, "application/json; charset=UTF-8");
+    }
+
+    private static Call post(HttpServlet servlet, Map<String, String> parameters, String requestedWith,
+                             String contentType) throws Exception {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getMethod()).thenReturn("POST");
         when(request.getHeader(JsonAnswers.REQUESTED_WITH)).thenReturn(requestedWith);
+        when(request.getContentType()).thenReturn(contentType);
         parameters.forEach((name, value) -> when(request.getParameter(name)).thenReturn(value));
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter out = new StringWriter();
@@ -87,6 +93,18 @@ class RetentionServletTest {
         Call call = post(retentionServlet(true), Map.of("site", SITE, "olderThanDays", "0"), null);
 
         assertEquals(HttpServletResponse.SC_FORBIDDEN, call.status());
+        verify(retention, never()).purge(anyString(), any());
+    }
+
+    @Test
+    void aPostThatIsNotJsonIsRefusedAndPurgesNothing() throws Exception {
+        Map<String, String> parameters = Map.of("site", SITE, "olderThanDays", "0");
+        for (String contentType : new String[]{null, "text/plain;application/json", "application/x-www-form-urlencoded",
+                "multipart/form-data; boundary=x"}) {
+            Call call = post(retentionServlet(true), parameters, "XMLHttpRequest", contentType);
+
+            assertEquals(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE, call.status(), String.valueOf(contentType));
+        }
         verify(retention, never()).purge(anyString(), any());
     }
 

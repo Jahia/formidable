@@ -32,7 +32,7 @@
             <scope>provided</scope>
         </dependency>
         <!-- The hold: the stub checks implement its check API, and "run now" starts a run through its runner. The
-             module compiles against that exported package only. -->
+             main code compiles against that exported package only; QuarantineRunTest also reaches private classes. -->
         <dependency>
             <groupId>org.jahia.modules</groupId>
             <artifactId>formidable-quarantine</artifactId>

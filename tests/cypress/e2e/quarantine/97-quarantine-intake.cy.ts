@@ -106,13 +106,14 @@ const setReadOnlyMode = (enable: boolean): void => {
 };
 
 /**
- * The intake of the reference hold of the quarantine test module (tests/scenarios/quarantine.md, Q01, Q10, Q11, Q16).
- * A form whose "Checks" list holds a check of the module is owned by the reference hold: it stores the submission in
+ * The intake of the hold of formidable-quarantine (tests/scenarios/quarantine.md, Q01, Q10, Q11, Q16). The site
+ * enables the quarantine test module, which depends on formidable-quarantine, so the hold of the module owns a form
+ * whose "Checks" list holds a stub check: it stores the submission in
  * the quarantine tree of the site, /sites/<site>/formidable-quarantine/<form>/YYYY/MM/DD/<held>, and returns. Nothing
  * runs after it until a release, which this spec never starts. The spec reads the tree through the inspection of the
  * module, as root: the state, the names of the fields, and of each item its file name, size and SHA-256.
  *
- * Q10 is a control scenario. Its control build is the quarantine test module with two changes in JcrQuarantineStore:
+ * Q10 is a control scenario. Its control build is formidable-quarantine with two changes in JcrQuarantineStore:
  * the line `root.setAclInheritanceBreak(true);` removed from rootOf, so that the quarantine root keeps the ACL
  * inheritance of the site, and the condition of `closed` replaced by `root == null`, so that the store reuses that
  * root. Without the second change the store refuses every hold after the first one (FMDB-018), and Q10 fails in its
@@ -120,7 +121,7 @@ const setReadOnlyMode = (enable: boolean): void => {
  * this spec: Q10 must fail by assertion, on the read of the site administrator or of the editor. The root of the tree
  * is created on first use, and the spec creates the site again, so no root of an earlier build survives.
  */
-describe('Quarantine - 97 The reference hold stores a submission in the quarantine tree', () => {
+describe('Quarantine - 97 The hold of formidable-quarantine stores a submission in the quarantine tree', () => {
 	useFormidableSite();
 
 	before(() => {
@@ -170,7 +171,7 @@ describe('Quarantine - 97 The reference hold stores a submission in the quaranti
 			});
 		});
 
-		// The reference hold owned the form: the sample hold was not called, and no action after release ran. The
+		// The hold of the module owned the form: the sample hold was not called, and no action after release ran. The
 		// observer action reports no call, and Save to JCR stored nothing in the results of the form. The observer is
 		// deferrable as an e-mail action is, so it stands for every action after release, with no mailbox.
 		readUploadObservations().then(seen => {

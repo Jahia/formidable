@@ -11,7 +11,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * The other holds registered on the platform, the hold of the module left out. The next hold is the one the engine
  * would bind among the holds that rank below the hold of the module: the highest service ranking, then the lowest
- * service id, as OSGi orders services. A hold that ranks above it already had the form, and handed it down.
+ * service id, as OSGi orders services. A hold that ranks above it already had the form, and handed it down. A hold of
+ * the same ranking never receives a handed-off form: two holds of one ranking would hand a form to each other.
  */
 final class OtherHolds {
 
@@ -55,7 +56,7 @@ final class OtherHolds {
     }
 
     /** OSGi reads a ranking that is not an Integer as 0. */
-    private static int ranking(Object value) {
+    static int ranking(Object value) {
         return value instanceof Integer ranking ? ranking : 0;
     }
 

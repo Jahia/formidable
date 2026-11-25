@@ -11,7 +11,7 @@ import org.osgi.annotation.versioning.ConsumerType;
 @ConsumerType
 public interface Qualifier {
 
-    /** @return the node type of the checks this qualifier serves, such as {@code fmdbquar:remoteStubCheck} */
+    /** @return the node type of the checks this qualifier serves, such as {@code acme:sandboxCheck} */
     String getNodeType();
 
     /** @return where the check reads the bytes */

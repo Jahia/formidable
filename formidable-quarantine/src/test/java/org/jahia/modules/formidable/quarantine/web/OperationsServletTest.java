@@ -53,9 +53,15 @@ class OperationsServletTest {
 
     private static Call post(HttpServlet servlet, Map<String, String> parameters, String requestedWith)
             throws Exception {
+        return post(servlet, parameters, requestedWith, "application/json; charset=UTF-8");
+    }
+
+    private static Call post(HttpServlet servlet, Map<String, String> parameters, String requestedWith,
+                             String contentType) throws Exception {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getMethod()).thenReturn("POST");
         when(request.getHeader(JsonAnswers.REQUESTED_WITH)).thenReturn(requestedWith);
+        when(request.getContentType()).thenReturn(contentType);
         parameters.forEach((name, value) -> when(request.getParameter(name)).thenReturn(value));
         HttpServletResponse response = mock(HttpServletResponse.class);
         StringWriter out = new StringWriter();
@@ -109,6 +115,18 @@ class OperationsServletTest {
         Call call = post(operationsServlet(), Map.of("path", HELD_PATH, "operation", "reject"), null);
 
         assertEquals(HttpServletResponse.SC_FORBIDDEN, call.status());
+        verify(operations, never()).apply(anyString(), any());
+    }
+
+    @Test
+    void aPostThatIsNotJsonIsRefusedAndRunsNoOperation() throws Exception {
+        Map<String, String> parameters = Map.of("path", HELD_PATH, "operation", "reject");
+        for (String contentType : new String[]{null, "text/plain;application/json", "application/x-www-form-urlencoded",
+                "multipart/form-data; boundary=x"}) {
+            Call call = post(operationsServlet(), parameters, "XMLHttpRequest", contentType);
+
+            assertEquals(HttpServletResponse.SC_UNSUPPORTED_MEDIA_TYPE, call.status(), String.valueOf(contentType));
+        }
         verify(operations, never()).apply(anyString(), any());
     }
 
