@@ -263,8 +263,8 @@ class SiteQuarantineTest {
         List<GqlState> states = new ArrayList<>(List.of(GqlState.values()));
         states.add(GqlState.HELD);
 
-        DataFetchingException error = assertThrows(DataFetchingException.class,
-                () -> site().page(null, states, 0, 25));
+        SiteQuarantine site = site();
+        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.page(null, states, 0, 25));
 
         assertEquals(SiteQuarantine.TOO_MANY_STATES, error.getMessage());
         assertTrue(calls.isEmpty(), "no query");
@@ -395,8 +395,9 @@ class SiteQuarantineTest {
 
     @Test
     void anOperationOnAnIdentifierThatIsNotOneRunsNothing() {
+        SiteQuarantine site = site();
         DataFetchingException error = assertThrows(DataFetchingException.class,
-                () -> site().operate("../../otherSite/x", GqlOperation.REJECT));
+                () -> site.operate("../../otherSite/x", GqlOperation.REJECT));
 
         assertTrue(error.getMessage().contains("No held submission"), error.getMessage());
         assertTrue(operated.isEmpty());
@@ -404,28 +405,30 @@ class SiteQuarantineTest {
 
     @Test
     void aRefusedOperationAnswersNotFoundOrTheConflict() {
-        Held held = inState(FORM, HeldState.NEEDS_REVIEW);
+        String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
+        SiteQuarantine site = site();
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.NOT_FOUND, "secret path detail");
         DataFetchingException notFound = assertThrows(DataFetchingException.class,
-                () -> site().operate(idOf(held), GqlOperation.RELEASE));
-        assertEquals(String.format(SiteQuarantine.NOT_FOUND, idOf(held)), notFound.getMessage());
+                () -> site.operate(id, GqlOperation.RELEASE));
+        assertEquals(String.format(SiteQuarantine.NOT_FOUND, id), notFound.getMessage());
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                 "The operation release is not allowed in state completed");
         DataFetchingException conflict = assertThrows(DataFetchingException.class,
-                () -> site().operate(idOf(held), GqlOperation.RELEASE));
+                () -> site.operate(id, GqlOperation.RELEASE));
         assertTrue(conflict.getMessage().contains("is not allowed in state"), conflict.getMessage());
     }
 
     /** f1: neither the error nor the log line quotes the message of the failure, which may hold a value. */
     @Test
     void aFailedOperationNeverQuotesTheMessageOfTheFailure() {
-        Held held = inState(FORM, HeldState.NEEDS_REVIEW);
+        String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
         refusal = new IllegalStateException("The target refused the value Ada");
+        SiteQuarantine site = site();
 
         DataFetchingException error = assertThrows(DataFetchingException.class,
-                () -> site().operate(idOf(held), GqlOperation.RELEASE));
+                () -> site.operate(id, GqlOperation.RELEASE));
 
         assertEquals(SiteQuarantine.OPERATION_FAILED, error.getMessage());
         List<Object> logged = loggedArguments();
@@ -445,8 +448,9 @@ class SiteQuarantineTest {
                     return result;
                 }, this::purge, managers, (siteKey, formId) -> facts), log);
 
+        String id = idOf(held);
         DataFetchingException error = assertThrows(DataFetchingException.class,
-                () -> site.operate(idOf(held), GqlOperation.REJECT));
+                () -> site.operate(id, GqlOperation.REJECT));
 
         assertEquals(SiteQuarantine.RAN_NOT_READ, error.getMessage());
         assertEquals("rejected", held.state, "the operation ran");
@@ -482,12 +486,13 @@ class SiteQuarantineTest {
         Held rejected = inState(FORM, HeldState.REJECTED);
         inState(FORM, HeldState.COMPLETED);
 
-        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site().purge(0));
+        SiteQuarantine site = site();
+        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.purge(0));
         assertEquals(SiteQuarantine.ADMINISTRATORS_ONLY, error.getMessage());
         assertEquals(2, stores.held.size(), "nothing purged");
 
         managers.administrator = true;
-        assertThrows(DataFetchingException.class, () -> site().purge(-1), "a negative limit");
+        assertThrows(DataFetchingException.class, () -> site.purge(-1), "a negative limit");
         GqlPurgeReport report = site().purge(0);
         assertEquals(List.of(idOf(rejected)), report.getPurged());
         assertEquals(0, report.getRetentionDays());

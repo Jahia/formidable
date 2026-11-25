@@ -69,13 +69,13 @@ class JcrHeldQueriesTest {
 
     @Test
     void aPageKeepsTheRecordsThatNameTheSiteOnly() {
-        HeldRecord ofTheSite = record("siteA");
-        List<HeldRecord> kept = JcrHeldQueries.ofTheSite("siteA", List.of(record("siteB"), ofTheSite, record(null)));
+        HeldRecord ofTheSite = heldOf("siteA");
+        List<HeldRecord> kept = JcrHeldQueries.ofTheSite("siteA", List.of(heldOf("siteB"), ofTheSite, heldOf(null)));
 
         assertEquals(List.of(ofTheSite), kept);
     }
 
-    private static HeldRecord record(String siteKey) {
+    private static HeldRecord heldOf(String siteKey) {
         return new HeldRecord("/sites/siteA/formidable-quarantine/" + FORM + "/2026/11/19/held-" + siteKey, FORM,
                 siteKey, "held", Instant.parse("2026-11-19T10:00:00Z"), 0, null, 0, List.of(), List.of(), true,
                 List.of(), null);
