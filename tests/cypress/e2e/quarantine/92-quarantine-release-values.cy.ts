@@ -242,7 +242,7 @@ describe('Quarantine - 92 The policy of a form releases the values alone on a fa
 				});
 			});
 			theHeldSubmission(formId).then(held => {
-				expect(held.decision?.reason, 'the decision keeps the reject').to.eq('MANAGER_REJECTED');
+				expect(held.decision?.reason, 'the decision keeps the reason of the review').to.eq('INCONCLUSIVE');
 				expect(held.items[0].binaryPresent, 'bytes of the item').to.eq(false);
 				expect(held.valuesPresent, 'held values').to.eq(false);
 				expect(held.audit.map(record => [record.operation, record.user, record.from, record.to]), 'audit')

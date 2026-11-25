@@ -2,7 +2,10 @@ package org.jahia.modules.formidable.quarantine.run;
 
 import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.RepositoryException;
@@ -14,7 +17,9 @@ import javax.jcr.RepositoryException;
  */
 public final class JcrFormPolicies implements FormPolicies {
 
-    /** The mixin of the module that carries the policy of a form, offered on a form with the quarantine switch on. */
+    private static final Logger log = LoggerFactory.getLogger(JcrFormPolicies.class);
+
+    /** The mixin of the module that carries the policy of a form, read while the quarantine switch of the form is on. */
     public static final String POLICY_MIXIN = "fmdbqmix:quarantinePolicy";
     static final String ON_FAIL = "onFail";
     static final String SCAN_STATUS_NAME = "scanStatusName";
@@ -25,24 +30,35 @@ public final class JcrFormPolicies implements FormPolicies {
     static final String FIELDS = "fields";
     private static final String LIVE_WORKSPACE = "live";
 
-    /** A form that is gone from live has the default policy: a manager can still reject its submissions. */
     @Override
     public FormPolicy of(String formId) throws RepositoryException {
-        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, LIVE_WORKSPACE, null, session -> {
-            try {
-                return policyOf(session.getNodeByIdentifier(formId));
-            } catch (ItemNotFoundException gone) {
-                return FormPolicy.DEFAULT;
-            }
-        });
+        return JCRTemplate.getInstance().doExecuteWithSystemSessionAsUser(null, LIVE_WORKSPACE, null,
+                session -> policyOf(session, formId));
     }
 
-    /** The policy of the form, and whether one of its fields has the name of the scan status. */
+    /** A form that is gone from live has the default policy: a manager can still reject its submissions. */
+    static FormPolicy policyOf(JCRSessionWrapper session, String formId) throws RepositoryException {
+        try {
+            return policyOf(session.getNodeByIdentifier(formId));
+        } catch (ItemNotFoundException gone) {
+            return FormPolicy.DEFAULT;
+        }
+    }
+
+    /**
+     * The policy of the form, and whether one of its fields has the name of the scan status. A name that is not
+     * {@link FormPolicy#isValidName valid} counts as none, with an error: no release writes it.
+     */
     static FormPolicy policyOf(JCRNodeWrapper form) throws RepositoryException {
         if (!form.isNodeType(POLICY_MIXIN)) {
             return FormPolicy.DEFAULT;
         }
-        FormPolicy policy = new FormPolicy(OnFail.fromValue(string(form, ON_FAIL)), string(form, SCAN_STATUS_NAME),
+        String name = string(form, SCAN_STATUS_NAME);
+        if (name != null && !name.isBlank() && !FormPolicy.isValidName(name)) {
+            log.error("Form {}: the name of its scan status is not valid, the releases of the form add none",
+                    form.getIdentifier());
+        }
+        FormPolicy policy = new FormPolicy(OnFail.fromValue(string(form, ON_FAIL)), name,
                 string(form, SCAN_STATUS_CLEAN), string(form, SCAN_STATUS_FAILED),
                 form.hasProperty(SHOW_VALUES) && form.getProperty(SHOW_VALUES).getBoolean(), false);
         if (policy.scanStatusName() == null || !form.hasNode(FIELDS)
@@ -53,14 +69,21 @@ public final class JcrFormPolicies implements FormPolicies {
                 policy.scanStatusFailed(), policy.showValues(), true);
     }
 
-    /** @return true when a field below the node, in a step or a fieldset too, has the name */
+    /**
+     * @return true when a field below the node, in a step or a fieldset too, has the name: a field that posts a
+     *         value, as the field whitelist of the engine counts it, not a container or a non-submittable element
+     */
     private static boolean hasField(JCRNodeWrapper node, String name) throws RepositoryException {
         for (JCRNodeWrapper child : node.getNodes()) {
-            if ((child.isNodeType(FmdbMixin.FORM_ELEMENT) && name.equals(child.getName())) || hasField(child, name)) {
+            if ((isSubmittableField(child) && name.equals(child.getName())) || hasField(child, name)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static boolean isSubmittableField(JCRNodeWrapper node) throws RepositoryException {
+        return node.isNodeType(FmdbMixin.FORM_ELEMENT) && !node.isNodeType(FmdbMixin.NON_SUBMITTABLE);
     }
 
     private static String string(JCRNodeWrapper node, String property) throws RepositoryException {

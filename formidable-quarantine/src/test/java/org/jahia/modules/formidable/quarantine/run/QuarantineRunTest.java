@@ -415,7 +415,8 @@ class QuarantineRunTest {
         held.state = HeldStates.NEEDS_REVIEW;
         Release release = run.release();
 
-        assertThrows(IllegalTransitionException.class, () -> release.release(held.path, HeldState.NEEDS_REVIEW));
+        assertThrows(IllegalTransitionException.class,
+                () -> release.release(held.path, HeldState.NEEDS_REVIEW, FormPolicy.DEFAULT));
 
         assertTrue(released.isEmpty(), "the actions after release ran from state needsReview");
         assertEquals(HeldStates.NEEDS_REVIEW, held.state);
@@ -588,7 +589,7 @@ class QuarantineRunTest {
         held.state = HeldStates.RELEASING;
         held.completedActions = 1;
 
-        run.release().release(held.path, HeldState.RELEASING);
+        run.release().release(held.path, HeldState.RELEASING, FormPolicy.DEFAULT);
 
         assertEquals(List.of(1), releasedFrom);
         assertEquals(HeldStates.COMPLETED, held.state);
@@ -820,7 +821,7 @@ class QuarantineRunTest {
         held.bytes.set(0, null);
         Release release = run.release();
 
-        HeldState state = release.release(held.path, HeldState.CHECKING);
+        HeldState state = release.release(held.path, HeldState.CHECKING, policy);
 
         assertEquals(HeldState.COMPLETED, state);
         assertEquals(List.of(HeldStates.RELEASING, HeldStates.COMPLETED), held.states);
@@ -865,6 +866,61 @@ class QuarantineRunTest {
 
         assertEquals(HeldStates.REJECTED, held.state);
         assertTrue(released.isEmpty(), "only a FAIL releases the values alone");
+    }
+
+    @Test
+    void aValuesReleaseWhoseSaveFailsKeepsEverythingAndTheNextRunReleasesTheValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        stores.failingValuesRelease.add(held.path);
+
+        RunReport failed = runNow();
+
+        assertNotNull(failed.processed().get(0).error(), "the run reports the failed save");
+        assertEquals(HeldStates.CHECKING, held.state);
+        assertTrue(held.anyBytes(), "bytes deleted by a save that failed");
+        assertFalse(held.valuesOnly);
+        assertTrue(held.valuesPresent);
+        assertEquals("CHECK_FAILED", held.decision.reason());
+        assertTrue(released.isEmpty());
+
+        stores.failingValuesRelease.clear();
+        runIgnoringSchedule();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertTrue(released.get(0).files().isEmpty());
+        assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
+        assertEquals("CHECK_FAILED", held.decision.reason());
+    }
+
+    @Test
+    void aFailAfterAnActionRanRejectsUnderReleaseValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        held.completedActions = 1;
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state, "an action already received the files");
+        assertTrue(released.isEmpty());
+        assertFalse(held.valuesOnly);
+    }
+
+    @Test
+    void aReleaseValuesAfterAnActionRanIsRefusedBeforeAnyChange() {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        held.state = HeldStates.CHECKING;
+        held.completedActions = 1;
+        Release release = run.release();
+        FormPolicy releaseValues = policy;
+
+        assertThrows(IllegalStateException.class,
+                () -> release.releaseValues(held.path, HeldState.CHECKING, releaseValues));
+
+        assertTrue(held.anyBytes());
+        assertFalse(held.valuesOnly);
+        assertEquals(HeldStates.CHECKING, held.state);
     }
 
     private HeldRecord recordOf(Held held) {

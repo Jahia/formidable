@@ -77,6 +77,8 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     public final Set<String> broken = new HashSet<>();
     /** The paths whose values and bytes the store fails to delete, as a repository that refuses the save. */
     public final Set<String> failingDeletion = new HashSet<>();
+    /** The paths whose release of the values alone the store fails to save, as a repository that refuses the save. */
+    public final Set<String> failingValuesRelease = new HashSet<>();
     /** The paths whose audit records the store fails to write. */
     public final Set<String> failingAudit = new HashSet<>();
     private int count;
@@ -219,12 +221,21 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     }
 
     @Override
-    public void dropFiles(String path) throws QuarantineStoreException {
+    public void startValuesRelease(String path, String expectedState, String state) throws QuarantineStoreException {
         Held one = get(path);
+        if (failingValuesRelease.contains(path)) {
+            throw new QuarantineStoreException("Could not start the release of the values of " + path);
+        }
+        if (!expectedState.equals(one.state)) {
+            throw new QuarantineStoreException("The held submission at " + path + " is " + one.state);
+        }
         for (int i = 0; i < one.bytes.size(); i++) {
             one.bytes.set(i, null);
         }
         one.valuesOnly = true;
+        one.state = state;
+        one.states.add(state);
+        one.changedAt = changedAt;
     }
 
     @Override

@@ -226,9 +226,12 @@ final class SubmissionRun {
         store.setAttempts(pass.path(), pass.held.attempts(), null);
         if (decision instanceof ChainDecision.Reject reject) {
             writeDecision(pass, reject.reason().name(), reject.sha256(), reject.checkName());
-            if (reject.reason() == ChainReason.CHECK_FAILED && releasesValues(pass)) {
-                // the decision stays CHECK_FAILED: with the state completed, it records a release with no file
-                return release.releaseValues(pass.path(), pass.state);
+            if (reject.reason() == ChainReason.CHECK_FAILED) {
+                FormPolicy policy = release.policy(pass.held.formId());
+                if (releasesValues(pass, policy)) {
+                    // the decision stays CHECK_FAILED: with the state completed, it records a release with no file
+                    return release.releaseValues(pass.path(), pass.state, policy);
+                }
             }
             return transitions.finish(pass.path(), pass.state, HeldEvent.CHECK_FAILED);
         }
@@ -236,26 +239,28 @@ final class SubmissionRun {
             writeDecision(pass, review.reason().name(), review.sha256(), review.checkName());
             return transitions.move(pass.path(), pass.state, HeldEvent.REVIEW);
         }
-        return release.release(pass.path(), pass.state);
+        return release.release(pass.path(), pass.state, release.policy(pass.held.formId()));
     }
 
     /**
-     * @return true when the policy of the form releases the values on a fail. A field of the form named like the scan
-     *         status makes the run reject instead, the default, with an error: a failed file never waits for a manager
-     *         who could release it.
+     * @return true when the policy of the form releases the values on a fail. The run rejects instead, the default,
+     *         when an action after release already ran (some action received the files), and, with an error, when a
+     *         field of the form has the name of the scan status: a failed file never waits for a manager who could
+     *         release it.
      */
-    private boolean releasesValues(Pass pass) throws QuarantineStoreException {
-        FormPolicy policy = release.policy(pass.held.formId());
-        if (!policy.releasesValues()) {
-            return false;
+    private boolean releasesValues(Pass pass, FormPolicy policy) {
+        if (!policy.releasesValues() || Release.mayReleaseValues(pass.held, policy)) {
+            return policy.releasesValues();
         }
         if (policy.scanStatusTaken()) {
             log.error("Held submission {}: a field of form {} has the name of the scan status {}, the submission is "
                     + "rejected instead of releasing its values", pass.path(), pass.held.formId(),
                     policy.scanStatusName());
-            return false;
+        } else {
+            log.info("Held submission {}: an action after release already ran, the submission is rejected instead "
+                    + "of releasing its values", pass.path());
         }
-        return true;
+        return false;
     }
 
     private void writeDecision(Pass pass, String reason, String sha256, String checkName)

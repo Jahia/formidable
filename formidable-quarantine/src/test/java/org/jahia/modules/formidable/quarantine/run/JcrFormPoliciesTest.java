@@ -4,8 +4,10 @@ import org.jahia.modules.formidable.engine.api.FmdbMixin;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.junit.jupiter.api.Test;
 
+import javax.jcr.ItemNotFoundException;
 import javax.jcr.RepositoryException;
 import java.util.List;
 
@@ -86,9 +88,40 @@ class JcrFormPoliciesTest {
     }
 
     @Test
-    void aContainerNamedLikeTheScanStatusIsNotAField() throws RepositoryException {
-        JCRNodeWrapper fields = node("fields", false, node(STATUS, false, node("fullName", true)));
+    void aFieldsetNamedLikeTheScanStatusIsNotAField() throws RepositoryException {
+        // fmdb:fieldset carries fmdbmix:formElement and fmdbmix:nonSubmittable: it posts no value
+        JCRNodeWrapper fieldset = node(STATUS, true, node("fullName", true));
+        when(fieldset.isNodeType(FmdbMixin.NON_SUBMITTABLE)).thenReturn(true);
+        JCRNodeWrapper fields = node("fields", false, fieldset);
 
         assertFalse(JcrFormPolicies.policyOf(form("releaseValues", fields)).scanStatusTaken());
+    }
+
+    @Test
+    void aFieldInsideAFieldsetNamedLikeTheScanStatusIsFound() throws RepositoryException {
+        JCRNodeWrapper fieldset = node("fieldset", true, node(STATUS, true));
+        when(fieldset.isNodeType(FmdbMixin.NON_SUBMITTABLE)).thenReturn(true);
+
+        assertTrue(JcrFormPolicies.policyOf(form("releaseValues", node("fields", false, fieldset))).scanStatusTaken());
+    }
+
+    @Test
+    void aScanStatusNameThatIsNotValidCountsAsNone() throws RepositoryException {
+        JCRNodeWrapper form = form("releaseValues", node("fields", false, node("jcr:primaryType", true)));
+        property(form, JcrFormPolicies.SCAN_STATUS_NAME, "jcr:primaryType");
+
+        FormPolicy policy = JcrFormPolicies.policyOf(form);
+
+        assertNull(policy.scanStatusName());
+        assertFalse(policy.scanStatusTaken());
+        assertEquals(OnFail.RELEASE_VALUES, policy.onFail());
+    }
+
+    @Test
+    void aFormGoneFromLiveHasTheDefaultPolicy() throws RepositoryException {
+        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        when(session.getNodeByIdentifier("gone")).thenThrow(new ItemNotFoundException("gone"));
+
+        assertSame(FormPolicy.DEFAULT, JcrFormPolicies.policyOf(session, "gone"));
     }
 }

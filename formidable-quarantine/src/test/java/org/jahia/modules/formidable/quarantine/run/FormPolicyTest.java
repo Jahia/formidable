@@ -40,6 +40,18 @@ class FormPolicyTest {
     }
 
     @Test
+    void aNameThatAnActionCannotWriteCountsAsNone() {
+        for (String name : List.of("jcr:primaryType", "a/b", "foo[1]", "1status", "x:y", "a".repeat(65))) {
+            FormPolicy policy = new FormPolicy(OnFail.RELEASE_VALUES, name, "clean", "failed", false, false);
+
+            assertNull(policy.scanStatusName(), name);
+            assertSame(VALUES, policy.withScanStatus(VALUES, true), name);
+        }
+        assertEquals("scan_Status-2", new FormPolicy(OnFail.REJECT, " scan_Status-2 ", null, null, false, false)
+                .scanStatusName());
+    }
+
+    @Test
     void anUnknownOnFailFailsClosed() {
         assertEquals(OnFail.REJECT, OnFail.fromValue(null));
         assertEquals(OnFail.REJECT, OnFail.fromValue("rejectAll"));

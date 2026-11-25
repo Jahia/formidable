@@ -346,6 +346,11 @@ waits for the result.
   second list when that list runs in a request, which happens for a submission with no upload.
 - An action after release may run again when a manager resumes a run that failed at it. Fail before the action has
   an effect, or make the effect safe to repeat.
+- An action after release may receive the values alone, with no file. With the module `formidable-quarantine`, a
+  form whose policy is `onFail=releaseValues` releases its values alone when a check failed a file or a manager
+  rejected the submission ([Settings](../architecture/quarantine.md#settings)). The values then carry the scan
+  status under the name the form sets, with its failed value; a release of the files carries its clean value.
+  Read that value, not the number of files, to tell the two releases apart.
 - The marker does not replace `fmdbmix:readOnlyCompatibleAction`: declare both on an action that never writes to
   the repository. The mixin counts only for a form with the switch off.
 

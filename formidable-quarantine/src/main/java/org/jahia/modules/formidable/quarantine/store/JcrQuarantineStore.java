@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.Binary;
+import javax.jcr.InvalidItemStateException;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
 import javax.jcr.Value;
@@ -338,14 +339,25 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     @Override
-    public void dropFiles(String path) throws QuarantineStoreException {
-        change(path, "delete the bytes", held -> {
+    public void startValuesRelease(String path, String expectedState, String state) throws QuarantineStoreException {
+        if (!HeldStates.isState(state)) {
+            throw new QuarantineStoreException("Not a state of a held submission: " + state);
+        }
+        Instant at = clock.instant();
+        change(path, "start the release of the values alone", held -> {
+            String stored = string(held, QuarantineTree.STATE);
+            if (!expectedState.equals(stored)) {
+                throw new InvalidItemStateException("The held submission at " + path + " is " + stored + ", not "
+                        + expectedState);
+            }
             for (JCRNodeWrapper item : items(held)) {
                 removeIfPresent(item, QuarantineTree.DATA);
             }
             held.setProperty(QuarantineTree.VALUES_ONLY, true);
+            held.setProperty(QuarantineTree.STATE, state);
+            held.setProperty(QuarantineTree.CHANGED_AT, calendar(at));
         });
-        log.info("Held submission {}: its bytes are deleted, its values go out alone", path);
+        log.info("Held submission {}: its bytes are deleted, its values go out alone, state {}", path, state);
     }
 
     @Override

@@ -546,8 +546,59 @@ class QuarantineOperationsTest {
         assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
         assertTrue(held.valuesOnly);
         assertFalse(held.anyBytes());
-        assertEquals(DecisionRecord.MANAGER_REJECTED, held.decision.reason(), "the decision keeps the reject");
+        assertEquals(new DecisionRecord("INCONCLUSIVE", "item0", "remoteCheck", SHA, null, NOW), held.decision,
+                "the decision keeps what sent the submission to review");
         assertEquals(List.of(new AuditRecord("reject", MANAGER, "needsReview", "completed", NOW)), held.audit);
+    }
+
+    @Test
+    void aRejectWhoseValuesReleaseFailsToSaveChangesNothingAndASecondRejectReleasesTheValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = inReview("INCONCLUSIVE");
+        stores.failingValuesRelease.add(held.path);
+        String path = held.path;
+
+        assertThrows(QuarantineStoreException.class, () -> operations.apply(path, Operation.REJECT));
+
+        assertEquals("needsReview", held.state);
+        assertTrue(held.anyBytes(), "bytes deleted by a save that failed");
+        assertFalse(held.valuesOnly);
+        assertTrue(held.valuesPresent);
+        assertEquals("INCONCLUSIVE", held.decision.reason());
+        assertTrue(released.isEmpty());
+        assertTrue(held.audit.isEmpty(), "an audit record of a reject that changed nothing");
+
+        stores.failingValuesRelease.clear();
+        OperationResult result = operations.apply(path, Operation.REJECT);
+
+        assertEquals(HeldState.COMPLETED, result.to());
+        assertTrue(released.get(0).files().isEmpty());
+        assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
+    }
+
+    @Test
+    void aRejectAfterAPartialReleaseOfTheFilesIsAPlainReject() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = afterAFailedAction();
+
+        OperationResult result = operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(HeldState.REJECTED, result.to(), "an action already received the files marked clean");
+        assertTrue(released.isEmpty(), "the reject ran the remaining actions with no file");
+        assertFalse(held.valuesOnly);
+        assertFalse(held.valuesPresent);
+    }
+
+    @Test
+    void aRejectAfterAValuesReleaseFailedAtItsFirstActionRejects() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = valuesReleaseAfterAFailedAction();
+        held.completedActions = 0;
+
+        OperationResult result = operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(HeldState.REJECTED, result.to(), "the values already went out alone once");
+        assertTrue(released.isEmpty());
     }
 
     @Test
@@ -611,18 +662,32 @@ class QuarantineOperationsTest {
     }
 
     @Test
-    void aFieldNamedLikeTheScanStatusRefusesEveryOperationThatWritesTheStatus() {
+    void aFieldNamedLikeTheScanStatusRefusesAReleaseAndAResume() {
         policy = policy(OnFail.RELEASE_VALUES, true);
         Held held = inReview("INCONCLUSIVE");
+        Held failed = afterAFailedAction();
 
         assertEquals(OperationRefusedException.Reason.CONFLICT,
                 refusal(() -> operations.apply(held.path, Operation.RELEASE)));
         assertEquals(OperationRefusedException.Reason.CONFLICT,
-                refusal(() -> operations.apply(held.path, Operation.REJECT)));
+                refusal(() -> operations.apply(failed.path, Operation.RESUME)));
         assertEquals("needsReview", held.state);
+        assertEquals("needsReview", failed.state);
         assertTrue(held.anyBytes());
         assertTrue(released.isEmpty());
         assertTrue(held.audit.isEmpty());
+    }
+
+    @Test
+    void aFieldNamedLikeTheScanStatusMakesARejectUnderReleaseValuesAPlainReject() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, true);
+        Held held = inReview("INCONCLUSIVE");
+
+        OperationResult result = operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(HeldState.REJECTED, result.to());
+        assertTrue(released.isEmpty(), "the status was written over a field");
+        assertFalse(held.valuesPresent);
     }
 
     @Test

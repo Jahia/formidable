@@ -134,14 +134,15 @@
 //   the values alone and the failed scan status. A reject by a manager does the same.
 // - scanStatusName: the name of the value that the run adds to the values of the actions after release, written over
 //   any value of that name: scanStatusClean on a release of the files, scanStatusFailed on a release of the values
-//   alone. No value is added when it is empty. The run never writes it over a field of the form of that name: a
-//   passed submission then goes to review, and a failed one is rejected.
+//   alone. No value is added when it is empty. The name is a field-like identifier, so that an action can write it
+//   as a property name; the run ignores, with an error, a name that does not match. The run never writes it over a
+//   field of the form of that name: a passed submission then goes to review, and a failed one is rejected.
 // - showValues: shows the public values of a held submission to a manager. The sensitive values never.
 [fmdbqmix:quarantinePolicy] mixin
  extends = fmdbmix:formRoot
  itemtype = content
  - onFail (string, choicelist[resourceBundle]) = 'reject' autocreated indexed=no < 'reject', 'releaseValues'
- - scanStatusName (string) indexed=no
+ - scanStatusName (string) indexed=no < '[A-Za-z][A-Za-z0-9_-]{0,63}'
  - scanStatusClean (string) indexed=no
  - scanStatusFailed (string) indexed=no
  - showValues (boolean) = false autocreated indexed=no

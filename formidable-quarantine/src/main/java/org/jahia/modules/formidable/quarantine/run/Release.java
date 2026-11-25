@@ -84,26 +84,26 @@ public final class Release {
      * Releases the held submission, with the clean scan status of the policy of its form. A submission whose values
      * already went out alone ({@link QuarantineStore#valuesOnly}) is released with its values alone again.
      *
-     * @param path  the path of the held submission
-     * @param state {@link HeldState#CHECKING} when every check passed: the release moves it on
-     *              {@link HeldEvent#ALL_PASSED}; or {@link HeldState#RELEASING} when a manager released or resumed it
+     * @param path   the path of the held submission
+     * @param state  {@link HeldState#CHECKING} when every check passed: the release moves it on
+     *               {@link HeldEvent#ALL_PASSED}; or {@link HeldState#RELEASING} when a manager released or resumed it
+     * @param policy the policy of the form, read once by the caller: the run, or the operation that checked it
      * @return the state after the release: {@code completed}, or {@code needsReview} on a hash difference, an item
      *         with no bytes, a field of the form named like the scan status, or a failed action
      * @throws IllegalTransitionException for any other state: no byte is read and no action runs
      */
-    public HeldState release(String path, HeldState state) throws QuarantineStoreException {
+    public HeldState release(String path, HeldState state, FormPolicy policy) throws QuarantineStoreException {
         // refuses a state the release cannot leave, before any byte is read and any action runs
         StateMachine.next(state, state == HeldState.CHECKING ? HeldEvent.ALL_PASSED : HeldEvent.ACTIONS_DONE);
         HeldRecord held = heldRecord(path);
-        FormPolicy policy = policy(held.formId());
+        if (state == HeldState.CHECKING && policy.scanStatusTaken()) {
+            return scanStatusTaken(path, state, held.formId(), policy);
+        }
         if (store.valuesOnly(path)) {
             // the bytes went with the first release of the values alone: whatever the event, no file goes out
             HeldState releasing = state == HeldState.CHECKING
                     ? transitions.move(path, state, HeldEvent.RELEASE_VALUES) : state;
             return runActions(path, releasing, valuesAlone(path, policy), held.completedActions());
-        }
-        if (state == HeldState.CHECKING && policy.scanStatusTaken()) {
-            return scanStatusTaken(path, state, held.formId(), policy);
         }
         HeldSubmission submission = read(path);
         ItemRecord changed = firstChanged(held, submission);
@@ -117,31 +117,41 @@ public final class Release {
     }
 
     /**
-     * Releases the values of the held submission alone, for a form whose policy releases the values. The bytes of
-     * every file are deleted first, in one save that marks the submission ({@link QuarantineStore#dropFiles}), then
-     * the actions after release run with no file and the failed scan status of the policy. A run that stops half way
-     * leaves no bytes, so no later event releases a file.
+     * Releases the values of the held submission alone, for a form whose policy releases the values. One save
+     * deletes the bytes of every file, marks the submission and moves it to {@code releasing}
+     * ({@link QuarantineStore#startValuesRelease}): a failure of that save leaves the submission as it was, and the
+     * release starts again. Then the actions after release run with no file and the failed scan status of the policy.
+     * The decision stays: the failed verdict, or the reason of the review that the manager rejected.
      *
-     * @param path  the path of the held submission
-     * @param state {@link HeldState#CHECKING} when a check failed a file, which sends {@link HeldEvent#RELEASE_VALUES};
-     *              or {@link HeldState#NEEDS_REVIEW} when a manager rejected it, which sends
-     *              {@link HeldEvent#MANAGER_RELEASE_VALUES} and records the reject as the decision
+     * @param path   the path of the held submission
+     * @param state  {@link HeldState#CHECKING} when a check failed a file, which sends
+     *               {@link HeldEvent#RELEASE_VALUES}; or {@link HeldState#NEEDS_REVIEW} when a manager rejected it,
+     *               which sends {@link HeldEvent#MANAGER_RELEASE_VALUES}
+     * @param policy the policy of the form, read once by the caller
      * @return the state after the release: {@code completed}, or {@code needsReview} on a failed action
      * @throws IllegalTransitionException for any other state: no byte is deleted and no action runs
+     * @throws IllegalStateException      when an action after release already ran, or a field of the form has the
+     *                                    name of the scan status: the caller rejects instead, and nothing changed
      */
-    public HeldState releaseValues(String path, HeldState state) throws QuarantineStoreException {
+    public HeldState releaseValues(String path, HeldState state, FormPolicy policy) throws QuarantineStoreException {
         HeldEvent event = state == HeldState.CHECKING ? HeldEvent.RELEASE_VALUES : HeldEvent.MANAGER_RELEASE_VALUES;
-        StateMachine.next(state, event);
+        HeldState releasing = StateMachine.next(state, event);
         HeldRecord held = heldRecord(path);
-        FormPolicy policy = policy(held.formId());
-        store.dropFiles(path);
-        log.info("Held submission {}: on {}, its bytes are deleted and its values go out alone", path, event);
-        if (event == HeldEvent.MANAGER_RELEASE_VALUES) {
-            checkStore.writeDecision(path, new DecisionRecord(DecisionRecord.MANAGER_REJECTED, null, null, null, null,
-                    clock.instant()));
+        if (!mayReleaseValues(held, policy)) {
+            throw new IllegalStateException("The values of " + path + " cannot go out alone: an action after release "
+                    + "ran, or a field of the form has the name of the scan status");
         }
-        HeldState releasing = transitions.move(path, state, event);
+        store.startValuesRelease(path, state.value(), releasing.value());
+        log.info("Held submission {}: on {}, its bytes are deleted and its values go out alone", path, event);
         return runActions(path, releasing, valuesAlone(path, policy), held.completedActions());
+    }
+
+    /**
+     * @return true when the values of the submission may go out alone under this policy: no action after release ran
+     *         yet, so no action received the files, and no field of the form has the name of the scan status
+     */
+    public static boolean mayReleaseValues(HeldRecord held, FormPolicy policy) {
+        return policy.releasesValues() && held.completedActions() == 0 && !policy.scanStatusTaken();
     }
 
     private HeldRecord heldRecord(String path) throws QuarantineStoreException {

@@ -745,7 +745,8 @@ submission also posts a forged value named `documentScanStatus`.
 3. Reject it, as root.
 
 **Expected:**
-- The reject answers `completed`, and the decision is `MANAGER_REJECTED`
+- The reject answers `completed`, and the decision keeps `INCONCLUSIVE`, the
+  reason of the review
 - The audit holds the run to `needsReview`, then the reject by `root` to
   `completed`
 - The stored submission holds the name and the failed scan status, and no file
