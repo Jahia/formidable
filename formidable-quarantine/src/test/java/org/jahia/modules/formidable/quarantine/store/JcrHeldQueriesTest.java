@@ -28,6 +28,8 @@ class JcrHeldQueriesTest {
         final List<String> statements = new ArrayList<>();
         final List<Map<String, String>> values = new ArrayList<>();
         final List<int[]> pages = new ArrayList<>();
+        /** What the repository answers for a page: below the root of the site, whatever site each record names. */
+        List<HeldRecord> found = List.of();
 
         @Override
         public long count(String statement, Map<String, String> bound) {
@@ -41,7 +43,7 @@ class JcrHeldQueriesTest {
             statements.add(statement);
             values.add(new LinkedHashMap<>(bound));
             pages.add(new int[]{offset, limit});
-            return List.of();
+            return found;
         }
     }
 
@@ -68,11 +70,14 @@ class JcrHeldQueriesTest {
     }
 
     @Test
-    void aPageKeepsTheRecordsThatNameTheSiteOnly() {
+    void aPageKeepsTheRecordsThatNameTheSiteOnly() throws Exception {
         HeldRecord ofTheSite = heldOf("siteA");
-        List<HeldRecord> kept = JcrHeldQueries.ofTheSite("siteA", List.of(heldOf("siteB"), ofTheSite, heldOf(null)));
+        RecordingRunner runner = new RecordingRunner();
+        runner.found = List.of(heldOf("siteB"), ofTheSite, heldOf(null));
 
-        assertEquals(List.of(ofTheSite), kept);
+        HeldQueries.Page page = new JcrHeldQueries(runner).page("siteA", null, Set.of(), 0, 25);
+
+        assertEquals(List.of(ofTheSite), page.records());
     }
 
     private static HeldRecord heldOf(String siteKey) {

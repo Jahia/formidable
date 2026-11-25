@@ -10,6 +10,7 @@ import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
 import org.jahia.modules.formidable.quarantine.store.AuditRecord;
+import org.jahia.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldQueries;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
@@ -298,9 +299,12 @@ class SiteQuarantineTest {
         assertTrue(calls.isEmpty(), calls.toString());
     }
 
-    /** f24: a record that names another site than its path is neither listed nor opened. */
+    /**
+     * f24: a record that names another site than its path is not opened. JcrHeldQueriesTest proves that a page leaves
+     * it out: the query, not this class, filters the page.
+     */
     @Test
-    void aRecordThatNamesAnotherSiteIsNeitherListedNorOpened() {
+    void aRecordThatNamesAnotherSiteIsNotOpened() {
         Held held = inState(FORM, HeldState.NEEDS_REVIEW);
         held.siteKey = "otherSite";
         Held none = inState(FORM, HeldState.NEEDS_REVIEW);
@@ -308,7 +312,6 @@ class SiteQuarantineTest {
 
         assertNull(site().submission(idOf(held)), "opened");
         assertNull(site().submission(idOf(none)), "opened with no site");
-        assertEquals(List.of(), site().page(FORM, null, 0, 25).getItems(), "listed");
     }
 
     @Test
@@ -454,6 +457,31 @@ class SiteQuarantineTest {
 
         assertEquals(SiteQuarantine.RAN_NOT_READ, error.getMessage());
         assertEquals("rejected", held.state, "the operation ran");
+    }
+
+    /** Round 3: an operation that ran, whose audit, decision or outcomes cannot be read, says that it ran. */
+    @Test
+    void anOperationThatRanAndWhoseRecordsCannotBeReadSaysItRan() {
+        String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
+        CheckStore failingDetails = (CheckStore) Proxy.newProxyInstance(getClass().getClassLoader(),
+                new Class<?>[]{CheckStore.class}, (proxy, method, args) -> {
+                    if ("details".equals(method.getName())) {
+                        throw new QuarantineStoreException("Could not read the records");
+                    }
+                    try {
+                        return method.invoke(stores, args);
+                    } catch (InvocationTargetException e) {
+                        throw e.getCause();
+                    }
+                });
+        SiteQuarantine site = new SiteQuarantine(SITE, new SiteQuarantine.Services(stores, failingDetails, stores,
+                this::operate, this::purge, managers, (siteKey, formId) -> facts), log);
+
+        DataFetchingException error = assertThrows(DataFetchingException.class,
+                () -> site.operate(id, GqlOperation.REJECT));
+
+        assertEquals(SiteQuarantine.RAN_NOT_READ, error.getMessage());
+        assertEquals(List.of("reject " + stores.held.values().iterator().next().path), operated, "the operation ran");
     }
 
     /** f23: a failure that is not one of the store answers the fixed message, and logs its class alone. */

@@ -28,27 +28,62 @@ final class PlatformManagers implements Managers {
     /** A site key: no path separator, so the key names one child of {@code /sites}. */
     private static final Pattern SITE_KEY = Pattern.compile("[A-Za-z0-9_-]{1,64}");
 
+    /** What the check reads of the request: its user, a session of that user, and the groups. */
+    interface Request {
+        JahiaUser currentUser();
+
+        JCRSessionWrapper currentUserSession(String workspace) throws RepositoryException;
+
+        JahiaGroupManagerService groups();
+    }
+
+    /** The request as the authentication of Jahia set it. */
+    private static final class PlatformRequest implements Request {
+        @Override
+        public JahiaUser currentUser() {
+            return JCRSessionFactory.getInstance().getCurrentUser();
+        }
+
+        @Override
+        public JCRSessionWrapper currentUserSession(String workspace) throws RepositoryException {
+            return JCRSessionFactory.getInstance().getCurrentUserSession(workspace);
+        }
+
+        @Override
+        public JahiaGroupManagerService groups() {
+            return JahiaGroupManagerService.getInstance();
+        }
+    }
+
+    private final Request request;
+
+    PlatformManagers() {
+        this(new PlatformRequest());
+    }
+
+    PlatformManagers(Request request) {
+        this.request = request;
+    }
+
     @Override
     public String currentUserName() {
-        JahiaUser user = JCRSessionFactory.getInstance().getCurrentUser();
+        JahiaUser user = request.currentUser();
         return user == null ? null : user.getUsername();
     }
 
     @Override
     public boolean isServerAdministrator() {
-        return ServerAdministrators.isOne(JCRSessionFactory.getInstance().getCurrentUser(),
-                JahiaGroupManagerService.getInstance());
+        return ServerAdministrators.isOne(request.currentUser(), request.groups());
     }
 
     @Override
     public boolean mayManage(String siteKey) {
-        if (siteKey == null || !SITE_KEY.matcher(siteKey).matches()
-                || JCRSessionFactory.getInstance().getCurrentUser() == null) {
+        if (siteKey == null || !SITE_KEY.matcher(siteKey).matches() || request.currentUser() == null) {
             return false;
         }
         JCRSessionWrapper session;
         try {
-            session = JCRSessionFactory.getInstance().getCurrentUserSession(LIVE_WORKSPACE);
+            session = request.currentUserSession(LIVE_WORKSPACE);
         } catch (RepositoryException e) {
             throw failure(siteKey);
         }

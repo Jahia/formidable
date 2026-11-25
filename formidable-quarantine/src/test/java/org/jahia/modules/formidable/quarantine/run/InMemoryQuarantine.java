@@ -295,14 +295,14 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     public int detailReads;
 
     /**
-     * The query of the held submissions, as the JCR one: below the root of the site, of the form, in the states, oldest
-     * first; the page then keeps the records that name the site.
+     * The raw result of the query of the held submissions: below the root of the site, of the form, in the states,
+     * oldest first. The filter on the site that each record names is the one of {@code JcrHeldQueries}, which its own
+     * test covers: this double does not repeat it.
      */
     @Override
     public Page page(String siteKey, String formId, Set<String> states, int offset, int limit) {
         List<HeldRecord> matching = matching(siteKey, formId, states);
-        return new Page(matching.size(), matching.stream().skip(offset).limit(limit)
-                .filter(held -> siteKey.equals(held.siteKey())).toList());
+        return new Page(matching.size(), matching.stream().skip(offset).limit(limit).toList());
     }
 
     @Override

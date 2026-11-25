@@ -2,12 +2,17 @@ package org.jahia.modules.formidable.quarantine.ops;
 
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.usermanager.JahiaGroupManagerService;
+import org.jahia.services.usermanager.JahiaUser;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.AccessDeniedException;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
+import java.util.ArrayList;
+import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,13 +52,52 @@ class PlatformManagersTest {
         assertFalse(PlatformManagers.mayManage(node(false, true), true), "a node that is not a site");
     }
 
-    @Test
-    void theNodeOfTheSiteIsReadInTheSessionOfTheUser() throws Exception {
-        JCRSessionWrapper session = mock(JCRSessionWrapper.class);
-        JCRNodeWrapper site = node(true, true);
-        when(session.getNode(SITE_PATH)).thenReturn(site);
+    /** A request of a user who is not a server administrator, whose live session reads the site with the permission. */
+    private static class FakeRequest implements PlatformManagers.Request {
+        final List<String> workspaces = new ArrayList<>();
+        final JahiaUser user = mock(JahiaUser.class);
+        final JCRSessionWrapper session = mock(JCRSessionWrapper.class);
+        final JahiaGroupManagerService groups = mock(JahiaGroupManagerService.class);
 
-        assertTrue(PlatformManagers.mayManage(session, "siteA", false));
+        @Override
+        public JahiaUser currentUser() {
+            return user;
+        }
+
+        @Override
+        public JCRSessionWrapper currentUserSession(String workspace) {
+            workspaces.add(workspace);
+            return session;
+        }
+
+        @Override
+        public JahiaGroupManagerService groups() {
+            return groups;
+        }
+    }
+
+    @Test
+    void theNodeOfTheSiteIsReadInTheLiveSessionOfTheCurrentUser() throws Exception {
+        FakeRequest request = new FakeRequest();
+        JCRNodeWrapper site = node(true, true);
+        when(request.session.getNode(SITE_PATH)).thenReturn(site);
+
+        assertTrue(new PlatformManagers(request).mayManage("siteA"));
+
+        assertEquals(List.of("live"), request.workspaces, "the sessions asked for");
+    }
+
+    @Test
+    void aRequestWithNoUserManagesNothingAndOpensNoSession() {
+        FakeRequest request = new FakeRequest() {
+            @Override
+            public JahiaUser currentUser() {
+                return null;
+            }
+        };
+
+        assertFalse(new PlatformManagers(request).mayManage("siteA"));
+        assertEquals(List.of(), request.workspaces);
     }
 
     @Test

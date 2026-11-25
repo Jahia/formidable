@@ -177,6 +177,11 @@ final class SiteQuarantine {
         GqlHeldSubmission after;
         try {
             after = submission(id);
+            if (after != null) {
+                // read now what the fields of the answer read, so a failure says that the operation ran
+                details(path);
+                form(after.getFormId());
+            }
         } catch (RuntimeException e) {
             log.warn("The operation {} on {} ran, and the submission could not be read again", operation, path);
             throw new DataFetchingException(RAN_NOT_READ);
