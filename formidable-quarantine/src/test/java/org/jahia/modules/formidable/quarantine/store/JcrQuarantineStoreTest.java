@@ -549,11 +549,18 @@ class JcrQuarantineStoreTest {
         strings(values, "topics", "claims", "refunds");
         when(held.hasNode(QuarantineTree.VALUES)).thenReturn(true);
         when(held.getNode(QuarantineTree.VALUES)).thenReturn(values);
+        // a sensitive value is there: a read of the sensitive node would find it
+        strings(held, QuarantineTree.SENSITIVE_FIELDS, "password");
+        JCRNodeWrapper sensitive = node(path + "/sensitive");
+        strings(sensitive, "password", SECRET);
+        when(held.hasNode(QuarantineTree.SENSITIVE)).thenReturn(true);
+        when(held.getNode(QuarantineTree.SENSITIVE)).thenReturn(sensitive);
 
         Map<String, List<String>> read = JcrQuarantineStore.publicValuesOf(held);
 
         assertEquals(List.of("topics", "fullName"), List.copyOf(read.keySet()));
         assertEquals(List.of("claims", "refunds"), read.get("topics"));
+        assertFalse(read.toString().contains(SECRET), "a sensitive value among the public ones");
         verify(held, never()).getNode(QuarantineTree.SENSITIVE);
         when(held.hasNode(QuarantineTree.VALUES)).thenReturn(false);
         assertTrue(JcrQuarantineStore.publicValuesOf(held).isEmpty(), "values deleted");

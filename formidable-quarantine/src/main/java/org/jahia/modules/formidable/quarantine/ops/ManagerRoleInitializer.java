@@ -20,13 +20,14 @@ import java.util.Map;
  * role of the group {@code site-role}, granted on a site node ({@code jnt:virtualsite}), that grants the permission
  * {@value Managers#PERMISSION}, which the module declares in its {@code permissions.xml}. An administrator grants the
  * role to a user or a group on the site, and publishes the site: the GraphQL API and the operations check the
- * permission on the live site node. The role gives no privileged access: its holder does not join the privileged
+ * permission on the live site node, so a grant and a revocation both apply once the site is published. The role gives
+ * no privileged access: its holder does not join the privileged
  * group of the site, so it reads no draft of the site.
  *
  * <p>A role that exists keeps its other permissions, and gets the permission of the module when it lacks it. A role
- * that is not a site role, the role of an earlier version granted on a form, becomes one, and loses its privileged
- * access then, once. A site role is otherwise left as it is: the module never sets privileged access, and never
- * undoes what an administrator set.</p>
+ * whose group is not {@code site-role}, the role of an earlier version granted on a form, becomes a site role, and
+ * loses its privileged access then, once. A site role is otherwise left as it is, its node types and its access
+ * included: the module never sets privileged access, and never undoes what an administrator set.</p>
  */
 @Component(immediate = true)
 public class ManagerRoleInitializer {
@@ -93,9 +94,9 @@ public class ManagerRoleInitializer {
         log.info("Created the site role {} with the permission {}", Managers.ROLE, Managers.PERMISSION);
     }
 
+    /** The group decides: an administrator may change the node types or the access of a site role, and keeps them. */
     private static boolean isSiteRole(JCRNodeWrapper role) throws RepositoryException {
-        return role.hasProperty(ROLE_GROUP) && SITE_ROLE.equals(role.getProperty(ROLE_GROUP).getString())
-                && List.of(SITE_TYPE).equals(strings(role, NODE_TYPES));
+        return role.hasProperty(ROLE_GROUP) && SITE_ROLE.equals(role.getProperty(ROLE_GROUP).getString());
     }
 
     /** A site role with no privileged access: written when the role is created, or converted once. */

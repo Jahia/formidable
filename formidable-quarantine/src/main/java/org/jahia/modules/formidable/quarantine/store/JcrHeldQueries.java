@@ -5,6 +5,8 @@ import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.osgi.service.component.annotations.Component;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
@@ -22,14 +24,16 @@ import java.util.regex.Pattern;
 
 /**
  * The {@link HeldQueries} of the module: JCR-SQL2 queries on {@code fmdbq:heldSubmission} below the quarantine root
- * of the site, in live, with a system session. Every value that the caller gives, the site key, the form and the
- * states, enters the query as a bound variable. The path of the root is the one literal: it is built from a site key
- * of letters, digits, dashes and underscores, and refused otherwise.
+ * of the site, in live, with a system session. Every value that the caller gives, the form and the states, enters
+ * the query as a bound variable. The path of the root is the one literal: it is built from a site key of letters,
+ * digits, dashes and underscores, and refused otherwise. The root of the site scopes the query: the site key that a
+ * held submission records is not indexed, so no constraint of the query reads it. A record of the page that names
+ * another site, which only a damaged tree holds, is left out of the page after the read, as an opening by identifier
+ * leaves it out; the counts and the total still count it, and a log line names its path.
  */
 @Component(service = HeldQueries.class, immediate = true)
 public class JcrHeldQueries implements HeldQueries {
 
-    static final String SITE_VARIABLE = "site";
     static final String FORM_VARIABLE = "form";
     static final String STATE_VARIABLE = "state";
     /** The characters of a path of a quarantine root: no quote, no bracket, nothing that ends the literal. */
@@ -42,6 +46,8 @@ public class JcrHeldQueries implements HeldQueries {
         List<HeldRecord> page(String statement, Map<String, String> values, int offset, int limit)
                 throws RepositoryException;
     }
+
+    private static final Logger log = LoggerFactory.getLogger(JcrHeldQueries.class);
 
     private final Runner runner;
 
@@ -58,11 +64,11 @@ public class JcrHeldQueries implements HeldQueries {
             throws QuarantineStoreException {
         List<String> ordered = new ArrayList<>(new TreeSet<>(states));
         String statement = statement(siteKey, formId != null, ordered.size());
-        Map<String, String> values = values(siteKey, formId, ordered);
+        Map<String, String> values = values(formId, ordered);
         try {
             long total = runner.count(statement, values);
             List<HeldRecord> records = total == 0 || limit == 0 || offset >= total ? List.of()
-                    : runner.page(statement, values, offset, limit);
+                    : ofTheSite(siteKey, runner.page(statement, values, offset, limit));
             return new Page(total, records);
         } catch (RepositoryException e) {
             throw new QuarantineStoreException("Could not query the held submissions of site " + siteKey, e);
@@ -72,7 +78,7 @@ public class JcrHeldQueries implements HeldQueries {
     @Override
     public long count(String siteKey, String state) throws QuarantineStoreException {
         try {
-            return runner.count(statement(siteKey, false, 1), values(siteKey, null, List.of(state)));
+            return runner.count(statement(siteKey, false, 1), values(null, List.of(state)));
         } catch (RepositoryException e) {
             throw new QuarantineStoreException("Could not count the held submissions of site " + siteKey, e);
         }
@@ -88,8 +94,7 @@ public class JcrHeldQueries implements HeldQueries {
             throw new IllegalArgumentException("Not a site key");
         }
         StringBuilder sql = new StringBuilder("SELECT * FROM [").append(QuarantineTree.HELD_TYPE)
-                .append("] AS held WHERE ISDESCENDANTNODE(held, '").append(root).append("')")
-                .append(" AND held.[").append(QuarantineTree.SITE_KEY).append("] = $").append(SITE_VARIABLE);
+                .append("] AS held WHERE ISDESCENDANTNODE(held, '").append(root).append("')");
         if (byForm) {
             sql.append(" AND held.[").append(QuarantineTree.FORM_ID).append("] = $").append(FORM_VARIABLE);
         }
@@ -103,9 +108,8 @@ public class JcrHeldQueries implements HeldQueries {
         return sql.append(" ORDER BY held.[").append(QuarantineTree.CREATED_AT).append("] ASC").toString();
     }
 
-    static Map<String, String> values(String siteKey, String formId, List<String> states) {
+    static Map<String, String> values(String formId, List<String> states) {
         Map<String, String> values = new LinkedHashMap<>();
-        values.put(SITE_VARIABLE, siteKey);
         if (formId != null) {
             values.put(FORM_VARIABLE, formId);
         }
@@ -113,6 +117,19 @@ public class JcrHeldQueries implements HeldQueries {
             values.put(STATE_VARIABLE + index, states.get(index));
         }
         return values;
+    }
+
+    /** The records that name the site, as an opening by identifier requires; any other is logged and left out. */
+    static List<HeldRecord> ofTheSite(String siteKey, List<HeldRecord> records) {
+        List<HeldRecord> kept = new ArrayList<>();
+        for (HeldRecord held : records) {
+            if (siteKey.equals(held.siteKey())) {
+                kept.add(held);
+            } else {
+                log.warn("The held submission at {} does not name site {}: left out of the page", held.path(), siteKey);
+            }
+        }
+        return kept;
     }
 
     /** The runner on the repository: the live workspace, with a system session. Covered by the Cypress specs. */

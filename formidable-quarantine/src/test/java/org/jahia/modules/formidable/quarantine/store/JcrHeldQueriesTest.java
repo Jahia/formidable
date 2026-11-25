@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.quarantine.store;
 
 import org.junit.jupiter.api.Test;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -50,12 +51,34 @@ class JcrHeldQueriesTest {
 
         assertEquals("SELECT * FROM [" + QuarantineTree.HELD_TYPE + "] AS held"
                 + " WHERE ISDESCENDANTNODE(held, '/sites/siteA/formidable-quarantine')"
-                + " AND held.[" + QuarantineTree.SITE_KEY + "] = $site"
                 + " AND held.[" + QuarantineTree.FORM_ID + "] = $form"
                 + " AND (held.[" + QuarantineTree.STATE + "] = $state0 OR held.[" + QuarantineTree.STATE + "] = $state1)"
                 + " ORDER BY held.[" + QuarantineTree.CREATED_AT + "] ASC", statement);
         assertFalse(JcrHeldQueries.statement("siteA", false, 0).contains("$form"), "no form");
         assertFalse(JcrHeldQueries.statement("siteA", false, 0).contains("$state"), "no state");
+    }
+
+    /** The CND declares the site key of a held submission indexed=no: a constraint on it would match nothing. */
+    @Test
+    void noStatementConstrainsTheSiteKeyThatTheIndexLeavesOut() {
+        for (String statement : List.of(JcrHeldQueries.statement("siteA", true, 2),
+                JcrHeldQueries.statement("siteA", false, 0), JcrHeldQueries.statement("siteA", false, 1))) {
+            assertFalse(statement.contains("[" + QuarantineTree.SITE_KEY + "]"), statement);
+        }
+    }
+
+    @Test
+    void aPageKeepsTheRecordsThatNameTheSiteOnly() {
+        HeldRecord ofTheSite = record("siteA");
+        List<HeldRecord> kept = JcrHeldQueries.ofTheSite("siteA", List.of(record("siteB"), ofTheSite, record(null)));
+
+        assertEquals(List.of(ofTheSite), kept);
+    }
+
+    private static HeldRecord record(String siteKey) {
+        return new HeldRecord("/sites/siteA/formidable-quarantine/" + FORM + "/2026/11/19/held-" + siteKey, FORM,
+                siteKey, "held", Instant.parse("2026-11-19T10:00:00Z"), 0, null, 0, List.of(), List.of(), true,
+                List.of(), null);
     }
 
     @Test
@@ -72,7 +95,7 @@ class JcrHeldQueriesTest {
         new JcrHeldQueries(runner).page("siteA", form, Set.of("rejected", "needsReview"), 0, 25);
 
         Map<String, String> bound = runner.values.get(0);
-        assertEquals(Map.of("site", "siteA", "form", form, "state0", "needsReview", "state1", "rejected"), bound);
+        assertEquals(Map.of("form", form, "state0", "needsReview", "state1", "rejected"), bound);
         runner.statements.forEach(statement -> {
             assertFalse(statement.contains(form), "the form in the statement");
             assertFalse(statement.contains("needsReview"), "a state in the statement");
@@ -96,11 +119,11 @@ class JcrHeldQueriesTest {
     }
 
     @Test
-    void aCountBindsTheSiteAndTheState() throws Exception {
+    void aCountBindsTheState() throws Exception {
         RecordingRunner runner = new RecordingRunner();
 
         assertEquals(3, new JcrHeldQueries(runner).count("siteA", "held"));
 
-        assertEquals(Map.of("site", "siteA", "state0", "held"), runner.values.get(0));
+        assertEquals(Map.of("state0", "held"), runner.values.get(0));
     }
 }

@@ -6,7 +6,8 @@ import java.util.Set;
 /**
  * The held submissions of a site, read by a query of the repository rather than by a walk of the tree: a page of
  * them, and their number in one state. The GraphQL API reads them after the permission check on the site. A held
- * submission counts for a site when it lies below the quarantine root of the site and names that site.
+ * submission counts for a site when it lies below the quarantine root of the site. A page holds only those that also
+ * name that site, as an opening by identifier requires.
  */
 public interface HeldQueries {
 

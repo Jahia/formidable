@@ -295,13 +295,14 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     public int detailReads;
 
     /**
-     * The query of the held submissions, as the JCR one: below the root of the site and naming the site, of the form,
-     * in the states, oldest first.
+     * The query of the held submissions, as the JCR one: below the root of the site, of the form, in the states, oldest
+     * first; the page then keeps the records that name the site.
      */
     @Override
     public Page page(String siteKey, String formId, Set<String> states, int offset, int limit) {
         List<HeldRecord> matching = matching(siteKey, formId, states);
-        return new Page(matching.size(), matching.stream().skip(offset).limit(limit).toList());
+        return new Page(matching.size(), matching.stream().skip(offset).limit(limit)
+                .filter(held -> siteKey.equals(held.siteKey())).toList());
     }
 
     @Override
@@ -312,8 +313,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     private List<HeldRecord> matching(String siteKey, String formId, Set<String> states) {
         List<HeldRecord> matching = new ArrayList<>();
         for (Held one : held.values()) {
-            boolean inSite = one.path.startsWith("/sites/" + siteKey + "/formidable-quarantine/")
-                    && siteKey.equals(one.siteKey);
+            boolean inSite = one.path.startsWith("/sites/" + siteKey + "/formidable-quarantine/");
             boolean ofForm = formId == null || formId.equals(one.formId);
             if (inSite && ofForm && (states.isEmpty() || states.contains(one.state))) {
                 matching.add(recordOf(one));

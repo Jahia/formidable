@@ -5,6 +5,7 @@ import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.JCRValueWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -111,6 +112,16 @@ class JcrCheckStoreTest {
         when(decision.getProperty(JcrCheckStore.REASON)).thenReturn(reason);
         when(checks.hasNode(CheckStore.DECISION_NODE)).thenReturn(true);
         when(checks.getNode(CheckStore.DECISION_NODE)).thenReturn(decision);
+        // the held submission has public and sensitive values: a read that is not asked for would find them
+        strings(held, QuarantineTree.VALUE_FIELDS, "fullName");
+        JCRNodeWrapper values = mock(JCRNodeWrapper.class);
+        strings(values, "fullName", "Ada");
+        when(held.hasNode(QuarantineTree.VALUES)).thenReturn(true);
+        when(held.getNode(QuarantineTree.VALUES)).thenReturn(values);
+        JCRNodeWrapper sensitive = mock(JCRNodeWrapper.class);
+        strings(sensitive, "password", "a-secret");
+        when(held.hasNode(QuarantineTree.SENSITIVE)).thenReturn(true);
+        when(held.getNode(QuarantineTree.SENSITIVE)).thenReturn(sensitive);
         String missing = HELD_PATH.replace("held-1", "held-2");
         int[] sessions = {0};
         JcrCheckStore counting = new JcrCheckStore() {
@@ -128,7 +139,23 @@ class JcrCheckStoreTest {
         assertEquals(DecisionRecord.ACTION_FAILED, details.get(HELD_PATH).decision().reason());
         assertEquals(Map.of(), details.get(HELD_PATH).publicValues(), "values not asked for");
         verify(held, never()).getNode(QuarantineTree.VALUES);
+
+        Map<String, HeldDetails> asked = counting.details(List.of(HELD_PATH), Set.of(HELD_PATH));
+
+        assertEquals(Map.of("fullName", List.of("Ada")), asked.get(HELD_PATH).publicValues(), "values asked for");
         verify(held, never()).getNode(QuarantineTree.SENSITIVE);
+    }
+
+    private static void strings(JCRNodeWrapper node, String name, String... strings) throws RepositoryException {
+        JCRValueWrapper[] values = new JCRValueWrapper[strings.length];
+        for (int index = 0; index < strings.length; index++) {
+            values[index] = mock(JCRValueWrapper.class);
+            when(values[index].getString()).thenReturn(strings[index]);
+        }
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(property.getValues()).thenReturn(values);
+        when(node.hasProperty(name)).thenReturn(true);
+        when(node.getProperty(name)).thenReturn(property);
     }
 
     @Test

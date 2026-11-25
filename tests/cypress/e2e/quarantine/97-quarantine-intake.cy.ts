@@ -220,6 +220,8 @@ describe('Quarantine - 97 The hold of formidable-quarantine stores a submission 
 				READERS.filter(reader => reader.formRoles.length > 0)
 					.forEach(reader => grantRoles(formPath, reader.formRoles, reader.name, 'USER'));
 				publishAndWaitJobEnding(formPath);
+				// the API checks the permission on the live site node: the site roles apply once the site is published
+				publishAndWaitJobEnding(SITE_PATH);
 				rootPath = `${SITE_PATH}/formidable-quarantine`;
 
 				cy.logout();

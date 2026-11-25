@@ -6,10 +6,10 @@ import org.jahia.services.content.JCRSessionFactory;
 import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.usermanager.JahiaGroupManagerService;
 import org.jahia.services.usermanager.JahiaUser;
-import org.jahia.modules.formidable.quarantine.web.ServerAdministrators;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.jcr.AccessDeniedException;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
 import java.util.regex.Pattern;
@@ -17,7 +17,8 @@ import java.util.regex.Pattern;
 /**
  * {@link Managers} on the platform: the permission is checked on the site node of the live workspace, in a session of
  * the current user, so that the roles granted on the published site decide. The root of a published site is readable;
- * a site with no live node has no manager. A server administrator manages every site that exists.
+ * a site with no live node has no manager. A server administrator manages every site that exists. A failure of the
+ * repository is thrown, never read as "not a manager".
  */
 final class PlatformManagers implements Managers {
 
@@ -45,15 +46,35 @@ final class PlatformManagers implements Managers {
                 || JCRSessionFactory.getInstance().getCurrentUser() == null) {
             return false;
         }
+        JCRSessionWrapper session;
         try {
-            JCRSessionWrapper session = JCRSessionFactory.getInstance().getCurrentUserSession(LIVE_WORKSPACE);
-            return mayManage(session.getNode(QuarantineTree.sitePath(siteKey)), isServerAdministrator());
-        } catch (PathNotFoundException e) {
+            session = JCRSessionFactory.getInstance().getCurrentUserSession(LIVE_WORKSPACE);
+        } catch (RepositoryException e) {
+            throw failure(siteKey);
+        }
+        return mayManage(session, siteKey, isServerAdministrator());
+    }
+
+    /**
+     * The check in a session of the user: a site with no live node, or a node the user cannot read, gives no
+     * permission. Any other failure of the repository is not an answer: it is thrown, so that the API answers an error
+     * and not the answer of a user who does not manage the site.
+     *
+     * @throws IllegalStateException when the repository fails otherwise
+     */
+    static boolean mayManage(JCRSessionWrapper session, String siteKey, boolean serverAdministrator) {
+        try {
+            return mayManage(session.getNode(QuarantineTree.sitePath(siteKey)), serverAdministrator);
+        } catch (PathNotFoundException | AccessDeniedException e) {
             return false;
         } catch (RepositoryException e) {
-            log.warn("Could not check the permission {} on site {}", PERMISSION, siteKey);
-            return false;
+            throw failure(siteKey);
         }
+    }
+
+    private static IllegalStateException failure(String siteKey) {
+        log.warn("Could not check the permission {} on site {}", PERMISSION, siteKey);
+        return new IllegalStateException("Could not check the permission of a manager on site " + siteKey);
     }
 
     /** The rule of the check: a site node, and a server administrator or a holder of the permission on it. */

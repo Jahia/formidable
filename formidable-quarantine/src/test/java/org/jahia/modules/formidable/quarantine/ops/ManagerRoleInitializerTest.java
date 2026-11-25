@@ -86,6 +86,18 @@ class ManagerRoleInitializerTest {
     }
 
     @Test
+    void aSiteRoleWhoseNodeTypesAnAdministratorChangedIsLeftAsItIs() throws Exception {
+        JCRNodeWrapper role = existingRole(ManagerRoleInitializer.SITE_ROLE, Managers.PERMISSION);
+        stubStrings(role, ManagerRoleInitializer.NODE_TYPES, "jnt:virtualsite", "jnt:page");
+
+        ManagerRoleInitializer.ensureRole(session);
+
+        verify(role, never()).setProperty(eq(ManagerRoleInitializer.NODE_TYPES), any(String[].class));
+        verify(role, never()).setProperty(eq(ManagerRoleInitializer.PRIVILEGED_ACCESS), anyBoolean());
+        verify(session, never()).save();
+    }
+
+    @Test
     void theRoleOfAFormOfAnEarlierVersionBecomesASiteRole() throws Exception {
         JCRNodeWrapper role = existingRole("edit-role", Managers.PERMISSION);
 

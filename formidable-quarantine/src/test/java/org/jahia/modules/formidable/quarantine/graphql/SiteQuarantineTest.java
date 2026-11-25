@@ -308,7 +308,7 @@ class SiteQuarantineTest {
 
         assertNull(site().submission(idOf(held)), "opened");
         assertNull(site().submission(idOf(none)), "opened with no site");
-        assertEquals(0, site().page(FORM, null, 0, 25).getTotalCount(), "listed");
+        assertEquals(List.of(), site().page(FORM, null, 0, 25).getItems(), "listed");
     }
 
     @Test

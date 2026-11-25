@@ -243,8 +243,9 @@ named `formidableQuarantine(siteKey)`:
 - `publicValues` is `null` unless the form sets `showValues`. The sensitive values never appear, only the names of
   their fields.
 - A page and the counts come from queries of the repository on the held submissions below the quarantine root of
-  the site that name the site: the cost of a request follows the size of the page, not the history of the site. The
-  site, the form and the states enter each query as bound values. The counts take one query per state.
+  the site: the cost of a request follows the size of the page, not the history of the site. The form and the states
+  enter each query as bound values. The counts take one query per state. A page leaves out a record that names
+  another site, as the reading by identifier does; only a damaged tree holds one, and the counts still count it.
 - The records of the submissions of a request, their outcomes, decision, audit and values, are read in one session,
   on the first field that needs them.
 - The query depth and complexity limits of the GraphQL provider of the platform bound the number of aliased
@@ -282,7 +283,10 @@ named `formidableQuarantine(siteKey)`:
   it starts. The role gives no privileged access, so its holder reads no draft of the site.
 - Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the live workspace, under the
   session of the user, before it reads anything. A grant of the role applies once the site is published, and a site
-  with no live node has no manager. A user without the permission gets `null`, which is also the answer for a site
+  with no live node has no manager. A revocation applies the same way: a role removed in the edit workspace stops
+  granting the list and the operations only once the site is published, because the check reads the live ACL.
+- A failure of the repository during the check answers an error, never the answer of a user who does not manage the
+  site. A user without the permission gets `null`, which is also the answer for a site
   that does not exist. A server administrator is a manager of every site that exists.
 - The operations check the permission again on the site of the held submission, and check that the submission lies
   under the quarantine root of that site.
