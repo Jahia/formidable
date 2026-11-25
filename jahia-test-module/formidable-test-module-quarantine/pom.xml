@@ -24,13 +24,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- The module compiles against the api package of the engine only, never an internal class. -->
-        <dependency>
-            <groupId>org.jahia.modules</groupId>
-            <artifactId>formidable-engine</artifactId>
-            <version>${project.version}</version>
-            <scope>provided</scope>
-        </dependency>
         <!-- The hold: the stub checks implement its check API, and "run now" starts a run through its runner. The
              module compiles against that exported package only. -->
         <dependency>
