@@ -8,10 +8,10 @@ import org.osgi.service.metatype.annotations.ObjectClassDefinition;
  * settings, and cannot raise it.
  */
 @ObjectClassDefinition(name = "Formidable quarantine - retention",
-        description = "The retention of the rejected held submissions of the quarantine.")
+        description = "The retention of the completed and rejected held submissions of the quarantine.")
 public @interface RetentionConfig {
 
-    @AttributeDefinition(description = "The number of days a rejected held submission is kept after its last change, "
+    @AttributeDefinition(description = "The number of days a completed or rejected held submission is kept after its last change, "
             + "before the retention purges it.")
     int retentionDays() default QuarantineRetention.DEFAULT_RETENTION_DAYS;
 

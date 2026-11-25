@@ -174,30 +174,36 @@ sequenceDiagram
   The digest goes to the addresses of the site settings. It carries the count per form and a link to the manager
   screen, and never a value or a file name of a submission.
 - After `completed` or `rejected`, the store deletes the values and the bytes. The record of the submission and its
-  audit stay until the retention deletes them.
+  audit stay until the retention deletes them ([The scheduled purge](#the-scheduled-purge)).
 
 ### The lock of the run
 
 The run of a site takes a lock in the repository before it reads the held submissions of the site. The lock keeps
 one run at a time on a site across the cluster:
 
-- The lock is the node `runLock` under the root of the quarantine tree of the site. It stores the server that holds
-  the lock and the end of its lease.
-- A server takes the lock when no server holds it, when its lease ended, or when the server holds it already. Two
-  servers that take the lock at the same moment both write the node: the repository saves the first write and
-  refuses the second, so the second server does not get the lock.
+- The lock is the node `runLock` under the root of the quarantine tree of the site. It stores the owner of the lock
+  and the end of its lease. The owner is the identifier of the server (`cluster.node.serverId`) and a token that
+  each start of the lock service draws, so two starts of the module on one server are two owners.
+- An owner takes the lock when no owner holds it, when its lease ended, or when it holds the lock already. Two
+  owners that take the lock at the same moment both write the node: the repository saves the first write and
+  refuses the second, so the second owner does not get the lock.
+- A new start of the module on a server waits for the lease of the start before it, unless the start before
+  released the lock.
 - The lease lasts `lockLeaseSeconds`, 10 minutes by default. A run extends it each time half of the lease has gone
   by. A run that cannot extend its lease stops before the next submission.
-- The run releases the lock when its pass ends, even after a failure. A server that stops during a run keeps the
-  lock until the lease ends.
+- The run releases the lock when its pass ends, even after a failure. When the module stops, the lock service
+  releases each lock it holds, and takes no lock any more: a run of the old start that is still under way stops
+  before its next submission. A server that stops with no release keeps the lock until the lease ends.
 - A scheduled run that does not get the lock skips the site until its next call. "Run now" fails instead.
 - In one server, the run and the operations of a manager also take the lock of the Java object of the run, so no
   operation runs while the run releases a submission.
 
 ### The scheduled purge
 
-The retention deletes each `rejected` submission whose last change is older than the limit, with its record and its
-audit. A submission in any other state stays.
+The retention deletes each submission in a final state, `completed` or `rejected`, whose last change is older than
+the limit, with its record, its audit and every other child. A submission in any other state (`held`, `checking`,
+`releasing`, `needsReview`) is never deleted, whatever its age: it still waits for the run or for a manager. So the
+tree does not grow without bound.
 
 - The scheduler calls the retention on the processing server at the period of the configuration of the retention,
   `periodSeconds`, once a day by default. A period of 0 turns the scheduled purge off. The first call comes after

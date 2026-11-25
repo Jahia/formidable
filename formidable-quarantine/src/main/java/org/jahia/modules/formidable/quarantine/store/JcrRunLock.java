@@ -6,6 +6,7 @@ import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.jahia.settings.SettingsBean;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,16 +18,23 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.Set;
 import java.util.TimeZone;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * The {@link RunLock} of the module: a lock node {@code runLock} of the type {@code fmdbq:runLock} under the root of
  * the quarantine tree of a site, in live, written with a system session. It stores the server that holds the lock and
- * the end of its lease. Two servers that take the lock at the same moment both write the node; the repository saves
- * the first write and refuses the second as stale, so the second server does not get the lock.
+ * the end of its lease. Two owners that take the lock at the same moment both write the node; the repository saves
+ * the first write and refuses the second as stale, so the second owner does not get the lock.
  *
- * <p>A server is named by {@code cluster.node.serverId} of its settings: a standalone server holds the lock under
- * one name.</p>
+ * <p>The owner is the server, named by {@code cluster.node.serverId} of its settings ({@value #STANDALONE} when it
+ * has none), and a token drawn for each activation of this component: Declarative Services creates a new instance at
+ * each activation. A new activation on the same server is another owner, so it waits for the lease of the activation
+ * before it, unless that one released its locks. At deactivation, the component releases every lock it holds and
+ * takes none any more: a run of the old activation still under way cannot extend its lease, and stops.</p>
  */
 @Component(service = RunLock.class, immediate = true)
 public class JcrRunLock implements RunLock {
@@ -42,15 +50,33 @@ public class JcrRunLock implements RunLock {
     private static final String STANDALONE = "standalone";
 
     private final Clock clock;
-    private final String server;
+    private final String owner;
+    /** The sites whose lock this activation took and did not release. */
+    private final Set<String> held = ConcurrentHashMap.newKeySet();
+    private final AtomicBoolean deactivated = new AtomicBoolean();
 
     public JcrRunLock() {
-        this(Clock.systemUTC(), SettingsBean.getInstance().getString(SERVER_ID, STANDALONE));
+        this(Clock.systemUTC(), SettingsBean.getInstance().getString(SERVER_ID, STANDALONE) + ":" + UUID.randomUUID());
     }
 
-    JcrRunLock(Clock clock, String server) {
+    /** @param owner the server and the token of this activation */
+    JcrRunLock(Clock clock, String owner) {
         this.clock = clock;
-        this.server = server;
+        this.owner = owner;
+    }
+
+    /** @return the server and the token of this activation, as the lock node stores them */
+    String owner() {
+        return owner;
+    }
+
+    /** Releases every lock this activation holds, and refuses every lock from now on. */
+    @Deactivate
+    public void deactivate() {
+        deactivated.set(true);
+        for (String siteKey : Set.copyOf(held)) {
+            release(siteKey);
+        }
     }
 
     /** Runs the callback in a system session of the live workspace. A unit test overrides it with a mocked session. */
@@ -61,8 +87,16 @@ public class JcrRunLock implements RunLock {
 
     @Override
     public boolean take(String siteKey, Duration lease) throws QuarantineStoreException {
+        if (deactivated.get()) {
+            log.info("The lock of the run of site {} is refused: the module stopped", siteKey);
+            return false;
+        }
         try {
-            return inLiveSystemSession(session -> take(session, siteKey, lease));
+            boolean taken = inLiveSystemSession(session -> take(session, siteKey, lease));
+            if (taken) {
+                held.add(siteKey);
+            }
+            return taken;
         } catch (InvalidItemStateException | ItemExistsException e) {
             log.info("The lock of the run of site {} was taken by another server at the same moment", siteKey);
             return false;
@@ -79,13 +113,13 @@ public class JcrRunLock implements RunLock {
         JCRNodeWrapper root = session.getNode(rootPath);
         Instant now = clock.instant();
         JCRNodeWrapper lock = root.hasNode(LOCK_NAME) ? root.getNode(LOCK_NAME) : null;
-        if (!RunLease.mayTake(lock == null ? null : leaseOf(lock), server, now)) {
+        if (!RunLease.mayTake(lock == null ? null : leaseOf(lock), owner, now)) {
             return false;
         }
         if (lock == null) {
             lock = root.addNode(LOCK_NAME, LOCK_TYPE);
         }
-        lock.setProperty(OWNER, server);
+        lock.setProperty(OWNER, owner);
         lock.setProperty(UNTIL, calendar(now.plus(lease)));
         session.save();
         return true;
@@ -93,12 +127,13 @@ public class JcrRunLock implements RunLock {
 
     @Override
     public void release(String siteKey) {
+        held.remove(siteKey);
         try {
             inLiveSystemSession(session -> {
                 String lockPath = QuarantineTree.rootPath(siteKey) + "/" + LOCK_NAME;
                 if (session.nodeExists(lockPath)) {
                     JCRNodeWrapper lock = session.getNode(lockPath);
-                    if (server.equals(leaseOf(lock).owner())) {
+                    if (owner.equals(leaseOf(lock).owner())) {
                         lock.setProperty(UNTIL, calendar(clock.instant()));
                         session.save();
                     }

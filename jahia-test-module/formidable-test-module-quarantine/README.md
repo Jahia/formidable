@@ -177,7 +177,7 @@ Each endpoint answers server administrators alone, as the inspection does: any o
 | `GET /modules/formidable-quarantine/stub/calls[?check=<name>]` | `{"outage", "calls": [{"nodeType", "checkName", "sha256", "kind"}]}`: the calls of the stubs, oldest first, all or those of one check node; `kind` is `SUBMIT` or `POLL` |
 | `POST /modules/formidable-quarantine/stub/calls/clear` | Forgets the calls |
 | `POST /modules/formidable-quarantine/stub/outage/lift`, `.../outage/set` | Lifts or sets the outage of the stubs. It is on when the module starts |
-| `POST /modules/formidable-quarantine/retention?site=<siteKey>[&olderThanDays=<n>]` | Purges the rejected held submissions of the site older than the limit. `olderThanDays` replaces `retentionDays` for this call. `{"site", "retentionDays", "purged": [<path>], "failed": [<path>]}` |
+| `POST /modules/formidable-quarantine/retention?site=<siteKey>[&olderThanDays=<n>]` | Purges the completed and rejected held submissions of the site older than the limit. `olderThanDays` replaces `retentionDays` for this call. `{"site", "retentionDays", "purged": [<path>], "failed": [<path>]}` |
 
 The operations answer managers too, not server administrators alone:
 

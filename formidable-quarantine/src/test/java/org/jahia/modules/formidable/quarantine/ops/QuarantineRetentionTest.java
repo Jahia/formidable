@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** The retention purges a rejected held submission older than the limit, and nothing else. */
+/** The retention purges a completed or rejected held submission older than the limit, and nothing else. */
 class QuarantineRetentionTest {
 
     private static final String FORM = "6a1f0c3e-0000-4000-8000-000000000001";
@@ -88,21 +88,45 @@ class QuarantineRetentionTest {
     }
 
     @Test
-    void purgesOnlyTheRejectedSubmissionsOlderThanTheLimit() throws Exception {
+    void purgesTheFinishedSubmissionsOlderThanTheLimit() throws Exception {
         Held oldRejected = held(HeldState.REJECTED, 31);
         Held freshRejected = held(HeldState.REJECTED, 29);
-        Held oldCompleted = held(HeldState.COMPLETED, 400);
-        Held oldInReview = held(HeldState.NEEDS_REVIEW, 400);
-        Held oldChecking = held(HeldState.CHECKING, 400);
+        Held oldCompleted = held(HeldState.COMPLETED, 31);
+        Held freshCompleted = held(HeldState.COMPLETED, 29);
 
         QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, null);
 
         assertEquals(30, report.retentionDays());
-        assertEquals(List.of(oldRejected.path), report.purged());
+        assertEquals(List.of(oldRejected.path, oldCompleted.path), report.purged());
         assertFalse(stores.held.containsKey(oldRejected.path), "the old rejected submission, with its records");
-        for (Held kept : List.of(freshRejected, oldCompleted, oldInReview, oldChecking)) {
+        assertFalse(stores.held.containsKey(oldCompleted.path), "the old completed submission, with its records");
+        assertTrue(stores.held.containsKey(freshRejected.path), "a rejected submission within the limit is kept");
+        assertTrue(stores.held.containsKey(freshCompleted.path), "a completed submission within the limit is kept");
+    }
+
+    @Test
+    void neverPurgesASubmissionThatIsNotFinishedWhateverItsAge() throws Exception {
+        List<Held> waiting = List.of(held(HeldState.HELD, 4000), held(HeldState.CHECKING, 4000),
+                held(HeldState.RELEASING, 4000), held(HeldState.NEEDS_REVIEW, 4000));
+
+        QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, 0);
+
+        assertEquals(List.of(), report.purged());
+        for (Held kept : waiting) {
             assertTrue(stores.held.containsKey(kept.path), kept.state + " changed " + kept.changedAt + " is kept");
         }
+    }
+
+    @Test
+    void aCompletedSubmissionFollowsTheLowerLimitOfItsSite() throws Exception {
+        Held tenDaysOld = held(HeldState.COMPLETED, 10);
+        Held twoDaysOld = held(HeldState.COMPLETED, 2);
+        siteDays.put(InMemoryQuarantine.SITE, 7L);
+
+        QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, null);
+
+        assertEquals(List.of(tenDaysOld.path), report.purged());
+        assertTrue(stores.held.containsKey(twoDaysOld.path));
     }
 
     @Test

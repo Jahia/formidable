@@ -585,19 +585,22 @@ The spec sets `maxAttempts=10` back when it ends.
 
 **Steps:**
 1. Submit the form with a `VERDICT:FAIL` file, then with another
-   `VERDICT:FAIL` file, then with a `VERDICT:PASS` file, and run the checks.
-2. Move the last change of the first rejected submission and of the completed
-   one 40 days back (Groovy).
+   `VERDICT:FAIL` file, then with a `VERDICT:PASS` file, then with another
+   `VERDICT:PASS` file, and run the checks.
+2. Move the last change of the first rejected submission and of the first
+   completed one 40 days back (Groovy).
 3. Run the retention, with the default limit of 30 days.
 
 **Expected:**
-- After step 1, two submissions are `rejected` and one is `completed`
-- The retention answers the path of the first rejected submission alone
-- That held submission is gone, with its outcomes and its decision
-- The second rejected submission and the completed one are kept
+- After step 1, two submissions are `rejected` and two are `completed`
+- The retention answers the paths of the first rejected submission and of the
+  first completed one
+- Those held submissions are gone, with their outcomes, their decision and
+  their audit
+- The second rejected submission and the second completed one are kept
 
-The retention keeps a `completed` submission, however old: it holds no value
-and no byte any more.
+The retention never purges a submission in `held`, `checking`, `releasing` or
+`needsReview`, however old (unit tests of `QuarantineRetention`).
 
 ### Q20 — Only a manager runs an operation, and each leaves an audit record — control
 
@@ -728,7 +731,7 @@ of the wait, the submission still `held`.
 | Q13 | a file that no check applied to is not released by default |
 | Q14 | no regression on a form with the switch off |
 | Q16 | read-only maintenance writes nothing |
-| Q18 | no rejected file is kept forever |
+| Q18 | no finished submission, rejected or completed, is kept forever |
 | Q20 | a release is the act of a named manager |
 | Q21 | a later check never reads a file that an earlier check failed |
 | Q22 | the actions after release run once, in order |

@@ -22,14 +22,14 @@ import java.util.List;
 import java.util.OptionalLong;
 
 /**
- * The retention of the quarantine tree of a site, an OSGi service: it purges each {@code rejected} held submission
- * whose last change ({@link HeldRecord#changedAt()}) is older than the limit, with its items, its values, its outcomes,
- * its decision and its audit. Any other state is kept: a completed submission holds no value and no byte any more. It
- * runs on its own schedule on the processing server ({@code schedule.PurgeSchedule}), and a spec starts it through its
+ * The retention of the quarantine tree of a site, an OSGi service: it purges each held submission in a final state,
+ * {@code completed} or {@code rejected}, whose last change ({@link HeldRecord#changedAt()}) is older than the limit,
+ * with its items, its values, its outcomes, its decision and its audit. A submission in any other state is never
+ * purged, whatever its age: it still waits for the run or for a manager. It runs on its own schedule on the processing server ({@code schedule.PurgeSchedule}), and a spec starts it through its
  * endpoint.
  *
  * <p>The limit of a site is the platform setting {@code retentionDays}, or the setting of the site when it is lower: a
- * site can shorten the retention of its rejected submissions, and never lengthen it.</p>
+ * site can shorten the retention of its finished submissions, and never lengthen it.</p>
  */
 @Component(service = QuarantineRetention.class, configurationPid = QuarantineRetention.PID, immediate = true)
 @Designate(ocd = RetentionConfig.class)
@@ -92,7 +92,7 @@ public class QuarantineRetention {
         log.info("Retention of the quarantine configured: retentionDays={}", retentionDays);
     }
 
-    /** @return the number of days the retention keeps a rejected held submission, the setting of the platform */
+    /** @return the number of days the retention keeps a finished held submission, the setting of the platform */
     public int retentionDays() {
         return retentionDays;
     }
@@ -119,7 +119,7 @@ public class QuarantineRetention {
     }
 
     /**
-     * Purges the rejected held submissions of the site whose last change is older than the limit. A submission that
+     * Purges the completed and rejected held submissions of the site whose last change is older than the limit. A submission that
      * cannot be purged is reported, and the pass goes on.
      *
      * @param olderThanDays the limit for this pass, in place of {@code retentionDays}; {@code null} keeps the limit of
@@ -137,13 +137,15 @@ public class QuarantineRetention {
                 }
             }
         }
-        log.info("Retention of the quarantine of site {}: {} rejected held submissions purged, older than {} days",
+        log.info("Retention of the quarantine of site {}: {} finished held submissions purged, older than {} days",
                 siteKey, purged.size(), days);
         return new Report(days, purged, failed);
     }
 
+    /** A final state, {@code completed} or {@code rejected}, whose last change is older than the limit. */
     static boolean isExpired(HeldRecord held, Instant limit) {
-        return HeldStates.REJECTED.equals(held.state()) && held.changedAt() != null
+        boolean finished = HeldStates.COMPLETED.equals(held.state()) || HeldStates.REJECTED.equals(held.state());
+        return finished && held.changedAt() != null
                 && held.changedAt().isBefore(limit);
     }
 

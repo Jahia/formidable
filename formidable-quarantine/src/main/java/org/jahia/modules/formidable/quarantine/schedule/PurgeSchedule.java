@@ -26,7 +26,7 @@ public class PurgeSchedule {
     private QuarantineSites sites;
 
     public PurgeSchedule() {
-        this(RecurringJob.onJahia(JOB_NAME, "The scheduled purge of the rejected held submissions of the quarantine"));
+        this(RecurringJob.onJahia(JOB_NAME, "The scheduled purge of the finished held submissions of the quarantine"));
     }
 
     PurgeSchedule(RecurringJob job) {

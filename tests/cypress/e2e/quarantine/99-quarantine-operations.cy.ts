@@ -132,7 +132,7 @@ const operateAsRoot = (path: string, operation: QuarantineOperation, state: Held
  * releases, resumes or rejects a held submission in state needsReview through POST
  * /modules/formidable-quarantine/operations. Each accepted operation writes an audit record that names the user; the
  * run writes one when it releases, rejects or sends to review. The retention (POST
- * /modules/formidable-quarantine/retention) purges the rejected held submissions older than its limit. The spec starts
+ * /modules/formidable-quarantine/retention) purges the completed and rejected held submissions older than its limit. The spec starts
  * the run through "run now", ages a record through Groovy, and never waits for time. It reads the held submissions
  * through the inspection, as root.
  *
@@ -205,7 +205,7 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 		setQuarantineRunSettings({maxAttempts: 10});
 	});
 
-	it('Q18: the retention purges an old rejected record, and keeps a fresh rejected one and a completed one', () => {
+	it('Q18: the retention purges an old rejected record and an old completed one, and keeps the fresh ones', () => {
 		createPublishedLiveFormPage('quarantine-retention-form', 'Quarantine retention form', fields(), undefined, undefined, {
 			qualifiers: [getRemoteStubCheckNode()],
 			deferredActions: [getSaveToJcrActionNode()]
@@ -213,15 +213,17 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 			submitAsGuest(formId, STUB_FILE.fail);
 			submitAsGuest(formId, `${STUB_FILE.fail}\nA fresh claim.`);
 			submitAsGuest(formId, STUB_FILE.pass);
+			submitAsGuest(formId, `${STUB_FILE.pass}\nA fresh claim.`);
 			runQuarantine(formId).then(report => {
 				expect(report.processed.map(one => one.state), 'states after the run')
-					.to.deep.equal(['rejected', 'rejected', 'completed']);
+					.to.deep.equal(['rejected', 'rejected', 'completed', 'completed']);
 			});
 
 			readHeldSubmissions(formId).then(held => {
-				const [old, fresh, completed] = held;
-				expect(held.map(one => one.state), 'states, oldest first').to.deep.equal(['rejected', 'rejected', 'completed']);
-				// the old rejected record and the completed one stayed in their state 40 days; the fresh one did not
+				const [old, fresh, completed, freshCompleted] = held;
+				expect(held.map(one => one.state), 'states, oldest first')
+					.to.deep.equal(['rejected', 'rejected', 'completed', 'completed']);
+				// the old rejected record and the old completed one stayed in their state 40 days; the fresh ones did not
 				[old, completed].forEach(one => {
 					groovy('groovy/ageQuarantineSubmission.groovy', {__PATH__: one.path, __DAYS__: '40'})
 						.should('not.contain', '.failed');
@@ -229,15 +231,17 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 
 				runQuarantineRetention().then(response => {
 					expect(response.body.retentionDays, 'limit of the retention').to.eq(30);
-					expect(response.body.purged, 'purged records').to.deep.equal([old.path]);
+					expect(response.body.purged, 'purged records').to.deep.equal([old.path, completed.path]);
 					expect(response.body.failed, 'records that could not be purged').to.deep.equal([]);
 				});
 				liveNodeExists(old.path).should('eq', false);
 				liveNodeExists(`${old.path}/checks`).should('eq', false);
+				liveNodeExists(completed.path).should('eq', false);
+				liveNodeExists(`${completed.path}/audit`).should('eq', false);
 				readHeldSubmissions(formId).then(after => {
 					expect(after.map(one => [one.path, one.state]), 'records kept').to.deep.equal([
 						[fresh.path, 'rejected'],
-						[completed.path, 'completed']
+						[freshCompleted.path, 'completed']
 					]);
 				});
 			});

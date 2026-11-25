@@ -26,6 +26,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -35,6 +36,8 @@ class JcrRunLockTest {
     private static final String SITE = "siteA";
     private static final String ROOT = "/sites/siteA/formidable-quarantine";
     private static final Instant NOW = Instant.parse("2026-11-25T12:00:00Z");
+    /** This activation of the lock service on server A. */
+    private static final String OWNER = "serverA:new";
 
     private JCRSessionWrapper session;
     private JCRNodeWrapper root;
@@ -48,7 +51,7 @@ class JcrRunLockTest {
         lockNode = mock(JCRNodeWrapper.class);
         when(session.nodeExists(ROOT)).thenReturn(true);
         when(session.getNode(ROOT)).thenReturn(root);
-        lock = new JcrRunLock(Clock.fixed(NOW, ZoneOffset.UTC), "serverA") {
+        lock = new JcrRunLock(Clock.fixed(NOW, ZoneOffset.UTC), OWNER) {
             @Override
             <T> T inLiveSystemSession(JCRCallback<T> callback) throws RepositoryException {
                 return callback.doInJCR(session);
@@ -87,14 +90,14 @@ class JcrRunLockTest {
 
         assertTrue(lock.take(SITE, Duration.ofMinutes(10)));
 
-        verify(lockNode).setProperty(JcrRunLock.OWNER, "serverA");
+        verify(lockNode).setProperty(JcrRunLock.OWNER, OWNER);
         verify(lockNode).setProperty(eq(JcrRunLock.UNTIL), any(Calendar.class));
         verify(session).save();
     }
 
     @Test
     void aLeaseOfAnotherServerThatHasNotEndedRefusesTheLockAndWritesNothing() throws Exception {
-        existingLease("serverB", NOW.plusSeconds(60));
+        existingLease("serverB:t1", NOW.plusSeconds(60));
 
         assertFalse(lock.take(SITE, Duration.ofMinutes(10)));
 
@@ -104,17 +107,17 @@ class JcrRunLockTest {
 
     @Test
     void anEndedLeaseOfAnotherServerIsTakenOver() throws Exception {
-        existingLease("serverB", NOW.minusSeconds(1));
+        existingLease("serverB:t1", NOW.minusSeconds(1));
 
         assertTrue(lock.take(SITE, Duration.ofMinutes(10)));
 
-        verify(lockNode).setProperty(JcrRunLock.OWNER, "serverA");
+        verify(lockNode).setProperty(JcrRunLock.OWNER, OWNER);
         verify(session).save();
     }
 
     @Test
     void aSaveThatAnotherServerMadeStaleRefusesTheLock() throws Exception {
-        existingLease("serverB", NOW.minusSeconds(1));
+        existingLease("serverB:t1", NOW.minusSeconds(1));
         doThrow(new InvalidItemStateException("stale")).when(session).save();
 
         assertFalse(lock.take(SITE, Duration.ofMinutes(10)));
@@ -132,14 +135,67 @@ class JcrRunLockTest {
         String lockPath = ROOT + "/" + JcrRunLock.LOCK_NAME;
         when(session.nodeExists(lockPath)).thenReturn(true);
         when(session.getNode(lockPath)).thenReturn(lockNode);
-        existingLease("serverB", NOW.plusSeconds(60));
+        existingLease("serverB:t1", NOW.plusSeconds(60));
 
         lock.release(SITE);
         verify(session, never()).save();
 
-        existingLease("serverA", NOW.plusSeconds(60));
+        existingLease("serverA:new", NOW.plusSeconds(60));
         lock.release(SITE);
         verify(lockNode).setProperty(eq(JcrRunLock.UNTIL), any(Calendar.class));
         verify(session).save();
+    }
+
+    @Test
+    void anotherActivationOnTheSameServerWaitsForTheLeaseOfTheOneBefore() throws Exception {
+        existingLease("serverA:old", NOW.plusSeconds(60));
+
+        assertFalse(lock.take(SITE, Duration.ofMinutes(10)));
+
+        verify(session, never()).save();
+    }
+
+    @Test
+    void anotherActivationOnTheSameServerTakesTheLockThatTheOneBeforeReleased() throws Exception {
+        // a release ends the lease at the time of the release
+        existingLease("serverA:old", NOW);
+
+        assertTrue(lock.take(SITE, Duration.ofMinutes(10)));
+
+        verify(lockNode).setProperty(JcrRunLock.OWNER, OWNER);
+    }
+
+    @Test
+    void theDeactivationReleasesTheLocksItHoldsAndRefusesAnyOther() throws Exception {
+        when(root.hasNode(JcrRunLock.LOCK_NAME)).thenReturn(false);
+        when(root.addNode(JcrRunLock.LOCK_NAME, JcrRunLock.LOCK_TYPE)).thenReturn(lockNode);
+        assertTrue(lock.take(SITE, Duration.ofMinutes(10)));
+        String lockPath = ROOT + "/" + JcrRunLock.LOCK_NAME;
+        when(session.nodeExists(lockPath)).thenReturn(true);
+        when(session.getNode(lockPath)).thenReturn(lockNode);
+        existingLease(OWNER, NOW.plusSeconds(600));
+
+        lock.deactivate();
+
+        // one write of the end of the lease at the take, one at the release
+        verify(lockNode, times(2)).setProperty(eq(JcrRunLock.UNTIL), any(Calendar.class));
+        verify(session, times(2)).save();
+        assertFalse(lock.take(SITE, Duration.ofMinutes(10)));
+        verify(session, times(2)).save();
+    }
+
+    @Test
+    void aSiteReleasedBeforeTheDeactivationIsNotReleasedAgain() throws Exception {
+        when(session.nodeExists(ROOT)).thenReturn(false);
+        assertTrue(lock.take(SITE, Duration.ofMinutes(10)));
+        lock.release(SITE);
+        String lockPath = ROOT + "/" + JcrRunLock.LOCK_NAME;
+        when(session.nodeExists(lockPath)).thenReturn(true);
+        when(session.getNode(lockPath)).thenReturn(lockNode);
+        existingLease(OWNER, NOW.plusSeconds(600));
+
+        lock.deactivate();
+
+        verify(session, never()).save();
     }
 }

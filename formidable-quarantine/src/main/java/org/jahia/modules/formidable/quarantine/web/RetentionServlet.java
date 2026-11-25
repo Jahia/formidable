@@ -18,7 +18,7 @@ import java.util.regex.Pattern;
 
 /**
  * The retention, for the test suite: {@code POST /modules/formidable-quarantine/retention?site=<siteKey>
- * [&olderThanDays=<n>]} purges the rejected held submissions of the site older than the limit, and answers
+ * [&olderThanDays=<n>]} purges the completed and rejected held submissions of the site older than the limit, and answers
  * {@code {"site", "retentionDays", "purged": [<path>], "failed": [<path>]}}. {@code olderThanDays} replaces the setting
  * {@code retentionDays} for this call only.
  *
