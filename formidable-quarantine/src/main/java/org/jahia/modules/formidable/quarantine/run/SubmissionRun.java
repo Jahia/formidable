@@ -10,6 +10,8 @@ import org.jahia.modules.formidable.quarantine.chain.Step;
 import org.jahia.modules.formidable.quarantine.api.CheckSettings;
 import org.jahia.modules.formidable.quarantine.api.Outcome;
 import org.jahia.modules.formidable.quarantine.api.Qualifier;
+import org.jahia.modules.formidable.quarantine.api.QuarantinedFile;
+import org.jahia.modules.formidable.quarantine.api.Scope;
 import org.jahia.modules.formidable.quarantine.api.Submitted;
 import org.jahia.modules.formidable.quarantine.state.HeldEvent;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
@@ -167,7 +169,7 @@ final class SubmissionRun {
             if (step instanceof Step.Poll poll) {
                 return recordOf(qualifier.poll(poll.ticket()), poll.ticket(), attempts);
             }
-            Submitted submitted = qualifier.submit(step.file(), step.check().settings());
+            Submitted submitted = qualifier.submit(fileFor(qualifier, step.file()), step.check().settings());
             if (submitted instanceof Submitted.Ticket answeredLater) {
                 return new RecordedOutcome(Outcome.PENDING, answeredLater.id(), attempts);
             }
@@ -177,6 +179,11 @@ final class SubmissionRun {
                     e.getClass().getName());
             return recordOf(new Outcome.Failed(true, CHECK_ERROR), ticket, attempts);
         }
+    }
+
+    /** A metadata check gets the metadata of the file, and no way to read its bytes. */
+    static QuarantinedFile fileFor(Qualifier qualifier, QuarantinedFile file) {
+        return qualifier.scope() == Scope.METADATA ? new MetadataOnlyFile(file) : file;
     }
 
     /** A result starts the failures over; a failure counts one more; a pending answer keeps its ticket. */

@@ -190,6 +190,52 @@ class CheckChainTest {
                 chain.decide(List.of(imageScan, parser, first), List.of(picture, file), recorded));
     }
 
+    // --- metadata checks
+
+    @Test
+    void aMetadataCheckFirstIsNoRefusal() {
+        ChainCheck allowList = metadata("allowList");
+        assertEquals(proceed(new Step.Submit(file, allowList)), decide(allowList, first));
+    }
+
+    @Test
+    void aMetadataCheckAloneRuns() {
+        ChainCheck allowList = metadata("allowList");
+        assertEquals(proceed(new Step.Submit(file, allowList)), decide(allowList));
+        recorded.put(key(file, allowList), passed());
+        assertEquals(ChainDecision.RELEASE, decide(allowList));
+    }
+
+    @Test
+    void aMetadataCheckBetweenARemoteAndAnInProcessCheckRuns() {
+        ChainCheck allowList = metadata("allowList");
+        ChainCheck parser = inProcess("parser");
+        recorded.put(key(file, first), passed());
+        assertEquals(proceed(new Step.Submit(file, allowList)), decide(first, allowList, parser));
+        recorded.put(key(file, allowList), passed());
+        assertEquals(proceed(new Step.Submit(file, parser)), decide(first, allowList, parser));
+    }
+
+    @Test
+    void aMetadataCheckNeverCountsAsTheRemoteCheckBeforeAnInProcessCheck() {
+        ChainCheck allowList = metadata("allowList");
+        ChainCheck parser = inProcess("parser");
+        assertEquals(new ChainDecision.Review(ChainReason.IN_PROCESS_FIRST, "aaa", "parser"),
+                decide(allowList, parser, first));
+    }
+
+    @Test
+    void aFailOfAMetadataCheckRejectsBeforeAnyLaterCheck() {
+        ChainCheck allowList = metadata("allowList");
+        recorded.put(key(file, allowList), failed());
+        assertEquals(new ChainDecision.Reject(ChainReason.CHECK_FAILED, "aaa", "allowList"),
+                decide(allowList, first));
+    }
+
+    private static ChainCheck metadata(String name) {
+        return check(name, Scope.METADATA, null, OnInconclusive.REVIEW, OnUnavailable.RETRY);
+    }
+
     // --- withheld file
 
     @Test

@@ -21,7 +21,8 @@ import org.jahia.modules.formidable.quarantine.api.Scope;
  * <li>A check receives a file only when every earlier check of the list that applies to the file passed it.</li>
  * <li>A {@code FAIL} on any file rejects the whole submission, and no later call is made.</li>
  * <li>An in-process check that applies to a file before any remote check that applies to it refuses the whole
- * list ({@code needsReview}), unless the operator allows it.</li>
+ * list ({@code needsReview}), unless the operator allows it. A metadata check reads no byte: it stands at any place
+ * and never counts as the remote check that comes first.</li>
  * <li>A file that no check applies to is withheld ({@code needsReview}), once the other files are decided.</li>
  * <li>An empty list, a submission with no file, or a check that no qualifier serves gives {@code needsReview}.</li>
  * </ul>
@@ -110,6 +111,7 @@ public final class CheckChain {
         return null;
     }
 
+    /** A {@link Scope#METADATA} check is neither: the walk goes past it. */
     private static ChainCheck firstInProcessBeforeRemote(List<ChainCheck> checks) {
         for (ChainCheck check : checks) {
             if (check.qualifier().scope() == Scope.REMOTE) {

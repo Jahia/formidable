@@ -27,6 +27,8 @@ import org.junit.jupiter.api.Test;
 
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.RepositoryException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -384,6 +386,22 @@ class QuarantineRunTest {
     }
 
     @Test
+    void aMetadataCheckReadsTheMetadataAndNoByte() throws Exception {
+        MetadataProbe probe = new MetadataProbe();
+        run.addQualifier(probe);
+        lists.put(FORM, List.of(CheckSettings.withDefaults(MetadataProbe.NODE_TYPE, "metadataCheck"),
+                remote("remoteCheck")));
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertEquals(List.of("item0.txt text/plain 10"), probe.seen);
+        assertEquals(1, probe.refusedOpens);
+        assertEquals(OutcomeRecord.PASS, held.outcomes.get("item0/metadataCheck").outcome());
+    }
+
+    @Test
     void aPendingAnswerWithNoTicketIsAFailureThatNoRetryCanMend() {
         RecordedOutcome recorded = SubmissionRun.recordOf(Outcome.PENDING, null, 3);
 
@@ -417,6 +435,46 @@ class QuarantineRunTest {
 
         assertTrue(released.isEmpty(), "the actions after release ran from state needsReview");
         assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+    }
+
+    /** A metadata check that records what it saw of each file, tries to open it, and passes it. */
+    private static final class MetadataProbe implements Qualifier {
+
+        static final String NODE_TYPE = "test:metadataCheck";
+
+        final List<String> seen = new ArrayList<>();
+        int refusedOpens;
+
+        @Override
+        public String getNodeType() {
+            return NODE_TYPE;
+        }
+
+        @Override
+        public Scope scope() {
+            return Scope.METADATA;
+        }
+
+        @Override
+        public boolean appliesTo(QuarantinedFile file, CheckSettings settings) {
+            return true;
+        }
+
+        @Override
+        public Submitted submit(QuarantinedFile file, CheckSettings settings) {
+            seen.add(file.fileName() + " " + file.mimeType() + " " + file.size());
+            try (InputStream in = file.open()) {
+                in.read();
+            } catch (IOException expected) {
+                refusedOpens++;
+            }
+            return Submitted.answered(Outcome.pass("metadata.ok", null));
+        }
+
+        @Override
+        public Outcome poll(String ticket) {
+            throw new AssertionError("A metadata check answers at once");
+        }
     }
 
     /** A remote check that answers what the test scripts, one answer per call; a scripted exception is thrown. */
