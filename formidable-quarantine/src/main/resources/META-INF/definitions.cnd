@@ -1,6 +1,8 @@
 <jnt = 'http://www.jahia.org/jahia/nt/1.0'>
 <jmix = 'http://www.jahia.org/jahia/mix/1.0'>
 <fmdbq = 'http://www.jahia.org/jahia/fmdbq/nt/1.0'>
+<fmdbqmix = 'http://www.jahia.org/jahia/fmdbq/mix/1.0'>
+<fmdbmix = 'http://www.jahia.org/jahia/fmdb/mix/1.0'>
 
 // --- The quarantine tree: /sites/<site>/formidable-quarantine/<form>/YYYY/MM/DD/<held>, in live ---
 // The hold of the module writes it with a system session. No type of the tree is a file: no jnt:file, no
@@ -25,7 +27,8 @@
 // the order of the submission: valueFields for the public values, sensitiveFields for the sensitive ones. The
 // values live in the two children values and sensitive, apart, and go with the bytes once the submission is
 // completed or rejected. checks holds the records of the run, and audit those of the operations: each accepts any
-// jnt:content, so a new type of record needs no change here.
+// jnt:content, so a new type of record needs no change here. valuesOnly is true once the bytes were deleted so that
+// the values go out alone (fmdbqmix:quarantinePolicy, onFail=releaseValues): no event releases a file again.
 [fmdbq:heldSubmission] > jnt:content
  - state (string) = 'held' mandatory autocreated < 'held', 'checking', 'releasing', 'completed', 'rejected', 'needsReview'
  - createdAt (date) mandatory
@@ -41,6 +44,7 @@
  - originTimeZone (string) indexed=no
  - valueFields (string) multiple indexed=no
  - sensitiveFields (string) multiple indexed=no
+ - valuesOnly (boolean) indexed=no
  + values (fmdbq:values) = fmdbq:values
  + sensitive (fmdbq:sensitiveValues) = fmdbq:sensitiveValues
  + checks (fmdbq:records) = fmdbq:records
@@ -117,3 +121,24 @@
  - fromState (string) mandatory indexed=no
  - toState (string) mandatory indexed=no
  - at (date) indexed=no
+
+// --- The policy of a form (docs/architecture/quarantine.md, "Settings") ---
+
+// The quarantine policy of a form, offered in Content Editor on a form with the switch "Hold uploads in quarantine"
+// on (extends fmdbmix:quarantine), in the same section as the switch. A form without it rejects a submission whose
+// file a check failed. The run reads it in live each time it concludes, and so does a reject by a manager.
+// - onFail: reject, or releaseValues: the bytes of every file are deleted, then the actions after release run with
+//   the values alone and the failed scan status. A reject by a manager does the same.
+// - scanStatusName: the name of the value that the run adds to the values of the actions after release, written over
+//   any value of that name: scanStatusClean on a release of the files, scanStatusFailed on a release of the values
+//   alone. No value is added when it is empty. The run never writes it over a field of the form of that name: a
+//   passed submission then goes to review, and a failed one is rejected.
+// - showValues: shows the public values of a held submission to a manager. The sensitive values never.
+[fmdbqmix:quarantinePolicy] mixin
+ extends = fmdbmix:quarantine
+ itemtype = content
+ - onFail (string, choicelist[resourceBundle]) = 'reject' autocreated indexed=no < 'reject', 'releaseValues'
+ - scanStatusName (string) indexed=no
+ - scanStatusClean (string) indexed=no
+ - scanStatusFailed (string) indexed=no
+ - showValues (boolean) = false autocreated indexed=no

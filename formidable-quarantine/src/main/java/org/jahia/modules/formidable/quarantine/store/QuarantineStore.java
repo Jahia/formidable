@@ -75,6 +75,16 @@ public interface QuarantineStore {
     void finish(String path, String state) throws QuarantineStoreException;
 
     /**
+     * Deletes the bytes of every item of the held submission, and marks it as a release of its values alone, in one
+     * save. The values, the state and the records stay. From then on, {@link #read} returns no file, and no event
+     * releases a file of the submission again.
+     */
+    void dropFiles(String path) throws QuarantineStoreException;
+
+    /** @return true when {@link #dropFiles} ran: the submission goes out with its values alone */
+    boolean valuesOnly(String path) throws QuarantineStoreException;
+
+    /**
      * Removes the whole held submission: its items, its values, the outcomes and the decision of its checks, and its
      * audit. The retention calls it. The datastore of the repository frees the bytes only at its garbage collection.
      */

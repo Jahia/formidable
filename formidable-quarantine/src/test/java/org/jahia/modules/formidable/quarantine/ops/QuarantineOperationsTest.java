@@ -2,7 +2,10 @@ package org.jahia.modules.formidable.quarantine.ops;
 
 import org.jahia.modules.formidable.engine.api.DeferredActionException;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
+import org.jahia.modules.formidable.engine.api.HeldSubmission;
+import org.jahia.modules.formidable.quarantine.run.FormPolicy;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine;
+import org.jahia.modules.formidable.quarantine.run.OnFail;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
 import org.jahia.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.modules.formidable.quarantine.run.Release;
@@ -77,6 +80,10 @@ class QuarantineOperationsTest {
     private FakeManagers managers;
     private QuarantineOperations operations;
     private final List<Integer> releasedFrom = new ArrayList<>();
+    /** What the actions after release received. */
+    private final List<HeldSubmission> released = new ArrayList<>();
+    /** The policy of the form, as the operations read it. */
+    private FormPolicy policy = FormPolicy.DEFAULT;
     /** The index of the action after release that fails, or -1 when every action runs. */
     private int failingAction = -1;
 
@@ -87,13 +94,15 @@ class QuarantineOperationsTest {
         operations = new QuarantineOperations(managers, clock);
         operations.setStore(stores);
         operations.setCheckStore(stores);
-        operations.setRelease(() -> new Release(stores, stores, twoActions(), new Transitions(stores), clock));
+        operations.setRelease(() -> new Release(stores, stores, twoActions(), new Transitions(stores), clock,
+                formId -> policy));
     }
 
     /** Two actions after release, each checkpointed; the one at {@link #failingAction} fails. */
     private DeferredActions twoActions() {
         return (submission, from, completed) -> {
             releasedFrom.add(from);
+            released.add(submission);
             for (int index = from; index < 2; index++) {
                 if (index == failingAction) {
                     throw new DeferredActionException("The target refused", index, 2, null);
@@ -505,5 +514,122 @@ class QuarantineOperationsTest {
         assertFalse(text.contains("Ada"), "a public value in the audit record");
         assertFalse(text.contains(InMemoryQuarantine.SECRET), "a sensitive value in the audit record");
         assertFalse(text.contains("INCONCLUSIVE"), "the content of the file in the audit record");
+    }
+
+    // --- the policy of the form: a reject that releases the values alone ---
+
+    private static final String SCAN_STATUS = "documentScanStatus";
+
+    private static FormPolicy policy(OnFail onFail, boolean scanStatusTaken) {
+        return new FormPolicy(onFail, SCAN_STATUS, "clean", "failed", false, scanStatusTaken);
+    }
+
+    /** A values release that stopped at a failed action: the bytes are gone, the values wait for a resume. */
+    private Held valuesReleaseAfterAFailedAction() {
+        Held held = afterAFailedAction();
+        held.valuesOnly = true;
+        held.bytes.set(0, null);
+        return held;
+    }
+
+    @Test
+    void aRejectUnderReleaseValuesDeletesTheBytesThenReleasesTheValuesAlone() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = inReview("INCONCLUSIVE");
+
+        OperationResult result = operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(HeldState.COMPLETED, result.to());
+        assertEquals(List.of("releasing", "completed"), held.states);
+        assertEquals(List.of(0), releasedFrom);
+        assertTrue(released.get(0).files().isEmpty(), "a file reached the actions after release");
+        assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
+        assertTrue(held.valuesOnly);
+        assertFalse(held.anyBytes());
+        assertEquals(DecisionRecord.MANAGER_REJECTED, held.decision.reason(), "the decision keeps the reject");
+        assertEquals(List.of(new AuditRecord("reject", MANAGER, "needsReview", "completed", NOW)), held.audit);
+    }
+
+    @Test
+    void aRejectUnderTheDefaultPolicyRejects() throws Exception {
+        Held held = inReview("INCONCLUSIVE");
+
+        OperationResult result = operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(HeldState.REJECTED, result.to());
+        assertTrue(released.isEmpty());
+        assertFalse(held.valuesOnly);
+    }
+
+    @Test
+    void aRejectOfAStoppedReleaseUnderReleaseValuesRejects() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+
+        OperationResult result = operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(HeldState.REJECTED, result.to());
+        assertTrue(released.isEmpty());
+    }
+
+    @Test
+    void aManagerReleaseAfterAFailedValuesReleaseHasNoFileToRelease() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = valuesReleaseAfterAFailedAction();
+
+        assertEquals(OperationRefusedException.Reason.CONFLICT,
+                refusal(() -> operations.apply(held.path, Operation.RELEASE)));
+        OperationResult result = operations.apply(held.path, Operation.RESUME);
+
+        assertEquals(HeldState.COMPLETED, result.to());
+        assertEquals(List.of(1), releasedFrom, "the resume starts at the failed action");
+        assertTrue(released.get(0).files().isEmpty(), "a resume released a file");
+        assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
+    }
+
+    @Test
+    void aResumeAfterAFailedValuesReleaseHasNoFileEvenUnderTheDefaultPolicy() throws Exception {
+        Held held = valuesReleaseAfterAFailedAction();
+
+        OperationResult result = operations.apply(held.path, Operation.RESUME);
+
+        assertEquals(HeldState.COMPLETED, result.to());
+        assertTrue(released.get(0).files().isEmpty());
+    }
+
+    @Test
+    void aRejectAfterAFailedValuesReleaseRejects() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = valuesReleaseAfterAFailedAction();
+
+        OperationResult result = operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(HeldState.REJECTED, result.to());
+        assertTrue(released.isEmpty(), "the reject ran the actions again");
+        assertFalse(held.valuesPresent);
+    }
+
+    @Test
+    void aFieldNamedLikeTheScanStatusRefusesEveryOperationThatWritesTheStatus() {
+        policy = policy(OnFail.RELEASE_VALUES, true);
+        Held held = inReview("INCONCLUSIVE");
+
+        assertEquals(OperationRefusedException.Reason.CONFLICT,
+                refusal(() -> operations.apply(held.path, Operation.RELEASE)));
+        assertEquals(OperationRefusedException.Reason.CONFLICT,
+                refusal(() -> operations.apply(held.path, Operation.REJECT)));
+        assertEquals("needsReview", held.state);
+        assertTrue(held.anyBytes());
+        assertTrue(released.isEmpty());
+        assertTrue(held.audit.isEmpty());
+    }
+
+    @Test
+    void aFieldNamedLikeTheScanStatusLetsAPlainRejectThrough() throws Exception {
+        policy = policy(OnFail.REJECT, true);
+        Held held = inReview("INCONCLUSIVE");
+
+        assertEquals(HeldState.REJECTED, operations.apply(held.path, Operation.REJECT).to());
     }
 }

@@ -226,6 +226,10 @@ final class SubmissionRun {
         store.setAttempts(pass.path(), pass.held.attempts(), null);
         if (decision instanceof ChainDecision.Reject reject) {
             writeDecision(pass, reject.reason().name(), reject.sha256(), reject.checkName());
+            if (reject.reason() == ChainReason.CHECK_FAILED && releasesValues(pass)) {
+                // the decision stays CHECK_FAILED: with the state completed, it records a release with no file
+                return release.releaseValues(pass.path(), pass.state);
+            }
             return transitions.finish(pass.path(), pass.state, HeldEvent.CHECK_FAILED);
         }
         if (decision instanceof ChainDecision.Review review) {
@@ -233,6 +237,25 @@ final class SubmissionRun {
             return transitions.move(pass.path(), pass.state, HeldEvent.REVIEW);
         }
         return release.release(pass.path(), pass.state);
+    }
+
+    /**
+     * @return true when the policy of the form releases the values on a fail. A field of the form named like the scan
+     *         status makes the run reject instead, the default, with an error: a failed file never waits for a manager
+     *         who could release it.
+     */
+    private boolean releasesValues(Pass pass) throws QuarantineStoreException {
+        FormPolicy policy = release.policy(pass.held.formId());
+        if (!policy.releasesValues()) {
+            return false;
+        }
+        if (policy.scanStatusTaken()) {
+            log.error("Held submission {}: a field of form {} has the name of the scan status {}, the submission is "
+                    + "rejected instead of releasing its values", pass.path(), pass.held.formId(),
+                    policy.scanStatusName());
+            return false;
+        }
+        return true;
     }
 
     private void writeDecision(Pass pass, String reason, String sha256, String checkName)

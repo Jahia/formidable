@@ -41,6 +41,9 @@ class StateMachineTest {
         legal(NEEDS_REVIEW, HeldEvent.MANAGER_RELEASE, RELEASING);
         legal(NEEDS_REVIEW, HeldEvent.MANAGER_RESUME, RELEASING);
         legal(NEEDS_REVIEW, HeldEvent.MANAGER_REJECT, REJECTED);
+        // a form whose policy releases the values: a fail, or a reject by a manager, releases the values alone
+        legal(CHECKING, HeldEvent.RELEASE_VALUES, RELEASING);
+        legal(NEEDS_REVIEW, HeldEvent.MANAGER_RELEASE_VALUES, RELEASING);
     }
 
     private static void legal(HeldState from, HeldEvent event, HeldState to) {

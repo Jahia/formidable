@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.quarantine.ops;
 
+import org.jahia.modules.formidable.quarantine.run.FormPolicy;
 import org.jahia.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.modules.formidable.quarantine.run.Release;
 import org.jahia.modules.formidable.quarantine.run.Transitions;
@@ -39,8 +40,13 @@ import java.util.function.Supplier;
  * ({@code ACTION_FAILED}), and always in {@code releasing}. The release starts at the index {@code completedActions},
  * so the actions that ran do not run again;</li>
  * <li>reject: the state moves to {@code rejected}, and the values, the sensitive values and the bytes are deleted,
- * in one save: a failure keeps the state and the data. The outcomes and the decision stay.</li>
+ * in one save: a failure keeps the state and the data. The outcomes and the decision stay. In {@code needsReview}, a
+ * form whose policy releases the values ({@code onFail=releaseValues}) makes the reject delete the bytes first, then
+ * run the actions after release with the values alone ({@code MANAGER_RELEASE_VALUES}), to {@code completed}.</li>
  * </ul>
+ *
+ * <p>A release, a resume, and a reject that releases the values, are refused when a field of the form has the name of
+ * the scan status of its policy: none writes the status over the value of a field.</p>
  */
 @Component(service = QuarantineOperations.class, immediate = true)
 public class QuarantineOperations {
@@ -123,10 +129,11 @@ public class QuarantineOperations {
             throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                     "The operation " + operation.value() + " is not allowed in state " + from.value());
         }
+        boolean valuesAlone = releasesValuesAlone(path, held, operation, from);
         String user = managers.currentUserName();
         HeldState to;
         try {
-            to = run(path, operation, from);
+            to = run(path, operation, from, valuesAlone);
         } catch (QuarantineStoreException | RuntimeException e) {
             auditStopped(path, operation, user, from);
             throw e;
@@ -189,7 +196,33 @@ public class QuarantineOperations {
         return !DecisionRecord.ACTION_FAILED.equals(reason) && !DecisionRecord.FORM_GONE.equals(reason);
     }
 
-    private HeldState run(String path, Operation operation, HeldState from) throws QuarantineStoreException {
+    /**
+     * Reads the policy of the form for an operation that releases: a release, a resume, and a reject in
+     * {@code needsReview} of a form whose policy releases the values, unless they already went out alone.
+     *
+     * @return true when the reject releases the values alone
+     * @throws OperationRefusedException when a field of the form has the name of the scan status: the operation would
+     *                                   write the status over the value of a field
+     */
+    private boolean releasesValuesAlone(String path, HeldRecord held, Operation operation, HeldState from)
+            throws OperationRefusedException, QuarantineStoreException {
+        if (operation == Operation.RETRY) {
+            return false;
+        }
+        FormPolicy policy = release.get().policy(held.formId());
+        boolean valuesAlone = operation == Operation.REJECT && from == HeldState.NEEDS_REVIEW && policy.releasesValues()
+                && !store.valuesOnly(path);
+        if (policy.scanStatusTaken() && (operation != Operation.REJECT || valuesAlone)) {
+            log.error("Held submission {}: {} refused, a field of form {} has the name of the scan status {}", path,
+                    operation.value(), held.formId(), policy.scanStatusName());
+            throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
+                    "A field of the form has the name of the scan status of its quarantine policy");
+        }
+        return valuesAlone;
+    }
+
+    private HeldState run(String path, Operation operation, HeldState from, boolean valuesAlone)
+            throws QuarantineStoreException {
         Transitions transitions = new Transitions(store);
         switch (operation) {
             case RETRY:
@@ -197,6 +230,11 @@ public class QuarantineOperations {
                 checkStore.keepPassedOutcomesOnly(path);
                 return transitions.move(path, from, operation.event());
             case REJECT:
+                if (valuesAlone) {
+                    // policy releaseValues: the bytes go first, then the actions after release run with the values
+                    // alone and the failed scan status, so the people the actions reach learn of the reject
+                    return release.get().releaseValues(path, from);
+                }
                 // one save: a failure keeps the state and the data, and the manager rejects again
                 return transitions.finish(path, from, operation.event());
             default:

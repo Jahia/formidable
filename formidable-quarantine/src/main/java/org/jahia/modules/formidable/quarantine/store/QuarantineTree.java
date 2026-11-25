@@ -51,6 +51,8 @@ public final class QuarantineTree {
     public static final String ORIGIN_TIME_ZONE = "originTimeZone";
     public static final String VALUE_FIELDS = "valueFields";
     public static final String SENSITIVE_FIELDS = "sensitiveFields";
+    /** True once the bytes were deleted so that the values go out alone. */
+    public static final String VALUES_ONLY = "valuesOnly";
 
     // the properties of an item
     public static final String DATA = "data";

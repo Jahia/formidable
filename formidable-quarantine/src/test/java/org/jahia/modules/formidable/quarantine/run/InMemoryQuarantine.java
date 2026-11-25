@@ -48,6 +48,10 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         public Instant nextAttempt;
         public int completedActions;
         public boolean valuesPresent = true;
+        /** The public values the visitor sent. */
+        public Map<String, List<String>> values = Map.of("fullName", List.of("Ada"));
+        /** True once the bytes were dropped so that the values go out alone. */
+        public boolean valuesOnly;
         final List<String> itemNames = new ArrayList<>();
         final List<String> mimeTypes = new ArrayList<>();
         final List<String> sha256s = new ArrayList<>();
@@ -122,7 +126,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
                         one.bytes.get(i)));
             }
         }
-        Map<String, List<String>> values = one.valuesPresent ? Map.of("fullName", List.of("Ada")) : Map.of();
+        Map<String, List<String>> values = one.valuesPresent ? one.values : Map.of();
         Map<String, List<String>> sensitive = one.valuesPresent ? Map.of("password", List.of(SECRET)) : Map.of();
         return Optional.of(new HeldSubmission(one.formId, SITE, Locale.ENGLISH, values, sensitive, files,
                 new SubmissionOrigin(null, null, null)));
@@ -212,6 +216,20 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         for (int i = 0; i < one.bytes.size(); i++) {
             one.bytes.set(i, null);
         }
+    }
+
+    @Override
+    public void dropFiles(String path) throws QuarantineStoreException {
+        Held one = get(path);
+        for (int i = 0; i < one.bytes.size(); i++) {
+            one.bytes.set(i, null);
+        }
+        one.valuesOnly = true;
+    }
+
+    @Override
+    public boolean valuesOnly(String path) throws QuarantineStoreException {
+        return get(path).valuesOnly;
     }
 
     @Override

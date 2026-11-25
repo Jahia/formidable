@@ -338,6 +338,29 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     @Override
+    public void dropFiles(String path) throws QuarantineStoreException {
+        change(path, "delete the bytes", held -> {
+            for (JCRNodeWrapper item : items(held)) {
+                removeIfPresent(item, QuarantineTree.DATA);
+            }
+            held.setProperty(QuarantineTree.VALUES_ONLY, true);
+        });
+        log.info("Held submission {}: its bytes are deleted, its values go out alone", path);
+    }
+
+    @Override
+    public boolean valuesOnly(String path) throws QuarantineStoreException {
+        return inSession("read the release of the held submission at " + path, session -> {
+            JCRNodeWrapper held = heldOrNull(session, path);
+            if (held == null) {
+                throw new PathNotFoundException("No held submission at " + path);
+            }
+            return held.hasProperty(QuarantineTree.VALUES_ONLY)
+                    && held.getProperty(QuarantineTree.VALUES_ONLY).getBoolean();
+        });
+    }
+
+    @Override
     public void purge(String path) throws QuarantineStoreException {
         change(path, "purge", JCRNodeWrapper::remove);
         log.info("Purged the held submission at {}", path);
