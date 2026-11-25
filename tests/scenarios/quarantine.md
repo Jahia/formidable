@@ -16,7 +16,7 @@ order.
 Specs:
 
 - `tests/cypress/e2e/quarantine/90-quarantine-graphql.cy.ts` covers Q29 to
-  Q33: the GraphQL API and the permission of a manager per site.
+  Q34: the GraphQL API and the permission of a manager per site.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -111,9 +111,10 @@ Specs:
   `FILE_WITHHELD`, `IN_PROCESS_FIRST`, `INTEGRITY_FAILED` or `ACTION_FAILED`.
   The GraphQL API answers the outcomes and the decision.
 - **Manager**: a user that holds the site role `formidable-quarantine-manager`
-  on the site. The role grants the permission `formidableQuarantineManage` of
-  the quarantine module, which the API checks on the site node. A server
-  administrator is a manager of every site.
+  on the site, published. The role grants the permission
+  `formidableQuarantineManage` of the quarantine module, which the API checks
+  on the live site node, and no privileged access. A server administrator is a
+  manager of every site that exists.
 - **Operation**: the mutation `formidableQuarantine(siteKey) { operate(id,
   operation) }`, where the operation is `RETRY`, `RELEASE`, `RESUME` or
   `REJECT`. It runs on a held submission in state `needsReview`, for a manager
@@ -504,7 +505,8 @@ the run names no item.
 - The file already rejected is accepted again, with HTTP 200
 - No response to the guest carries a state or an outcome, and each item path
   answers 401, 403 or 404
-- The GraphQL API answers no quarantine, and "run now" and the stub control
+- The GraphQL API answers no quarantine: the platform refuses the guest, or
+  the module answers `null` with no error. "Run now" and the stub control
   answer 403
 
 ### Q13 — A file that no check applies to
@@ -615,7 +617,7 @@ and no byte any more.
    `fmdb-results-reader` on the form), an editor of the site, a site
    administrator of the site, and a manager (the site role
    `formidable-quarantine-manager` on the site, and no other role).
-   Publish the form.
+   Publish the form and the site.
 2. Submit the form three times with an `INCONCLUSIVE` file, and run the
    checks: each submission is `needsReview`.
 3. As the reader, then as the editor, then as the site administrator, run
@@ -696,11 +698,12 @@ without the quarantine module and without the quarantine test module.
 
 ## The GraphQL API and the permission per site
 
-Common to Q29 to Q33: site A is the test site, with the quarantine test module
+Common to Q29 to Q34: site A is the test site, with the quarantine test module
 and a form whose two submissions the run sent to review. Site B is a second
 site with the module, and one held submission that no run touches. A manager
-holds the site role `formidable-quarantine-manager` on site A alone. An editor
-and a site administrator of site A hold no such role.
+holds the site role `formidable-quarantine-manager` on site A alone, and site
+A is published after the grants. An editor and a site administrator of site A
+hold no such role.
 
 ### Q29 — A manager of site A reads A, and site B answers as no site — control
 
@@ -767,6 +770,19 @@ and a site administrator of site A hold no such role.
 - The page applies the limit 100 and the offset 0, and holds every held
   submission of the site
 
+### Q34 — A forged cross-site shape of an operation changes nothing
+
+**Steps:**
+1. As the manager, send the mutation that rejects the second held submission
+   of site A three ways: a POST of `text/plain` with no `Origin`, a POST of
+   form-urlencoded fields, and a JSON POST that carries
+   `Sec-Fetch-Site: cross-site` and a foreign `Origin`.
+2. As root, read the held submission.
+
+**Expected:**
+- The submission is still `needsReview`, with the audit record of the run
+  alone: the platform refused each shape
+
 ---
 
 ## Coverage map
@@ -799,3 +815,4 @@ and a site administrator of site A hold no such role.
 | Q31 | a role on the site that is not the manager role gives no access to the quarantine |
 | Q32 | each operation of the API names the real user in the audit |
 | Q33 | no request reads more than one page of 100 submissions |
+| Q34 | a page of another site cannot make a manager's browser run an operation |

@@ -229,7 +229,7 @@ named `formidableQuarantine(siteKey)`:
 | Field | Answers |
 |---|---|
 | `counts` | The number of held submissions of the site in each state. |
-| `submissions(formId, states, offset, limit)` | A page of the held submissions of the site, or of one form, oldest first. `limit` is 25 by default and 100 at most: a larger value reads as 100. |
+| `submissions(formId, states, offset, limit)` | A page of the held submissions of the site, or of one form, oldest first. `limit` is 25 by default and 100 at most: a larger value reads as 100. `states` names each state once at most. |
 | `submission(id)` | One held submission, or `null` when the site has none with this identifier. |
 | `operate(id, operation)` | The mutation of a manager: `RETRY`, `RELEASE`, `RESUME` or `REJECT`. It answers the submission as the operation left it. |
 | `purge(olderThanDays)` | The mutation of the retention, for server administrators only. |
@@ -242,7 +242,15 @@ named `formidableQuarantine(siteKey)`:
   machine, then the decision for a release or a resume in `needsReview`.
 - `publicValues` is `null` unless the form sets `showValues`. The sensitive values never appear, only the names of
   their fields.
-- A failure of the store answers an error with a fixed message. The log line names the path, never a value.
+- A page and the counts come from queries of the repository on the held submissions below the quarantine root of
+  the site that name the site: the cost of a request follows the size of the page, not the history of the site. The
+  site, the form and the states enter each query as bound values. The counts take one query per state.
+- The records of the submissions of a request, their outcomes, decision, audit and values, are read in one session,
+  on the first field that needs them.
+- The query depth and complexity limits of the GraphQL provider of the platform bound the number of aliased
+  selections of a request. The API adds no limit of its own beyond the page of 100.
+- Any failure answers an error with a fixed message. The log line names the site, the path or the class of the
+  failure, never a value. An operation that ran, and whose submission cannot be read again, answers that it ran.
 - The API has no field for the file access yet (`fileAccess`, `canAccessFiles`): the download comes with the file
   access.
 
@@ -257,6 +265,10 @@ named `formidableQuarantine(siteKey)`:
   - A mismatch before a download refuses the download and writes an audit record. The submission stays in
     `needsReview`.
 - The module reads the tree with a system session, and only after the permission check on the site node.
+- The mutations of the API have no request check of their own. They rely on the controls of the platform on
+  `/modules/graphql`: a JSON POST, the API security filter, and the token and fetch-metadata policy of
+  `jahia-csrf-guard`. Spec 90 sends the mutation `operate` in the shapes that a cross-site page can forge, and checks
+  that nothing changes.
 - No value of a submission appears in a log line or in an error message.
 
 ### Permissions
@@ -267,10 +279,11 @@ named `formidableQuarantine(siteKey)`:
 | `formidableQuarantineFileAccess` | The download of a held file, when the file access allows it. |
 
 - The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`. The module creates the role when
-  it starts. The role has privileged access, so its holder reads the site node in the edit workspace.
-- Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the edit workspace, under the
-  session of the user, before it reads anything. A user without the permission gets `null`, which is also the answer
-  for a site that does not exist. A server administrator is a manager of every site.
+  it starts. The role gives no privileged access, so its holder reads no draft of the site.
+- Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the live workspace, under the
+  session of the user, before it reads anything. A grant of the role applies once the site is published, and a site
+  with no live node has no manager. A user without the permission gets `null`, which is also the answer for a site
+  that does not exist. A server administrator is a manager of every site that exists.
 - The operations check the permission again on the site of the held submission, and check that the submission lies
   under the quarantine root of that site.
 - The retention through the API is for server administrators only, because the retention is a setting of the

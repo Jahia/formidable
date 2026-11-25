@@ -6,6 +6,8 @@ import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
+import org.jahia.modules.formidable.quarantine.store.HeldDetails;
+import org.jahia.modules.formidable.quarantine.store.HeldQueries;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldStates;
 import org.jahia.modules.formidable.quarantine.store.ItemRecord;
@@ -19,6 +21,8 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -32,7 +36,7 @@ import java.util.Set;
  * values, the bytes, the outcomes and the decision of each held submission. A path listed in {@link #broken} refuses
  * every call, as a repository that cannot read the node.
  */
-public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
+public final class InMemoryQuarantine implements QuarantineStore, CheckStore, HeldQueries {
 
     public static final String SITE = "site";
     public static final String SECRET = "sensitive-value-of-the-test";
@@ -48,6 +52,8 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         public Instant nextAttempt;
         public int completedActions;
         public boolean valuesPresent = true;
+        /** The site the record names: the site of its path, unless a test makes them differ. */
+        public String siteKey = SITE;
         final List<String> itemNames = new ArrayList<>();
         final List<String> mimeTypes = new ArrayList<>();
         final List<String> sha256s = new ArrayList<>();
@@ -142,7 +148,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
             items.add(new ItemRecord(one.itemNames.get(i), "document", one.itemNames.get(i) + ".txt",
                     one.mimeTypes.get(i), 10, one.sha256s.get(i), one.bytes.get(i) != null));
         }
-        return Optional.of(new HeldRecord(one.path, one.formId, SITE, one.state, one.createdAt, one.attempts,
+        return Optional.of(new HeldRecord(one.path, one.formId, one.siteKey, one.state, one.createdAt, one.attempts,
                 one.nextAttempt, one.completedActions, List.of("fullName"), List.of("password"), one.valuesPresent,
                 items, one.changedAt != null ? one.changedAt : one.createdAt));
     }
@@ -216,8 +222,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         }
     }
 
-    @Override
-    public Map<String, List<String>> publicValues(String path) {
+    private Map<String, List<String>> publicValues(String path) {
         Held one = held.get(path);
         return one != null && one.valuesPresent ? Map.of("fullName", List.of("Ada")) : Map.of();
     }
@@ -269,6 +274,61 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
             throw new QuarantineStoreException("Could not write the audit record at " + path);
         }
         get(path).audit.add(audit);
+    }
+
+    @Override
+    public Map<String, HeldDetails> details(Collection<String> paths, Set<String> withValues)
+            throws QuarantineStoreException {
+        detailReads++;
+        Map<String, HeldDetails> details = new LinkedHashMap<>();
+        for (String path : paths) {
+            if (held.containsKey(path) || broken.contains(path)) {
+                Held one = get(path);
+                details.put(path, new HeldDetails(List.copyOf(one.outcomes.values()), one.decision,
+                        List.copyOf(one.audit), withValues.contains(path) ? publicValues(path) : Map.of()));
+            }
+        }
+        return details;
+    }
+
+    /** The number of calls of {@link #details}: one per page, not one per submission. */
+    public int detailReads;
+
+    /**
+     * The query of the held submissions, as the JCR one: below the root of the site and naming the site, of the form,
+     * in the states, oldest first.
+     */
+    @Override
+    public Page page(String siteKey, String formId, Set<String> states, int offset, int limit) {
+        List<HeldRecord> matching = matching(siteKey, formId, states);
+        return new Page(matching.size(), matching.stream().skip(offset).limit(limit).toList());
+    }
+
+    @Override
+    public long count(String siteKey, String state) {
+        return matching(siteKey, null, Set.of(state)).size();
+    }
+
+    private List<HeldRecord> matching(String siteKey, String formId, Set<String> states) {
+        List<HeldRecord> matching = new ArrayList<>();
+        for (Held one : held.values()) {
+            boolean inSite = one.path.startsWith("/sites/" + siteKey + "/formidable-quarantine/")
+                    && siteKey.equals(one.siteKey);
+            boolean ofForm = formId == null || formId.equals(one.formId);
+            if (inSite && ofForm && (states.isEmpty() || states.contains(one.state))) {
+                matching.add(recordOf(one));
+            }
+        }
+        matching.sort(Comparator.comparing(HeldRecord::createdAt));
+        return matching;
+    }
+
+    private HeldRecord recordOf(Held one) {
+        try {
+            return recordEvenIfBroken(one);
+        } catch (QuarantineStoreException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Override

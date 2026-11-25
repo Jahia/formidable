@@ -350,15 +350,36 @@ export const readHeldSubmissions = (formId: string, siteKey: string = FORMIDABLE
 		return quarantine.submissions.items.map(held => recordOf(held, siteKey));
 	});
 
+const VISIBILITY_QUERY = 'query($siteKey: String!) { formidableQuarantine(siteKey: $siteKey) { siteKey } }';
+
 /**
- * Whether the user of the session sees the quarantine of a site through the GraphQL API: false for a user who does
- * not manage the site, as for a site that does not exist, and for a guest that the platform refuses.
+ * Whether the logged-in user of the session sees the quarantine of a site through the GraphQL API: false for a user
+ * who does not manage the site, as for a site that does not exist. The answer must be the module's own: HTTP 200 with
+ * no error, so a refusal of the platform or an invalid query fails the helper instead of reading as "not visible".
  */
 export const quarantineIsVisible = (siteKey: string = FORMIDABLE_TEST_SITE.key): Cypress.Chainable<boolean> =>
-	quarantineGraphql<{formidableQuarantine: {siteKey: string} | null}>(
-		'query($siteKey: String!) { formidableQuarantine(siteKey: $siteKey) { siteKey } }',
-		{siteKey}
-	).then(response => Boolean(response.body?.data?.formidableQuarantine));
+	quarantineGraphql<{formidableQuarantine: {siteKey: string} | null}>(VISIBILITY_QUERY, {siteKey}).then(response => {
+		expect(response.status, 'HTTP status of the GraphQL request').to.eq(200);
+		expect(errorMessages(response.body), 'GraphQL errors of the visibility query').to.eq('');
+		return Boolean(response.body.data?.formidableQuarantine);
+	});
+
+/**
+ * The quarantine of a site is hidden from a guest. Two answers are accepted, each named: the platform refuses the
+ * guest before the module (HTTP 401 or 403, or a GraphQL error of permission), or the module answers null, HTTP 200
+ * and no error. Any other answer, data of the quarantine above all, fails.
+ */
+export const expectQuarantineHiddenFromGuest = (siteKey: string = FORMIDABLE_TEST_SITE.key): Cypress.Chainable =>
+	quarantineGraphql<{formidableQuarantine: {siteKey: string} | null}>(VISIBILITY_QUERY, {siteKey}).then(response => {
+		const errors = errorMessages(typeof response.body === 'object' ? response.body : undefined);
+		const refusedByThePlatform = [401, 403].includes(response.status)
+			|| (response.status === 200 && /denied|permission|unauthori[sz]ed|forbidden/i.test(errors));
+		const hiddenByTheModule = response.status === 200 && errors === ''
+			&& response.body.data?.formidableQuarantine === null;
+		cy.log(refusedByThePlatform ? 'the platform refused the guest' : 'the module answered null to the guest');
+		expect(refusedByThePlatform || hiddenByTheModule,
+			`answer to a guest: ${response.status} ${JSON.stringify(response.body)}`).to.eq(true);
+	});
 
 /** The settings of the run of formidable-quarantine, as "run now" of the quarantine test module answers them. */
 export interface QuarantineRunSettings {

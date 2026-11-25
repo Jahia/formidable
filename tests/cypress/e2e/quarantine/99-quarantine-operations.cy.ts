@@ -265,6 +265,8 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 				grantRoles(created.formPath, ['fmdb-results-reader'], READER, 'USER');
 				grantRoles(SITE_PATH, [QUARANTINE_MANAGER_ROLE], MANAGER, 'USER');
 				publishAndWaitJobEnding(created.formPath);
+				// the API checks the permission on the live site node: the grant applies once the site is published
+				publishAndWaitJobEnding(SITE_PATH);
 
 				// three inconclusive files: the run sends each submission to review
 				[1, 2, 3].forEach(claim => submitAsGuest(formId, `${STUB_FILE.inconclusive}\nClaim ${claim}.`));

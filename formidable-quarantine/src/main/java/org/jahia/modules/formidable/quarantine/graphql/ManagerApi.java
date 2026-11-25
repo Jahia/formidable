@@ -4,22 +4,29 @@ import org.jahia.modules.formidable.quarantine.ops.Managers;
 import org.jahia.modules.formidable.quarantine.ops.QuarantineOperations;
 import org.jahia.modules.formidable.quarantine.ops.QuarantineRetention;
 import org.jahia.modules.formidable.quarantine.store.CheckStore;
+import org.jahia.modules.formidable.quarantine.store.HeldQueries;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
+import org.jahia.modules.graphql.provider.dxm.DataFetchingException;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * The entry of the GraphQL API into the module, an OSGi service: the resolvers of graphql-core are not DS components,
  * so they look this service up. It opens the quarantine of a site only for a manager of the site: the permission
- * {@value Managers#PERMISSION} on the site node, checked in a session of the user of the request.
+ * {@value Managers#PERMISSION} on the live site node, checked in a session of the user of the request.
  */
 @Component(service = ManagerApi.class, immediate = true)
 public class ManagerApi {
+
+    private static final Logger log = LoggerFactory.getLogger(ManagerApi.class);
 
     private final Managers managers;
     private final FormReader forms;
     private QuarantineStore store;
     private CheckStore checkStore;
+    private HeldQueries queries;
     private QuarantineOperations operations;
     private QuarantineRetention retention;
 
@@ -43,6 +50,11 @@ public class ManagerApi {
     }
 
     @Reference
+    public void setQueries(HeldQueries queries) {
+        this.queries = queries;
+    }
+
+    @Reference
     public void setOperations(QuarantineOperations operations) {
         this.operations = operations;
     }
@@ -59,9 +71,18 @@ public class ManagerApi {
      * the same
      */
     SiteQuarantine open(String siteKey) {
-        if (!HeldIds.isSiteKey(siteKey) || !managers.mayManage(siteKey)) {
+        boolean manager;
+        try {
+            manager = HeldIds.isSiteKey(siteKey) && managers.mayManage(siteKey);
+        } catch (RuntimeException e) {
+            // the class alone, as every failure of the API
+            log.warn("Could not check the manager of site {}: {}", siteKey, e.getClass().getName());
+            throw new DataFetchingException(SiteQuarantine.READ_FAILED);
+        }
+        if (!manager) {
             return null;
         }
-        return new SiteQuarantine(siteKey, store, checkStore, operations::apply, retention::purge, managers, forms);
+        return new SiteQuarantine(siteKey, new SiteQuarantine.Services(store, checkStore, queries,
+                operations::apply, retention::purge, managers, forms));
     }
 }

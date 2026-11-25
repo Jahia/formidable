@@ -1,8 +1,11 @@
 package org.jahia.modules.formidable.quarantine.store;
 
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * The records of the run of the checks under a held submission, an OSGi service beside {@link QuarantineStore}: the
@@ -54,4 +57,14 @@ public interface CheckStore {
      * @throws QuarantineStoreException when the item does not exist, or holds no bytes any more
      */
     InputStream openItem(String path, String itemName) throws QuarantineStoreException;
+
+    /**
+     * The outcomes, the decision and the audit of several held submissions, in one session: a page of the GraphQL API
+     * reads them once, not once per field and per submission. A path that names no held submission is left out.
+     *
+     * @param paths      the held submissions
+     * @param withValues the paths among them whose public values to read too; never a sensitive value
+     * @return the details by path
+     */
+    Map<String, HeldDetails> details(Collection<String> paths, Set<String> withValues) throws QuarantineStoreException;
 }

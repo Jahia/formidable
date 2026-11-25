@@ -20,8 +20,8 @@ import {
 	QUARANTINE_POST_HEADERS,
 	STUB_FILE,
 	clearStubCalls,
+	expectQuarantineHiddenFromGuest,
 	fields,
-	quarantineIsVisible,
 	readHeldSubmissions,
 	readQuarantineRunSettings,
 	readStubCalls,
@@ -299,7 +299,7 @@ describe('Quarantine - 98 The run of the checks releases, rejects or withholds a
 						.its('status').should('be.oneOf', [401, 403, 404]);
 				});
 				// the GraphQL API of the module answers the managers of the site alone
-				quarantineIsVisible().should('eq', false);
+				expectQuarantineHiddenFromGuest();
 				// the endpoints of the test module answer server administrators alone; the header of a POST is there, so
 				// the 403 is the refusal of the guest
 				[

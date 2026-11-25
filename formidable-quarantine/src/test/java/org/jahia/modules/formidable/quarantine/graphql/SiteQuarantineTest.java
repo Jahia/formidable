@@ -11,16 +11,25 @@ import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
 import org.jahia.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
+import org.jahia.modules.formidable.quarantine.store.HeldQueries;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
+import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.jahia.modules.graphql.provider.dxm.DataFetchingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.invocation.Invocation;
+import org.slf4j.Logger;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Proxy;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,11 +37,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockingDetails;
 
 /**
- * The GraphQL API of the quarantine over the two stores in memory: the permission on the site before any read, the
- * scope of the site, the page and its limit, the values a form shows, the allowed operations, the operations and the
- * purge, and the errors that never quote a value.
+ * The GraphQL API of the quarantine over the stores in memory: the permission on the site before any read, the scope
+ * of the site, the page and its limit, the values a form shows, the allowed operations, the operations and the purge,
+ * the records read once per request, and the errors and log lines that never quote a value.
  */
 class SiteQuarantineTest {
 
@@ -43,7 +54,7 @@ class SiteQuarantineTest {
     private static final Instant NOW = Instant.parse("2026-11-19T12:00:00Z");
 
     /** A double of {@link Managers}: who the user is, and the sites the user manages. */
-    private static final class FakeManagers implements Managers {
+    private static class FakeManagers implements Managers {
         boolean administrator;
         final List<String> managedSites = new ArrayList<>(List.of(SITE));
 
@@ -69,19 +80,37 @@ class SiteQuarantineTest {
     private final List<String> operated = new ArrayList<>();
     private Exception refusal;
     private final List<String> formsRead = new ArrayList<>();
+    /** Each call of the store and of the queries: the method and its arguments. */
+    private final List<String> calls = Collections.synchronizedList(new ArrayList<>());
+    private Logger log;
 
     @BeforeEach
     void setUp() {
         stores = new InMemoryQuarantine();
         managers = new FakeManagers();
         facts = new FormFacts("Claims", false, Map.of("remoteCheck", "fmdbquar:remoteStubCheck"));
+        log = mock(Logger.class);
+    }
+
+    /** A double that records each call, then hands it to the stores in memory. */
+    @SuppressWarnings("unchecked")
+    private <T> T recording(Class<T> type) {
+        return (T) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[]{type}, (proxy, method, args) -> {
+            calls.add(method.getName() + " " + Arrays.toString(args));
+            try {
+                return method.invoke(stores, args);
+            } catch (InvocationTargetException e) {
+                throw e.getCause();
+            }
+        });
     }
 
     private SiteQuarantine site() {
-        return new SiteQuarantine(SITE, stores, stores, this::operate, this::purge, managers, (siteKey, formId) -> {
+        return new SiteQuarantine(SITE, new SiteQuarantine.Services(recording(QuarantineStore.class), stores,
+                recording(HeldQueries.class), this::operate, this::purge, managers, (siteKey, formId) -> {
             formsRead.add(formId);
             return facts;
-        });
+        }), log);
     }
 
     private OperationResult operate(String path, Operation operation)
@@ -123,11 +152,31 @@ class SiteQuarantineTest {
         return HeldIds.idOf(SITE, held.path);
     }
 
+    /** Every argument of every call of the log, varargs flattened: what a log line would print. */
+    private List<Object> loggedArguments() {
+        List<Object> logged = new ArrayList<>();
+        for (Invocation invocation : mockingDetails(log).getInvocations()) {
+            for (Object argument : invocation.getArguments()) {
+                if (argument instanceof Object[] many) {
+                    logged.addAll(Arrays.asList(many));
+                } else {
+                    logged.add(argument);
+                }
+            }
+        }
+        return logged;
+    }
+
+    private List<String> callsOf(String method) {
+        return calls.stream().filter(call -> call.startsWith(method + " ")).toList();
+    }
+
     @Test
     void theApiOpensTheQuarantineOfASiteToItsManagersAlone() {
         ManagerApi api = new ManagerApi(managers, (siteKey, formId) -> facts);
         api.setStore(stores);
         api.setCheckStore(stores);
+        api.setQueries(stores);
         api.setOperations(new QuarantineOperations());
         api.setRetention(new QuarantineRetention());
 
@@ -140,6 +189,21 @@ class SiteQuarantineTest {
         assertNull(api.open(null), "no key");
         managers.managedSites.clear();
         assertNull(api.open(SITE), "a user who manages no site");
+    }
+
+    @Test
+    void aFailureOfThePermissionCheckAnswersTheFixedMessage() {
+        Managers failing = new FakeManagers() {
+            @Override
+            public boolean mayManage(String siteKey) {
+                throw new IllegalStateException("the property secretName is missing");
+            }
+        };
+        ManagerApi api = new ManagerApi(failing, (siteKey, formId) -> facts);
+
+        DataFetchingException error = assertThrows(DataFetchingException.class, () -> api.open(SITE));
+
+        assertEquals(SiteQuarantine.READ_FAILED, error.getMessage());
     }
 
     @Test
@@ -159,6 +223,7 @@ class SiteQuarantineTest {
             };
             assertEquals(expected, count.getCount(), count.getState().name());
         }
+        assertEquals(GqlState.values().length, callsOf("count").size(), "one query per state");
     }
 
     @Test
@@ -167,7 +232,7 @@ class SiteQuarantineTest {
         inState(FORM, HeldState.COMPLETED);
         Held third = inState(OTHER_FORM, HeldState.NEEDS_REVIEW);
 
-        GqlSubmissionPage page = site().page(null, List.of(GqlState.NEEDS_REVIEW), 0, 25);
+        GqlSubmissionPage page = site().page(null, List.of(GqlState.NEEDS_REVIEW, GqlState.NEEDS_REVIEW), 0, 25);
 
         assertEquals(2, page.getTotalCount());
         assertEquals(List.of(idOf(first), idOf(third)), page.getItems().stream().map(GqlHeldSubmission::getId).toList());
@@ -188,29 +253,62 @@ class SiteQuarantineTest {
         assertEquals(SiteQuarantine.MAX_LIMIT, page.getLimit());
         assertEquals(SiteQuarantine.MAX_LIMIT, page.getItems().size());
         assertEquals(0, page.getOffset());
+        assertTrue(callsOf("page").get(0).endsWith(", 0, 100]"), callsOf("page").toString());
         assertEquals(5, site().page(FORM, List.of(), 100, 100).getItems().size(), "the last page");
         assertEquals(SiteQuarantine.DEFAULT_LIMIT, site().page(FORM, null, null, null).getItems().size());
     }
 
     @Test
-    void aFormIdentifierThatIsNotOneMatchesNothing() {
+    void aListOfStatesLongerThanTheStatesIsRefused() {
+        List<GqlState> states = new ArrayList<>(List.of(GqlState.values()));
+        states.add(GqlState.HELD);
+
+        DataFetchingException error = assertThrows(DataFetchingException.class,
+                () -> site().page(null, states, 0, 25));
+
+        assertEquals(SiteQuarantine.TOO_MANY_STATES, error.getMessage());
+        assertTrue(calls.isEmpty(), "no query");
+    }
+
+    /** f2: the guard of the form, not the double, keeps the query from running. */
+    @Test
+    void aFormIdentifierThatIsNotOneQueriesNothing() {
         inState(FORM, HeldState.NEEDS_REVIEW);
 
         GqlSubmissionPage page = site().page("../" + FORM, null, 0, 25);
 
         assertEquals(0, page.getTotalCount());
         assertTrue(page.getItems().isEmpty());
+        assertTrue(calls.isEmpty(), calls.toString());
     }
 
+    /** f3: the guard of the identifier, not the double, keeps the store from reading another path. */
     @Test
     void aSubmissionIsReadBelowTheRootOfTheSiteOnly() {
         Held held = inState(FORM, HeldState.NEEDS_REVIEW);
 
         assertEquals(idOf(held), site().submission(idOf(held)).getId());
+        assertEquals(1, callsOf("heldRecord").size());
         assertNull(site().submission(FORM + "/2026/11/19/held-00000000-0000-4000-8000-999999999999"), "unknown");
+        calls.clear();
         assertNull(site().submission("../../otherSite/formidable-quarantine/" + idOf(held)), "relative segment");
         assertNull(site().submission(held.path), "an absolute path");
+        assertNull(site().submission(idOf(held) + "/item0"), "a node below the submission");
         assertNull(site().submission(null), "no identifier");
+        assertTrue(calls.isEmpty(), calls.toString());
+    }
+
+    /** f24: a record that names another site than its path is neither listed nor opened. */
+    @Test
+    void aRecordThatNamesAnotherSiteIsNeitherListedNorOpened() {
+        Held held = inState(FORM, HeldState.NEEDS_REVIEW);
+        held.siteKey = "otherSite";
+        Held none = inState(FORM, HeldState.NEEDS_REVIEW);
+        none.siteKey = null;
+
+        assertNull(site().submission(idOf(held)), "opened");
+        assertNull(site().submission(idOf(none)), "opened with no site");
+        assertEquals(0, site().page(FORM, null, 0, 25).getTotalCount(), "listed");
     }
 
     @Test
@@ -233,7 +331,7 @@ class SiteQuarantineTest {
     }
 
     @Test
-    void thePublicValuesAreHiddenUnlessTheFormShowsThemAndTheSensitiveValuesNeverAppear() {
+    void thePublicValuesAreHiddenUnlessTheFormShowsThem() {
         Held held = inState(FORM, HeldState.NEEDS_REVIEW);
 
         assertNull(site().submission(idOf(held)).getPublicValues(), "a form that does not show its values");
@@ -243,22 +341,30 @@ class SiteQuarantineTest {
         assertEquals(List.of("fullName"), values.stream().map(GqlValue::getName).toList());
         assertEquals(List.of("Ada"), values.get(0).getValues());
         assertEquals(List.of("password"), site().submission(idOf(held)).getSensitiveFields(), "the name alone");
-        assertFalse(values.toString().contains(InMemoryQuarantine.SECRET));
 
         held.valuesPresent = false;
         assertEquals(List.of(), site().submission(idOf(held)).getPublicValues(), "values deleted");
     }
 
+    /** f21: the records of every submission of a page are read in one call, and the form once. */
     @Test
-    void theFormIsReadOncePerRequest() {
-        Held held = inState(FORM, HeldState.NEEDS_REVIEW);
+    void theRecordsOfAPageAreReadOnceAndTheFormOnce() {
+        for (int i = 0; i < 5; i++) {
+            inState(FORM, HeldState.NEEDS_REVIEW);
+        }
+        facts = new FormFacts("Claims", true, Map.of());
         SiteQuarantine site = site();
-        GqlHeldSubmission submission = site.submission(idOf(held));
 
-        assertEquals("Claims", submission.getFormTitle());
-        submission.getFiles();
-        submission.getPublicValues();
+        for (GqlHeldSubmission submission : site.page(FORM, null, 0, 25).getItems()) {
+            submission.getFiles();
+            submission.getAudit();
+            submission.getDecision();
+            submission.getPublicValues();
+            submission.getAllowedOperations();
+            assertEquals("Claims", submission.getFormTitle());
+        }
 
+        assertEquals(1, stores.detailReads, "reads of the records");
         assertEquals(List.of(FORM), formsRead);
     }
 
@@ -277,8 +383,10 @@ class SiteQuarantineTest {
     @Test
     void anOperationRunsOnThePathBelowTheRootOfTheSiteAndAnswersTheSubmissionAfterIt() {
         Held held = inState(FORM, HeldState.NEEDS_REVIEW);
+        SiteQuarantine site = site();
+        assertEquals(List.of(), site.submission(idOf(held)).getAudit(), "audit read before");
 
-        GqlHeldSubmission after = site().operate(idOf(held), GqlOperation.REJECT);
+        GqlHeldSubmission after = site.operate(idOf(held), GqlOperation.REJECT);
 
         assertEquals(List.of("reject " + held.path), operated);
         assertEquals(GqlState.REJECTED, after.getState());
@@ -310,6 +418,7 @@ class SiteQuarantineTest {
         assertTrue(conflict.getMessage().contains("is not allowed in state"), conflict.getMessage());
     }
 
+    /** f1: neither the error nor the log line quotes the message of the failure, which may hold a value. */
     @Test
     void aFailedOperationNeverQuotesTheMessageOfTheFailure() {
         Held held = inState(FORM, HeldState.NEEDS_REVIEW);
@@ -319,6 +428,53 @@ class SiteQuarantineTest {
                 () -> site().operate(idOf(held), GqlOperation.RELEASE));
 
         assertEquals(SiteQuarantine.OPERATION_FAILED, error.getMessage());
+        List<Object> logged = loggedArguments();
+        assertTrue(logged.contains(IllegalStateException.class.getName()), "the class of the failure in the log line");
+        assertFalse(logged.toString().contains("Ada"), "the message of the failure in the log line");
+    }
+
+    /** f16: an operation that ran, and whose submission cannot be read again, says it ran. */
+    @Test
+    void anOperationThatRanAndCannotBeReadAgainSaysItRan() {
+        Held held = inState(FORM, HeldState.NEEDS_REVIEW);
+        refusal = null;
+        SiteQuarantine site = new SiteQuarantine(SITE, new SiteQuarantine.Services(stores, stores, stores,
+                (path, operation) -> {
+                    OperationResult result = operate(path, operation);
+                    stores.broken.add(path);
+                    return result;
+                }, this::purge, managers, (siteKey, formId) -> facts), log);
+
+        DataFetchingException error = assertThrows(DataFetchingException.class,
+                () -> site.operate(idOf(held), GqlOperation.REJECT));
+
+        assertEquals(SiteQuarantine.RAN_NOT_READ, error.getMessage());
+        assertEquals("rejected", held.state, "the operation ran");
+    }
+
+    /** f23: a failure that is not one of the store answers the fixed message, and logs its class alone. */
+    @Test
+    void anUnexpectedFailureOfAReadAnswersTheFixedMessage() {
+        inState(FORM, HeldState.NEEDS_REVIEW);
+        SiteQuarantine site = new SiteQuarantine(SITE, new SiteQuarantine.Services(stores, stores,
+                new HeldQueries() {
+                    @Override
+                    public Page page(String siteKey, String formId, Set<String> states, int offset, int limit) {
+                        throw new NullPointerException("the property fullName of Ada");
+                    }
+
+                    @Override
+                    public long count(String siteKey, String state) {
+                        throw new NullPointerException("the property fullName of Ada");
+                    }
+                }, this::operate, this::purge, managers, (siteKey, formId) -> facts), log);
+
+        assertEquals(SiteQuarantine.READ_FAILED,
+                assertThrows(DataFetchingException.class, () -> site.page(null, null, 0, 25)).getMessage());
+        assertEquals(SiteQuarantine.READ_FAILED, assertThrows(DataFetchingException.class, site::counts).getMessage());
+        List<Object> logged = loggedArguments();
+        assertTrue(logged.contains(NullPointerException.class.getName()), "the class of the failure in the log line");
+        assertFalse(logged.toString().contains("Ada"), "the message of the failure in the log line");
     }
 
     @Test

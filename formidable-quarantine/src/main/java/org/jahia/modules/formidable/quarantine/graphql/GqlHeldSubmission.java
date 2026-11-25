@@ -17,9 +17,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * One held submission, for a manager of its site. The record comes with it; the outcomes, the decision, the audit,
- * the form and the values are read when a query selects them, with the system session of the store, inside the site
- * that the resolver checked.
+ * One held submission, for a manager of its site. The record comes with it; the outcomes, the decision, the audit and
+ * the values are read when a query first selects one of them, for every submission of the request at once, with the
+ * system session of the store, inside the site that the resolver checked. Each field that computes answers a failure
+ * with the fixed message of {@link SiteQuarantine}.
  */
 @GraphQLName("FmdbqHeldSubmission")
 @GraphQLDescription("A held submission of the quarantine: its state, its files and their checks, and its audit")
@@ -37,7 +38,7 @@ public class GqlHeldSubmission {
     @GraphQLNonNull
     @GraphQLDescription("The identifier of the held submission in its site: <formId>/YYYY/MM/DD/held-<uuid>")
     public String getId() {
-        return HeldIds.idOf(site.siteKey(), held.path());
+        return site.guarded("name", () -> HeldIds.idOf(site.siteKey(), held.path()));
     }
 
     @GraphQLField
@@ -69,7 +70,7 @@ public class GqlHeldSubmission {
     @GraphQLField
     @GraphQLNonNull
     public GqlState getState() {
-        return GqlState.of(held.state());
+        return site.guarded("read the state", () -> GqlState.of(held.state()));
     }
 
     @GraphQLField
@@ -93,14 +94,14 @@ public class GqlHeldSubmission {
     @GraphQLField
     @GraphQLDescription("The reason of the decision that stopped the run; null when there is none")
     public String getReason() {
-        DecisionRecord decision = site.decision(held.path());
+        DecisionRecord decision = site.details(held.path()).decision();
         return decision == null ? null : decision.reason();
     }
 
     @GraphQLField
     @GraphQLDescription("The decision that stopped the run; null when there is none")
     public GqlDecision getDecision() {
-        DecisionRecord decision = site.decision(held.path());
+        DecisionRecord decision = site.details(held.path()).decision();
         return decision == null ? null : new GqlDecision(decision);
     }
 
@@ -128,19 +129,21 @@ public class GqlHeldSubmission {
     @GraphQLNonNull
     @GraphQLDescription("The files, in the order of the submission, with the outcome of each check")
     public List<@GraphQLNonNull GqlFile> getFiles() {
-        List<OutcomeRecord> outcomes = site.outcomes(held.path());
+        List<OutcomeRecord> outcomes = site.details(held.path()).outcomes();
         Map<String, String> types = site.form(held.formId()).checkTypes();
-        List<GqlFile> files = new ArrayList<>();
-        for (ItemRecord item : held.items()) {
-            List<GqlCheckOutcome> checks = new ArrayList<>();
-            for (OutcomeRecord outcome : outcomes) {
-                if (outcome.itemName().equals(item.name())) {
-                    checks.add(new GqlCheckOutcome(outcome, types.get(outcome.checkName())));
+        return site.guarded("read the files", () -> {
+            List<GqlFile> files = new ArrayList<>();
+            for (ItemRecord item : held.items()) {
+                List<GqlCheckOutcome> checks = new ArrayList<>();
+                for (OutcomeRecord outcome : outcomes) {
+                    if (outcome.itemName().equals(item.name())) {
+                        checks.add(new GqlCheckOutcome(outcome, types.get(outcome.checkName())));
+                    }
                 }
+                files.add(new GqlFile(item, checks));
             }
-            files.add(new GqlFile(item, checks));
-        }
-        return files;
+            return files;
+        });
     }
 
     @GraphQLField
@@ -150,7 +153,7 @@ public class GqlHeldSubmission {
         List<GqlValue> values = null;
         if (site.form(held.formId()).showValues()) {
             values = new ArrayList<>();
-            for (Map.Entry<String, List<String>> field : site.publicValues(held.path()).entrySet()) {
+            for (Map.Entry<String, List<String>> field : site.details(held.path()).publicValues().entrySet()) {
                 values.add(new GqlValue(field.getKey(), field.getValue()));
             }
         }
@@ -161,17 +164,17 @@ public class GqlHeldSubmission {
     @GraphQLNonNull
     @GraphQLDescription("The audit records, oldest first")
     public List<@GraphQLNonNull GqlAuditRecord> getAudit() {
-        return site.audit(held.path()).stream().map(GqlAuditRecord::new).toList();
+        return site.details(held.path()).audit().stream().map(GqlAuditRecord::new).toList();
     }
 
     @GraphQLField
     @GraphQLNonNull
     @GraphQLDescription("The operations that the state and the decision allow")
     public List<@GraphQLNonNull GqlOperation> getAllowedOperations() {
-        HeldState state = HeldState.fromValue(held.state());
-        DecisionRecord decision = state == HeldState.NEEDS_REVIEW ? site.decision(held.path()) : null;
-        return QuarantineOperations.allowedOperations(state, decision == null ? null : decision.reason()).stream()
-                .map(GqlOperation::of).toList();
+        DecisionRecord decision = site.details(held.path()).decision();
+        return site.guarded("read the operations", () -> QuarantineOperations.allowedOperations(
+                HeldState.fromValue(held.state()), decision == null ? null : decision.reason()).stream()
+                .map(GqlOperation::of).toList());
     }
 
     private static String instant(Instant at) {

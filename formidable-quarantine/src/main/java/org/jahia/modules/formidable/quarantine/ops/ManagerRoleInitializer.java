@@ -19,12 +19,14 @@ import java.util.Map;
  * Creates the site role {@value Managers#ROLE} at activation, as the engine creates {@code fmdb-results-reader}: a
  * role of the group {@code site-role}, granted on a site node ({@code jnt:virtualsite}), that grants the permission
  * {@value Managers#PERMISSION}, which the module declares in its {@code permissions.xml}. An administrator grants the
- * role to a user or a group on the site: the GraphQL API and the operations check the permission on the site node.
- * The role has privileged access, so its holder joins the privileged group of the site and reads the site node in the
- * edit workspace, where the check reads it.
+ * role to a user or a group on the site, and publishes the site: the GraphQL API and the operations check the
+ * permission on the live site node. The role gives no privileged access: its holder does not join the privileged
+ * group of the site, so it reads no draft of the site.
  *
- * <p>A role that exists keeps its other permissions, gets the permission of the module when it lacks it, and becomes
- * a site role when it was not one: the role of an earlier version was granted on a form.</p>
+ * <p>A role that exists keeps its other permissions, and gets the permission of the module when it lacks it. A role
+ * that is not a site role, the role of an earlier version granted on a form, becomes one, and loses its privileged
+ * access then, once. A site role is otherwise left as it is: the module never sets privileged access, and never
+ * undoes what an administrator set.</p>
  */
 @Component(immediate = true)
 public class ManagerRoleInitializer {
@@ -62,13 +64,16 @@ public class ManagerRoleInitializer {
             JCRNodeWrapper role = session.getNode(ROLE_PATH);
             List<String> names = strings(role, PERMISSION_NAMES);
             boolean lacksPermission = !names.contains(Managers.PERMISSION);
-            if (lacksPermission || !isSiteRole(role)) {
+            boolean siteRole = isSiteRole(role);
+            if (lacksPermission || !siteRole) {
                 session.checkout(role);
                 if (lacksPermission) {
                     names.add(Managers.PERMISSION);
                     role.setProperty(PERMISSION_NAMES, names.toArray(String[]::new));
                 }
-                makeSiteRole(role);
+                if (!siteRole) {
+                    makeSiteRole(role);
+                }
                 session.save();
                 log.info("Made {} a site role with the permission {}", Managers.ROLE, Managers.PERMISSION);
             }
@@ -90,14 +95,14 @@ public class ManagerRoleInitializer {
 
     private static boolean isSiteRole(JCRNodeWrapper role) throws RepositoryException {
         return role.hasProperty(ROLE_GROUP) && SITE_ROLE.equals(role.getProperty(ROLE_GROUP).getString())
-                && List.of(SITE_TYPE).equals(strings(role, NODE_TYPES))
-                && role.hasProperty(PRIVILEGED_ACCESS) && role.getProperty(PRIVILEGED_ACCESS).getBoolean();
+                && List.of(SITE_TYPE).equals(strings(role, NODE_TYPES));
     }
 
+    /** A site role with no privileged access: written when the role is created, or converted once. */
     private static void makeSiteRole(JCRNodeWrapper role) throws RepositoryException {
         role.setProperty(ROLE_GROUP, SITE_ROLE);
         role.setProperty(NODE_TYPES, new String[]{SITE_TYPE});
-        role.setProperty(PRIVILEGED_ACCESS, true);
+        role.setProperty(PRIVILEGED_ACCESS, false);
     }
 
     private static List<String> strings(JCRNodeWrapper role, String property) throws RepositoryException {

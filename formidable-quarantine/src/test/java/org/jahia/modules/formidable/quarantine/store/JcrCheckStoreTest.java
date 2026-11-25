@@ -14,6 +14,8 @@ import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -95,6 +97,38 @@ class JcrCheckStoreTest {
         verify(after).setProperty(JcrCheckStore.REASON, DecisionRecord.INTEGRITY_FAILED);
         verify(after).setProperty(JcrCheckStore.ITEM_NAME, "item0");
         verify(session).save();
+    }
+
+    @Test
+    void theRecordsOfSeveralSubmissionsAreReadInOneSessionAndTheValuesOnlyWhenAsked() throws Exception {
+        JCRNodeIteratorWrapper none = mock(JCRNodeIteratorWrapper.class);
+        when(none.iterator()).thenReturn(List.<JCRNodeWrapper>of().iterator());
+        when(checks.getNodes()).thenReturn(none);
+        JCRNodeWrapper decision = mock(JCRNodeWrapper.class);
+        JCRPropertyWrapper reason = mock(JCRPropertyWrapper.class);
+        when(reason.getString()).thenReturn(DecisionRecord.ACTION_FAILED);
+        when(decision.hasProperty(JcrCheckStore.REASON)).thenReturn(true);
+        when(decision.getProperty(JcrCheckStore.REASON)).thenReturn(reason);
+        when(checks.hasNode(CheckStore.DECISION_NODE)).thenReturn(true);
+        when(checks.getNode(CheckStore.DECISION_NODE)).thenReturn(decision);
+        String missing = HELD_PATH.replace("held-1", "held-2");
+        int[] sessions = {0};
+        JcrCheckStore counting = new JcrCheckStore() {
+            @Override
+            <T> T inLiveSystemSession(JCRCallback<T> callback) throws RepositoryException {
+                sessions[0]++;
+                return callback.doInJCR(session);
+            }
+        };
+
+        Map<String, HeldDetails> details = counting.details(List.of(HELD_PATH, missing), Set.of());
+
+        assertEquals(1, sessions[0], "sessions");
+        assertEquals(Set.of(HELD_PATH), details.keySet(), "a missing path is left out");
+        assertEquals(DecisionRecord.ACTION_FAILED, details.get(HELD_PATH).decision().reason());
+        assertEquals(Map.of(), details.get(HELD_PATH).publicValues(), "values not asked for");
+        verify(held, never()).getNode(QuarantineTree.VALUES);
+        verify(held, never()).getNode(QuarantineTree.SENSITIVE);
     }
 
     @Test

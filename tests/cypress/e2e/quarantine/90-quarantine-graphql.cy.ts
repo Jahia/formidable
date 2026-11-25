@@ -1,5 +1,5 @@
 import {createSite, createUser, deleteSite, deleteUser, enableModule, grantRoles, publishAndWaitJobEnding} from '@jahia/cypress';
-import {FORMIDABLE_MODULE_IDS} from '../../support/constants';
+import {FORMIDABLE_MODULE_IDS, GRAPHQL_PATH} from '../../support/constants';
 import {
 	FORMIDABLE_TEST_SITE,
 	QUARANTINE_MANAGER_ROLE,
@@ -82,8 +82,8 @@ const readSubmission = (siteKey: string, id: string): Cypress.Chainable<Cypress.
 
 /**
  * The GraphQL API of formidable-quarantine and the permission of a manager per site (tests/scenarios/quarantine.md,
- * Q29 to Q33). The query and the mutation formidableQuarantine(siteKey) check the permission formidableQuarantineManage
- * on the site node first: a user who does not hold it gets null, the answer of a site that does not exist. Every read
+ * Q29 to Q34). The query and the mutation formidableQuarantine(siteKey) check the permission formidableQuarantineManage
+ * on the live site node first: a user who does not hold it gets null, the answer of a site that does not exist. Every read
  * and every operation stays below the quarantine root of that site, so an identifier of site B names nothing in the
  * quarantine of site A. Each operation writes the audit record with the name of the user of the request.
  *
@@ -113,6 +113,8 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 		grantRoles(SITE_PATH_A, [QUARANTINE_MANAGER_ROLE], MANAGER, 'USER');
 		grantRoles(SITE_PATH_A, ['editor'], EDITOR, 'USER');
 		grantRoles(SITE_PATH_A, ['site-administrator'], SITE_ADMIN, 'USER');
+		// the API checks the permission on the live site node: the grants apply once the site is published
+		publishAndWaitJobEnding(SITE_PATH_A);
 
 		// site A: two inconclusive files, which the run sends to review
 		createPublishedLiveFormPage('quarantine-graphql-form', 'Quarantine GraphQL form', fields(), undefined, undefined, {
@@ -221,6 +223,8 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 			expect(held?.formTitle, 'title of the form').to.eq('Quarantine GraphQL form');
 			expect(held?.allowedOperations, 'operations of a submission in review').to.deep.equal(['RETRY', 'RELEASE', 'REJECT']);
 			expect(held?.publicValues, 'values of a form that does not show them').to.eq(null);
+			// the query selects the values: a leak would put the value of the submission in the raw answer
+			expect(JSON.stringify(response.body), 'raw answer of the API').to.not.contain('Ada');
 		});
 		operateHeldSubmission(pathsA[0], 'reject').then(response => {
 			expect(response.body.state, 'state after the reject').to.eq('rejected');
@@ -238,7 +242,32 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 				['reject', MANAGER, 'needsReview', 'rejected']
 			]);
 			expect(held[0].valuesPresent, 'values of the rejected submission').to.eq(false);
-			expect(JSON.stringify(held), 'answer of the API').to.not.contain('Ada');
+		});
+	});
+
+	it('Q34: the mutation operate in a shape that a cross-site page can forge changes nothing', () => {
+		const id = heldIdOf(pathsA[1]);
+		const mutation = `mutation { formidableQuarantine(siteKey: "${SITE_A}") { operate(id: "${id}", operation: REJECT) { id } } }`;
+		asUser(MANAGER);
+		// a simple request that a cross-site form sends with no preflight: text/plain, then form-urlencoded, no Origin
+		cy.request({
+			method: 'POST', url: GRAPHQL_PATH, failOnStatusCode: false,
+			headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({query: mutation})
+		});
+		cy.request({
+			method: 'POST', url: GRAPHQL_PATH, failOnStatusCode: false, form: true, body: {query: mutation}
+		});
+		// a JSON request that a browser marks as cross-site
+		cy.request({
+			method: 'POST', url: GRAPHQL_PATH, failOnStatusCode: false,
+			headers: {'Content-Type': 'application/json', 'Sec-Fetch-Site': 'cross-site', Origin: 'https://attacker.example'},
+			body: {query: mutation}
+		});
+		asRoot();
+		readHeldSubmissions(formIdA).then(held => {
+			const target = held.find(one => one.path === pathsA[1]);
+			expect(target?.state, 'state of the target').to.eq('needsReview');
+			expect(target?.audit.map(record => record.operation), 'audit of the target').to.deep.equal(['run']);
 		});
 	});
 

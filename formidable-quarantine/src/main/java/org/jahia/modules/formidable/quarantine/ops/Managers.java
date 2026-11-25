@@ -21,7 +21,8 @@ public interface Managers {
 
     /**
      * @param siteKey the key of the site
-     * @return true when the user is a server administrator, or holds {@link #PERMISSION} on the site node
+     * @return true when the site has a live node, and the user is a server administrator or holds
+     * {@link #PERMISSION} on that node; false for a key that names no site
      */
     boolean mayManage(String siteKey);
 

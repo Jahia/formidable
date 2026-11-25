@@ -505,6 +505,30 @@ class QuarantineOperationsTest {
         assertTrue(held.audit.isEmpty(), "audit");
     }
 
+    /** f24: the path lies under the root of another site than the one its record names, which the user manages. */
+    @Test
+    void aRecordThatNamesAnotherSiteThanItsPathIsNotFound() {
+        managers.managedSites.add("otherSite");
+        Held held = inReview("INCONCLUSIVE");
+        held.siteKey = "otherSite";
+
+        assertEquals(OperationRefusedException.Reason.NOT_FOUND,
+                refusal(() -> operations.apply(held.path, Operation.REJECT)));
+        assertEquals("needsReview", held.state, "state");
+        assertTrue(held.audit.isEmpty(), "audit");
+    }
+
+    @Test
+    void aRecordThatNamesNoSiteIsNotFoundEvenToAServerAdministrator() {
+        managers.administrator = true;
+        Held held = inReview("INCONCLUSIVE");
+        held.siteKey = null;
+
+        assertEquals(OperationRefusedException.Reason.NOT_FOUND,
+                refusal(() -> operations.apply(held.path, Operation.REJECT)));
+        assertEquals("needsReview", held.state, "state");
+    }
+
     @Test
     void theAllowedOperationsFollowTheStateMachineAndTheDecision() {
         assertEquals(List.of(Operation.RETRY, Operation.RELEASE, Operation.REJECT),

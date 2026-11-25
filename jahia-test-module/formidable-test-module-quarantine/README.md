@@ -102,9 +102,9 @@ A release that stops half way, on a failure of the store, an error of an action 
 
 ## The permission of a manager
 
-A manager of the quarantine of a site holds the permission `formidableQuarantineManage` on the site node. `formidable-quarantine` declares the permission in `formidable-quarantine/src/main/import/permissions.xml`, and creates the site role `formidable-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`); a role of an earlier version, granted on a form, becomes a site role then. An administrator grants the role to a user or a group on the site, with `grantRoles` in a spec. The GraphQL API and the operations check the permission on the site node of the edit workspace, in a session of the user of the request, so the roles of the site decide.
+A manager of the quarantine of a site holds the permission `formidableQuarantineManage` on the site node. `formidable-quarantine` declares the permission in `formidable-quarantine/src/main/import/permissions.xml`, and creates the site role `formidable-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`); a role of an earlier version, granted on a form, becomes a site role then. The role gives no privileged access. An administrator grants the role to a user or a group on the site, with `grantRoles` in a spec, then publishes the site. The GraphQL API and the operations check the permission on the site node of the live workspace, in a session of the user of the request, so the roles of the published site decide.
 
-A server administrator (`root`, or a member of the server group `administrators`) is a manager of every site. No other role gives the permission: a results reader, an editor or a site administrator of the site is not a manager.
+A server administrator (`root`, or a member of the server group `administrators`) is a manager of every site that exists. No other role gives the permission: a results reader, an editor or a site administrator of the site is not a manager.
 
 ## The operations
 

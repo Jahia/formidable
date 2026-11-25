@@ -23,7 +23,8 @@ import java.util.List;
  * The retention of the quarantine tree of a site, an OSGi service: it purges each {@code rejected} held submission
  * whose last change ({@link HeldRecord#changedAt()}) is older than the limit, with its items, its values, its outcomes,
  * its decision and its audit. Any other state is kept: a completed submission holds no value and no byte any more. It
- * has no scheduler: a spec starts it through its endpoint.
+ * has no scheduler: a server administrator, or a spec, starts it through the mutation
+ * {@code formidableQuarantine(siteKey) { purge }} of the GraphQL API.
  */
 @Component(service = QuarantineRetention.class, configurationPid = QuarantineRetention.PID, immediate = true)
 @Designate(ocd = RetentionConfig.class)

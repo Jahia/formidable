@@ -4,7 +4,6 @@ import org.jahia.modules.formidable.engine.api.HeldSubmission;
 
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -16,8 +15,7 @@ import java.util.Optional;
  * return. Every method that takes a path refuses a node that is not a held submission.</p>
  *
  * <p>No method returns a sensitive value but {@link #read}, which the release alone calls: it hands the submission
- * back to {@code DeferredActions}. {@link #publicValues} returns the public values alone. No method writes a log line
- * that holds a value.</p>
+ * back to {@code DeferredActions}. No method writes a log line that holds a value.</p>
  */
 public interface QuarantineStore {
 
@@ -81,12 +79,4 @@ public interface QuarantineStore {
      * audit. The retention calls it. The datastore of the repository frees the bytes only at its garbage collection.
      */
     void purge(String path) throws QuarantineStoreException;
-
-    /**
-     * The public values of a held submission, by field, in the order of the fields: never a sensitive value, never a
-     * byte. The GraphQL API reads them for a form that shows them to its managers.
-     *
-     * @return empty when no held submission is at this path, or once its values were deleted
-     */
-    Map<String, List<String>> publicValues(String path) throws QuarantineStoreException;
 }
