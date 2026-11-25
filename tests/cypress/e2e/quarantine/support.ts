@@ -265,6 +265,15 @@ export const setQuarantineRunSettings = (settings: Partial<QuarantineRunSettings
 	{timeout: 30000, interval: 500, errorMsg: 'The run of formidable-quarantine did not read its new settings'});
 };
 
+/**
+ * The period of the scheduled run of formidable-quarantine, in seconds; 0 turns it off. The test lab turns it off
+ * (tests/provisioning-manifest-*.yml), so that "run now" alone moves a held submission in a spec. A spec that turns it
+ * on turns it off again in its after(). The configuration admin applies the edit after the call returns, and the run
+ * answers no period: a spec waits for the effect of the scheduled run, not for the setting.
+ */
+export const setQuarantineRunPeriod = (periodSeconds: number): Cypress.Chainable =>
+	editConfiguration('org.jahia.modules.formidable.quarantine.run', {periodSeconds: String(periodSeconds)});
+
 /** One call a stub check received: the check node, the SHA-256 of the file, and whether it was a submit or a poll. */
 export interface StubCall {
 	nodeType: string;

@@ -161,6 +161,7 @@ the scenario proves:
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
 | Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(held.formId())` replaced by `false` |
+| Q29 | schedules no run: `RunSchedule.configure` with its body replaced by `job.unschedule();`. Q29 fails on the bound of its wait, the submission still `held` |
 
 ---
 
@@ -684,6 +685,31 @@ without the quarantine module and without the quarantine test module.
   the values are still there.
 - The sample hold and the observer action report no call.
 
+## The scheduled run
+
+Spec `91-quarantine-scheduled-run.cy.ts`. The test lab turns the scheduled run off
+(`periodSeconds=0` in `tests/provisioning-manifest-*.yml`), so the other specs
+move a held submission with "run now" alone.
+
+### Q29 — The scheduled run releases a held submission — control
+
+**Steps:**
+1. Enable the quarantine test module on the site.
+2. Set `periodSeconds=2` in the configuration of the run.
+3. Create and publish a form with the switch on, the remote stub check in
+   "Checks", and Save to JCR in "Actions after release".
+4. Submit the form as a guest, with a `VERDICT:PASS` file.
+5. Wait, for 60 seconds at most, without "run now".
+6. Set `periodSeconds=0` again.
+
+**Expected:**
+- The state becomes `completed` within the wait, and one action after release ran
+- The outcome `PASS` of the check is recorded, and the audit holds one record
+  of the run, with no user
+
+**Control:** `RunSchedule.configure` schedules nothing. Q29 fails on the bound
+of the wait, the submission still `held`.
+
 ---
 
 ## Coverage map
@@ -712,3 +738,4 @@ without the quarantine module and without the quarantine test module.
 | Q26 | no action that cannot run after release enters that list |
 | Q27 | a site without the quarantine module never stores a held submission |
 | Q28 | a form with no check is held and goes to review, never released unchecked |
+| Q29 | a held submission is checked on schedule, with no request of a user |
