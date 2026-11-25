@@ -3,7 +3,6 @@ package org.jahia.modules.formidable.quarantine.run;
 import org.jahia.modules.formidable.engine.api.DeferredActionException;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
-import org.jahia.test.modules.formidable.quarantine.QuarantineTypes;
 import org.jahia.modules.formidable.quarantine.chain.RecordedOutcome;
 import org.jahia.modules.formidable.quarantine.api.CheckSettings;
 import org.jahia.modules.formidable.quarantine.api.OnInconclusive;
@@ -23,10 +22,6 @@ import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldStates;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
-import org.jahia.test.modules.formidable.quarantine.stub.InProcessStubQualifier;
-import org.jahia.test.modules.formidable.quarantine.stub.OutageSwitch;
-import org.jahia.test.modules.formidable.quarantine.stub.RemoteStubQualifier;
-import org.jahia.test.modules.formidable.quarantine.stub.StubCallLog;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -53,9 +48,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * The run of the checks over held submissions, with the two stores in memory, the stub checks of the module, and a
- * recording double of the engine's {@link DeferredActions}: each decision of the chain leads to its state, the release
- * re-hashes the bytes, checkpoints each action, keeps the index of a failure, and leaves no value and no byte behind.
+ * The run of the checks over held submissions, with the two stores in memory, the marker checks of
+ * {@link MarkerQualifier}, and a recording double of the engine's {@link DeferredActions}: each decision of the
+ * chain leads to its state, the release re-hashes the bytes, checkpoints each action, keeps the index of a failure,
+ * and leaves no value and no byte behind.
  */
 class QuarantineRunTest {
 
@@ -64,8 +60,8 @@ class QuarantineRunTest {
     private static final Instant NOW = Instant.parse("2026-11-19T12:00:00Z");
 
     private InMemoryQuarantine stores;
-    private StubCallLog calls;
-    private OutageSwitch outage;
+    private MarkerQualifier.Calls calls;
+    private MarkerQualifier.Outage outage;
     private final Map<String, List<CheckSettings>> lists = new HashMap<>();
     private final List<String> broken = new ArrayList<>();
     /** The forms deleted since their submissions were held. */
@@ -79,8 +75,8 @@ class QuarantineRunTest {
     @BeforeEach
     void setUp() {
         stores = new InMemoryQuarantine();
-        calls = new StubCallLog();
-        outage = new OutageSwitch();
+        calls = new MarkerQualifier.Calls();
+        outage = new MarkerQualifier.Outage();
         actions = twoActions();
         lists.put(FORM, List.of(remote("remoteCheck")));
         run = newRun(RunSettings.DEFAULT);
@@ -99,8 +95,8 @@ class QuarantineRunTest {
         created.setStore(stores);
         created.setCheckStore(stores);
         created.setActions((submission, from, completed) -> actions.run(submission, from, completed));
-        created.addQualifier(new RemoteStubQualifier(calls, outage));
-        created.addQualifier(new InProcessStubQualifier(calls, outage));
+        created.addQualifier(MarkerQualifier.remote(calls, outage));
+        created.addQualifier(MarkerQualifier.inProcess(calls, outage));
         created.configure(config(settings));
         return created;
     }
@@ -146,11 +142,11 @@ class QuarantineRunTest {
     }
 
     private static CheckSettings remote(String name) {
-        return CheckSettings.withDefaults(QuarantineTypes.REMOTE_STUB_CHECK, name);
+        return CheckSettings.withDefaults(MarkerQualifier.REMOTE_TYPE, name);
     }
 
     private static CheckSettings inProcess(String name) {
-        return CheckSettings.withDefaults(QuarantineTypes.IN_PROCESS_STUB_CHECK, name);
+        return CheckSettings.withDefaults(MarkerQualifier.IN_PROCESS_TYPE, name);
     }
 
     private RunReport runNow() throws Exception {
@@ -249,7 +245,7 @@ class QuarantineRunTest {
 
     @Test
     void anInconclusiveAnswerRejectsWhenTheCheckSaysSo() throws Exception {
-        lists.put(FORM, List.of(new CheckSettings(QuarantineTypes.REMOTE_STUB_CHECK, "remoteCheck",
+        lists.put(FORM, List.of(new CheckSettings(MarkerQualifier.REMOTE_TYPE, "remoteCheck",
                 OnInconclusive.REJECT, OnUnavailable.RETRY)));
         Held held = stores.hold(FORM, "INCONCLUSIVE");
 
@@ -326,8 +322,8 @@ class QuarantineRunTest {
         assertEquals(HeldStates.CHECKING, held.state);
         runIgnoringSchedule();
         assertEquals(HeldStates.COMPLETED, held.state);
-        assertEquals(List.of(StubCallLog.Kind.SUBMIT, StubCallLog.Kind.POLL, StubCallLog.Kind.POLL),
-                calls.calls().stream().map(StubCallLog.StubCall::kind).toList());
+        assertEquals(List.of(MarkerQualifier.Kind.SUBMIT, MarkerQualifier.Kind.POLL, MarkerQualifier.Kind.POLL),
+                calls.calls().stream().map(MarkerQualifier.Call::kind).toList());
     }
 
     @Test
@@ -486,7 +482,7 @@ class QuarantineRunTest {
         runIgnoringSchedule();
 
         assertEquals(List.of("firstCheck", "secondCheck"),
-                calls.calls().stream().map(StubCallLog.StubCall::checkName).toList());
+                calls.calls().stream().map(MarkerQualifier.Call::checkName).toList());
         assertEquals(1, released.size());
         assertEquals(HeldStates.COMPLETED, held.state);
     }

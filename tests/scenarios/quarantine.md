@@ -294,9 +294,9 @@ covers the checks and the release.
 The observer action is deferrable, as an e-mail action is. Its call count proves
 that no action after release ran, with no mailbox.
 
-The spec also submits a file to a form with the switch on and no check of the
-module. The sample hold reports one call with one file, and the quarantine tree
-holds nothing for that form.
+The spec also submits a file to a form with the switch on and a sample check in
+its list "Checks". The sample hold claims that form and reports one call with one
+file, and the quarantine tree holds nothing for that form.
 
 ### Q10 — No reader role reads the quarantine tree — control
 
@@ -307,7 +307,7 @@ as `root`, are outside this scenario: the Jahia core grants them every
 permission, whatever the ACL says.
 
 The store creates the root and cuts its inheritance. It uses a node that
-already exists at that path only when the node is a `fmdbquar:quarantineRoot`
+already exists at that path only when the node is a `fmdbq:quarantineRoot`
 that cuts its inheritance and holds no access control entry. It uses a form
 folder or a date folder that already exists only when the folder is of the type
 of the store and has no ACL of its own. Any other node refuses the hold, and

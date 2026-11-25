@@ -18,7 +18,10 @@ final class JsonAnswers {
     static final String FORBIDDEN = "server administrators only";
     /** The header a POST must carry: a cross-site form or a simple request cannot send it with no preflight. */
     static final String REQUESTED_WITH = "X-Requested-With";
-    /** The media type a POST must declare: a browser sends no other type cross-site without a preflight. */
+    /**
+     * The media type a POST must declare: a browser sends this type cross-site only after a preflight, which the module
+     * never answers.
+     */
     static final String JSON_MEDIA_TYPE = "application/json";
 
     private JsonAnswers() {

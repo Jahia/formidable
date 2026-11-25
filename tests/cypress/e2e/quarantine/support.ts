@@ -140,7 +140,7 @@ export const resetUploadObservations = (): Cypress.Chainable =>
 export const readUploadObservations = (): Cypress.Chainable<UploadObservations> =>
 	cy.request<UploadObservations>(UPLOAD_OBSERVATIONS_PATH).its('body');
 
-/** One item of a held submission, as the inspection of the quarantine test module answers it: never its bytes. */
+/** One item of a held submission, as the inspection of formidable-quarantine answers it: never its bytes. */
 export interface HeldItem {
 	name: string;
 	fieldName: string;
@@ -212,7 +212,7 @@ export const readHeldSubmissions = (formId: string): Cypress.Chainable<HeldSubmi
 		qs: {site: FORMIDABLE_TEST_SITE.key, form: formId}
 	}).its('body.submissions');
 
-/** The settings of the run of the quarantine test module, as "run now" answers them. */
+/** The settings of the run of formidable-quarantine, as "run now" of the quarantine test module answers them. */
 export interface QuarantineRunSettings {
 	allowInProcessFirst: boolean;
 	maxAttempts: number;
@@ -262,7 +262,7 @@ export const setQuarantineRunSettings = (settings: Partial<QuarantineRunSettings
 	editConfiguration('org.jahia.modules.formidable.quarantine.run', properties);
 	return cy.waitUntil(() => readQuarantineRunSettings().then(current =>
 		Object.entries(settings).every(([key, value]) => current[key as keyof QuarantineRunSettings] === value)),
-	{timeout: 30000, interval: 500, errorMsg: 'The run of the quarantine test module did not read its new settings'});
+	{timeout: 30000, interval: 500, errorMsg: 'The run of formidable-quarantine did not read its new settings'});
 };
 
 /** One call a stub check received: the check node, the SHA-256 of the file, and whether it was a submit or a poll. */

@@ -181,7 +181,7 @@ describe('Quarantine - 97 The hold of formidable-quarantine stores a submission 
 		liveNodeExists(resultsOf(formName)).should('eq', false);
 	});
 
-	it('Q01: a form with no check of the module goes to the sample hold, and nothing is held', () => {
+	it('Q01: a form with a sample check is claimed by the sample hold, and nothing is held', () => {
 		createPublishedLiveFormPage('quarantine-delegated-form', 'Quarantine delegated form', fields(), undefined, undefined, {
 			deferredActions: [getUploadObserverActionNode('afterRelease')]
 		}).then(({formId}) => {

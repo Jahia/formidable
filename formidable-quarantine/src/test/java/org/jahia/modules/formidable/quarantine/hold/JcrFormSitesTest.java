@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import javax.jcr.RepositoryException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -23,10 +24,19 @@ import static org.mockito.Mockito.when;
  */
 class JcrFormSitesTest {
 
-    /** formidable-test-module-quarantine depends on the module, as its Jahia-Depends says. */
-    private static final JcrFormSites SITES = new JcrFormSites(moduleId -> Map.of(
-            "formidable-test-module-quarantine", List.of("formidable-engine", JcrFormSites.MODULE_ID))
-            .getOrDefault(moduleId, List.of()));
+    /**
+     * The registry of the platform: formidable-test-module-quarantine depends on the module, as its Jahia-Depends says.
+     * A module it does not list is not deployed.
+     */
+    private static final Map<String, List<String>> DEPLOYED = Map.of(
+            "templates-web", List.of(),
+            "formidable-engine", List.of(),
+            JcrFormSites.MODULE_ID, List.of("formidable-engine"),
+            "formidable-test-module-samples-java", List.of("formidable-engine"),
+            "formidable-test-module-quarantine", List.of("formidable-engine", JcrFormSites.MODULE_ID));
+
+    /** The registry answers empty for a module it does not know, as {@code lookupById} answers null. */
+    private static final JcrFormSites SITES = new JcrFormSites(moduleId -> Optional.ofNullable(DEPLOYED.get(moduleId)));
 
     private static JCRSiteNode site() {
         JCRSiteNode site = mock(JCRSiteNode.class);
@@ -85,6 +95,15 @@ class JcrFormSitesTest {
         JCRSiteNode site = site();
         when(site.getProperty(JcrFormSites.INSTALLED_MODULES)).thenThrow(new RepositoryException("unreadable"));
         JCRNodeWrapper form = formOf(site);
+
+        assertThrows(RepositoryException.class, () -> SITES.hasTheModule(form));
+    }
+
+    @Test
+    void aSiteThatListsAModuleThePlatformDoesNotKnowRefusesTheForm() throws RepositoryException {
+        // the unknown module could depend on formidable-quarantine: reading it as "no dependency" would hand the form
+        // on
+        JCRNodeWrapper form = formOfASiteWith("templates-web", "acme-undeployed-check");
 
         assertThrows(RepositoryException.class, () -> SITES.hasTheModule(form));
     }

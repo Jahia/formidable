@@ -16,7 +16,6 @@ The stub checks of the tests of `formidable-quarantine`, and the endpoints the s
 
 - The two stub checks, `fmdbquar:remoteStubCheck` and `fmdbquar:inProcessStubCheck`, as `Qualifier` services, and the control of their outage.
 - "Run now" (`/modules/formidable-quarantine/run`), which starts a run through the `QuarantineRunner` service, and the control of the stubs (`/modules/formidable-quarantine/stub`).
-- `QuarantineRunTest`: the run of `formidable-quarantine` against the stub checks, with the test fixtures of that module (its test jar).
 
 ## Which forms the hold owns
 
@@ -211,7 +210,7 @@ The module declares its stub checks in its own namespace, `fmdbquar` (`http://ww
 
 ## Java packages
 
-The base package is `org.jahia.test.modules.formidable.quarantine`. The main code compiles against the exported `api` packages of the engine and of `formidable-quarantine` only. The test `QuarantineRunTest` is in the private package `org.jahia.modules.formidable.quarantine.run`, and compiles against private classes of `formidable-quarantine` and the fixtures of its test jar: it runs the run of the module against the stub checks, which only this module has.
+The base package is `org.jahia.test.modules.formidable.quarantine`. The module compiles against the exported `api` packages of the engine and of `formidable-quarantine` only.
 
 | Package | Content |
 |---|---|

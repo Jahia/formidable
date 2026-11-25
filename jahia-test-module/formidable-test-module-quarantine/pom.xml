@@ -32,21 +32,12 @@
             <scope>provided</scope>
         </dependency>
         <!-- The hold: the stub checks implement its check API, and "run now" starts a run through its runner. The
-             main code compiles against that exported package only; QuarantineRunTest also reaches private classes. -->
+             module compiles against that exported package only. -->
         <dependency>
             <groupId>org.jahia.modules</groupId>
             <artifactId>formidable-quarantine</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
-        </dependency>
-        <!-- The fixtures of the tests of formidable-quarantine (InMemoryQuarantine), for QuarantineRunTest: the run of
-             the checks against the stub checks of this module. -->
-        <dependency>
-            <groupId>org.jahia.modules</groupId>
-            <artifactId>formidable-quarantine</artifactId>
-            <version>${project.version}</version>
-            <type>test-jar</type>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>javax.jcr</groupId>
