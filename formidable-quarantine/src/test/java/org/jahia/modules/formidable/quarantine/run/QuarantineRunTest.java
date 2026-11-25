@@ -3,6 +3,9 @@ package org.jahia.modules.formidable.quarantine.run;
 import org.jahia.modules.formidable.engine.api.DeferredActionException;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
+import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.quarantine.check.AllowListQualifier;
 import org.jahia.modules.formidable.quarantine.chain.RecordedOutcome;
 import org.jahia.modules.formidable.quarantine.api.CheckSettings;
 import org.jahia.modules.formidable.quarantine.api.OnInconclusive;
@@ -21,6 +24,7 @@ import org.jahia.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldStates;
+import org.jahia.modules.formidable.quarantine.store.ItemRecord;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
 import org.jahia.modules.formidable.quarantine.store.Sha256;
 import org.junit.jupiter.api.BeforeEach;
@@ -28,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.RepositoryException;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
@@ -41,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -403,7 +409,7 @@ class QuarantineRunTest {
     }
 
     @Test
-    void aListOfMetadataChecksOpensTheBytesOnlyForTheHashOfTheRelease() throws Exception {
+    void aListOfMetadataChecksOpensNoSessionOfTheBytes() throws Exception {
         MetadataProbe probe = new MetadataProbe();
         run.addQualifier(probe);
         lists.put(FORM, List.of(CheckSettings.withDefaults(MetadataProbe.NODE_TYPE, "metadataCheck")));
@@ -412,26 +418,28 @@ class QuarantineRunTest {
         runNow();
 
         assertEquals(HeldStates.COMPLETED, held.state);
-        assertEquals(1, stores.itemSessions, "a session opened for a metadata check");
+        assertEquals(0, stores.itemSessions, "a session opened for a metadata check");
     }
 
     @Test
-    void aLargeFileStreamsToTheCheckAndToTheHashOfTheRelease() throws Exception {
+    void aLargeFileStreamsToTheCheck() throws Exception {
         StreamingQualifier streaming = new StreamingQualifier();
         run.addQualifier(streaming);
         lists.put(FORM, List.of(CheckSettings.withDefaults(StreamingQualifier.NODE_TYPE, "streamingCheck")));
-        // its stream refuses readAllBytes: a copy of the whole item in memory fails the test
+        // its stream refuses readAllBytes, through the scope of the store too: a check or a store that reads the
+        // stream whole fails the test. The release reads the item into memory for the engine, which this does not
+        // cover: the hash of the release is computed over the bytes it releases.
         Held held = stores.holdLarge(FORM, new InMemoryQuarantine.LargeBytes(8L * 1024 * 1024, (byte) 'x'));
 
         runNow();
 
         assertEquals(HeldStates.COMPLETED, held.state);
         assertEquals(List.of(held.sha256s.get(0)), streaming.hashes);
-        assertEquals(2, stores.itemSessions, "one session for the check, one for the hash of the release");
+        assertEquals(1, stores.itemSessions, "one session for the check, none for the release");
     }
 
     @Test
-    void aStreamOrAFileKeptByACheckCannotBeReadOnceTheCallReturned() throws Exception {
+    void aStreamOrAFileKeptByACheckCannotBeReadOnceTheBatchOfCallsEnded() throws Exception {
         StreamingQualifier streaming = new StreamingQualifier();
         streaming.keepStream = true;
         run.addQualifier(streaming);
@@ -446,6 +454,72 @@ class QuarantineRunTest {
         assertThrows(IOException.class, kept::read);
         QuarantinedFile file = streaming.file;
         assertThrows(IOException.class, file::open);
+    }
+
+    @Test
+    void aMetadataCheckIsHandedNoStreamEvenWhileTheBytesAreOpen() throws Exception {
+        ItemAccess access = new ItemAccess();
+        access.begin(itemName -> new ByteArrayInputStream("VERDICT:PASS".getBytes(StandardCharsets.UTF_8)));
+        ItemFile file = new ItemFile("/sites/site/held-0",
+                new ItemRecord("item0", "document", "item0.txt", "text/plain", 12, "aaa", true), access);
+
+        try (InputStream in = SubmissionRun.fileFor(MarkerQualifier.remote(calls, outage), file).open()) {
+            assertEquals('V', in.read());
+        }
+        QuarantinedFile metadataOnly = SubmissionRun.fileFor(new MetadataProbe(), file);
+        assertEquals("item0.txt", metadataOnly.fileName());
+        assertThrows(IOException.class, metadataOnly::open);
+    }
+
+    @Test
+    void anAllowListWithNoListSendsTheSubmissionToReviewAndKeepsItsData() throws Exception {
+        run.addQualifier(new AllowListQualifier());
+        lists.put(FORM, List.of(CheckSettings.withDefaults(AllowListQualifier.NODE_TYPE, "allowList")));
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals("UNAVAILABLE", held.decision.reason());
+        assertEquals("allowList", held.decision.checkName());
+        assertTrue(held.valuesPresent);
+        assertTrue(held.anyBytes());
+        assertTrue(released.isEmpty());
+    }
+
+    @Test
+    void aFileThatTheReadOfTheReleaseMissesRefusesTheRelease() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS", "VERDICT:PASS\nA second file");
+        // the record still says the bytes are there, and the read for the engine finds no binary
+        stores.lostOnRead.add(held.path + "/item1");
+
+        runNow();
+
+        assertTrue(released.isEmpty(), "the actions after release ran without the second file");
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals(DecisionRecord.INTEGRITY_FAILED, held.decision.reason());
+        assertEquals(Release.ITEM_COUNT, held.decision.itemName());
+        assertTrue(held.valuesPresent);
+    }
+
+    @Test
+    void theReleaseComparesTheCountAndTheHashOfTheBytesItReleases() {
+        byte[] bytes = "VERDICT:PASS".getBytes(StandardCharsets.UTF_8);
+        ItemRecord item = new ItemRecord("item0", "document", "a.txt", "text/plain", bytes.length,
+                Sha256.hex(bytes), true);
+        HeldRecord record = new HeldRecord("/p", FORM, InMemoryQuarantine.SITE, HeldStates.CHECKING, NOW, 0, null, 0,
+                List.of(), List.of(), true, List.of(item), NOW);
+
+        assertNull(Release.firstChanged(record, submissionOf(new SubmittedFile("document", "a.txt", "text/plain",
+                bytes))));
+        assertEquals(Release.ITEM_COUNT, Release.firstChanged(record, submissionOf()).name());
+        assertEquals("item0", Release.firstChanged(record, submissionOf(new SubmittedFile("document", "a.txt",
+                "text/plain", "VERDICT:PASS but changed".getBytes(StandardCharsets.UTF_8)))).name());
+    }
+
+    private static HeldSubmission submissionOf(SubmittedFile... files) {
+        return new HeldSubmission(FORM, InMemoryQuarantine.SITE, Locale.ENGLISH, Map.of(), Map.of(), List.of(files),
+                new SubmissionOrigin(null, null, null));
     }
 
     @Test

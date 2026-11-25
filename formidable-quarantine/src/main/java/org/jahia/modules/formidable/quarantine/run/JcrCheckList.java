@@ -15,7 +15,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.StringJoiner;
 
 /**
  * Reads the "Checks" list of a form in live, with a system session. Every check of the list counts, whatever its
@@ -75,12 +74,12 @@ public final class JcrCheckList implements CheckList {
 
     /**
      * The properties of the type of the check that the node holds, as {@link CheckSettings#properties()} states: those
-     * its primary type declares or inherits, but for the properties of the platform and the two common settings. A
-     * multiple property is joined with {@link CheckSettings#VALUE_SEPARATOR}.
+     * its primary type declares or inherits, but for the properties of the platform and the two common settings. Each
+     * maps to its values as strings.
      */
-    static Map<String, String> propertiesOf(JCRNodeWrapper check, PropertyDefinition[] definitions)
+    static Map<String, List<String>> propertiesOf(JCRNodeWrapper check, PropertyDefinition[] definitions)
             throws RepositoryException {
-        Map<String, String> properties = new LinkedHashMap<>();
+        Map<String, List<String>> properties = new LinkedHashMap<>();
         for (PropertyDefinition definition : definitions) {
             String name = definition.getName();
             if (isOwnProperty(name) && !properties.containsKey(name) && check.hasProperty(name)) {
@@ -96,15 +95,15 @@ public final class JcrCheckList implements CheckList {
                 && PLATFORM_PREFIXES.stream().noneMatch(name::startsWith);
     }
 
-    private static String valueOf(JCRPropertyWrapper property) throws RepositoryException {
+    private static List<String> valueOf(JCRPropertyWrapper property) throws RepositoryException {
         if (!property.isMultiple()) {
-            return property.getString();
+            return List.of(property.getString());
         }
-        StringJoiner joined = new StringJoiner(CheckSettings.VALUE_SEPARATOR);
+        List<String> values = new ArrayList<>();
         for (Value value : property.getValues()) {
-            joined.add(value.getString());
+            values.add(value.getString());
         }
-        return joined.toString();
+        return values;
     }
 
     private static String string(JCRNodeWrapper node, String property) throws RepositoryException {

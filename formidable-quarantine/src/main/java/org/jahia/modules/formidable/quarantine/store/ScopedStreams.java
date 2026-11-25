@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -83,6 +84,26 @@ public final class ScopedStreams implements CheckStore.ItemStreams, AutoCloseabl
         public int read(byte[] b, int off, int len) throws IOException {
             ensureOpen();
             return super.read(b, off, len);
+        }
+
+        // the reads of a whole stream go to the stream of the store, as each read does, and not through a buffer of
+        // InputStream: a test store that refuses them then sees them
+        @Override
+        public byte[] readAllBytes() throws IOException {
+            ensureOpen();
+            return in.readAllBytes();
+        }
+
+        @Override
+        public byte[] readNBytes(int len) throws IOException {
+            ensureOpen();
+            return in.readNBytes(len);
+        }
+
+        @Override
+        public long transferTo(OutputStream out) throws IOException {
+            ensureOpen();
+            return in.transferTo(out);
         }
 
         @Override

@@ -118,25 +118,28 @@ class JcrCheckListTest {
     void theOwnPropertiesOfTheTypeAreHandedAsStrings() throws RepositoryException {
         Map<String, List<String>> held = new LinkedHashMap<>();
         held.put("extensions", List.of("pdf", "png"));
+        held.put("pattern", List.of("a,b", "c"));
         held.put("mimeTypes", List.of("application/pdf"));
         held.put("onInconclusive", List.of("reject"));
         held.put("jcr:title", List.of("Allowed types"));
         held.put("j:originWS", List.of("default"));
         held.put("mix:something", List.of("x"));
         PropertyDefinition[] definitions = declaring("jcr:title", "j:originWS", "mix:something", "*",
-                "onInconclusive", "onUnavailable", "extensions", "mimeTypes", "threshold");
+                "onInconclusive", "onUnavailable", "extensions", "mimeTypes", "pattern", "threshold");
 
-        Map<String, String> expected = new LinkedHashMap<>();
-        expected.put("extensions", "pdf,png");
-        expected.put("mimeTypes", "application/pdf");
+        Map<String, List<String>> expected = new LinkedHashMap<>();
+        expected.put("extensions", List.of("pdf", "png"));
+        expected.put("mimeTypes", List.of("application/pdf"));
+        // a value that holds a comma stays one value
+        expected.put("pattern", List.of("a,b", "c"));
         assertEquals(expected, JcrCheckList.propertiesOf(checkHolding(held), definitions));
     }
 
     @Test
-    void aMultiplePropertyWithNoValueIsAnEmptyString() throws RepositoryException {
+    void aMultiplePropertyWithNoValueIsAnEmptyList() throws RepositoryException {
         JCRNodeWrapper check = checkHolding(Map.of("extensions", List.of()));
 
-        assertEquals(Map.of("extensions", ""), JcrCheckList.propertiesOf(check, declaring("extensions")));
+        assertEquals(Map.of("extensions", List.of()), JcrCheckList.propertiesOf(check, declaring("extensions")));
     }
 
     @Test
@@ -147,7 +150,7 @@ class JcrCheckListTest {
         List<CheckSettings> settings = JcrCheckList.settingsOf(form, node -> declaring("extensions"));
 
         assertEquals(1, settings.size());
-        assertEquals(Map.of("extensions", "pdf"), settings.get(0).properties());
+        assertEquals(Map.of("extensions", List.of("pdf")), settings.get(0).properties());
     }
 
     @Test

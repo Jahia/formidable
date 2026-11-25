@@ -63,7 +63,7 @@ flowchart LR
 | Manager operations | Retry, release, resume and reject, each allowed by the state machine and written to the audit. |
 | GraphQL API and download | The API of the manager screen. A resolver checks the permission of the user on the site before every read and every operation. |
 | Manager screen | A jContent route of the site: the list, the detail of a submission, the operations and the download. |
-| Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `FAIL` for a type outside its list, and `PASS` for a type on it. |
+| Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `PASS` when both the extension and the MIME type of the file are on its two lists, and `FAIL` otherwise. |
 
 ## The check API
 
@@ -74,9 +74,9 @@ A check module provides both, and nothing else:
 - The service registers under the check API and names the node type it serves.
 - A check receives the metadata of the file, a stream of its bytes and its settings. It never receives a node of
   the repository.
-- The stream reads the binary of the repository as the check reads it, with no copy of the file in memory. It reads
-  only while the run hands the file to the check. A stream or a file that the check keeps cannot be read once the
-  call returns.
+- The stream reads the binary of the repository as the check reads it, with no copy of the file in memory. The run
+  opens one session for a batch of calls, with at most one call for each file. The stream reads until the last call
+  of the batch returns. A stream or a file that the check keeps cannot be read once the batch ended.
 - A check gives one of three answers:
   - a verdict, `PASS`, `FAIL` or `INCONCLUSIVE`;
   - a ticket that the run polls later;
@@ -90,12 +90,12 @@ A check module provides both, and nothing else:
   check can stand at any place in the list.
 
 The settings of a check come from its node. The run reads the node and gives the check its common settings
-(`onInconclusive`, `onUnavailable`) and its own properties as a map of strings:
+(`onInconclusive`, `onUnavailable`) and its own properties as a map:
 
 - The map holds the properties that the type of the check declares or inherits, and that the node holds.
 - It leaves out the properties of the platform, whose names start with `jcr:`, `j:` or `mix:`, and the two common
   settings.
-- The values of a multiple property are joined with a comma.
+- Each property maps to the list of its values as strings. A single property has a list of one value.
 
 ### The allow-list check
 
@@ -105,8 +105,10 @@ The module ships one check, the node type `fmdbq:allowListCheck` and its service
 - It has two lists, `extensions` and `mimeTypes`. It answers `PASS` when the extension of the name of the file and
   the MIME type of the file are both on the lists. Case does not matter, and neither do the parameters of the MIME
   type.
-- It answers `FAIL` otherwise, with the reason `allowList.extensionRefused` or `allowList.mimeTypeRefused`. An empty
-  list allows no file, so the submission is rejected.
+- It answers `FAIL` otherwise, with the reason `allowList.extensionRefused` or `allowList.mimeTypeRefused`. The
+  submission is rejected.
+- Both lists are mandatory. A check whose list holds no entry is a mistake of the setup, not a refused file. It
+  answers a failure that no retry mends, `allowList.notConfigured`, and the submission goes to review with its data.
 
 Its `PASS` means only that the type of the file is allowed. With the allow-list check alone in the list, every file
 of an allowed type is released with no scan. A scanner therefore comes after the allow-list check. The help text of
@@ -247,8 +249,9 @@ A user without the permission gets the same answer as for a submission that does
   inheritance of the ACL and has no entry, so no site role reads it.
 - The bytes of a file are a binary property of the item. They are never `jcr:data` of a file node, so no file
   servlet serves them, and no text extraction or listener reads them.
-- The store computes the SHA-256 again before a release and before a download, as the bytes stream from the
-  repository:
+- The store computes the SHA-256 again before a release and before a download. The release reads each file once,
+  into memory, because the actions of the engine take the bytes of a file as an array. The hash covers exactly the
+  bytes that the actions receive:
   - A mismatch before a release moves the submission to review with the reason `INTEGRITY_FAILED`.
   - A mismatch before a download refuses the download and writes an audit record. The submission stays in
     `needsReview`.

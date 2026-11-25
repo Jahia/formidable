@@ -123,8 +123,9 @@
 
 // The allow-list check (AllowListQualifier, scope METADATA): it reads the name and the declared MIME type of a file,
 // never a byte. It passes a file when the extension of its name and the essence of its MIME type are both on the
-// lists, case aside; it fails the file otherwise. An empty list allows nothing. A pass says only that the type is
-// allowed: a scanner comes after this check in the list. fmdbmix:qualifier puts it in the "Quarantine checks" zone.
+// lists, case aside; it fails the file otherwise. A check whose list holds no entry sends the submission to review.
+// A pass says only that the type is allowed: a scanner comes after this check in the list. fmdbmix:qualifier puts it
+// in the "Quarantine checks" zone.
 [fmdbq:allowListCheck] > jnt:content, fmdbmix:qualifier, mix:title
- - extensions (string) multiple indexed=no
- - mimeTypes (string) multiple indexed=no
+ - extensions (string) mandatory multiple indexed=no
+ - mimeTypes (string) mandatory multiple indexed=no

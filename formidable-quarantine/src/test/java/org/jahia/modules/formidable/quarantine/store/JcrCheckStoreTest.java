@@ -232,13 +232,17 @@ class JcrCheckStoreTest {
         String read = store.withItems(HELD_PATH, items -> {
             kept[0] = items.open("item0");
             try {
-                return new String(kept[0].readNBytes(7), StandardCharsets.UTF_8);
+                String first = new String(kept[0].readNBytes(7), StandardCharsets.UTF_8);
+                // a read of the whole stream reaches the binary of the repository, which refuses it here
+                assertThrows(AssertionError.class, () -> kept[0].readAllBytes());
+                return first + ":" + kept[0].available();
             } catch (IOException e) {
                 throw new QuarantineStoreException("unreadable", e);
             }
         });
 
-        assertEquals("VERDICT", read);
+        // the store copied nothing: the stream of the binary still holds the 5 bytes left
+        assertEquals("VERDICT:5", read);
         assertThrows(IOException.class, () -> kept[0].read());
         verify(binary).dispose();
     }
@@ -265,7 +269,12 @@ class JcrCheckStoreTest {
         when(item.hasProperty(QuarantineTree.DATA)).thenReturn(true);
         when(item.getProperty(QuarantineTree.DATA)).thenReturn(data);
         when(data.getBinary()).thenReturn(binary);
-        when(binary.getStream()).thenReturn(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)));
+        when(binary.getStream()).thenReturn(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)) {
+            @Override
+            public synchronized byte[] readAllBytes() {
+                throw new AssertionError("The whole binary was read into memory");
+            }
+        });
         return binary;
     }
 }

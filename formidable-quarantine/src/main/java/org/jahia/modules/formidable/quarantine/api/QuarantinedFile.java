@@ -10,9 +10,12 @@ import java.io.InputStream;
  * that the repository stores, read as the check reads it, with no copy of the file in memory. A check that opens the
  * file twice reads it twice.
  * <p>
- * The stream reads only while the run holds its session open: during {@link Qualifier#submit}. A file or a stream that
- * a check keeps cannot be read once {@code submit} returned, and {@link #open()} throws in
- * {@link Qualifier#appliesTo}. A {@link Scope#METADATA} check is handed a file whose {@link #open()} always throws.
+ * The stream reads only while the run holds its session open. The run opens one session for a batch of calls of
+ * {@link Qualifier#submit}, at most one call for each file of the submission, and closes it once the last call of the
+ * batch returns. A file or a stream that a check keeps can thus still be read during a later call of the same batch,
+ * and cannot be read once the batch ended. {@link #open()} throws in {@link Qualifier#appliesTo} and
+ * {@link Qualifier#poll}, which no session surrounds. A {@link Scope#METADATA} check is handed a file whose
+ * {@link #open()} always throws.
  */
 @ProviderType
 public interface QuarantinedFile {

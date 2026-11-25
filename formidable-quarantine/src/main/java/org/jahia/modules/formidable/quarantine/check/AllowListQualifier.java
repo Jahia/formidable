@@ -9,6 +9,7 @@ import org.jahia.modules.formidable.quarantine.api.Submitted;
 import org.osgi.service.component.annotations.Component;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -17,9 +18,11 @@ import java.util.Set;
  * MIME type of a file, never a byte ({@link Scope#METADATA}), and applies to every file. It answers at once:
  * <ul>
  * <li>{@code PASS} when the extension of the name and the essence of the MIME type are both on the lists of the
- * check, case aside;</li>
- * <li>{@code FAIL} otherwise, with a reason code that names which list refused the file. An empty list allows
- * nothing.</li>
+ * check, case aside, and the parameters of a MIME type aside, on the file and on the list alike;</li>
+ * <li>{@code FAIL} otherwise, with a reason code that names which list refused the file;</li>
+ * <li>a failure that no retry mends, {@code allowList.notConfigured}, when a list of the check holds no entry: a check
+ * with no list is a mistake of the editor, not a refused file, so the submission goes to review, and nothing is
+ * rejected or deleted.</li>
  * </ul>
  * A {@code PASS} says only that the type is allowed: alone in the list, the check releases an allowed file with no
  * scan. No answer names the file or its type: the reason codes are fixed.
@@ -41,6 +44,8 @@ public class AllowListQualifier implements Qualifier {
     static final String EXTENSION_REFUSED = "allowList.extensionRefused";
     /** The reason of a {@code FAIL}: the MIME type is not on the list, or the file declares none. */
     static final String MIME_TYPE_REFUSED = "allowList.mimeTypeRefused";
+    /** The reason of the failure when a list of the check holds no entry. */
+    static final String NOT_CONFIGURED = "allowList.notConfigured";
     /** The reason of the failure of a poll: the check issues no ticket. */
     static final String NO_TICKET = "allowList.noTicket";
 
@@ -61,12 +66,17 @@ public class AllowListQualifier implements Qualifier {
 
     @Override
     public Submitted submit(QuarantinedFile file, CheckSettings settings) {
+        Set<String> extensions = listOf(settings, EXTENSIONS);
+        Set<String> mimeTypes = listOf(settings, MIME_TYPES);
+        if (extensions.isEmpty() || mimeTypes.isEmpty()) {
+            return Submitted.answered(new Outcome.Failed(false, NOT_CONFIGURED));
+        }
         String extension = extensionOf(file.fileName());
-        if (extension == null || !listOf(settings, EXTENSIONS).contains(extension)) {
+        if (extension == null || !extensions.contains(extension)) {
             return Submitted.answered(Outcome.fail(EXTENSION_REFUSED, null));
         }
         String mimeType = essenceOf(file.mimeType());
-        if (mimeType == null || !listOf(settings, MIME_TYPES).contains(mimeType)) {
+        if (mimeType == null || !mimeTypes.contains(mimeType)) {
             return Submitted.answered(Outcome.fail(MIME_TYPE_REFUSED, null));
         }
         return Submitted.answered(Outcome.pass(ALLOWED, null));
@@ -100,24 +110,29 @@ public class AllowListQualifier implements Qualifier {
     }
 
     /**
-     * @return the entries of a list of the check, trimmed, in lower case, an extension without its leading dot; empty
-     *         when the check node holds no such list
+     * @return the entries of a list of the check, normalized as the file is: an extension in lower case without its
+     *         leading dot, a MIME type as its essence; empty when the check node holds no entry
      */
     static Set<String> listOf(CheckSettings settings, String property) {
         Set<String> entries = new HashSet<>();
-        String joined = settings.properties().get(property);
-        if (joined == null) {
-            return entries;
-        }
-        for (String entry : joined.split(CheckSettings.VALUE_SEPARATOR)) {
-            String normalized = entry.trim().toLowerCase(Locale.ROOT);
-            if (EXTENSIONS.equals(property) && normalized.startsWith(".")) {
-                normalized = normalized.substring(1);
-            }
-            if (!normalized.isEmpty()) {
+        for (String entry : settings.properties().getOrDefault(property, List.of())) {
+            String normalized = EXTENSIONS.equals(property) ? extensionEntry(entry) : essenceOf(entry);
+            if (normalized != null) {
                 entries.add(normalized);
             }
         }
         return entries;
+    }
+
+    /** @return the entry trimmed, in lower case, without a leading dot; null for a blank entry */
+    private static String extensionEntry(String entry) {
+        if (entry == null) {
+            return null;
+        }
+        String normalized = entry.trim().toLowerCase(Locale.ROOT);
+        if (normalized.startsWith(".")) {
+            normalized = normalized.substring(1);
+        }
+        return normalized.isEmpty() ? null : normalized;
     }
 }

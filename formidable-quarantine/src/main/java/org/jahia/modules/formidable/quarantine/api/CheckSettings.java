@@ -2,6 +2,7 @@ package org.jahia.modules.formidable.quarantine.api;
 
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -13,30 +14,37 @@ import java.util.Objects;
  * @param name           the name of the check node, unique in the list; outcomes are recorded under it
  * @param onInconclusive what an inconclusive answer means
  * @param onUnavailable  what a failure of the engine means
- * @param properties     the properties of its own type that the check node holds, by name, as strings: the properties
- *                       that its primary type declares or inherits, except those whose name starts with {@code jcr:},
- *                       {@code j:} or {@code mix:}, and except {@code onInconclusive} and {@code onUnavailable}. The
- *                       values of a multiple property are joined with a comma ({@code ,}), in their order: a value
- *                       that holds a comma cannot be told apart. A property the node does not hold is absent. Never
- *                       null; it cannot be changed.
+ * @param properties     the properties of its own type that the check node holds, by name: the properties that its
+ *                       primary type declares or inherits, except those whose name starts with {@code jcr:},
+ *                       {@code j:} or {@code mix:}, and except {@code onInconclusive} and {@code onUnavailable}. Each
+ *                       property maps to its values as strings, in their order: a single property to a list of one
+ *                       value, a multiple property to a list of all its values, maybe empty. A property the node does
+ *                       not hold is absent. Never null; neither the map nor a list can be changed.
  */
 public record CheckSettings(String nodeType, String name, OnInconclusive onInconclusive, OnUnavailable onUnavailable,
-                            Map<String, String> properties) {
-
-    /** The separator of the values of a multiple property in {@link #properties()}. */
-    public static final String VALUE_SEPARATOR = ",";
+                            Map<String, List<String>> properties) {
 
     public CheckSettings {
         Objects.requireNonNull(nodeType, "nodeType");
         Objects.requireNonNull(name, "name");
         Objects.requireNonNull(onInconclusive, "onInconclusive");
         Objects.requireNonNull(onUnavailable, "onUnavailable");
-        properties = properties == null ? Map.of() : Collections.unmodifiableMap(new LinkedHashMap<>(properties));
+        properties = copyOf(properties);
     }
 
     /** Settings with no property of the type of the check. */
     public CheckSettings(String nodeType, String name, OnInconclusive onInconclusive, OnUnavailable onUnavailable) {
         this(nodeType, name, onInconclusive, onUnavailable, Map.of());
+    }
+
+    /** A copy that nobody changes, in the order of the source; a null list of values reads as an empty one. */
+    private static Map<String, List<String>> copyOf(Map<String, List<String>> source) {
+        if (source == null) {
+            return Map.of();
+        }
+        Map<String, List<String>> copy = new LinkedHashMap<>();
+        source.forEach((name, values) -> copy.put(name, values == null ? List.of() : List.copyOf(values)));
+        return Collections.unmodifiableMap(copy);
     }
 
     /**

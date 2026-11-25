@@ -2,7 +2,9 @@ package org.jahia.modules.formidable.quarantine.api;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,15 +61,23 @@ class CheckSettingsTest {
 
     @Test
     void thePropertiesAreACopyThatNobodyChanges() {
-        Map<String, String> source = new LinkedHashMap<>();
-        source.put("extensions", "pdf,png");
+        Map<String, List<String>> source = new LinkedHashMap<>();
+        List<String> extensions = new ArrayList<>(List.of("pdf", "png"));
+        source.put("extensions", extensions);
+        source.put("pattern", null);
         CheckSettings settings = new CheckSettings("acme:check", "scan", OnInconclusive.REVIEW, OnUnavailable.RETRY,
                 source);
-        source.put("mimeTypes", "application/pdf");
+        source.put("mimeTypes", List.of("application/pdf"));
+        extensions.add("exe");
 
-        assertEquals(Map.of("extensions", "pdf,png"), settings.properties());
-        Map<String, String> properties = settings.properties();
-        assertThrows(UnsupportedOperationException.class, () -> properties.put("mimeTypes", "text/plain"));
+        Map<String, List<String>> expected = new LinkedHashMap<>();
+        expected.put("extensions", List.of("pdf", "png"));
+        expected.put("pattern", List.of());
+        assertEquals(expected, settings.properties());
+        Map<String, List<String>> properties = settings.properties();
+        List<String> values = properties.get("extensions");
+        assertThrows(UnsupportedOperationException.class, () -> properties.put("mimeTypes", List.of("text/plain")));
+        assertThrows(UnsupportedOperationException.class, () -> values.add("exe"));
     }
 
     @Test
