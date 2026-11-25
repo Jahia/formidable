@@ -195,8 +195,10 @@ stateDiagram-v2
 The events `RELEASE_VALUES` and `MANAGER_RELEASE_VALUES` serve a form with `onFail=releaseValues`:
 
 - `RELEASE_VALUES` follows a `FAIL` verdict, and `MANAGER_RELEASE_VALUES` follows a reject by a manager.
-- Both events delete the bytes of every file before they lead to `releasing` with the values alone. A later
-  event, such as a release by a manager after a failed action, then has no file to release.
+- Both events delete the bytes of every file before they lead to `releasing` with the values alone. The same save
+  marks the held submission as a release of its values alone. A later event, such as a resume by a manager after a
+  failed action, then has no file to release, and runs the actions with the values alone again.
+- A reject by a manager of a submission whose values already went out alone rejects it.
 - The submission ends in `completed`, and its decision record keeps the failed verdict or the reject of the
   manager. The audit never states that every check passed.
 
@@ -271,15 +273,29 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 | Site | A property of the site | A lower `fileAccess`, the retention of the site, and the addresses of the review digest. |
 | Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
 
+- A form without the mixin has the default policy, `onFail=reject` and no scan status. The run reads the policy of
+  the form in live each time it concludes, and so does an operation of a manager.
 - `onFail=reject` rejects the submission ([The scheduled run](#the-scheduled-run) states what the store keeps).
-- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and adds the scan
-  status to the values. [The states of a held submission](#the-states-of-a-held-submission) give the two events of this
-  path.
+- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and adds the failed
+  scan status to the values. A `FAIL` verdict takes this path, and so does a reject by a manager in `needsReview`.
+  Another reason to reject, such as `onInconclusive=reject`, still rejects.
+  [The states of a held submission](#the-states-of-a-held-submission) give the two events of this path.
 - The scan status is a value that the run adds to the values of the actions after release, and not a field of the
   form. The engine skips a posted value whose name is not a field of the form
-  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). Each time the form is published, the module
-  checks that no field of the form has the name of the scan status. It refuses the publication otherwise. At
-  release, the run writes the scan status over any value of that name. So the visitor cannot set the scan status.
+  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). At release, the run writes the scan
+  status over any value of that name. So the visitor cannot set the scan status.
+- A release of the files gets the clean value, and a release of the values alone gets the failed value. An empty
+  name adds no scan status.
+- Before it writes the scan status, the module checks that no field of the form, in a step or a fieldset too, has
+  its name. It never writes the status over the value of a field. When a field has that name, the module logs an
+  error and:
+  - sends to review, with the decision `SCAN_STATUS_TAKEN`, a submission whose checks all passed;
+  - rejects a submission whose file a check failed, as the default policy does;
+  - refuses a release, a resume, and a reject that would release the values, by a manager.
+
+  The check runs at the run and at each operation, and not when the form is saved or published. The validation of
+  Jahia at save reads only the node that changed, and a field added to the form later changes no property of the
+  form node.
 - `showValues` shows the public values of a held submission in the detail view. The sensitive values never appear.
 
 ## Deployment
