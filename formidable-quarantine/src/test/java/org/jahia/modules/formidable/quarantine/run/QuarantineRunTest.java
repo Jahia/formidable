@@ -22,6 +22,7 @@ import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldStates;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
+import org.jahia.modules.formidable.quarantine.store.Sha256;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -402,6 +403,52 @@ class QuarantineRunTest {
     }
 
     @Test
+    void aListOfMetadataChecksOpensTheBytesOnlyForTheHashOfTheRelease() throws Exception {
+        MetadataProbe probe = new MetadataProbe();
+        run.addQualifier(probe);
+        lists.put(FORM, List.of(CheckSettings.withDefaults(MetadataProbe.NODE_TYPE, "metadataCheck")));
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertEquals(1, stores.itemSessions, "a session opened for a metadata check");
+    }
+
+    @Test
+    void aLargeFileStreamsToTheCheckAndToTheHashOfTheRelease() throws Exception {
+        StreamingQualifier streaming = new StreamingQualifier();
+        run.addQualifier(streaming);
+        lists.put(FORM, List.of(CheckSettings.withDefaults(StreamingQualifier.NODE_TYPE, "streamingCheck")));
+        // its stream refuses readAllBytes: a copy of the whole item in memory fails the test
+        Held held = stores.holdLarge(FORM, new InMemoryQuarantine.LargeBytes(8L * 1024 * 1024, (byte) 'x'));
+
+        runNow();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertEquals(List.of(held.sha256s.get(0)), streaming.hashes);
+        assertEquals(2, stores.itemSessions, "one session for the check, one for the hash of the release");
+    }
+
+    @Test
+    void aStreamOrAFileKeptByACheckCannotBeReadOnceTheCallReturned() throws Exception {
+        StreamingQualifier streaming = new StreamingQualifier();
+        streaming.keepStream = true;
+        run.addQualifier(streaming);
+        lists.put(FORM, List.of(CheckSettings.withDefaults(StreamingQualifier.NODE_TYPE, "streamingCheck")));
+        stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertFalse(stores.itemSessionOpen);
+        InputStream kept = streaming.kept;
+        assertNotNull(kept);
+        assertThrows(IOException.class, kept::read);
+        QuarantinedFile file = streaming.file;
+        assertThrows(IOException.class, file::open);
+    }
+
+    @Test
     void aPendingAnswerWithNoTicketIsAFailureThatNoRetryCanMend() {
         RecordedOutcome recorded = SubmissionRun.recordOf(Outcome.PENDING, null, 3);
 
@@ -435,6 +482,59 @@ class QuarantineRunTest {
 
         assertTrue(released.isEmpty(), "the actions after release ran from state needsReview");
         assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+    }
+
+    /**
+     * A remote check that hashes the stream of each file a buffer at a time, and passes the file when the hash is the
+     * SHA-256 of intake. It may keep the stream and the file it was handed.
+     */
+    private static final class StreamingQualifier implements Qualifier {
+
+        static final String NODE_TYPE = "test:streamingCheck";
+
+        final List<String> hashes = new ArrayList<>();
+        boolean keepStream;
+        InputStream kept;
+        QuarantinedFile file;
+
+        @Override
+        public String getNodeType() {
+            return NODE_TYPE;
+        }
+
+        @Override
+        public Scope scope() {
+            return Scope.REMOTE;
+        }
+
+        @Override
+        public boolean appliesTo(QuarantinedFile file, CheckSettings settings) {
+            return true;
+        }
+
+        @Override
+        public Submitted submit(QuarantinedFile handed, CheckSettings settings) {
+            file = handed;
+            try {
+                InputStream in = handed.open();
+                String hash = Sha256.hex(in);
+                if (keepStream) {
+                    kept = in;
+                } else {
+                    in.close();
+                }
+                hashes.add(hash);
+                return Submitted.answered(hash.equals(handed.sha256()) ? Outcome.pass("stream.ok", null)
+                        : Outcome.fail("stream.differs", null));
+            } catch (IOException e) {
+                return Submitted.answered(new Outcome.Failed(false, "stream.unreadable"));
+            }
+        }
+
+        @Override
+        public Outcome poll(String ticket) {
+            throw new AssertionError("A streaming check answers at once");
+        }
     }
 
     /** A metadata check that records what it saw of each file, tries to open it, and passes it. */

@@ -75,6 +75,7 @@ final class SubmissionRun {
         final HeldRecord held;
         final List<ItemFile> files = new ArrayList<>();
         final Set<OutcomeKey> called = new HashSet<>();
+        final ItemAccess access = new ItemAccess();
         Map<OutcomeKey, RecordedOutcome> recorded;
         HeldState state;
 
@@ -105,7 +106,7 @@ final class SubmissionRun {
         }
         for (ItemRecord item : held.items()) {
             if (item.binaryPresent()) {
-                pass.files.add(new ItemFile(pass.path(), item, checkStore));
+                pass.files.add(new ItemFile(pass.path(), item, pass.access));
             }
         }
         pass.recorded = OutcomeCodec.recorded(checkStore.outcomes(pass.path()));
@@ -145,8 +146,32 @@ final class SubmissionRun {
         return checks;
     }
 
-    /** @return true when a step brought a new {@code PASS} */
+    /**
+     * Calls the steps. When a step hands a file to a check that reads bytes, the calls run inside one session of the
+     * store, and the bytes of the files are open to the checks until the last call returns.
+     *
+     * @return true when a step brought a new {@code PASS}
+     */
     private boolean execute(Pass pass, List<Step> steps) throws QuarantineStoreException {
+        if (steps.stream().noneMatch(SubmissionRun::readsBytes)) {
+            return callSteps(pass, steps);
+        }
+        return checkStore.withItems(pass.path(), items -> {
+            pass.access.begin(items);
+            try {
+                return callSteps(pass, steps);
+            } finally {
+                pass.access.end();
+            }
+        });
+    }
+
+    /** A poll reads no byte, and neither does a metadata check. */
+    static boolean readsBytes(Step step) {
+        return step instanceof Step.Submit && step.check().qualifier().scope() != Scope.METADATA;
+    }
+
+    private boolean callSteps(Pass pass, List<Step> steps) throws QuarantineStoreException {
         boolean progressed = false;
         for (Step step : steps) {
             OutcomeKey key = new OutcomeKey(step.file().sha256(), step.check().name());

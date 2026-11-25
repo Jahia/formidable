@@ -3,7 +3,6 @@ package org.jahia.modules.formidable.quarantine.run;
 import org.jahia.modules.formidable.engine.api.DeferredActionException;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
-import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.quarantine.state.HeldEvent;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
 import org.jahia.modules.formidable.quarantine.state.IllegalTransitionException;
@@ -18,18 +17,23 @@ import org.jahia.modules.formidable.quarantine.store.Sha256;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 
 /**
- * The release of a held submission: the bytes are read again and hashed again, and a difference from the SHA-256 of
- * intake refuses the release. Otherwise the actions after release of the form run through the engine's
- * {@link DeferredActions}, from the index the held submission records, with a checkpoint after each action. Once
- * every action ran, the values, the sensitive values and the bytes are deleted; the record and the outcomes stay.
+ * The release of a held submission: the bytes are hashed again as they stream from the repository, with no copy in
+ * memory, and a difference from the SHA-256 of intake refuses the release before any value or byte is read for the
+ * actions. Otherwise the actions after release of the form run through the engine's {@link DeferredActions}, from the
+ * index the held submission records, with a checkpoint after each action. Once every action ran, the values, the
+ * sensitive values and the bytes are deleted; the record and the outcomes stay.
  *
- * <p>The released files are the very files whose bytes were hashed: the bytes released are the bytes of intake, under
- * whose SHA-256 the run recorded each outcome.</p>
+ * <p>The engine takes each file as an array of bytes, so the release then reads the submission into memory for the
+ * actions. Only this module writes under the quarantine tree, and nothing of it changes the bytes of an item: the
+ * bytes released are the bytes hashed, under whose SHA-256 the run recorded each outcome. A file count that differs
+ * from the count of items still refuses the release.</p>
  */
 public final class Release {
 
@@ -68,21 +72,25 @@ public final class Release {
         StateMachine.next(state, state == HeldState.CHECKING ? HeldEvent.ALL_PASSED : HeldEvent.ACTIONS_DONE);
         HeldRecord held = store.heldRecord(path)
                 .orElseThrow(() -> new QuarantineStoreException("No held submission at " + path));
-        HeldSubmission submission = store.read(path)
-                .orElseThrow(() -> new QuarantineStoreException("No held submission at " + path));
-        ItemRecord changed = firstChanged(held, submission);
+        ItemRecord changed = firstChanged(path, held);
         if (changed != null) {
             return integrityFailed(path, state, changed);
+        }
+        HeldSubmission submission = store.read(path)
+                .orElseThrow(() -> new QuarantineStoreException("No held submission at " + path));
+        if (submission.files().size() != held.items().size()) {
+            return integrityFailed(path, state, new ItemRecord(ITEM_COUNT, null, null, null,
+                    submission.files().size(), null, false));
         }
         HeldState releasing = state == HeldState.CHECKING ? transitions.move(path, state, HeldEvent.ALL_PASSED) : state;
         return runActions(path, releasing, submission, held.completedActions());
     }
 
     /**
-     * @return the first item that has no bytes, or whose bytes differ from the SHA-256 of intake, or an item named
-     *         {@link #ITEM_COUNT} when the files and the items are not as many; null when every file is unchanged
+     * @return the first item that has no bytes, or whose bytes, hashed as they stream from the repository, differ from
+     *         the SHA-256 of intake; null when every item is unchanged
      */
-    static ItemRecord firstChanged(HeldRecord held, HeldSubmission submission) {
+    ItemRecord firstChanged(String path, HeldRecord held) throws QuarantineStoreException {
         List<ItemRecord> items = held.items();
         for (ItemRecord item : items) {
             if (!item.binaryPresent()) {
@@ -90,16 +98,22 @@ public final class Release {
                 return item;
             }
         }
-        List<SubmittedFile> files = submission.files();
-        if (files.size() != items.size()) {
-            return new ItemRecord(ITEM_COUNT, null, null, null, files.size(), null, false);
-        }
-        for (int i = 0; i < files.size(); i++) {
-            if (!Sha256.hex(files.get(i).data()).equals(items.get(i).sha256())) {
-                return items.get(i);
+        return checkStore.withItems(path, streams -> {
+            for (ItemRecord item : items) {
+                if (!sha256Of(streams, item).equals(item.sha256())) {
+                    return item;
+                }
             }
+            return null;
+        });
+    }
+
+    private static String sha256Of(CheckStore.ItemStreams streams, ItemRecord item) throws QuarantineStoreException {
+        try (InputStream in = streams.open(item.name())) {
+            return Sha256.hex(in);
+        } catch (IOException e) {
+            throw new QuarantineStoreException("Could not hash the bytes of item " + item.name(), e);
         }
-        return null;
     }
 
     private HeldState integrityFailed(String path, HeldState state, ItemRecord changed)

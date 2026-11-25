@@ -12,13 +12,16 @@ import org.jahia.modules.formidable.quarantine.store.ItemRecord;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.jahia.modules.formidable.quarantine.store.ScopedStreams;
 import org.jahia.modules.formidable.quarantine.store.Sha256;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -263,13 +266,98 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         get(path).audit.add(audit);
     }
 
+    /** How many times a work ran in {@link #withItems}, and whether one runs now. */
+    public int itemSessions;
+    public boolean itemSessionOpen;
+
     @Override
-    public InputStream openItem(String path, String itemName) throws QuarantineStoreException {
+    public <T> T withItems(String path, ItemWork<T> work) throws QuarantineStoreException {
         Held one = get(path);
-        byte[] data = one.bytes.get(one.itemNames.indexOf(itemName));
-        if (data == null) {
+        itemSessions++;
+        itemSessionOpen = true;
+        try (ScopedStreams items = new ScopedStreams(itemName -> streamOf(one, itemName))) {
+            return work.run(items);
+        } finally {
+            itemSessionOpen = false;
+        }
+    }
+
+    /** The stream of an item; a stream over large bytes, when the test gave them, that refuses readAllBytes. */
+    private InputStream streamOf(Held one, String itemName) throws QuarantineStoreException {
+        int index = one.itemNames.indexOf(itemName);
+        if (index < 0 || one.bytes.get(index) == null) {
             throw new QuarantineStoreException("No bytes for " + itemName);
         }
-        return new ByteArrayInputStream(data);
+        LargeBytes bytes = large.get(one.path + "/" + itemName);
+        return bytes != null ? bytes.open() : new ByteArrayInputStream(one.bytes.get(index));
+    }
+
+    /** The items whose bytes are a large generated stream, by path and item name. */
+    public final Map<String, LargeBytes> large = new LinkedHashMap<>();
+
+    /**
+     * An item of the given size whose stream generates its bytes as it is read and fails on
+     * {@link InputStream#readAllBytes()}: a reader that copies the whole item in memory fails.
+     */
+    public static final class LargeBytes {
+        private final long size;
+        private final byte fill;
+
+        public LargeBytes(long size, byte fill) {
+            this.size = size;
+            this.fill = fill;
+        }
+
+        /** The SHA-256 of the bytes, computed as a stream. */
+        public String sha256() {
+            try (InputStream in = open()) {
+                return Sha256.hex(in);
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        InputStream open() {
+            return new InputStream() {
+                private long left = size;
+
+                @Override
+                public int read() {
+                    if (left == 0) {
+                        return -1;
+                    }
+                    left--;
+                    return fill & 0xff;
+                }
+
+                @Override
+                public int read(byte[] b, int off, int len) {
+                    if (left == 0) {
+                        return -1;
+                    }
+                    int count = (int) Math.min(len, left);
+                    Arrays.fill(b, off, off + count, fill);
+                    left -= count;
+                    return count;
+                }
+
+                @Override
+                public byte[] readAllBytes() {
+                    throw new AssertionError("The whole item was read into memory");
+                }
+            };
+        }
+    }
+
+    /** Holds a submission of the form with one large item of the given size, whose stream refuses readAllBytes. */
+    public Held holdLarge(String formId, LargeBytes bytes) {
+        Held one = hold(formId);
+        one.itemNames.add("item0");
+        one.mimeTypes.add("application/octet-stream");
+        one.sha256s.add(bytes.sha256());
+        // a marker: the bytes are present, and the stream of the large item serves them
+        one.bytes.add(new byte[0]);
+        large.put(one.path + "/item0", bytes);
+        return one;
     }
 }
