@@ -159,15 +159,53 @@ sequenceDiagram
     R->>S: release the cluster lock
 ```
 
+- The scheduler calls the run at the period of the configuration of the run, `periodSeconds`, 60 seconds by
+  default. A period of 0 turns the scheduled run off, and only "run now" runs the checks then. A change of the
+  period applies at once.
+- Each call makes one pass over each site that has a quarantine tree. The scheduler never starts a call while the
+  call before runs.
 - A submission is due when its state is `held`, or `checking` with its next attempt reached.
-- A pass that brings no new verdict waits for the back-off. When the attempts are exhausted, the submission goes to
-  review with the reason `ATTEMPTS_EXHAUSTED`.
+- A pass that brings no new verdict waits for the back-off. The delay after the first attempt is
+  `backoffInitialSeconds`, 60 seconds by default. The delay grows by `backoffFactor`, 2 by default, at each
+  attempt, up to `backoffCapSeconds`, one hour by default. When the attempts reach `maxAttempts`, 10 by default, the
+  submission goes to review with the reason `ATTEMPTS_EXHAUSTED`.
 - A file that no check of the list applies to goes to review with the reason `FILE_WITHHELD`.
 - After a run, the module sends one review digest per site whose submissions entered `needsReview` in that run.
   The digest goes to the addresses of the site settings. It carries the count per form and a link to the manager
   screen, and never a value or a file name of a submission.
 - After `completed` or `rejected`, the store deletes the values and the bytes. The record of the submission and its
   audit stay until the retention deletes them.
+
+### The lock of the run
+
+The run of a site takes a lock in the repository before it reads the held submissions of the site. The lock keeps
+one run at a time on a site across the cluster:
+
+- The lock is the node `runLock` under the root of the quarantine tree of the site. It stores the server that holds
+  the lock and the end of its lease.
+- A server takes the lock when no server holds it, when its lease ended, or when the server holds it already. Two
+  servers that take the lock at the same moment both write the node: the repository saves the first write and
+  refuses the second, so the second server does not get the lock.
+- The lease lasts `lockLeaseSeconds`, 10 minutes by default. A run extends it each time half of the lease has gone
+  by. A run that cannot extend its lease stops before the next submission.
+- The run releases the lock when its pass ends, even after a failure. A server that stops during a run keeps the
+  lock until the lease ends.
+- A scheduled run that does not get the lock skips the site until its next call. "Run now" fails instead.
+- In one server, the run and the operations of a manager also take the lock of the Java object of the run, so no
+  operation runs while the run releases a submission.
+
+### The scheduled purge
+
+The retention deletes each `rejected` submission whose last change is older than the limit, with its record and its
+audit. A submission in any other state stays.
+
+- The scheduler calls the retention on the processing server at the period of the configuration of the retention,
+  `periodSeconds`, once a day by default. A period of 0 turns the scheduled purge off. The first call comes after
+  one period, and never later than one hour after the module starts.
+- Each call purges each site that has a quarantine tree, with the limit of the site.
+- The limit of the platform is `retentionDays`, 30 days by default. A site can lower it with `retentionDays` of its
+  site settings, the mixin `fmdbqmix:quarantineSite`. A value of a site above the limit of the platform is
+  ignored, and so is a negative value. A site whose settings cannot be read keeps the limit of the platform.
 
 ### The states of a held submission
 
@@ -267,8 +305,8 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 
 | Level | Where | Settings |
 |---|---|---|
-| Platform | The OSGi configuration of the module | The period of the run, the back-off, the retention, and the ceiling of `fileAccess`. |
-| Site | A property of the site | A lower `fileAccess`, the retention of the site, and the addresses of the review digest. |
+| Platform | The OSGi configuration of the module | The period of the run, the back-off, the lease of the lock of the run, the retention and the period of the purge, and the ceiling of `fileAccess`. |
+| Site | A property of the site | A lower `fileAccess`, a lower retention of the site (`fmdbqmix:quarantineSite`), and the addresses of the review digest. |
 | Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
 
 - `onFail=reject` rejects the submission ([The scheduled run](#the-scheduled-run) states what the store keeps).
@@ -284,8 +322,10 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 
 ## Deployment
 
-- The run starts on the processing server only.
-- A lock in the repository keeps one run at a time across the cluster.
+- The scheduled run and the scheduled purge start on the processing server only, on the RAM scheduler of Jahia. The
+  module schedules them again each time it starts, and removes them when it stops.
+- A lock in the repository keeps one run at a time on a site across the cluster
+  ([The lock of the run](#the-lock-of-the-run)). "Run now" can start on any server, and takes the same lock.
 - The module owns the root of the quarantine tree, `/sites/<site>/formidable-quarantine/`, of the type
   `fmdbq:quarantineRoot`. No other module writes under it.
 - The module installs on the platform, and a site turns it on. The manager screen appears only on a site that has

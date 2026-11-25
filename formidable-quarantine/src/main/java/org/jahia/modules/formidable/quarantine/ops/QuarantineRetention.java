@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.quarantine.ops;
 import org.jahia.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldStates;
+import org.jahia.modules.formidable.quarantine.store.QuarantineSites;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.osgi.service.component.annotations.Activate;
@@ -18,12 +19,17 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.OptionalLong;
 
 /**
  * The retention of the quarantine tree of a site, an OSGi service: it purges each {@code rejected} held submission
  * whose last change ({@link HeldRecord#changedAt()}) is older than the limit, with its items, its values, its outcomes,
  * its decision and its audit. Any other state is kept: a completed submission holds no value and no byte any more. It
- * has no scheduler: a spec starts it through its endpoint.
+ * runs on its own schedule on the processing server ({@code schedule.PurgeSchedule}), and a spec starts it through its
+ * endpoint.
+ *
+ * <p>The limit of a site is the platform setting {@code retentionDays}, or the setting of the site when it is lower: a
+ * site can shorten the retention of its rejected submissions, and never lengthen it.</p>
  */
 @Component(service = QuarantineRetention.class, configurationPid = QuarantineRetention.PID, immediate = true)
 @Designate(ocd = RetentionConfig.class)
@@ -34,6 +40,8 @@ public class QuarantineRetention {
     /** The PID of the configuration of the retention. */
     public static final String PID = "org.jahia.modules.formidable.quarantine.retention";
     static final int DEFAULT_RETENTION_DAYS = 30;
+    /** The scheduled purge runs once a day. */
+    static final long DEFAULT_PERIOD_SECONDS = 86_400;
 
     /** What a pass purged, and what it could not purge. */
     public record Report(int retentionDays, List<String> purged, List<String> failed) {
@@ -47,6 +55,7 @@ public class QuarantineRetention {
     private volatile int retentionDays = DEFAULT_RETENTION_DAYS;
     private QuarantineStore store;
     private CheckStore checkStore;
+    private QuarantineSites sites;
 
     public QuarantineRetention() {
         this(Clock.systemUTC());
@@ -66,6 +75,11 @@ public class QuarantineRetention {
         this.checkStore = checkStore;
     }
 
+    @Reference
+    public void setSites(QuarantineSites sites) {
+        this.sites = sites;
+    }
+
     @Activate
     @Modified
     public void configure(RetentionConfig config) {
@@ -78,19 +92,41 @@ public class QuarantineRetention {
         log.info("Retention of the quarantine configured: retentionDays={}", retentionDays);
     }
 
-    /** @return the number of days the retention keeps a rejected held submission */
+    /** @return the number of days the retention keeps a rejected held submission, the setting of the platform */
     public int retentionDays() {
         return retentionDays;
+    }
+
+    /**
+     * The limit of the site: the setting of the site when it is lower than the setting of the platform, else the
+     * setting of the platform. A negative setting of the site is ignored, and so is a site that cannot be read: the
+     * retention then keeps the longer limit of the platform.
+     */
+    public int retentionDaysOf(String siteKey) {
+        int platform = retentionDays;
+        OptionalLong site;
+        try {
+            site = sites.retentionDays(siteKey);
+        } catch (QuarantineStoreException e) {
+            log.warn("The retention of site {} cannot be read, the platform setting of {} days applies: {}", siteKey,
+                    platform, e.getMessage());
+            return platform;
+        }
+        if (site.isPresent() && site.getAsLong() >= 0 && site.getAsLong() < platform) {
+            return (int) site.getAsLong();
+        }
+        return platform;
     }
 
     /**
      * Purges the rejected held submissions of the site whose last change is older than the limit. A submission that
      * cannot be purged is reported, and the pass goes on.
      *
-     * @param olderThanDays the limit for this pass, in place of {@code retentionDays}; {@code null} keeps the setting
+     * @param olderThanDays the limit for this pass, in place of {@code retentionDays}; {@code null} keeps the limit of
+     *                      the site ({@link #retentionDaysOf})
      */
     public synchronized Report purge(String siteKey, Integer olderThanDays) throws QuarantineStoreException {
-        int days = olderThanDays != null ? olderThanDays : retentionDays;
+        int days = olderThanDays != null ? olderThanDays : retentionDaysOf(siteKey);
         Instant limit = clock.instant().minus(Duration.ofDays(days));
         List<String> purged = new ArrayList<>();
         List<String> failed = new ArrayList<>();

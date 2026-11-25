@@ -26,12 +26,12 @@ public record RunSettings(boolean allowInProcessFirst, Backoff backoff) {
 
     /**
      * @return the settings of the configuration; a back-off the configuration cannot build, such as a cap below the
-     *         initial delay, falls back to {@link Backoff#DEFAULT} with a warning
+     *         initial delay or a factor below 1, falls back to {@link Backoff#DEFAULT} with a warning
      */
     public static RunSettings of(RunConfig config) {
         Backoff backoff;
         try {
-            backoff = new Backoff(Duration.ofSeconds(config.backoffInitialSeconds()),
+            backoff = new Backoff(Duration.ofSeconds(config.backoffInitialSeconds()), config.backoffFactor(),
                     Duration.ofSeconds(config.backoffCapSeconds()), config.maxAttempts());
         } catch (IllegalArgumentException e) {
             log.warn("The back-off of the run is not valid ({}): the defaults apply", e.getMessage());

@@ -58,5 +58,40 @@ class BackoffTest {
         assertEquals(Duration.ofMinutes(1), Backoff.DEFAULT.delay(1));
         assertEquals(Duration.ofHours(1), Backoff.DEFAULT.delay(10));
         assertEquals(10, Backoff.DEFAULT.maxAttempts());
+        assertEquals(2, Backoff.DEFAULT.factor());
+    }
+
+    @Test
+    void theDelayGrowsByTheFactorOfTheSettings() {
+        Backoff tripling = new Backoff(Duration.ofSeconds(10), 3, Duration.ofMinutes(10), 5);
+
+        assertEquals(Duration.ofSeconds(10), tripling.delay(1));
+        assertEquals(Duration.ofSeconds(30), tripling.delay(2));
+        assertEquals(Duration.ofSeconds(90), tripling.delay(3));
+        assertEquals(Duration.ofSeconds(270), tripling.delay(4));
+        assertEquals(Duration.ofMinutes(10), tripling.delay(5));
+    }
+
+    @Test
+    void aFractionalFactorRoundsToTheMillisecond() {
+        Backoff slow = new Backoff(Duration.ofSeconds(1), 1.5, Duration.ofMinutes(1), 5);
+
+        assertEquals(Duration.ofMillis(1500), slow.delay(2));
+        assertEquals(Duration.ofMillis(2250), slow.delay(3));
+    }
+
+    @Test
+    void aFactorOfOneKeepsTheDelayAndNeverOverflows() {
+        Backoff constant = new Backoff(Duration.ofSeconds(45), 1, Duration.ofHours(1), 3);
+
+        assertEquals(Duration.ofSeconds(45), constant.delay(1));
+        assertEquals(Duration.ofSeconds(45), constant.delay(Integer.MAX_VALUE));
+    }
+
+    @Test
+    void aFactorBelowOneIsRefused() {
+        Duration oneMinute = Duration.ofMinutes(1);
+        assertThrows(IllegalArgumentException.class, () -> new Backoff(oneMinute, 0.5, oneMinute, 3));
+        assertThrows(IllegalArgumentException.class, () -> new Backoff(oneMinute, Double.NaN, oneMinute, 3));
     }
 }

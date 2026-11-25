@@ -3,6 +3,8 @@ package org.jahia.modules.formidable.quarantine.ops;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
+import org.jahia.modules.formidable.quarantine.store.QuarantineSites;
+import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -11,7 +13,12 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.OptionalLong;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -25,6 +32,24 @@ class QuarantineRetentionTest {
 
     private InMemoryQuarantine stores;
     private QuarantineRetention retention;
+    /** The retention that the settings of each site set, in days; a site absent sets none. */
+    private final Map<String, Long> siteDays = new HashMap<>();
+    private final Set<String> unreadableSites = new HashSet<>();
+    private final QuarantineSites sites = new QuarantineSites() {
+        @Override
+        public List<String> withTree() {
+            return List.of(InMemoryQuarantine.SITE);
+        }
+
+        @Override
+        public OptionalLong retentionDays(String siteKey) throws QuarantineStoreException {
+            if (unreadableSites.contains(siteKey)) {
+                throw new QuarantineStoreException("The site " + siteKey + " cannot be read");
+            }
+            Long days = siteDays.get(siteKey);
+            return days == null ? OptionalLong.empty() : OptionalLong.of(days);
+        }
+    };
 
     @BeforeEach
     void setUp() {
@@ -32,6 +57,7 @@ class QuarantineRetentionTest {
         retention = new QuarantineRetention(Clock.fixed(NOW, ZoneOffset.UTC));
         retention.setStore(stores);
         retention.setCheckStore(stores);
+        retention.setSites(sites);
         retention.configure(config(30));
     }
 
@@ -45,6 +71,11 @@ class QuarantineRetentionTest {
             @Override
             public int retentionDays() {
                 return days;
+            }
+
+            @Override
+            public long periodSeconds() {
+                return QuarantineRetention.DEFAULT_PERIOD_SECONDS;
             }
         };
     }
@@ -102,5 +133,58 @@ class QuarantineRetentionTest {
         retention.configure(config(-1));
 
         assertEquals(QuarantineRetention.DEFAULT_RETENTION_DAYS, retention.retentionDays());
+    }
+
+    @Test
+    void aSiteThatSetsALowerRetentionPurgesSooner() throws Exception {
+        Held tenDaysOld = held(HeldState.REJECTED, 10);
+        Held twoDaysOld = held(HeldState.REJECTED, 2);
+        siteDays.put(InMemoryQuarantine.SITE, 7L);
+
+        QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, null);
+
+        assertEquals(7, report.retentionDays());
+        assertEquals(List.of(tenDaysOld.path), report.purged());
+        assertTrue(stores.held.containsKey(twoDaysOld.path));
+    }
+
+    @Test
+    void aSiteThatSetsAHigherRetentionKeepsThePlatformOne() throws Exception {
+        Held fortyDaysOld = held(HeldState.REJECTED, 40);
+        siteDays.put(InMemoryQuarantine.SITE, 365L);
+
+        QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, null);
+
+        assertEquals(30, report.retentionDays());
+        assertEquals(List.of(fortyDaysOld.path), report.purged());
+    }
+
+    @Test
+    void theLimitOfASiteIsTheLowerOfItsSettingAndThePlatformOne() {
+        assertEquals(30, retention.retentionDaysOf(InMemoryQuarantine.SITE));
+        siteDays.put(InMemoryQuarantine.SITE, 0L);
+        assertEquals(0, retention.retentionDaysOf(InMemoryQuarantine.SITE));
+        siteDays.put(InMemoryQuarantine.SITE, 30L);
+        assertEquals(30, retention.retentionDaysOf(InMemoryQuarantine.SITE));
+        siteDays.put(InMemoryQuarantine.SITE, -5L);
+        assertEquals(30, retention.retentionDaysOf(InMemoryQuarantine.SITE));
+    }
+
+    @Test
+    void aSiteThatCannotBeReadKeepsThePlatformRetention() {
+        unreadableSites.add(InMemoryQuarantine.SITE);
+
+        assertEquals(30, retention.retentionDaysOf(InMemoryQuarantine.SITE));
+    }
+
+    @Test
+    void aLimitForOneCallReplacesTheLimitOfTheSite() throws Exception {
+        Held fiveDaysOld = held(HeldState.REJECTED, 5);
+        siteDays.put(InMemoryQuarantine.SITE, 7L);
+
+        QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, 1);
+
+        assertEquals(1, report.retentionDays());
+        assertEquals(List.of(fiveDaysOld.path), report.purged());
     }
 }
