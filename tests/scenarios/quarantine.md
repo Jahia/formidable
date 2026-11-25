@@ -15,6 +15,9 @@ order.
 
 Specs:
 
+- `tests/cypress/e2e/quarantine/92-quarantine-release-values.cy.ts` covers Q40,
+  Q41, Q42 and Q43: the policy of a form, which releases the values alone on a
+  fail.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -684,6 +687,70 @@ without the quarantine module and without the quarantine test module.
   the values are still there.
 - The sample hold and the observer action report no call.
 
+## The policy of a form
+
+The scenarios of this section use the module hold and start the run through
+"run now", as the section on the checks does. The form carries the mixin
+`fmdbqmix:quarantinePolicy` with the scan status `documentScanStatus`, the
+clean value `clean` and the failed value
+`Uploaded Document failed our security scan`. It has no field of that name. Its
+"Actions after release" list holds Save to JCR and the observer action. Each
+submission also posts a forged value named `documentScanStatus`.
+
+### Q40 — A fail releases the values alone
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with a `VERDICT:FAIL` file and the forged value `clean`.
+3. Run the checks.
+
+**Expected:**
+- The held submission names no field `documentScanStatus`: the engine skipped
+  the forged value
+- The state is `completed`, and the decision stays `CHECK_FAILED`
+- The item holds no bytes, and the held submission holds no values
+- The stored submission holds the name and the failed scan status, and no file
+- The observer action reports one call with no file
+
+### Q41 — A pass gets the clean scan status
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with a `VERDICT:PASS` file and the forged failed value.
+3. Run the checks.
+
+**Expected:**
+- The state is `completed`, with no decision
+- The stored submission holds the file and the scan status `clean`
+- The observer action reports one call with one file
+
+### Q42 — The default policy rejects a fail
+
+**Steps:**
+1. Set `onFail` to `reject`.
+2. Submit the form with a `VERDICT:FAIL` file.
+3. Run the checks.
+
+**Expected:**
+- The state is `rejected`, the decision is `CHECK_FAILED`, and no action ran
+- The item holds no bytes, and the held submission holds no values
+- The observer action reports no call
+
+### Q43 — A reject by a manager releases the values alone
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with an `INCONCLUSIVE` file, and run the checks: the
+   submission goes to review.
+3. Reject it, as root.
+
+**Expected:**
+- The reject answers `completed`, and the decision is `MANAGER_REJECTED`
+- The audit holds the run to `needsReview`, then the reject by `root` to
+  `completed`
+- The stored submission holds the name and the failed scan status, and no file
+- The observer action reports one call with no file
+
 ---
 
 ## Coverage map
@@ -712,3 +779,6 @@ without the quarantine module and without the quarantine test module.
 | Q26 | no action that cannot run after release enters that list |
 | Q27 | a site without the quarantine module never stores a held submission |
 | Q28 | a form with no check is held and goes to review, never released unchecked |
+| Q40, Q43 | a file that failed a check, or that a manager rejected, never leaves with the values |
+| Q40, Q41 | the visitor cannot set the scan status |
+| Q42 | the default policy still rejects a fail |
