@@ -15,6 +15,8 @@ order.
 
 Specs:
 
+- `tests/cypress/e2e/quarantine/93-quarantine-allow-list.cy.ts` covers Q29, Q30
+  and Q31: the allow-list check of the module.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -157,7 +159,7 @@ the scenario proves:
 | Q06, Q07, Q08 | hands the uploads to the actions on submission, whatever the switch says |
 | Q15 | ignores `uploadsRequireQuarantine` |
 | Q10 | leaves the ACL inheritance of the quarantine root in place: `formidable-quarantine` without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf`, and with `root == null` as the condition of `JcrQuarantineStore.closed` |
-| Q09 | releases without computing the hash again: `Release.release` with `firstChanged(held, submission)` replaced by `null` |
+| Q09 | releases without computing the hash again: `Release.release` with `firstChanged(path, held)` replaced by `null` |
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
 | Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(held.formId())` replaced by `false` |
@@ -686,6 +688,50 @@ without the quarantine module and without the quarantine test module.
 
 ---
 
+## The allow-list check
+
+The scenarios of this section use the module hold, and start the run of the
+checks through "run now", restricted to the form of the scenario. The only check
+of the form is the allow-list check `fmdbq:allowListCheck`, and "Actions after
+release" holds Save to JCR. Each scenario submits a text file `claim-note.txt`,
+of the type `text/plain`, as a guest, and reads the result as root.
+
+### Q29 — The allow-list allows the type of the file
+
+**Steps:**
+1. Set the lists of the check to the extension `txt` and the type `text/plain`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `completed`, and one action after release ran
+- The outcome of the check is `PASS`, with the reason `allowList.allowed`
+
+### Q30 — The extension of the file is not on the list
+
+**Steps:**
+1. Set the lists of the check to the extension `pdf` and the type `text/plain`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`, for the check
+- The outcome of the check is `FAIL`, with the reason
+  `allowList.extensionRefused`
+- No action after release ran, and the item holds no bytes
+
+### Q31 — The type of the file is not on the list
+
+**Steps:**
+1. Set the lists of the check to the extension `txt` and the type
+   `application/pdf`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`
+- The outcome of the check is `FAIL`, with the reason
+  `allowList.mimeTypeRefused`
+
+---
+
 ## Coverage map
 
 | Scenario | Proves |
@@ -712,3 +758,5 @@ without the quarantine module and without the quarantine test module.
 | Q26 | no action that cannot run after release enters that list |
 | Q27 | a site without the quarantine module never stores a held submission |
 | Q28 | a form with no check is held and goes to review, never released unchecked |
+| Q29 | the allow-list check releases a file of an allowed type |
+| Q30, Q31 | the allow-list check rejects a file unless both its extension and its type are allowed |
