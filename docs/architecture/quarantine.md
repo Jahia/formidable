@@ -113,15 +113,14 @@ repository to decide whether it owns a form. The check services that are registe
 - A check module that redeploys changes the owner of no form. Its submissions stay held, and a manager retries them
   once the check service is back.
 - A site that lists this module, or a known module that depends on it, has the module, whatever its other modules.
-  The hold refuses the submission only when the answer depends on a module that the platform does not know, such as
-  a check module that is not deployed. It never hands that submission to another hold, because the unknown module
-  could depend on this module.
+  A module of the site that the platform does not know, such as a check module that is not deployed, makes the hold
+  refuse the submission only when no known module of the site brings this module. The hold never hands that
+  submission to another hold, because the unknown module could depend on this module.
 - A hold that wants some forms ranks above 100, such as a broker outside Jahia. It claims a form by the check
   types of its list, and hands any other form to the next hold.
 - A hold hands a form only to a hold of a lower ranking. A hold of the same ranking never receives a handed-off
-  form, because two holds of one ranking would hand a form to each other. The hold of this module compares with the
-  ranking it is bound with, so a ranking that a configuration sets counts. The sample hold compares with its constant
-  ranking.
+  form, because two holds of one ranking would hand a form to each other. The hold of this module and the sample hold
+  compare with the ranking they are bound with, so a ranking that a configuration sets counts.
 - The sample hold of `formidable-test-module-samples-java` ranks 200. It claims only the forms whose list holds
   `fmdbsample:sampleCheck`, and hands every other form down to the hold of this module.
 
@@ -242,8 +241,10 @@ A user without the permission gets the same answer as for a submission that does
 | `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on one site. |
 | `formidableQuarantineFileAccess` | The download of a held file, on one site, when the file access allows it. |
 
-The site role `formidable-quarantine-manager` grants the first permission. The second permission is separate,
-because releasing a submission and opening its file are two different rights.
+In this phase, the module declares `formidableQuarantineManage` and checks it on the live form. The role
+`formidable-quarantine-manager`, granted on a form, gives it. The per-site role and `formidableQuarantineFileAccess`
+come in a later phase. The second permission is separate, because releasing a submission and opening its file are
+two different rights.
 
 ### File access by a reviewer
 

@@ -20,7 +20,7 @@ final class JsonAnswers {
     static final String REQUESTED_WITH = "X-Requested-With";
     /**
      * The media type a POST must declare: a browser sends this type cross-site only after a preflight, which the module
-     * never answers.
+     * never approves.
      */
     static final String JSON_MEDIA_TYPE = "application/json";
 
@@ -48,7 +48,7 @@ final class JsonAnswers {
      * Refuses a POST that a cross-site page could make the browser of a connected user send. Two barriers, each
      * enough alone: without {@link #REQUESTED_WITH} the POST gets 403, and with a {@code Content-Type} whose essence
      * is not {@value #JSON_MEDIA_TYPE} it gets 415. A browser sends {@value #JSON_MEDIA_TYPE} cross-site only after a
-     * preflight, which the module never answers. It sends the three simple types, form-urlencoded, multipart and
+     * preflight, which the module never approves. It sends the three simple types, form-urlencoded, multipart and
      * {@code text/plain}, with no preflight, so they are refused. The essence is the type before the first {@code ;},
      * so {@code text/plain;application/json} is refused too.
      *

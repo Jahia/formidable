@@ -54,7 +54,7 @@
             <artifactId>slf4j-api</artifactId>
             <scope>provided</scope>
         </dependency>
-        <!-- The JSON of the inspection servlet; the platform exports org.json, as for the samples module. -->
+        <!-- The JSON of RunServlet and StubServlet; the platform exports org.json, as for the samples module. -->
         <dependency>
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
