@@ -18,6 +18,7 @@ import org.jahia.modules.formidable.quarantine.store.Sha256;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -371,6 +372,16 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
                 @Override
                 public byte[] readAllBytes() {
                     throw new AssertionError("The whole item was read into memory");
+                }
+
+                @Override
+                public byte[] readNBytes(int len) {
+                    throw new AssertionError("The whole item was read into memory");
+                }
+
+                @Override
+                public long transferTo(OutputStream out) {
+                    throw new AssertionError("The whole item was copied");
                 }
             };
         }

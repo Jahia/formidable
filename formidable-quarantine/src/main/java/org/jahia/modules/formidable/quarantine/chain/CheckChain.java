@@ -51,7 +51,7 @@ public final class CheckChain {
     /**
      * @param checks   the checks in the order of the list
      * @param files    the files of the submission, in a stable order
-     * @param recorded the outcomes recorded so far, by SHA-256 of the file and name of the check
+     * @param recorded the outcomes recorded so far, keyed as {@link OutcomeKey#of} keys them
      * @return the calls to make now, or a terminal decision
      */
     public ChainDecision decide(List<ChainCheck> checks, List<? extends QuarantinedFile> files,
