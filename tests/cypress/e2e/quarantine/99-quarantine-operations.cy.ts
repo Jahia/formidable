@@ -39,7 +39,7 @@ const OPERATIONS: QuarantineOperation[] = ['retry', 'release', 'resume', 'reject
 
 /**
  * The users of Q20. The reader and the editor are editors of the site, the site administrator administers it; the
- * manager holds the role on the form alone.
+ * manager holds the site role of a manager alone.
  */
 const PASSWORD = 'quarOps-Password-1';
 const READER = 'quarOpsReader';
@@ -128,18 +128,20 @@ const operateAsRoot = (path: string, operation: QuarantineOperation, state: Held
 
 /**
  * The operations of a manager and the retention of formidable-quarantine (tests/scenarios/quarantine.md, Q05, Q18,
- * Q20, Q24). A manager of a form holds the role formidable-quarantine-manager on it, published, and retries,
- * releases, resumes or rejects a held submission in state needsReview through POST
- * /modules/formidable-quarantine/operations. Each accepted operation writes an audit record that names the user; the
- * run writes one when it releases, rejects or sends to review. The retention (POST
- * /modules/formidable-quarantine/retention) purges the rejected held submissions older than its limit. The spec starts
- * the run through "run now", ages a record through Groovy, and never waits for time. It reads the held submissions
- * through the inspection, as root.
+ * Q20, Q24). A manager of a site holds the site role formidable-quarantine-manager on it, and retries, releases,
+ * resumes or rejects a held submission in state needsReview through the mutation formidableQuarantine(siteKey)
+ * { operate } of the GraphQL API. Each accepted operation writes an audit record that names the user; the run writes
+ * one when it releases, rejects or sends to review. The retention (the mutation formidableQuarantine(siteKey)
+ * { purge }) purges the rejected held submissions older than its limit. The spec starts the run through "run now",
+ * ages a record through Groovy, and never waits for time. It reads the held submissions through the GraphQL API, as
+ * root. The helpers of ./support read each GraphQL answer as the status of the former endpoints: 403 for a user who
+ * does not manage the site, 409 for a state that does not allow the operation.
  *
  * Q20 is a control scenario. Its control build is formidable-quarantine with the check of the permission removed:
- * in QuarantineOperations.applyLocked, replace `!managers.mayManage(held.formId())` with `false`. Build it with `package`,
- * deploy it in place of the module, and run this spec: Q20 must fail by assertion, on the status of an operation of the
- * reader (200 or 409, not 403).
+ * in ManagerApi.open and in QuarantineOperations.applyLocked, replace `!managers.mayManage(siteKey)` and
+ * `!managers.mayManage(found.get().siteKey())` with `false`. Build it with `package`, deploy it in place of the
+ * module, and run this spec: Q20 must fail by assertion, on the status of an operation of the reader (200 or 409, not
+ * 403).
  */
 describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held submission, and the retention purges it', () => {
 	useFormidableSite();
@@ -244,7 +246,7 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 		});
 	});
 
-	describe('Q20: only a manager of the form runs an operation, and each leaves an audit record (control)', () => {
+	describe('Q20: only a manager of the site runs an operation, and each leaves an audit record (control)', () => {
 		const formName = 'quarantine-managed-form';
 		let formId: string;
 		let paths: string[];
@@ -261,7 +263,7 @@ describe('Quarantine - 99 A manager retries, releases, resumes or rejects a held
 			}).then(created => {
 				formId = created.formId;
 				grantRoles(created.formPath, ['fmdb-results-reader'], READER, 'USER');
-				grantRoles(created.formPath, [QUARANTINE_MANAGER_ROLE], MANAGER, 'USER');
+				grantRoles(SITE_PATH, [QUARANTINE_MANAGER_ROLE], MANAGER, 'USER');
 				publishAndWaitJobEnding(created.formPath);
 
 				// three inconclusive files: the run sends each submission to review

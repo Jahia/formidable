@@ -1,5 +1,5 @@
 import {enableModule} from '@jahia/cypress';
-import {QUARANTINE_INSPECTION_PATH, QUARANTINE_RUN_PATH, QUARANTINE_STUB_PATH} from '../../support/constants';
+import {QUARANTINE_RUN_PATH, QUARANTINE_STUB_PATH} from '../../support/constants';
 import {
 	FORMIDABLE_TEST_SITE,
 	QUARANTINE_MODULE_ID,
@@ -21,6 +21,7 @@ import {
 	STUB_FILE,
 	clearStubCalls,
 	fields,
+	quarantineIsVisible,
 	readHeldSubmissions,
 	readQuarantineRunSettings,
 	readStubCalls,
@@ -99,7 +100,7 @@ const runOnce = (formId: string, state: HeldSubmissionRecord['state'], ignoreSch
  * Q09, Q12, Q13, Q21, Q22, Q23). A form whose "Checks" list holds a stub check of the quarantine test module is owned
  * by the hold of formidable-quarantine. The spec starts the run of the checks through "run now" (POST /modules/formidable-quarantine/run),
  * restricted to the form of the test, and never waits for time. It reads the held submission, its outcomes and its
- * decision through the inspection, the calls of the stubs through the stub control, and the effects of the actions
+ * decision through the GraphQL API of the module, the calls of the stubs through the stub control, and the effects of the actions
  * after release through the samples module and GraphQL, as root.
  *
  * Control scenarios. Each control build is formidable-quarantine with one guard removed; build it with
@@ -297,10 +298,11 @@ describe('Quarantine - 98 The run of the checks releases, rejects or withholds a
 					cy.request({url: `/files/live${one.path}/item0`, failOnStatusCode: false})
 						.its('status').should('be.oneOf', [401, 403, 404]);
 				});
-				// the endpoints of the module answer server administrators alone; the header of a POST is there, so the
-				// 403 is the refusal of the guest
+				// the GraphQL API of the module answers the managers of the site alone
+				quarantineIsVisible().should('eq', false);
+				// the endpoints of the test module answer server administrators alone; the header of a POST is there, so
+				// the 403 is the refusal of the guest
 				[
-					{method: 'GET', url: QUARANTINE_INSPECTION_PATH, qs: {site: FORMIDABLE_TEST_SITE.key, form: formId}},
 					{method: 'POST', url: QUARANTINE_RUN_PATH, qs: {site: FORMIDABLE_TEST_SITE.key, form: formId}},
 					{method: 'GET', url: `${QUARANTINE_STUB_PATH}/calls`, qs: {}},
 					{method: 'POST', url: `${QUARANTINE_STUB_PATH}/outage/lift`, qs: {}}

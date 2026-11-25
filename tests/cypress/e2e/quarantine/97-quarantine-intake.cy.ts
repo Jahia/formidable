@@ -1,5 +1,4 @@
 import {createUser, deleteUser, enableModule, grantRoles, publishAndWaitJobEnding} from '@jahia/cypress';
-import {QUARANTINE_INSPECTION_PATH} from '../../support/constants';
 import {
 	FORMIDABLE_TEST_SITE,
 	QUARANTINE_MODULE_ID,
@@ -26,6 +25,7 @@ import {
 	FILE_SHA256,
 	FILE_TEXT,
 	fields,
+	quarantineIsVisible,
 	readHeldSubmissions,
 	readUploadObservations,
 	resetUploadObservations,
@@ -110,7 +110,7 @@ const setReadOnlyMode = (enable: boolean): void => {
  * enables the quarantine test module, which depends on formidable-quarantine, so the hold of the module owns a form
  * whose "Checks" list holds a stub check: it stores the submission in
  * the quarantine tree of the site, /sites/<site>/formidable-quarantine/<form>/YYYY/MM/DD/<held>, and returns. Nothing
- * runs after it until a release, which this spec never starts. The spec reads the tree through the inspection of the
+ * runs after it until a release, which this spec never starts. The spec reads the tree through the GraphQL API of the
  * module, as root: the state, the names of the fields, and of each item its file name, size and SHA-256.
  *
  * Q10 is a control scenario. Its control build is formidable-quarantine with two changes in JcrQuarantineStore:
@@ -203,7 +203,6 @@ describe('Quarantine - 97 The hold of formidable-quarantine stores a submission 
 
 	describe('Q10: no reader role reads the quarantine tree (control)', () => {
 		const formName = 'quarantine-acl-form';
-		let heldFormId: string;
 		let heldPath: string;
 		let itemPath: string;
 		let rootPath: string;
@@ -222,7 +221,6 @@ describe('Quarantine - 97 The hold of formidable-quarantine stores a submission 
 					.forEach(reader => grantRoles(formPath, reader.formRoles, reader.name, 'USER'));
 				publishAndWaitJobEnding(formPath);
 				rootPath = `${SITE_PATH}/formidable-quarantine`;
-				heldFormId = formId;
 
 				cy.logout();
 				postDirectMultipartSubmission({formId, body: submissionWithAFile('Hedy'), headers: withSameOriginHeaders()})
@@ -260,12 +258,8 @@ describe('Quarantine - 97 The hold of formidable-quarantine stores a submission 
 				expectRefused(`/files/live${itemPath}`);
 				expectRefused(`/modules/api/jcr/v1/live/en/paths${heldPath}`);
 				expectRefused(`/modules/api/jcr/v1/live/en/paths${itemPath}`);
-				// the inspection of the module answers server administrators alone
-				cy.request({
-					url: QUARANTINE_INSPECTION_PATH,
-					qs: {site: FORMIDABLE_TEST_SITE.key, form: heldFormId},
-					failOnStatusCode: false
-				}).its('status').should('eq', 403);
+				// the GraphQL API of the module answers the managers of the site alone
+				quarantineIsVisible().should('eq', false);
 			});
 		});
 

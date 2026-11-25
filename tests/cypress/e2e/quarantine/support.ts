@@ -1,8 +1,6 @@
 import {
 	FORWARD_SINK_PATH,
-	QUARANTINE_INSPECTION_PATH,
-	QUARANTINE_OPERATIONS_PATH,
-	QUARANTINE_RETENTION_PATH,
+	GRAPHQL_PATH,
 	QUARANTINE_RUN_PATH,
 	QUARANTINE_STUB_PATH,
 	UPLOAD_OBSERVATIONS_PATH
@@ -11,10 +9,7 @@ import {FORMIDABLE_TEST_SITE, FORWARD_SINK_TARGET_ID, getInputFileNode, getInput
 import {SAME_ORIGIN} from '../security/support';
 
 const BOUNDARY = '----FormidableCypressBoundary';
-/**
- * A POST to an endpoint of the quarantine: each refuses one without X-Requested-With, and the operations and the
- * retention of formidable-quarantine also refuse one whose Content-Type is not application/json (415).
- */
+/** A POST to an endpoint of the quarantine test module or of the samples: each refuses one without X-Requested-With. */
 export const QUARANTINE_POST_HEADERS = {Origin: SAME_ORIGIN, 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json'};
 export const FILE_FIELD = 'supportingDocument';
 export const FILE_NAME = 'claim-note.txt';
@@ -140,7 +135,132 @@ export const resetUploadObservations = (): Cypress.Chainable =>
 export const readUploadObservations = (): Cypress.Chainable<UploadObservations> =>
 	cy.request<UploadObservations>(UPLOAD_OBSERVATIONS_PATH).its('body');
 
-/** One item of a held submission, as the inspection of formidable-quarantine answers it: never its bytes. */
+/** The state of a held submission, as the GraphQL API names it (FmdbqState). */
+export type GraphqlHeldState = 'HELD' | 'CHECKING' | 'RELEASING' | 'COMPLETED' | 'REJECTED' | 'NEEDS_REVIEW';
+
+/** The stored name of a state, as an audit record and the specs name it: NEEDS_REVIEW is needsReview. */
+export const storedState = (state: GraphqlHeldState): HeldSubmissionRecord['state'] =>
+	(state === 'NEEDS_REVIEW' ? 'needsReview' : state.toLowerCase()) as HeldSubmissionRecord['state'];
+
+/** The root of the quarantine tree of a site: the identifier of a held submission is its path below it. */
+export const quarantineRootOf = (siteKey: string = FORMIDABLE_TEST_SITE.key): string =>
+	`/sites/${siteKey}/formidable-quarantine/`;
+
+/** The identifier of the held submission at the path, for the GraphQL API of the site. */
+export const heldIdOf = (path: string, siteKey: string = FORMIDABLE_TEST_SITE.key): string => {
+	const root = quarantineRootOf(siteKey);
+	if (!path.startsWith(root)) {
+		throw new Error(`Not a held submission of site ${siteKey}: ${path}`);
+	}
+	return path.substring(root.length);
+};
+
+export interface GraphqlAnswer<T> {
+	data?: T;
+	errors?: Array<{message?: string}>;
+}
+
+/**
+ * A GraphQL request as the user of the browser session, as the manager screen sends it. The HTTP status is not
+ * checked: a guest may get a refusal of the platform, which the caller reads as "nothing".
+ */
+export const quarantineGraphql = <T>(query: string, variables: Record<string, unknown>):
+	Cypress.Chainable<Cypress.Response<GraphqlAnswer<T>>> =>
+	cy.request<GraphqlAnswer<T>>({
+		method: 'POST',
+		url: GRAPHQL_PATH,
+		headers: {Origin: SAME_ORIGIN, 'Content-Type': 'application/json'},
+		body: {query, variables},
+		failOnStatusCode: false
+	});
+
+const errorMessages = (answer: GraphqlAnswer<unknown> | undefined): string =>
+	(answer?.errors ?? []).map(error => error.message ?? '').join(' | ');
+
+const HELD_FIELDS = `
+	id state createdAt changedAt attempts nextAttempt completedActions fields sensitiveFields valuesPresent
+	files {
+		item fieldName name mimeType size sha256 bytesPresent
+		checks {name type verdict reasonCode retryable ticketPending attempts sha256 at}
+	}
+	decision {reason item check sha256 failedAction at}
+	audit {operation user from to at}
+	allowedOperations`;
+
+/** One held submission, as the GraphQL API answers it. */
+export interface GraphqlHeldSubmission {
+	id: string;
+	state: GraphqlHeldState;
+	createdAt: string;
+	changedAt: string | null;
+	attempts: number;
+	nextAttempt: string | null;
+	completedActions: number;
+	fields: string[];
+	sensitiveFields: string[];
+	valuesPresent: boolean;
+	files: Array<{
+		item: string;
+		fieldName: string;
+		name: string;
+		mimeType: string | null;
+		size: number;
+		sha256: string;
+		bytesPresent: boolean;
+		checks: Array<{
+			name: string;
+			type: string | null;
+			verdict: HeldOutcome['outcome'];
+			reasonCode: string | null;
+			retryable: boolean;
+			ticketPending: boolean;
+			attempts: number;
+			sha256: string;
+			at: string;
+		}>;
+	}>;
+	decision: HeldDecision | null;
+	audit: HeldAuditRecord[];
+	allowedOperations: Array<'RETRY' | 'RELEASE' | 'RESUME' | 'REJECT'>;
+}
+
+/** The record the specs read, from the answer of the GraphQL API: the path, the items and the flat list of outcomes. */
+const recordOf = (held: GraphqlHeldSubmission, siteKey: string): HeldSubmissionRecord => ({
+	path: `${quarantineRootOf(siteKey)}${held.id}`,
+	state: storedState(held.state),
+	createdAt: held.createdAt,
+	changedAt: held.changedAt,
+	attempts: held.attempts,
+	nextAttempt: held.nextAttempt,
+	completedActions: held.completedActions,
+	fields: held.fields,
+	sensitiveFields: held.sensitiveFields,
+	valuesPresent: held.valuesPresent,
+	items: held.files.map(file => ({
+		name: file.item,
+		fieldName: file.fieldName,
+		fileName: file.name,
+		mimeType: file.mimeType,
+		size: file.size,
+		sha256: file.sha256,
+		binaryPresent: file.bytesPresent
+	})),
+	checks: held.files.flatMap(file => file.checks.map(check => ({
+		item: file.item,
+		check: check.name,
+		outcome: check.verdict,
+		reason: check.reasonCode,
+		retryable: check.retryable,
+		ticketPresent: check.ticketPending,
+		attempts: check.attempts,
+		sha256: check.sha256,
+		at: check.at
+	}))),
+	decision: held.decision,
+	audit: held.audit
+});
+
+/** One item of a held submission, as the specs read it: never its bytes. */
 export interface HeldItem {
 	name: string;
 	fieldName: string;
@@ -151,7 +271,7 @@ export interface HeldItem {
 	binaryPresent: boolean;
 }
 
-/** The last outcome of one check for one item, as the inspection answers it: never the ticket, never a byte. */
+/** The last outcome of one check for one item, as the specs read it: never the ticket, never a byte. */
 export interface HeldOutcome {
 	item: string;
 	check: string;
@@ -183,7 +303,7 @@ export interface HeldAuditRecord {
 	at: string;
 }
 
-/** One held submission, as the inspection answers it: the names of its fields, never a value. */
+/** One held submission, as the specs read it: the names of its fields, never a value. */
 export interface HeldSubmissionRecord {
 	path: string;
 	state: 'held' | 'checking' | 'releasing' | 'completed' | 'rejected' | 'needsReview';
@@ -202,15 +322,43 @@ export interface HeldSubmissionRecord {
 	audit: HeldAuditRecord[];
 }
 
+type SubmissionsAnswer = GraphqlAnswer<{
+	formidableQuarantine: {submissions: {totalCount: number; items: GraphqlHeldSubmission[]}} | null;
+}>;
+
 /**
- * The held submissions of a form in the quarantine tree of the test site, oldest first. The inspection answers server
- * administrators alone: the spec reads it logged in as root.
+ * The held submissions of a form in the quarantine tree of a site, oldest first, through the GraphQL API of
+ * formidable-quarantine. The API answers the managers of the site and the server administrators: the specs read it
+ * logged in as root. Fails on any GraphQL error, on a user who does not manage the site, and on more than one page.
  */
-export const readHeldSubmissions = (formId: string): Cypress.Chainable<HeldSubmissionRecord[]> =>
-	cy.request<{submissions: HeldSubmissionRecord[]}>({
-		url: QUARANTINE_INSPECTION_PATH,
-		qs: {site: FORMIDABLE_TEST_SITE.key, form: formId}
-	}).its('body.submissions');
+export const readHeldSubmissions = (formId: string, siteKey: string = FORMIDABLE_TEST_SITE.key):
+	Cypress.Chainable<HeldSubmissionRecord[]> =>
+	quarantineGraphql<SubmissionsAnswer['data']>(
+		`query($siteKey: String!, $formId: String) {
+			formidableQuarantine(siteKey: $siteKey) {
+				submissions(formId: $formId, limit: 100) {totalCount items {${HELD_FIELDS}}}
+			}
+		}`,
+		{siteKey, formId}
+	).then(response => {
+		expect(errorMessages(response.body), 'GraphQL errors of the read of the quarantine').to.eq('');
+		const quarantine = response.body.data?.formidableQuarantine;
+		if (!quarantine) {
+			throw new Error(`The user of the session does not see the quarantine of site ${siteKey}`);
+		}
+		expect(quarantine.submissions.totalCount, 'held submissions on one page').to.be.at.most(100);
+		return quarantine.submissions.items.map(held => recordOf(held, siteKey));
+	});
+
+/**
+ * Whether the user of the session sees the quarantine of a site through the GraphQL API: false for a user who does
+ * not manage the site, as for a site that does not exist, and for a guest that the platform refuses.
+ */
+export const quarantineIsVisible = (siteKey: string = FORMIDABLE_TEST_SITE.key): Cypress.Chainable<boolean> =>
+	quarantineGraphql<{formidableQuarantine: {siteKey: string} | null}>(
+		'query($siteKey: String!) { formidableQuarantine(siteKey: $siteKey) { siteKey } }',
+		{siteKey}
+	).then(response => Boolean(response.body?.data?.formidableQuarantine));
 
 /** The settings of the run of formidable-quarantine, as "run now" of the quarantine test module answers them. */
 export interface QuarantineRunSettings {
@@ -302,17 +450,56 @@ export interface QuarantineOperationAnswer {
 }
 
 /**
- * An operation of a manager on a held submission, as the user of the current session: a manager of the form, or a
- * server administrator. Any other user gets 403; a state that does not allow the operation gets 409.
+ * The answer of a mutation of the GraphQL API, read as the status the specs assert: 200 when it ran; 403 when the user
+ * does not manage the site (the API answers null), for an identifier that names nothing in the site (the same answer),
+ * and for a purge by a user who is not a server administrator; 409 when the state or the decision does not allow the
+ * operation; 500 for any other error.
+ */
+const statusOf = (answer: GraphqlAnswer<unknown> | undefined, ran: boolean): number => {
+	const errors = errorMessages(answer);
+	if (errors.includes('is not allowed in state')) {
+		return 409;
+	}
+	if (errors.includes('No held submission') || errors.includes('Server administrators only') || (!errors && !ran)) {
+		return 403;
+	}
+	return errors ? 500 : 200;
+};
+
+/** The response of a mutation, as the request of an endpoint answered it: the status above and the body. */
+const answered = <T>(status: number, body: T, failOnStatusCode: boolean, what: string, errors: string):
+	Cypress.Response<T> => {
+	if (failOnStatusCode && status !== 200) {
+		throw new Error(`${what} answered ${status}: ${errors}`);
+	}
+	return {status, body} as Cypress.Response<T>;
+};
+
+type OperateAnswer = GraphqlAnswer<{
+	formidableQuarantine: {operate: {id: string; state: GraphqlHeldState; audit: HeldAuditRecord[]}} | null;
+}>;
+
+/**
+ * An operation of a manager on a held submission of the test site, as the user of the current session, through the
+ * mutation formidableQuarantine(siteKey) { operate } of the GraphQL API: a manager of the site, or a server
+ * administrator. The response carries the status of statusOf; its body names the state before the operation, from
+ * the audit record the operation wrote, and the state after it.
  */
 export const operateHeldSubmission = (path: string, operation: QuarantineOperation, failOnStatusCode = true):
 	Cypress.Chainable<Cypress.Response<QuarantineOperationAnswer>> =>
-	cy.request<QuarantineOperationAnswer>({
-		method: 'POST',
-		url: QUARANTINE_OPERATIONS_PATH,
-		headers: QUARANTINE_POST_HEADERS,
-		qs: {path, operation},
-		failOnStatusCode
+	quarantineGraphql<OperateAnswer['data']>(
+		`mutation($siteKey: String!, $id: String!, $operation: FmdbqOperation!) {
+			formidableQuarantine(siteKey: $siteKey) {
+				operate(id: $id, operation: $operation) {id state audit {operation user from to at}}
+			}
+		}`,
+		{siteKey: FORMIDABLE_TEST_SITE.key, id: heldIdOf(path), operation: operation.toUpperCase()}
+	).then(response => {
+		const after = response.body.data?.formidableQuarantine?.operate;
+		const last = after?.audit[after.audit.length - 1];
+		const body = {path, operation, from: last?.from ?? '', state: after ? storedState(after.state) : 'held'};
+		return answered(statusOf(response.body, Boolean(after)), body as QuarantineOperationAnswer, failOnStatusCode,
+			`The operation ${operation} on ${path}`, errorMessages(response.body));
 	});
 
 export interface QuarantineRetentionAnswer {
@@ -322,16 +509,31 @@ export interface QuarantineRetentionAnswer {
 	failed: string[];
 }
 
+type PurgeAnswer = GraphqlAnswer<{
+	formidableQuarantine: {purge: {retentionDays: number; purged: string[]; failed: string[]}} | null;
+}>;
+
 /**
- * The retention over the test site: purges each rejected held submission whose last change is older than the limit,
- * retentionDays of the configuration or olderThanDays for this call. Server administrators only.
+ * The retention over the test site, through the mutation formidableQuarantine(siteKey) { purge } of the GraphQL API:
+ * purges each rejected held submission whose last change is older than the limit, retentionDays of the configuration
+ * or olderThanDays for this call. Server administrators only: any other user gets 403. The body names the paths.
  */
 export const runQuarantineRetention = (olderThanDays?: number, failOnStatusCode = true):
 	Cypress.Chainable<Cypress.Response<QuarantineRetentionAnswer>> =>
-	cy.request<QuarantineRetentionAnswer>({
-		method: 'POST',
-		url: QUARANTINE_RETENTION_PATH,
-		headers: QUARANTINE_POST_HEADERS,
-		qs: {site: FORMIDABLE_TEST_SITE.key, ...(olderThanDays === undefined ? {} : {olderThanDays: String(olderThanDays)})},
-		failOnStatusCode
+	quarantineGraphql<PurgeAnswer['data']>(
+		`mutation($siteKey: String!, $olderThanDays: Int) {
+			formidableQuarantine(siteKey: $siteKey) {purge(olderThanDays: $olderThanDays) {retentionDays purged failed}}
+		}`,
+		{siteKey: FORMIDABLE_TEST_SITE.key, olderThanDays: olderThanDays ?? null}
+	).then(response => {
+		const report = response.body.data?.formidableQuarantine?.purge;
+		const toPath = (id: string) => `${quarantineRootOf()}${id}`;
+		const body: QuarantineRetentionAnswer = {
+			site: FORMIDABLE_TEST_SITE.key,
+			retentionDays: report?.retentionDays ?? 0,
+			purged: (report?.purged ?? []).map(toPath),
+			failed: (report?.failed ?? []).map(toPath)
+		};
+		return answered(statusOf(response.body, Boolean(report)), body, failOnStatusCode,
+			'The retention', errorMessages(response.body));
 	});

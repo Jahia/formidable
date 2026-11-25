@@ -8,8 +8,9 @@ import {JahiaNode} from './types';
 export const QUARANTINE_MODULE_ID = 'formidable-test-module-quarantine';
 
 /**
- * The role of formidable-quarantine that grants its permission formidableQuarantineManage: granted on a form, and
- * published, it lets a user retry, release, resume or reject the held submissions of that form.
+ * The site role of formidable-quarantine that grants its permission formidableQuarantineManage: granted on a site, it
+ * lets a user read the quarantine of the site through the GraphQL API, and retry, release, resume or reject its held
+ * submissions.
  */
 export const QUARANTINE_MANAGER_ROLE = 'formidable-quarantine-manager';
 
