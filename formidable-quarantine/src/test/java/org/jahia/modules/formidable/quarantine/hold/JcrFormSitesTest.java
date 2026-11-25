@@ -109,6 +109,17 @@ class JcrFormSitesTest {
     }
 
     @Test
+    void aSiteThatListsTheModuleIsOwnedWhateverTheOtherModulesItLists() throws RepositoryException {
+        assertTrue(SITES.hasTheModule(formOfASiteWith("acme-undeployed-check", JcrFormSites.MODULE_ID)));
+    }
+
+    @Test
+    void aSiteWhoseKnownModuleBringsTheModuleIsOwnedWhateverAnUnknownModuleListedBeforeIt() throws RepositoryException {
+        // the unknown module is listed first: the walk goes on through the known ones, whatever the order
+        assertTrue(SITES.hasTheModule(formOfASiteWith("acme-undeployed-check", "formidable-test-module-quarantine")));
+    }
+
+    @Test
     void aSiteThatListsNoModuleRefusesTheForm() throws RepositoryException {
         JCRNodeWrapper form = formOfASiteWith();
 

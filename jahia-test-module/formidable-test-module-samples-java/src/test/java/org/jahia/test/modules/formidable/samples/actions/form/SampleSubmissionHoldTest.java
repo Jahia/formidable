@@ -125,6 +125,17 @@ class SampleSubmissionHoldTest {
     }
 
     @Test
+    void theRankingTheComponentIsBoundWithDecidesWhichHoldsAreBelow() throws Exception {
+        SampleSubmissionHold hold = hold(formId -> false);
+        hold.configure(Map.of(LowerHolds.SERVICE_RANKING, 50));
+        HeldSubmission submission = submission();
+
+        assertThrows(SubmissionHoldException.class, () -> hold.hold(submission));
+
+        verify(quarantineHold, never()).hold(any());
+    }
+
+    @Test
     void theSampleHoldRanksAboveTheHoldOfTheQuarantineModule() {
         assertTrue(SampleSubmissionHold.RANKING > 100);
         assertEquals(SampleSubmissionHold.COMPONENT_NAME, SampleSubmissionHold.class.getName());
@@ -132,7 +143,8 @@ class SampleSubmissionHoldTest {
 
     @Test
     void theClaimReadsTheSampleCheckInTheList() throws RepositoryException {
-        assertTrue(SampleChecks.holdsASampleCheck(formWithChecks("fmdbquar:remoteStubCheck", SampleChecks.SAMPLE_CHECK)));
+        assertTrue(SampleChecks.holdsASampleCheck(
+                formWithChecks("fmdbquar:remoteStubCheck", SampleChecks.SAMPLE_CHECK)));
         assertFalse(SampleChecks.holdsASampleCheck(formWithChecks("fmdbquar:remoteStubCheck")));
         assertFalse(SampleChecks.holdsASampleCheck(formWithChecks()));
         assertFalse(SampleChecks.holdsASampleCheck(mock(JCRNodeWrapper.class)));

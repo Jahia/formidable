@@ -5,13 +5,16 @@ import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
 import org.jahia.modules.formidable.engine.api.SubmissionHold;
 import org.jahia.modules.formidable.engine.api.SubmissionHoldException;
+import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
 import org.osgi.service.component.annotations.ReferenceCardinality;
 import org.osgi.service.component.annotations.ReferencePolicy;
 
 import javax.jcr.RepositoryException;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A hold for the test suite, and not a quarantine: it stores nothing and checks nothing. It records the number of
@@ -37,6 +40,8 @@ public class SampleSubmissionHold implements SubmissionHold {
     static final int RANKING = 200;
 
     private final LowerHolds lowerHolds = new LowerHolds();
+    /** The ranking the component is bound with, which a configuration of the component may change. */
+    private final AtomicInteger ranking = new AtomicInteger(RANKING);
     private final SampleChecks sampleChecks;
     private DeferredActions deferredActions;
 
@@ -46,6 +51,13 @@ public class SampleSubmissionHold implements SubmissionHold {
 
     SampleSubmissionHold(SampleChecks sampleChecks) {
         this.sampleChecks = sampleChecks;
+    }
+
+    /** Reads the ranking the component is bound with: a form goes only to a hold that ranks below it. */
+    @Activate
+    @Modified
+    public void configure(Map<String, Object> properties) {
+        ranking.set(LowerHolds.ranking(properties.get(LowerHolds.SERVICE_RANKING)));
     }
 
     @Reference
@@ -74,7 +86,7 @@ public class SampleSubmissionHold implements SubmissionHold {
     public void hold(HeldSubmission submission) throws SubmissionHoldException {
         String formId = submission.formId();
         if (!claims(formId)) {
-            SubmissionHold next = lowerHolds.nextBelow(RANKING).orElseThrow(() -> new SubmissionHoldException(
+            SubmissionHold next = lowerHolds.nextBelow(ranking.get()).orElseThrow(() -> new SubmissionHoldException(
                     "Form " + formId + " has no " + SampleChecks.SAMPLE_CHECK + " in its checks, and no other hold "
                             + "ranks below the sample hold"));
             next.hold(submission);

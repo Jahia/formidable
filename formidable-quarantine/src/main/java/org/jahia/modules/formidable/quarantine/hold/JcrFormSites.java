@@ -58,8 +58,8 @@ public final class JcrFormSites implements FormSites {
      * would hand the form to a hold that may release it unchecked.
      *
      * @throws RepositoryException when the form is under no site, or the modules of its site cannot be read, or the
-     *                             platform does not know one of them; a site always lists its template set, so an
-     *                             empty list is a failed read too
+     *                             answer depends on a module the platform does not know; a site always lists its
+     *                             template set, so an empty list is a failed read too
      */
     boolean hasTheModule(JCRNodeWrapper form) throws RepositoryException {
         JCRSiteNode site = form.getResolveSite();
@@ -76,29 +76,36 @@ public final class JcrFormSites implements FormSites {
             int colon = entry.indexOf(':');
             pending.add(colon < 0 ? entry : entry.substring(0, colon));
         }
-        return withDependencies(pending).contains(MODULE_ID);
+        return pending.contains(MODULE_ID) || reachedThroughDependencies(pending);
     }
 
-    private Set<String> withDependencies(List<String> pending) throws RepositoryException {
-        Set<String> modules = new LinkedHashSet<>(pending);
+    /**
+     * Walks the dependencies of every module the registry knows. The module found on the way owns the form, whatever
+     * the modules the registry does not know. Without it, a module the registry does not know leaves the answer open:
+     * that module could depend on this one, so the read fails.
+     */
+    private boolean reachedThroughDependencies(List<String> pending) throws RepositoryException {
+        Set<String> seen = new LinkedHashSet<>(pending);
+        String unknown = null;
         for (int i = 0; i < pending.size(); i++) {
-            for (String dependency : dependenciesOf(pending.get(i))) {
-                if (modules.add(dependency)) {
+            Optional<List<String>> dependencies = registry.dependenciesOf(pending.get(i));
+            if (dependencies.isEmpty()) {
+                unknown = pending.get(i);
+                continue;
+            }
+            if (dependencies.get().contains(MODULE_ID)) {
+                return true;
+            }
+            for (String dependency : dependencies.get()) {
+                if (seen.add(dependency)) {
                     pending.add(dependency);
                 }
             }
         }
-        return modules;
-    }
-
-    /**
-     * The modules a module depends on, as the registry of the platform knows them. A module that the registry does not
-     * know, such as a module of the site that is not deployed, could depend on this one: the read fails, so the hold
-     * refuses the form and never hands it on.
-     */
-    private List<String> dependenciesOf(String moduleId) throws RepositoryException {
-        return registry.dependenciesOf(moduleId).orElseThrow(() -> new RepositoryException(
-                "The platform does not know the module " + moduleId + " of the site"));
+        if (unknown != null) {
+            throw new RepositoryException("The platform does not know the module " + unknown + " of the site");
+        }
+        return false;
     }
 
     /** The dependencies of a deployed module, as the registry of the platform resolves them. */

@@ -55,7 +55,7 @@ final class LowerHolds {
     }
 
     /** OSGi reads a ranking that is not an Integer as 0. */
-    private static int ranking(Object value) {
+    static int ranking(Object value) {
         return value instanceof Integer ranking ? ranking : 0;
     }
 

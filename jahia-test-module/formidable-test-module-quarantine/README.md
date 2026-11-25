@@ -133,7 +133,7 @@ A release that stops half way, on a failure of the store, an error of an action 
 
 ## The permission of a manager
 
-A manager of the quarantine of a form holds the permission `formidableQuarantineManage` on the form. The module declares the permission in `src/main/import/permissions.xml`, and creates the role `formidable-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`). The engine creates its role `fmdb-results-reader` the same way. An administrator grants the role to a user or a group on the form, then publishes the form. The operations check the permission on the live form, in a session of the user of the request, so the ACL of the form decides.
+A manager of the quarantine of a form holds the permission `formidableQuarantineManage` on the form. `formidable-quarantine` declares the permission in `formidable-quarantine/src/main/import/permissions.xml`, and creates the role `formidable-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`). The engine creates its role `fmdb-results-reader` the same way. An administrator grants the role to a user or a group on the form, then publishes the form. The operations check the permission on the live form, in a session of the user of the request, so the ACL of the form decides.
 
 A server administrator (`root`, or a member of the server group `administrators`) is a manager of every form. No other role gives the permission: a results reader, an editor or a site administrator of the site is not a manager.
 

@@ -25,7 +25,8 @@ import java.util.regex.Pattern;
  *
  * <p>A manager of the form, or a server administrator, may run an operation: any other caller gets 403, and nothing
  * changes. A state that does not allow the operation gets 409. {@link QuarantineOperations} makes these checks. A POST
- * without the header {@code X-Requested-With} gets 403 first.</p>
+ * without the header {@code X-Requested-With} gets 403 first, and a POST whose {@code Content-Type} is not
+ * {@code application/json} gets 415: nothing changes.</p>
  */
 @Component(service = {HttpServlet.class, Servlet.class}, property = {"alias=" + OperationsServlet.ALIAS},
         immediate = true)

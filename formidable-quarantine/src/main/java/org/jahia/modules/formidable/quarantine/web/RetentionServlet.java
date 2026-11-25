@@ -23,7 +23,8 @@ import java.util.regex.Pattern;
  * {@code retentionDays} for this call only.
  *
  * <p>Server administrators only: any other caller gets 403, and nothing is purged. A POST also needs the header
- * {@code X-Requested-With}.</p>
+ * {@code X-Requested-With}, else 403, and a {@code Content-Type} of {@code application/json}, else 415: nothing is
+ * purged.</p>
  */
 @Component(service = {HttpServlet.class, Servlet.class}, property = {"alias=" + RetentionServlet.ALIAS},
         immediate = true)
