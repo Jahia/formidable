@@ -56,7 +56,7 @@ describe('Quarantine - 94 The hold of formidable-quarantine owns the held forms 
 
 		// No hold ran the actions after release: the sample hold did not claim the form, and nothing released it.
 		readUploadObservations().then(seen => {
-			expect(seen.hold, 'calls of the sample hold').to.deep.equal([]);
+			expect(seen.hold, 'claims of the sample hold').to.deep.equal([]);
 			expect(seen.observer, 'calls of the observer action after release').to.deep.equal([]);
 		});
 	});
@@ -88,9 +88,9 @@ describe('Quarantine - 94 The hold of formidable-quarantine owns the held forms 
 			});
 		});
 
-		// The hold of the module owned the form: the sample hold was not called, and no action after release ran.
+		// The hold of the module owned the form: the sample hold did not claim it, and no action after release ran.
 		readUploadObservations().then(seen => {
-			expect(seen.hold, 'calls of the sample hold').to.deep.equal([]);
+			expect(seen.hold, 'claims of the sample hold').to.deep.equal([]);
 			expect(seen.observer, 'calls of the observer action after release').to.deep.equal([]);
 		});
 	});

@@ -171,7 +171,7 @@ describe('Quarantine - 97 The hold of formidable-quarantine stores a submission 
 			});
 		});
 
-		// The hold of the module owned the form: the sample hold was not called, and no action after release ran. The
+		// The hold of the module owned the form: the sample hold did not claim it, and no action after release ran. The
 		// observer action reports no call, and Save to JCR stored nothing in the results of the form. The observer is
 		// deferrable as an e-mail action is, so it stands for every action after release, with no mailbox.
 		readUploadObservations().then(seen => {

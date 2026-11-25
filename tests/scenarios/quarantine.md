@@ -156,11 +156,11 @@ the scenario proves:
 |---|---|
 | Q06, Q07, Q08 | hands the uploads to the actions on submission, whatever the switch says |
 | Q15 | ignores `uploadsRequireQuarantine` |
-| Q10 | leaves the ACL inheritance of the quarantine root in place: the quarantine test module without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf`, and with `root == null` as the condition of `JcrQuarantineStore.closed` |
-| Q09 | releases without computing the hash again: `Release.release` with `firstChanged(record, submission)` replaced by `null` |
+| Q10 | leaves the ACL inheritance of the quarantine root in place: `formidable-quarantine` without the line `root.setAclInheritanceBreak(true);` of `JcrQuarantineStore.rootOf`, and with `root == null` as the condition of `JcrQuarantineStore.closed` |
+| Q09 | releases without computing the hash again: `Release.release` with `firstChanged(held, submission)` replaced by `null` |
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
-| Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(record.formId())` replaced by `false` |
+| Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(held.formId())` replaced by `false` |
 
 ---
 
@@ -344,7 +344,7 @@ administrator reads the item, the quarantine root needs another guard.
 The JCR REST API answers 404 when its module is not installed: that read then
 proves nothing.
 
-**Control build:** the quarantine test module with two changes in
+**Control build:** `formidable-quarantine` with two changes in
 `JcrQuarantineStore`: the line `root.setAclInheritanceBreak(true);` removed
 from `rootOf`, and the condition of `closed` replaced by `root == null`, so
 that the store reuses the root it created. Build it with `package`, deploy it

@@ -104,7 +104,7 @@ const runOnce = (formId: string, state: HeldSubmissionRecord['state'], ignoreSch
  *
  * Control scenarios. Each control build is formidable-quarantine with one guard removed; build it with
  * `package`, deploy it in place of the module, run this spec, and the scenario must fail by assertion:
- * - Q09: in Release.release, replace `firstChanged(record, submission)` with `null`, so the release never computes the
+ * - Q09: in Release.release, replace `firstChanged(held, submission)` with `null`, so the release never computes the
  *   SHA-256 again. Q09 fails on the state (`completed`, not `needsReview`) or on the stored results.
  * - Q21: in CheckChain.judgeResult, answer `null` for FAIL as for PASS, so a FAIL no longer rejects. Q21 fails on the
  *   state after the run (`checking`, not `rejected`): the run waits for the back-off before it calls the second check.

@@ -44,8 +44,10 @@ final class JsonAnswers {
     /**
      * Refuses a POST that a cross-site page could make the browser of a connected user send. Two barriers, each
      * enough alone: without {@link #REQUESTED_WITH} the POST gets 403, and with a {@code Content-Type} whose essence
-     * is not {@value #JSON_MEDIA_TYPE} it gets 415. The essence is the type before the first {@code ;}, so
-     * {@code text/plain;application/json}, which a browser sends cross-site, is refused.
+     * is not {@value #JSON_MEDIA_TYPE} it gets 415. A browser sends {@value #JSON_MEDIA_TYPE} cross-site only after a
+     * preflight, which the module never answers. It sends the three simple types, form-urlencoded, multipart and
+     * {@code text/plain}, with no preflight, so they are refused. The essence is the type before the first {@code ;},
+     * so {@code text/plain;application/json} is refused too.
      *
      * @return true when the request was refused and answered
      */

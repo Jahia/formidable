@@ -30,7 +30,8 @@ class JcrFormSitesTest {
 
     private static JCRSiteNode site() {
         JCRSiteNode site = mock(JCRSiteNode.class);
-        // what the swallowing getters of the site would answer: a rule read from them hands no form down
+        // what the swallowing getters of the site answer: a rule read from them would find no module and hand every
+        // form down, instead of refusing it
         when(site.getInstalledModules()).thenReturn(List.of());
         when(site.getInstalledModulesWithAllDependencies()).thenReturn(Set.of());
         return site;

@@ -93,8 +93,8 @@ The settings of a check come from its node. The run reads the node and gives the
 (`onInconclusive`, `onUnavailable`) and its own properties as a map of strings.
 
 The check API follows semantic versioning. Jahia implements the types marked `@ProviderType`, and a check module
-implements the types marked `@ConsumerType`. The module has no release yet. From its first release, the build
-compares the exported package with the last release.
+implements the types marked `@ConsumerType`. ADR 0003 decides that the build compares the exported package with its
+last release. The module has no release, so no pom configures that comparison.
 
 ## Ownership of a form
 
@@ -115,8 +115,9 @@ repository to decide whether it owns a form. The check services that are registe
 - A hold that wants some forms ranks above 100, such as a broker outside Jahia. It claims a form by the check
   types of its list, and hands any other form to the next hold.
 - A hold hands a form only to a hold of a lower ranking. A hold of the same ranking never receives a handed-off
-  form, because two holds of one ranking would hand a form to each other. The ranking is the one the hold is bound
-  with, so a ranking that a configuration sets counts.
+  form, because two holds of one ranking would hand a form to each other. The hold of this module compares with the
+  ranking it is bound with, so a ranking that a configuration sets counts. The sample hold compares with its constant
+  ranking.
 - The sample hold of `formidable-test-module-samples-java` ranks 200. It claims only the forms whose list holds
   `fmdbsample:sampleCheck`, and hands every other form down to the hold of this module.
 
