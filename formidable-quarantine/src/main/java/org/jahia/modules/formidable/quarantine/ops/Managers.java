@@ -1,16 +1,16 @@
 package org.jahia.modules.formidable.quarantine.ops;
 
 /**
- * Who the user of the current request is, for the operations: a manager of the quarantine of a form holds the
- * permission {@value #PERMISSION} on the form, through the role {@value #ROLE}. A server administrator is a manager of
- * every form.
+ * Who the user of the current request is, for the operations and the GraphQL API: a manager of the quarantine of a
+ * site holds the permission {@value #PERMISSION} on the site node, through the site role {@value #ROLE}. A server
+ * administrator is a manager of every site.
  */
 public interface Managers {
 
     /** The permission of a manager, declared by the module ({@code src/main/import/permissions.xml}). */
     String PERMISSION = "formidableQuarantineManage";
 
-    /** The role that grants {@link #PERMISSION}, created by the module ({@link ManagerRoleInitializer}). */
+    /** The site role that grants {@link #PERMISSION}, created by the module ({@link ManagerRoleInitializer}). */
     String ROLE = "formidable-quarantine-manager";
 
     /** @return the name of the user of the current request, or {@code null} when there is none */
@@ -20,10 +20,10 @@ public interface Managers {
     boolean isServerAdministrator();
 
     /**
-     * @param formId the identifier of the form, in live
-     * @return true when the user is a server administrator, or holds {@link #PERMISSION} on the live form
+     * @param siteKey the key of the site
+     * @return true when the user is a server administrator, or holds {@link #PERMISSION} on the site node
      */
-    boolean mayManage(String formId);
+    boolean mayManage(String siteKey);
 
     /** The check of the platform, on the user that the authentication of Jahia set on the request. */
     static Managers ofThePlatform() {

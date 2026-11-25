@@ -50,11 +50,11 @@ class QuarantineOperationsTest {
     private static final String MANAGER = "quarManager";
     private static final String SHA = "0".repeat(64);
 
-    /** A double of {@link Managers}: who the user is, and the forms the user manages. */
+    /** A double of {@link Managers}: who the user is, and the sites the user manages. */
     private static final class FakeManagers implements Managers {
         String user = MANAGER;
         boolean administrator;
-        final List<String> managedForms = new ArrayList<>(List.of(FORM));
+        final List<String> managedSites = new ArrayList<>(List.of(InMemoryQuarantine.SITE));
 
         @Override
         public String currentUserName() {
@@ -67,8 +67,8 @@ class QuarantineOperationsTest {
         }
 
         @Override
-        public boolean mayManage(String formId) {
-            return administrator || managedForms.contains(formId);
+        public boolean mayManage(String siteKey) {
+            return administrator || managedSites.contains(siteKey);
         }
     }
 
@@ -445,9 +445,9 @@ class QuarantineOperationsTest {
 
     /** Q20, control: without the check of the permission, the reader runs each operation and this test fails. */
     @Test
-    void aUserWhoDoesNotManageTheFormIsRefusedEachOperationAndNothingChanges() {
+    void aUserWhoDoesNotManageTheSiteIsRefusedEachOperationAsNotFoundAndNothingChanges() {
         managers.user = "quarResultsReader";
-        managers.managedForms.clear();
+        managers.managedSites.clear();
         Held held = inReview("INCONCLUSIVE");
         held.attempts = 3;
         held.outcomes.put("item0/remoteCheck", new OutcomeRecord("item0", "remoteCheck", SHA,
@@ -455,7 +455,7 @@ class QuarantineOperationsTest {
         Map<String, OutcomeRecord> outcomes = Map.copyOf(held.outcomes);
 
         for (Operation operation : Operation.values()) {
-            assertEquals(OperationRefusedException.Reason.FORBIDDEN,
+            assertEquals(OperationRefusedException.Reason.NOT_FOUND,
                     refusal(() -> operations.apply(held.path, operation)), operation.value() + " by a reader");
         }
 
@@ -470,10 +470,10 @@ class QuarantineOperationsTest {
     }
 
     @Test
-    void aServerAdministratorManagesEveryForm() throws Exception {
+    void aServerAdministratorManagesEverySite() throws Exception {
         managers.user = "root";
         managers.administrator = true;
-        managers.managedForms.clear();
+        managers.managedSites.clear();
         Held held = inReview("INCONCLUSIVE");
 
         operations.apply(held.path, Operation.REJECT);
@@ -483,14 +483,41 @@ class QuarantineOperationsTest {
     }
 
     @Test
-    void aPathThatNamesNoHeldSubmissionIsForbiddenButToAServerAdministrator() {
+    void aPathThatNamesNoHeldSubmissionIsNotFound() {
         String path = "/sites/site/formidable-quarantine/" + FORM + "/2026/11/19/held-none";
 
-        assertEquals(OperationRefusedException.Reason.FORBIDDEN,
+        assertEquals(OperationRefusedException.Reason.NOT_FOUND,
                 refusal(() -> operations.apply(path, Operation.REJECT)));
         managers.administrator = true;
         assertEquals(OperationRefusedException.Reason.NOT_FOUND,
                 refusal(() -> operations.apply(path, Operation.REJECT)));
+    }
+
+    @Test
+    void theManagerOfAnotherSiteIsRefusedAsNotFound() {
+        managers.managedSites.clear();
+        managers.managedSites.add("otherSite");
+        Held held = inReview("INCONCLUSIVE");
+
+        assertEquals(OperationRefusedException.Reason.NOT_FOUND,
+                refusal(() -> operations.apply(held.path, Operation.REJECT)));
+        assertEquals("needsReview", held.state, "state");
+        assertTrue(held.audit.isEmpty(), "audit");
+    }
+
+    @Test
+    void theAllowedOperationsFollowTheStateMachineAndTheDecision() {
+        assertEquals(List.of(Operation.RETRY, Operation.RELEASE, Operation.REJECT),
+                QuarantineOperations.allowedOperations(HeldState.NEEDS_REVIEW, "INCONCLUSIVE"));
+        assertEquals(List.of(Operation.RETRY, Operation.RESUME, Operation.REJECT),
+                QuarantineOperations.allowedOperations(HeldState.NEEDS_REVIEW, DecisionRecord.ACTION_FAILED));
+        assertEquals(List.of(Operation.RETRY, Operation.REJECT),
+                QuarantineOperations.allowedOperations(HeldState.NEEDS_REVIEW, DecisionRecord.FORM_GONE));
+        assertEquals(List.of(Operation.RESUME, Operation.REJECT),
+                QuarantineOperations.allowedOperations(HeldState.RELEASING, null));
+        for (HeldState state : List.of(HeldState.HELD, HeldState.CHECKING, HeldState.COMPLETED, HeldState.REJECTED)) {
+            assertEquals(List.of(), QuarantineOperations.allowedOperations(state, null), state.value());
+        }
     }
 
     @Test

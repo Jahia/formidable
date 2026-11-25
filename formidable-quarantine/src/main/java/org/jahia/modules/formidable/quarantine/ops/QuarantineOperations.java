@@ -11,20 +11,25 @@ import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.jahia.modules.formidable.quarantine.store.QuarantineTree;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
 
 /**
  * The operations of a manager on a held submission in state {@code needsReview}: retry, release, resume and reject, an
  * OSGi service. A release that stopped half way in {@code releasing} (a store failure, an error of an action, a stop of
- * the JVM) takes a resume or a reject only. Each operation checks, in this order, that a held submission is at the path, that the user of the
- * request is a manager of its form ({@link Managers}), and that the state machine and the decision allow it. A refused
+ * the JVM) takes a resume or a reject only. Each operation checks, in this order, that a held submission is at the path,
+ * under the quarantine root of its own site, that the user of the request is a manager of that site
+ * ({@link Managers}), and that the state machine and the decision allow it. A user who does not manage the site gets
+ * the answer of a path that names nothing. A refused
  * operation changes nothing. An operation that ran writes one audit record: the operation, the name of the user, the
  * state before and after, and when. No value. An operation that failed after it moved the state writes one too, with
  * the state reached, and so does a resume that failed: a resume of a release stopped in {@code releasing} stays
@@ -90,8 +95,8 @@ public class QuarantineOperations {
      * never while the run checks or releases submissions: the operation takes the lock of the run, so a submission in
      * {@code releasing} is a release that stopped, not one under way.
      *
-     * @throws OperationRefusedException when the user is not a manager of the form, when no held submission is at the
-     *                                   path, or when the state does not allow the operation: nothing changed
+     * @throws OperationRefusedException when no held submission is at the path, when the user is not a manager of its
+     *                                   site, or when the state does not allow the operation: nothing changed
      */
     public OperationResult apply(String path, Operation operation)
             throws OperationRefusedException, QuarantineStoreException {
@@ -103,21 +108,16 @@ public class QuarantineOperations {
     private OperationResult applyLocked(String path, Operation operation)
             throws OperationRefusedException, QuarantineStoreException {
         Optional<HeldRecord> found = store.heldRecord(path);
-        if (found.isEmpty()) {
-            // only a server administrator learns that a path names nothing
-            throw new OperationRefusedException(managers.isServerAdministrator()
-                    ? OperationRefusedException.Reason.NOT_FOUND : OperationRefusedException.Reason.FORBIDDEN,
+        // a user who does not manage the site learns no more than that the path names nothing
+        if (found.isEmpty() || !isInItsSite(path, found.get()) || !managers.mayManage(found.get().siteKey())) {
+            if (found.isPresent() && log.isInfoEnabled()) {
+                log.info("Held submission {}: {} refused to {}, who does not manage site {}", path, operation.value(),
+                        managers.currentUserName(), found.get().siteKey());
+            }
+            throw new OperationRefusedException(OperationRefusedException.Reason.NOT_FOUND,
                     "No held submission that the user manages at " + path);
         }
         HeldRecord held = found.get();
-        if (!managers.mayManage(held.formId())) {
-            if (log.isInfoEnabled()) {
-                log.info("Held submission {}: {} refused to {}, who does not manage form {}", path, operation.value(),
-                        managers.currentUserName(), held.formId());
-            }
-            throw new OperationRefusedException(OperationRefusedException.Reason.FORBIDDEN,
-                    "The user does not manage the quarantine of the form");
-        }
         HeldState from = HeldState.fromValue(held.state());
         if (!StateMachine.allows(from, operation.event()) || !fitsTheDecision(path, from, operation)) {
             throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
@@ -182,11 +182,40 @@ public class QuarantineOperations {
         if (from != HeldState.NEEDS_REVIEW || operation != Operation.RESUME && operation != Operation.RELEASE) {
             return true;
         }
-        String reason = checkStore.decision(path).map(DecisionRecord::reason).orElse(null);
+        return fitsTheDecision(operation, checkStore.decision(path).map(DecisionRecord::reason).orElse(null));
+    }
+
+    private static boolean fitsTheDecision(Operation operation, String reason) {
         if (operation == Operation.RESUME) {
             return DecisionRecord.ACTION_FAILED.equals(reason);
         }
         return !DecisionRecord.ACTION_FAILED.equals(reason) && !DecisionRecord.FORM_GONE.equals(reason);
+    }
+
+    /**
+     * The operations that a submission allows, by the rules that {@link #apply} checks: the state machine, then the
+     * decision for a release or a resume in {@code needsReview}.
+     *
+     * @param state  the state of the submission
+     * @param reason the reason of its decision, or {@code null}
+     * @return the allowed operations, in the order of {@link Operation}
+     */
+    public static List<Operation> allowedOperations(HeldState state, String reason) {
+        List<Operation> allowed = new ArrayList<>();
+        for (Operation operation : Operation.values()) {
+            boolean decided = state != HeldState.NEEDS_REVIEW
+                    || operation != Operation.RESUME && operation != Operation.RELEASE
+                    || fitsTheDecision(operation, reason);
+            if (StateMachine.allows(state, operation.event()) && decided) {
+                allowed.add(operation);
+            }
+        }
+        return allowed;
+    }
+
+    /** The path lies under the quarantine root of the site that the record names. */
+    private static boolean isInItsSite(String path, HeldRecord held) {
+        return held.siteKey() != null && path.startsWith(QuarantineTree.rootPath(held.siteKey()) + "/");
     }
 
     private HeldState run(String path, Operation operation, HeldState from) throws QuarantineStoreException {

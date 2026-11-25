@@ -79,7 +79,9 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
 
     /** Holds a submission of the form with one file per text, each a text file. */
     public Held hold(String formId, String... texts) {
-        Held one = new Held("/sites/" + SITE + "/formidable-quarantine/" + formId + "/2026/11/19/held-" + count,
+        // the name of a held node as the JCR store writes it: held-<uuid>
+        Held one = new Held("/sites/" + SITE + "/formidable-quarantine/" + formId + "/2026/11/19/held-"
+                + String.format("00000000-0000-4000-8000-%012d", count),
                 formId, Instant.parse("2026-11-19T10:00:00Z").plusSeconds(count));
         count++;
         for (String text : texts) {
@@ -212,6 +214,12 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         for (int i = 0; i < one.bytes.size(); i++) {
             one.bytes.set(i, null);
         }
+    }
+
+    @Override
+    public Map<String, List<String>> publicValues(String path) {
+        Held one = held.get(path);
+        return one != null && one.valuesPresent ? Map.of("fullName", List.of("Ada")) : Map.of();
     }
 
     @Override

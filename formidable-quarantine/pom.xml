@@ -15,8 +15,9 @@
 
     <properties>
         <!-- The engine: the hold contract (SubmissionHold) and the service that runs the actions after release
-             (DeferredActions), both in its api package. -->
-        <jahia-depends>formidable-engine</jahia-depends>
+             (DeferredActions), both in its api package. graphql-dxm-provider: the API of the manager screen extends
+             the GraphQL schema of the platform. -->
+        <jahia-depends>formidable-engine,graphql-dxm-provider</jahia-depends>
         <jahia-module-signature>MCwCFFlaoE810AG9xmUVpFFS+OsjJzt5AhQSfvCEWub1lsEgdN/LnJtOsLoEcQ==</jahia-module-signature>
     </properties>
 
@@ -45,11 +46,6 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>javax.servlet-api</artifactId>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
             <scope>provided</scope>
@@ -64,11 +60,45 @@
             <artifactId>osgi.annotation</artifactId>
             <scope>provided</scope>
         </dependency>
-        <!-- The JSON of the inspection, operations and retention endpoints; the platform exports org.json. -->
+        <!-- The GraphQL API of the platform, for the API of the manager screen: the provider's extension point and the
+             annotations it reads. Both ship with Jahia; the version is the one formidable-jexperience-engine uses. -->
         <dependency>
-            <groupId>org.json</groupId>
-            <artifactId>json</artifactId>
+            <groupId>org.jahia.modules</groupId>
+            <artifactId>graphql-dxm-provider</artifactId>
+            <version>3.2.0</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>io.github.graphql-java</groupId>
+            <artifactId>graphql-java-annotations</artifactId>
+            <version>${graphql-java-annotations.version}</version>
+            <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- The unit tests throw the error type of graphql-dxm-provider, whose class names a type of graphql-java: the
+             version that graphql-java-annotations depends on. -->
+        <dependency>
+            <groupId>com.graphql-java</groupId>
+            <artifactId>graphql-java</artifactId>
+            <version>21.1</version>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <!-- Mockito needs the supertypes of the Jahia types it mocks (org.apache.commons.lang.mutable). -->
         <dependency>
@@ -107,7 +137,6 @@
                         <!-- The engine's api from 0.7, the version this module was split out of. -->
                         <Import-Package>
                             org.jahia.modules.formidable.engine.api;version="[0.7,1)",
-                            org.json,
                             *
                         </Import-Package>
                     </instructions>

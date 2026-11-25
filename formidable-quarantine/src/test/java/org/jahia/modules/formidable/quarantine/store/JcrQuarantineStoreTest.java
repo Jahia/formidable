@@ -537,6 +537,27 @@ class JcrQuarantineStoreTest {
     void aPathWithNoHeldSubmissionReadsAsEmpty() throws Exception {
         assertTrue(store.read("/sites/" + SITE + "/formidable-quarantine/nothing").isEmpty());
         assertTrue(store.heldRecord("/sites/" + SITE + "/formidable-quarantine/nothing").isEmpty());
+        assertTrue(store.publicValues("/sites/" + SITE + "/formidable-quarantine/nothing").isEmpty());
+    }
+
+    @Test
+    void thePublicValuesAreReadInTheOrderOfTheFieldsAndTheSensitiveNodeIsNeverRead() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-6";
+        JCRNodeWrapper held = heldAt(path);
+        strings(held, QuarantineTree.VALUE_FIELDS, "topics", "fullName");
+        JCRNodeWrapper values = node(path + "/values");
+        strings(values, "fullName", "Ada");
+        strings(values, "topics", "claims", "refunds");
+        when(held.hasNode(QuarantineTree.VALUES)).thenReturn(true);
+        when(held.getNode(QuarantineTree.VALUES)).thenReturn(values);
+
+        Map<String, List<String>> read = store.publicValues(path);
+
+        assertEquals(List.of("topics", "fullName"), List.copyOf(read.keySet()));
+        assertEquals(List.of("claims", "refunds"), read.get("topics"));
+        verify(held, never()).getNode(QuarantineTree.SENSITIVE);
+        when(held.hasNode(QuarantineTree.VALUES)).thenReturn(false);
+        assertTrue(store.publicValues(path).isEmpty(), "values deleted");
     }
 
     /** A held submission at the path, which the session finds. */

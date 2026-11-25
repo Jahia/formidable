@@ -343,6 +343,15 @@ public class JcrQuarantineStore implements QuarantineStore {
         log.info("Purged the held submission at {}", path);
     }
 
+    @Override
+    public Map<String, List<String>> publicValues(String path) throws QuarantineStoreException {
+        return inSession("read the public values of the held submission at " + path, session -> {
+            JCRNodeWrapper held = heldOrNull(session, path);
+            return held == null ? Map.of() : valuesOf(held, QuarantineTree.VALUES,
+                    strings(held, QuarantineTree.VALUE_FIELDS));
+        });
+    }
+
     /** A change of one held submission, saved at once. */
     @FunctionalInterface
     private interface Change {
