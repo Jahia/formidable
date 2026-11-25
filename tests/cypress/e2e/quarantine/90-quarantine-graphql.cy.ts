@@ -87,10 +87,10 @@ const readSubmission = (siteKey: string, id: string): Cypress.Chainable<Cypress.
  * and every operation stays below the quarantine root of that site, so an identifier of site B names nothing in the
  * quarantine of site A. Each operation writes the audit record with the name of the user of the request.
  *
- * Q29 and Q31 are control scenarios. Their control build is formidable-quarantine with the check of the permission
- * removed in ManagerApi.open (replace `!managers.mayManage(siteKey)` with `false`). Build it with `package`, deploy it
- * in place of the module, and run this spec: Q29 must fail on the quarantine of site B, and Q31 on the visibility for
- * the editor.
+ * Q29 and Q31 are control scenarios. Their control build is the one of Q20 in tests/scenarios/quarantine.md: the
+ * check of the permission removed in ManagerApi.open and in QuarantineOperations.applyLocked. Build it with `package`,
+ * deploy it in place of the module, and run this spec: Q29 must fail on the quarantine of site B, and Q31 on the
+ * visibility for the editor.
  */
 describe('Quarantine - 90 The GraphQL API answers the managers of a site alone', () => {
 	useFormidableSite();

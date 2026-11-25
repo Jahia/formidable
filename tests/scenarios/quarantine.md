@@ -15,6 +15,8 @@ order.
 
 Specs:
 
+- `tests/cypress/e2e/quarantine/90-quarantine-graphql.cy.ts` covers Q29 to
+  Q33: the GraphQL API and the permission of a manager per site.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -51,7 +53,7 @@ Specs:
   in a test module. A refused forward is not counted as received.
 - **Quarantine module**: `formidable-quarantine`. It ships the module hold,
   the quarantine tree, the run of the checks, the operations of a manager and
-  an inspection of the tree.
+  the GraphQL API of the manager screen.
 - **Quarantine test module**: `formidable-test-module-quarantine`. It ships the
   stub checks, the stub control and "run now". It keeps no hold. It depends on
   the quarantine module, so a site that enables it has the quarantine module
@@ -76,10 +78,16 @@ Specs:
 - **Item**: one upload of a held submission. Its bytes are a binary property
   of the item, not indexed, never `jcr:data` on a `jnt:resource`. It records
   the SHA-256 of the bytes.
-- **Inspection**: `/modules/formidable-quarantine/inspection?site=<site>&form=<formId>`.
-  It answers server administrators alone, as JSON: the state of each held
-  submission, the names of its fields, and of each item its file name, size,
-  SHA-256 and whether its bytes are there. It never answers a value or a byte.
+- **GraphQL API**: the query `formidableQuarantine(siteKey)` of
+  `/modules/graphql`. It answers the managers of the site: the count of held
+  submissions per state, a page of held submissions, and one held submission
+  by its identifier, its path below the quarantine root of the site. For each:
+  its state, the names of its fields, of each file its name, size, SHA-256,
+  whether its bytes are there and the outcome of each check, the decision and
+  the audit. It never answers a sensitive value or a byte, and a public value
+  only for a form whose setting `showValues` is on. A user who does not manage
+  the site gets `null`, as for a site that does not exist. The helpers of the
+  specs read it as the former inspection answered.
 - **Stub check**: a check of the module. It applies to text files alone, and
   reads its answer from a marker line of the file: `VERDICT:PASS`,
   `VERDICT:FAIL`, `INCONCLUSIVE`, `PENDING:<n>` (pending for `n` polls, then
@@ -101,25 +109,26 @@ Specs:
   `INCONCLUSIVE`, `PENDING` or `FAILED`.
 - **Decision**: why the run stopped a held submission, such as `CHECK_FAILED`,
   `FILE_WITHHELD`, `IN_PROCESS_FIRST`, `INTEGRITY_FAILED` or `ACTION_FAILED`.
-  The inspection answers the outcomes and the decision.
-- **Manager**: a user that holds the role `formidable-quarantine-manager` on
-  the form, published. The role grants the permission
-  `formidableQuarantineManage` of the quarantine module. A server administrator is a manager of every
-  form.
-- **Operation**: `POST /modules/formidable-quarantine/operations?path=<held>&operation=<op>`,
-  where the operation is `retry`, `release`, `resume` or `reject`. It runs on
-  a held submission in state `needsReview`, for a manager. Any other user gets
-  403, and a state that does not allow the operation gets 409. `resume` needs
+  The GraphQL API answers the outcomes and the decision.
+- **Manager**: a user that holds the site role `formidable-quarantine-manager`
+  on the site. The role grants the permission `formidableQuarantineManage` of
+  the quarantine module, which the API checks on the site node. A server
+  administrator is a manager of every site.
+- **Operation**: the mutation `formidableQuarantine(siteKey) { operate(id,
+  operation) }`, where the operation is `RETRY`, `RELEASE`, `RESUME` or
+  `REJECT`. It runs on a held submission in state `needsReview`, for a manager
+  of its site. Any other user gets `null` (the helpers read it as 403), and a
+  state that does not allow the operation gets an error (409). `resume` needs
   the decision `ACTION_FAILED`, and `release` any other decision. A release
   that stopped half way in `releasing` takes `resume` or `reject` only.
 - **Audit record**: a record under the held submission: the operation, the name
   of the user, the state before and after, and the time. The run writes one,
-  with no user, when it releases, rejects or sends to review. The inspection
+  with no user, when it releases, rejects or sends to review. The GraphQL API
   answers them.
-- **Retention**: `POST /modules/formidable-quarantine/retention?site=<site>`.
-  It purges each `rejected` held submission whose last change is older than
-  `retentionDays` (30 by default), or `olderThanDays` for that call. Server
-  administrators only.
+- **Retention**: the mutation `formidableQuarantine(siteKey) {
+  purge(olderThanDays) }`. It purges each `rejected` held submission whose last
+  change is older than `retentionDays` (30 by default), or `olderThanDays` for
+  that call. Server administrators only: a manager gets an error (403).
 - **Mailbox**: Mailpit, the `smtp-server` service of `tests/docker-compose.yml`.
   The provisioning of `@jahia/cypress` points the mail service of Jahia at it.
 
@@ -139,7 +148,7 @@ resets them before each test.
 
 The specs 97, 98 and 99 also enable the quarantine test module on
 the site, and put a remote stub check in the list "Checks" of the form. They
-read the quarantine tree as root, through the inspection, and through Groovy
+read the quarantine tree as root, through the GraphQL API, and through Groovy
 with a system session.
 
 ## Control runs
@@ -160,7 +169,7 @@ the scenario proves:
 | Q09 | releases without computing the hash again: `Release.release` with `firstChanged(held, submission)` replaced by `null` |
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
-| Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(held.formId())` replaced by `false` |
+| Q20, Q29, Q31 | opens the quarantine of a site to any user: in `ManagerApi.open`, `!managers.mayManage(siteKey)` replaced by `false`, and in `QuarantineOperations.applyLocked`, `!managers.mayManage(found.get().siteKey())` replaced by `false`. Q29 fails on the answer for site B, Q31 on the visibility for the editor |
 
 ---
 
@@ -331,14 +340,14 @@ administrator reads the item, the quarantine root needs another guard.
 4. As each of the three users, read the quarantine root, the held submission,
    its values and its item through GraphQL; the item through `/files/live/...`;
    the held submission and its item through the JCR REST API; and the
-   inspection.
+   quarantine of the site through the GraphQL API of the module.
 5. Read the ACL of the quarantine root with a system session (Groovy).
 
 **Expected:**
 - Root reads the held submission and its item: the paths are real
 - Each GraphQL read of the three users answers no node
 - Each `/files` and JCR REST read answers 401, 403 or 404
-- The inspection answers 403
+- The GraphQL API answers no quarantine for the site
 - The root cuts its ACL inheritance and holds no `jnt:ace`
 
 The JCR REST API answers 404 when its module is not installed: that read then
@@ -366,7 +375,7 @@ in its `before` hook with a 503, before any read.
    `j:extractedText` (Groovy): the extraction of the core has then run. A
    platform that extracts no text fails this step, and the scenario proved
    nothing there.
-3. Read the held submission through the inspection, and the quarantine tree of
+3. Read the held submission through the GraphQL API, and the quarantine tree of
    the first form with a system session (Groovy).
 
 **Expected:**
@@ -412,7 +421,7 @@ the marker of a released file.
 
 **Steps:**
 1. Submit the form with a `VERDICT:PASS` file.
-2. Read the SHA-256 that the item records, through the inspection.
+2. Read the SHA-256 that the item records, through the GraphQL API.
 3. Run the checks.
 
 **Expected:**
@@ -486,8 +495,8 @@ the run names no item.
 3. Run the checks, so that two submissions are completed and one rejected.
 4. Submit the `VERDICT:PASS` file and the `VERDICT:FAIL` file again.
 5. As a guest, request the form page, the quarantine paths of the held
-   submissions and the results path of the form, then the inspection, "run
-   now" and the stub control.
+   submissions and the results path of the form, then the quarantine of the
+   site through the GraphQL API, "run now" and the stub control.
 
 **Expected:**
 - The five responses to a submission have the same status, the same keys and,
@@ -495,7 +504,8 @@ the run names no item.
 - The file already rejected is accepted again, with HTTP 200
 - No response to the guest carries a state or an outcome, and each item path
   answers 401, 403 or 404
-- The inspection, "run now" and the stub control answer 403
+- The GraphQL API answers no quarantine, and "run now" and the stub control
+  answer 403
 
 ### Q13 — A file that no check applies to
 
@@ -603,8 +613,8 @@ and no byte any more.
 **Steps:**
 1. Create four users: a results reader (editor of the site, and
    `fmdb-results-reader` on the form), an editor of the site, a site
-   administrator of the site, and a manager (`formidable-quarantine-manager` on
-   the form, and no role on the site).
+   administrator of the site, and a manager (the site role
+   `formidable-quarantine-manager` on the site, and no other role).
    Publish the form.
 2. Submit the form three times with an `INCONCLUSIVE` file, and run the
    checks: each submission is `needsReview`.
@@ -665,7 +675,7 @@ without the quarantine module and without the quarantine test module.
 
 **Expected:**
 - The submission answers 503 with the code `FMDB-018`.
-- The inspection answers no held submission for the form.
+- The GraphQL API answers no held submission for the form.
 - The sample hold and the observer action report no call.
 
 ### Q28 — A form with no check is held, then sent to review
@@ -678,11 +688,84 @@ without the quarantine module and without the quarantine test module.
 4. Start "run now" on the form, with `ignoreSchedule=true`.
 
 **Expected:**
-- The submission succeeds, and the inspection answers one held submission in
+- The submission succeeds, and the GraphQL API answers one held submission in
   state `held`.
 - After the run, the state is `needsReview`, the decision is `NO_CHECK`, and
   the values are still there.
 - The sample hold and the observer action report no call.
+
+## The GraphQL API and the permission per site
+
+Common to Q29 to Q33: site A is the test site, with the quarantine test module
+and a form whose two submissions the run sent to review. Site B is a second
+site with the module, and one held submission that no run touches. A manager
+holds the site role `formidable-quarantine-manager` on site A alone. An editor
+and a site administrator of site A hold no such role.
+
+### Q29 — A manager of site A reads A, and site B answers as no site — control
+
+**Steps:**
+1. As the manager, read the quarantine of site A: the held submissions of the
+   form, and the counts.
+2. As the manager, read the quarantine of site B, and of a site key that names
+   no site.
+
+**Expected:**
+- The manager reads the two held submissions of site A, and the count of
+  `NEEDS_REVIEW` is 2
+- The answer for site B equals the answer for a site that does not exist:
+  `formidableQuarantine` is `null`
+
+### Q30 — An identifier of site B names nothing in site A
+
+**Steps:**
+1. As root, read the identifier of the held submission of site B.
+2. As the manager, read that identifier in the quarantine of site A, as it is
+   and with a relative path to site B, and reject it there.
+3. As root, read the held submission of site B.
+
+**Expected:**
+- Each read answers no submission, and the reject answers "No held submission"
+- The submission of site B is still `held`, with its values and no audit record
+
+### Q31 — A user without the permission sees and changes nothing — control
+
+**Steps:**
+1. As the editor, then as the site administrator of site A, read the quarantine
+   of site A, reject each held submission, and run the retention.
+2. As root, read the held submissions of site A.
+
+**Expected:**
+- The quarantine of site A is `null` for both, and each operation and the
+  retention are refused
+- Both submissions are still `needsReview`, with the audit record of the run
+  alone
+
+### Q32 — An operation writes the audit with the real user
+
+**Steps:**
+1. As the manager, read the first held submission of site A, then reject it.
+2. As the manager, release it, and run the retention.
+3. As root, read its audit.
+
+**Expected:**
+- Before the reject, the title of the form is there, the allowed operations
+  are `RETRY`, `RELEASE` and `REJECT`, and the public values are `null`: the
+  form does not show them
+- After the reject, the state is `REJECTED` and no operation is allowed
+- The release is refused as a conflict, and the retention as for a user who is
+  not a server administrator
+- The last audit record is `reject` by the manager, from `needsReview` to
+  `rejected`, and no answer holds a value
+
+### Q33 — A page holds at most 100 submissions
+
+**Steps:**
+1. As root, ask for a page of site A with a limit of 1000 and an offset of -5.
+
+**Expected:**
+- The page applies the limit 100 and the offset 0, and holds every held
+  submission of the site
 
 ---
 
@@ -712,3 +795,7 @@ without the quarantine module and without the quarantine test module.
 | Q26 | no action that cannot run after release enters that list |
 | Q27 | a site without the quarantine module never stores a held submission |
 | Q28 | a form with no check is held and goes to review, never released unchecked |
+| Q29, Q30 | a manager of one site never reads or acts on the quarantine of another site |
+| Q31 | a role on the site that is not the manager role gives no access to the quarantine |
+| Q32 | each operation of the API names the real user in the audit |
+| Q33 | no request reads more than one page of 100 submissions |

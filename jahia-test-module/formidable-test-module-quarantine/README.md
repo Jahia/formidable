@@ -8,7 +8,7 @@ The stub checks of the tests of `formidable-quarantine`, and the endpoints the s
 
 - The hold, the quarantine tree and its types (`fmdbquar:quarantineRoot` … `fmdbquar:auditRecord` became `fmdbq:*`), the chain, the state machine, the run, the release, the operations, the audit and the retention, with their unit tests.
 - The check API (`check` became `org.jahia.modules.formidable.quarantine.api`), and `QuarantineRunner`, which starts a run.
-- The inspection, operations and retention endpoints, under the same paths.
+- The inspection, operations and retention endpoints, which the GraphQL API of `formidable-quarantine` then replaced.
 - The configurations `org.jahia.modules.formidable.quarantine.run` and `.retention` (formerly `org.jahia.test.modules.formidable.quarantine.*`).
 - The permission `formidableQuarantineManage` and the role `formidable-quarantine-manager` (formerly `fmdbquarManageQuarantine` and `fmdbquar-quarantine-manager`).
 
@@ -57,40 +57,9 @@ The store writes the tree in live, with a system session:
 - An outcome records the SHA-256 of the bytes it was given for, never a byte. The run reads an outcome only for the bytes of that SHA-256.
 - `checks` and `audit` accept any `jnt:content`: the outcomes, the decision and the audit records (`fmdbq:auditRecord`) live there, and a new record type needs no change to the types above, so a lab takes it without a refused CND change.
 
-## The inspection
+## Reading the tree
 
-`GET /modules/formidable-quarantine/inspection?site=<siteKey>&form=<formId>` answers the held submissions of a form, oldest first:
-
-```json
-{
-  "site": "formidableTestSite",
-  "form": "<formId>",
-  "submissions": [{
-    "path": "/sites/.../held-<uuid>",
-    "state": "held",
-    "createdAt": "2026-11-19T18:30:00Z",
-    "changedAt": "2026-11-19T18:30:00Z",
-    "attempts": 0,
-    "nextAttempt": null,
-    "completedActions": 0,
-    "fields": ["fullName"],
-    "sensitiveFields": [],
-    "valuesPresent": true,
-    "items": [{"name": "item0", "fieldName": "supportingDocument", "fileName": "claim-note.txt",
-               "mimeType": "text/plain", "size": 29, "sha256": "<hex>", "binaryPresent": true}],
-    "checks": [{"item": "item0", "check": "remoteCheck", "outcome": "PASS", "reason": "stub.marker",
-                "retryable": false, "ticketPresent": false, "attempts": 0, "sha256": "<hex>",
-                "at": "2026-11-19T18:31:00Z"}],
-    "decision": null,
-    "audit": [{"operation": "run", "user": null, "from": "checking", "to": "needsReview",
-               "at": "2026-11-19T18:31:00Z"}]
-  }]
-}
-```
-
-`checks` holds the last outcome of each check for each item: `PASS`, `FAIL`, `INCONCLUSIVE`, `PENDING` or `FAILED`. It never answers the ticket of a pending outcome. `decision` says why the run stopped the submission, or is `null`: `{"reason", "item", "check", "sha256", "failedAction", "at"}`. `audit` holds the audit records, oldest first: see "The audit" below.
-
-It answers server administrators alone: `root` and the members of the server group `administrators`. Any other caller, a site administrator included, gets 403. It never answers a value, a sensitive value or a byte.
+The specs read the held submissions through the GraphQL API of `formidable-quarantine` ([The GraphQL API](../../docs/architecture/quarantine.md#the-graphql-api)), logged in as root. `readHeldSubmissions` of `tests/cypress/e2e/quarantine/support.ts` maps each answer to the record the specs assert on: the path, the state, the names of the fields, of each item its file name, size, SHA-256 and whether its bytes are there, the outcome of each check for each item, the decision and the audit. It never answers a sensitive value or a byte, and never the ticket of a pending outcome.
 
 ## The checks
 
@@ -133,15 +102,13 @@ A release that stops half way, on a failure of the store, an error of an action 
 
 ## The permission of a manager
 
-A manager of the quarantine of a form holds the permission `formidableQuarantineManage` on the form. `formidable-quarantine` declares the permission in `formidable-quarantine/src/main/import/permissions.xml`, and creates the role `formidable-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`). The engine creates its role `fmdb-results-reader` the same way. An administrator grants the role to a user or a group on the form, then publishes the form. The operations check the permission on the live form, in a session of the user of the request, so the ACL of the form decides.
+A manager of the quarantine of a site holds the permission `formidableQuarantineManage` on the site node. `formidable-quarantine` declares the permission in `formidable-quarantine/src/main/import/permissions.xml`, and creates the site role `formidable-quarantine-manager`, which grants it, when it starts (`ManagerRoleInitializer`); a role of an earlier version, granted on a form, becomes a site role then. An administrator grants the role to a user or a group on the site, with `grantRoles` in a spec. The GraphQL API and the operations check the permission on the site node of the edit workspace, in a session of the user of the request, so the roles of the site decide.
 
-A server administrator (`root`, or a member of the server group `administrators`) is a manager of every form. No other role gives the permission: a results reader, an editor or a site administrator of the site is not a manager.
-
-We chose the simplest model that a Jahia module ships and that a spec grants with `grantRoles`. A permission of the module, and not the role alone, lets the check use `hasPermission` on the form.
+A server administrator (`root`, or a member of the server group `administrators`) is a manager of every site. No other role gives the permission: a results reader, an editor or a site administrator of the site is not a manager.
 
 ## The operations
 
-An operation runs on a held submission in state `needsReview`, and a resume or a reject also on a release that stopped half way in `releasing`. It checks, in this order, that a held submission is at the path, that the user is a manager of its form, and that the state and the decision allow the operation. A refused operation changes nothing. An operation takes the lock of the run: it never runs while the run checks or releases submissions, so a submission in `releasing` is a release that stopped, not one under way.
+An operation runs on a held submission in state `needsReview`, and a resume or a reject also on a release that stopped half way in `releasing`. It checks, in this order, that a held submission is at the path, under the quarantine root of its site, that the user is a manager of that site, and that the state and the decision allow the operation. A refused operation changes nothing. An operation takes the lock of the run: it never runs while the run checks or releases submissions, so a submission in `releasing` is a release that stopped, not one under way.
 
 | Operation | Allowed when | What it does |
 |---|---|---|
@@ -152,7 +119,7 @@ An operation runs on a held submission in state `needsReview`, and a resume or a
 
 A release after a failed action is refused: a failed action takes a resume. The release starts at `completedActions` in any case, so this is a rule of the module, not of the release.
 
-A submission whose form is gone (`FORM_GONE`) cannot be released: its actions after release cannot run. The permission of a manager is checked on the form, so only a server administrator manages such a submission, and a reject ends it. Until then it keeps its data, because the retention purges `rejected` submissions only.
+A submission whose form is gone (`FORM_GONE`) cannot be released: its actions after release cannot run. A manager of the site rejects it, and the reject ends it. Until then it keeps its data, because the retention purges `rejected` submissions only.
 
 An operation that ran answers its result even when its audit record cannot be written: the failure is logged. A log line of a failed operation names the class of an unexpected failure, never its message, which can quote a held value.
 
@@ -162,13 +129,13 @@ Each operation that ran writes one audit record under `audit`: the operation, th
 
 ## The retention
 
-The retention purges each `rejected` held submission of a site whose last change (`changedAt`) is older than `retentionDays`: the whole node, with its items, its values, the outcomes, the decision and the audit. It keeps every other state. A `completed` submission holds no value and no byte any more, so the retention keeps its record. It has no scheduler: a spec starts it through its endpoint.
+The retention purges each `rejected` held submission of a site whose last change (`changedAt`) is older than `retentionDays`: the whole node, with its items, its values, the outcomes, the decision and the audit. It keeps every other state. A `completed` submission holds no value and no byte any more, so the retention keeps its record. A spec starts it through the mutation `purge` of the GraphQL API, which answers server administrators alone.
 
 The repository frees the bytes of a purged item only when the garbage collection of its datastore runs.
 
 ## The endpoints for the specs
 
-Each endpoint answers server administrators alone, as the inspection does: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, every `POST` below answers 403, and nothing runs or changes. The retention and the operations of `formidable-quarantine` also answer 415 to a `POST` whose `Content-Type` is not `application/json`, and nothing runs or changes. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
+Each endpoint of this module answers server administrators alone: any other caller gets 403, and nothing runs or changes. A `POST` carries `X-Requested-With`: without it, every `POST` below answers 403, and nothing runs or changes. No answer holds a value or a byte, and an unexpected failure of a submission is answered by the name of its class alone.
 
 | Endpoint | Answer |
 |---|---|
@@ -177,13 +144,8 @@ Each endpoint answers server administrators alone, as the inspection does: any o
 | `GET /modules/formidable-quarantine/stub/calls[?check=<name>]` | `{"outage", "calls": [{"nodeType", "checkName", "sha256", "kind"}]}`: the calls of the stubs, oldest first, all or those of one check node; `kind` is `SUBMIT` or `POLL` |
 | `POST /modules/formidable-quarantine/stub/calls/clear` | Forgets the calls |
 | `POST /modules/formidable-quarantine/stub/outage/lift`, `.../outage/set` | Lifts or sets the outage of the stubs. It is on when the module starts |
-| `POST /modules/formidable-quarantine/retention?site=<siteKey>[&olderThanDays=<n>]` | Purges the rejected held submissions of the site older than the limit. `olderThanDays` replaces `retentionDays` for this call. `{"site", "retentionDays", "purged": [<path>], "failed": [<path>]}` |
 
-The operations answer managers too, not server administrators alone:
-
-| Endpoint | Answer |
-|---|---|
-| `POST /modules/formidable-quarantine/operations?path=<held>&operation=<retry\|release\|resume\|reject>` | `{"path", "operation", "from", "state"}`: the state before and after the operation. 400 for a path that does not have the shape of a held submission, or an unknown operation; 403 for a user who does not manage the form (and for a path that names nothing, but to a server administrator, who gets 404); 409 when the state or the decision does not allow the operation; 415 when the `Content-Type` is not `application/json` |
+The specs read the quarantine, run the operations and the retention through the GraphQL API of `formidable-quarantine`, `formidableQuarantine(siteKey)`, as [The GraphQL API](../../docs/architecture/quarantine.md#the-graphql-api) states. The helpers of `tests/cypress/e2e/quarantine/support.ts` read each answer as the former endpoints answered: 403 for a user who does not manage the site, 409 for a state that does not allow the operation.
 
 ## Configuration
 
@@ -223,4 +185,4 @@ The base package is `org.jahia.test.modules.formidable.quarantine`. The module c
 mvn test -pl formidable-quarantine,jahia-test-module/formidable-test-module-quarantine -am
 ```
 
-The spec `tests/cypress/e2e/quarantine/97-quarantine-intake.cy.ts` covers the intake, `tests/cypress/e2e/quarantine/98-quarantine-checks.cy.ts` the checks and the release, and `tests/cypress/e2e/quarantine/99-quarantine-operations.cy.ts` the operations, the audit and the retention. `tests/scenarios/quarantine.md` states their scenarios.
+The spec `tests/cypress/e2e/quarantine/97-quarantine-intake.cy.ts` covers the intake, `tests/cypress/e2e/quarantine/98-quarantine-checks.cy.ts` the checks and the release, `tests/cypress/e2e/quarantine/99-quarantine-operations.cy.ts` the operations, the audit and the retention, and `tests/cypress/e2e/quarantine/90-quarantine-graphql.cy.ts` the GraphQL API and the permission of a manager per site. `tests/scenarios/quarantine.md` states their scenarios.

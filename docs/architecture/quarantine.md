@@ -13,10 +13,10 @@ The design rests on two decisions:
 
 The module `formidable-quarantine` holds the hold, the quarantine tree, the run of the checks, the release and the
 operations of a manager. Its code came from the test module `formidable-test-module-quarantine`, which keeps no hold
-and writes no quarantine tree. The endpoints of the test suite are split in two:
+and writes no quarantine tree. The test suite reaches the module in two ways:
 
-- The inspection, the operations and the retention endpoints are in the module, under the paths they had in the
-  test module.
+- It reads the quarantine, runs the operations and the retention through the GraphQL API of the module
+  ([The GraphQL API](#the-graphql-api)), as the manager screen does.
 - The test module keeps its stub checks, the control of the stubs, and a run-now endpoint. The exported package of
   the module offers a runner next to the check API. The run-now endpoint starts a run through the runner, and writes
   nothing under the tree itself.
@@ -221,6 +221,31 @@ sequenceDiagram
 
 A user without the permission gets the same answer as for a submission that does not exist.
 
+### The GraphQL API
+
+The module extends the GraphQL schema of the platform (`/modules/graphql`) with one query and one mutation, both
+named `formidableQuarantine(siteKey)`:
+
+| Field | Answers |
+|---|---|
+| `counts` | The number of held submissions of the site in each state. |
+| `submissions(formId, states, offset, limit)` | A page of the held submissions of the site, or of one form, oldest first. `limit` is 25 by default and 100 at most: a larger value reads as 100. |
+| `submission(id)` | One held submission, or `null` when the site has none with this identifier. |
+| `operate(id, operation)` | The mutation of a manager: `RETRY`, `RELEASE`, `RESUME` or `REJECT`. It answers the submission as the operation left it. |
+| `purge(olderThanDays)` | The mutation of the retention, for server administrators only. |
+
+- The identifier of a held submission is its path below the quarantine root of its site:
+  `<formId>/YYYY/MM/DD/held-<uuid>`. The API reads it below the root of the site of the request only, so an
+  identifier of another site names nothing.
+- A held submission answers its state, the names of its fields, its files with the outcome of each check, its
+  decision, its audit and `allowedOperations`. `allowedOperations` applies the rules of the operations: the state
+  machine, then the decision for a release or a resume in `needsReview`.
+- `publicValues` is `null` unless the form sets `showValues`. The sensitive values never appear, only the names of
+  their fields.
+- A failure of the store answers an error with a fixed message. The log line names the path, never a value.
+- The API has no field for the file access yet (`fileAccess`, `canAccessFiles`): the download comes with the file
+  access.
+
 ## Security
 
 - The quarantine tree is under `/sites/<site>/formidable-quarantine/`, in the live workspace. Its root breaks the
@@ -238,13 +263,20 @@ A user without the permission gets the same answer as for a submission that does
 
 | Permission | Grants |
 |---|---|
-| `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms where it is granted. |
+| `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms of the site where it is granted. |
 | `formidableQuarantineFileAccess` | The download of a held file, when the file access allows it. |
 
-In this phase, the module declares `formidableQuarantineManage` and checks it on the live form. The role
-`formidable-quarantine-manager`, granted on a form, gives it. The per-site role and `formidableQuarantineFileAccess`
-come in a later phase. The second permission is separate, because releasing a submission and opening its file are
-two different rights.
+- The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`. The module creates the role when
+  it starts. The role has privileged access, so its holder reads the site node in the edit workspace.
+- Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the edit workspace, under the
+  session of the user, before it reads anything. A user without the permission gets `null`, which is also the answer
+  for a site that does not exist. A server administrator is a manager of every site.
+- The operations check the permission again on the site of the held submission, and check that the submission lies
+  under the quarantine root of that site.
+- The retention through the API is for server administrators only, because the retention is a setting of the
+  platform.
+- The module does not declare `formidableQuarantineFileAccess` yet: it comes with the download. It is separate,
+  because releasing a submission and opening its file are two different rights.
 
 ### File access by a reviewer
 
