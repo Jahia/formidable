@@ -20,7 +20,7 @@ The stub checks of the tests of `formidable-quarantine`, and the endpoints the s
 
 ## Which forms the hold owns
 
-The hold of `formidable-quarantine` ranks 100 and owns every held form of a site that has the module. This module depends on it, so a site that enables this module has it. The sample hold of `formidable-test-module-samples-java` ranks 200: it claims a form whose list holds `fmdbsample:sampleCheck`, and hands any other form down to the hold of `formidable-quarantine`.
+This module depends on `formidable-quarantine`, so a site that enables this module has it. The ownership rule of the two holds is in [Ownership of a form](../../docs/architecture/quarantine.md#ownership-of-a-form).
 
 ## Reference of the moved hold
 

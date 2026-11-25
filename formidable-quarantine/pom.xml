@@ -103,7 +103,7 @@
                     <instructions>
                         <_dsannotations>*</_dsannotations>
                         <!-- The check API is the one contract of the module: a check module compiles against it. -->
-                        <Export-Package>org.jahia.modules.formidable.quarantine.api;version=1.0.0</Export-Package>
+                        <Export-Package>org.jahia.modules.formidable.quarantine.api</Export-Package>
                         <!-- The engine's api from 0.7, the version this module was split out of. -->
                         <Import-Package>
                             org.jahia.modules.formidable.engine.api;version="[0.7,1)",
