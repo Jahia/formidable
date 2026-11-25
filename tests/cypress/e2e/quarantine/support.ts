@@ -157,8 +157,19 @@ export const heldIdOf = (path: string, siteKey: string = FORMIDABLE_TEST_SITE.ke
 
 export interface GraphqlAnswer<T> {
 	data?: T;
-	errors?: Array<{message?: string}>;
+	errors?: Array<{message?: string; errorType?: string}>;
 }
+
+/**
+ * The error type of the API security filter of the platform when it refuses a field before the module runs: HTTP 200,
+ * errors[].errorType GqlAccessDeniedException, message "Permission denied". The module never answers it: a user who
+ * does not manage the site gets null from the module, with no error.
+ */
+export const PLATFORM_REFUSAL = 'GqlAccessDeniedException';
+
+/** Whether the platform refused the request before the module ran. */
+export const refusedByThePlatform = (answer: GraphqlAnswer<unknown> | undefined): boolean =>
+	(answer?.errors ?? []).some(error => error.errorType === PLATFORM_REFUSAL);
 
 /**
  * A GraphQL request as the user of the browser session, as the manager screen sends it. The HTTP status is not
@@ -360,6 +371,7 @@ const VISIBILITY_QUERY = 'query($siteKey: String!) { formidableQuarantine(siteKe
 export const quarantineIsVisible = (siteKey: string = FORMIDABLE_TEST_SITE.key): Cypress.Chainable<boolean> =>
 	quarantineGraphql<{formidableQuarantine: {siteKey: string} | null}>(VISIBILITY_QUERY, {siteKey}).then(response => {
 		expect(response.status, 'HTTP status of the GraphQL request').to.eq(200);
+		expect(refusedByThePlatform(response.body), `the platform refused the user (${PLATFORM_REFUSAL})`).to.eq(false);
 		expect(errorMessages(response.body), 'GraphQL errors of the visibility query').to.eq('');
 		return Boolean(response.body.data?.formidableQuarantine);
 	});
@@ -371,13 +383,13 @@ export const quarantineIsVisible = (siteKey: string = FORMIDABLE_TEST_SITE.key):
  */
 export const expectQuarantineHiddenFromGuest = (siteKey: string = FORMIDABLE_TEST_SITE.key): Cypress.Chainable =>
 	quarantineGraphql<{formidableQuarantine: {siteKey: string} | null}>(VISIBILITY_QUERY, {siteKey}).then(response => {
-		const errors = errorMessages(typeof response.body === 'object' ? response.body : undefined);
-		const refusedByThePlatform = [401, 403].includes(response.status)
-			|| (response.status === 200 && /denied|permission|unauthori[sz]ed|forbidden/i.test(errors));
+		const body = typeof response.body === 'object' ? response.body : undefined;
+		const errors = errorMessages(body);
+		const platform = [401, 403].includes(response.status) || (response.status === 200 && refusedByThePlatform(body));
 		const hiddenByTheModule = response.status === 200 && errors === ''
 			&& response.body.data?.formidableQuarantine === null;
-		cy.log(refusedByThePlatform ? 'the platform refused the guest' : 'the module answered null to the guest');
-		expect(refusedByThePlatform || hiddenByTheModule,
+		cy.log(platform ? 'the platform refused the guest' : 'the module answered null to the guest');
+		expect(platform || hiddenByTheModule,
 			`answer to a guest: ${response.status} ${JSON.stringify(response.body)}`).to.eq(true);
 	});
 
@@ -474,10 +486,15 @@ export interface QuarantineOperationAnswer {
  * The answer of a mutation of the GraphQL API, read as the status the specs assert: 200 when it ran; 403 when the user
  * does not manage the site (the API answers null), for an identifier that names nothing in the site (the same answer),
  * and for a purge by a user who is not a server administrator; 409 when the state or the decision does not allow the
- * operation; 500 for any other error.
+ * operation; 401 when the API security filter of the platform refused the field before the module ran; 500 for any
+ * other error.
  */
 const statusOf = (answer: GraphqlAnswer<unknown> | undefined, ran: boolean): number => {
 	const errors = errorMessages(answer);
+	if (refusedByThePlatform(answer)) {
+		// the API security filter refused the field: 401, so that an assertion of the module's 403 fails on it
+		return 401;
+	}
 	if (errors.includes('is not allowed in state')) {
 		return 409;
 	}

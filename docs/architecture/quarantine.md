@@ -268,7 +268,8 @@ named `formidableQuarantine(siteKey)`:
 - The module reads the tree with a system session, and only after the permission check on the site node.
 - The mutations of the API have no request check of their own. They rely on the controls of the platform on
   `/modules/graphql`: a JSON POST, the API security filter, and the token and fetch-metadata policy of
-  `jahia-csrf-guard`. Spec 90 sends the mutation `operate` in the shapes that a cross-site page can forge, and checks
+  `jahia-csrf-guard`. The scope of the module applies only to a request whose `Origin` or `Referer` is this server,
+  as the scope `graphql` of the platform does. Spec 90 sends the mutation `operate` in the shapes that a cross-site page can forge, and checks
   that nothing changes.
 - No value of a submission appears in a log line or in an error message.
 
@@ -286,7 +287,13 @@ named `formidableQuarantine(siteKey)`:
   with no live node has no manager. A revocation applies the same way: a role removed in the edit workspace stops
   granting the list and the operations only once the site is published, because the check reads the live ACL.
 - A failure of the repository during the check answers an error, never the answer of a user who does not manage the
-  site. A user without the permission gets `null`, which is also the answer for a site
+  site.
+- The API security filter of the platform admits only privileged users to `/modules/graphql`, and the role gives no
+  privileged access. The module therefore ships the scope `formidable-quarantine`, which opens the two fields
+  `formidableQuarantine` and the types of the module that they reach, from a page of this server, and nothing else of
+  the platform. The scope is the door, and the check of the module on the site is the lock. The filter can require a
+  permission on one fixed path only, so the scope cannot require the permission on the site of the request: any user
+  of a page of this server passes the door, and the module answers `null` to a user who does not manage the site. A user without the permission gets `null`, which is also the answer for a site
   that does not exist. A server administrator is a manager of every site that exists.
 - The operations check the permission again on the site of the held submission, and check that the submission lies
   under the quarantine root of that site.
