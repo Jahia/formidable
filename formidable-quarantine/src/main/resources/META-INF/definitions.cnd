@@ -121,7 +121,7 @@
 
 // --- The checks that the module ships ---
 
-// The allow-list check (AllowListQualifier, scope METADATA): it reads the name and the declared MIME type of a file,
+// The allow-list check (AllowListQualifier, scope METADATA): it reads the name and the detected MIME type of a file,
 // never a byte. It passes a file when the extension of its name and the essence of its MIME type are both on the
 // lists, case aside; it fails the file otherwise. A check whose list holds no entry sends the submission to review.
 // A pass says only that the type is allowed: a scanner comes after this check in the list. fmdbmix:qualifier puts it

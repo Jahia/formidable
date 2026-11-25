@@ -85,7 +85,7 @@ A check module provides both, and nothing else:
   - a ticket that the run polls later;
   - a failure, retryable or not, when the check could not answer. Its setting `onUnavailable` then decides.
 - A check declares its scope:
-  - A `METADATA` check reads the name, the declared MIME type and the size of the file, and never a byte. The run
+  - A `METADATA` check reads the name, the detected MIME type and the size of the file, and never a byte. The run
     hands it a file whose stream cannot be opened.
   - A `REMOTE` check sends the bytes out of the JVM.
   - An `IN_PROCESS` check reads the bytes inside the JVM.
@@ -93,7 +93,7 @@ A check module provides both, and nothing else:
   check can stand at any place in the list.
 - The run records an outcome for the bytes it was given for. A check that reads bytes judges the bytes, so two files
   with the same bytes share its outcome. A `METADATA` check judges the name and the type. Its outcome counts
-  only for a file of the same bytes, the same name and the same declared MIME type.
+  only for a file of the same bytes, the same name and the same detected MIME type.
 
 The settings of a check come from its node. The run reads the node and gives the check its common settings
 (`onInconclusive`, `onUnavailable`) and its own properties as a map:

@@ -9,13 +9,13 @@ import java.util.Objects;
  * The key of a recorded outcome: what the check judged of the file, and the name of the check. A check that reads
  * bytes judges the bytes, so its key is the SHA-256 of the file: an outcome recorded for other bytes never counts for
  * these bytes, and two files with the same bytes share one outcome. A {@link Scope#METADATA} check judges the name and
- * the declared MIME type, so its key holds them too: two files with the same bytes and another name or type never
+ * the detected MIME type, so its key holds them too: two files with the same bytes and another name or type never
  * share its outcome.
  *
  * @param sha256    the SHA-256 of the file
  * @param checkName the name of the check node
  * @param fileName  the name of the file, for a metadata check; null otherwise
- * @param mimeType  the declared MIME type of the file, for a metadata check; null otherwise
+ * @param mimeType  the detected MIME type of the file, for a metadata check; null otherwise
  */
 public record OutcomeKey(String sha256, String checkName, String fileName, String mimeType) {
 

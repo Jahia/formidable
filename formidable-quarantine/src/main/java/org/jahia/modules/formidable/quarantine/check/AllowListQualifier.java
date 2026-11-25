@@ -14,7 +14,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * The allow-list check of the module, the service of {@code fmdbq:allowListCheck}. It reads the name and the declared
+ * The allow-list check of the module, the service of {@code fmdbq:allowListCheck}. It reads the name and the detected
  * MIME type of a file, never a byte ({@link Scope#METADATA}), and applies to every file. It answers at once:
  * <ul>
  * <li>{@code PASS} when the extension of the name and the essence of the MIME type are both on the lists of the

@@ -13,7 +13,7 @@ public enum Scope {
     IN_PROCESS,
 
     /**
-     * The check reads the name, the declared MIME type and the size of the file, and never a byte. The run hands it a
+     * The check reads the name, the detected MIME type and the size of the file, and never a byte. The run hands it a
      * file whose {@link QuarantinedFile#open()} throws.
      */
     METADATA
