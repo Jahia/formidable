@@ -74,23 +74,43 @@ A check module provides both, and nothing else:
 - The service registers under the check API and names the node type it serves.
 - A check receives the metadata of the file, a stream of its bytes and its settings. It never receives a node of
   the repository.
+- The stream reads the binary of the repository as the check reads it, with no copy of the file in memory. It reads
+  only while the run hands the file to the check. A stream or a file that the check keeps cannot be read once the
+  call returns.
 - A check gives one of three answers:
   - a verdict, `PASS`, `FAIL` or `INCONCLUSIVE`;
   - a ticket that the run polls later;
   - a failure, retryable or not, when the check could not answer. Its setting `onUnavailable` then decides.
 - A check declares its scope:
-  - A `METADATA` check reads the name, the declared MIME type and the size of the file, and never a byte.
+  - A `METADATA` check reads the name, the declared MIME type and the size of the file, and never a byte. The run
+    hands it a file whose stream cannot be opened.
   - A `REMOTE` check sends the bytes out of the JVM.
   - An `IN_PROCESS` check reads the bytes inside the JVM.
 - The chain refuses a list where an `IN_PROCESS` check reads a file before a `REMOTE` check passed it. A `METADATA`
   check can stand at any place in the list.
 
-The allow-list check has the scope `METADATA`. Its `PASS` means only that the type of the file is allowed. With the
-allow-list check alone in the list, every file of an allowed type is released with no scan. A scanner therefore
-comes after the allow-list check.
-
 The settings of a check come from its node. The run reads the node and gives the check its common settings
-(`onInconclusive`, `onUnavailable`) and its own properties as a map of strings.
+(`onInconclusive`, `onUnavailable`) and its own properties as a map of strings:
+
+- The map holds the properties that the type of the check declares or inherits, and that the node holds.
+- It leaves out the properties of the platform, whose names start with `jcr:`, `j:` or `mix:`, and the two common
+  settings.
+- The values of a multiple property are joined with a comma.
+
+### The allow-list check
+
+The module ships one check, the node type `fmdbq:allowListCheck` and its service `AllowListQualifier`:
+
+- It has the scope `METADATA` and applies to every file.
+- It has two lists, `extensions` and `mimeTypes`. It answers `PASS` when the extension of the name of the file and
+  the MIME type of the file are both on the lists. Case does not matter, and neither do the parameters of the MIME
+  type.
+- It answers `FAIL` otherwise, with the reason `allowList.extensionRefused` or `allowList.mimeTypeRefused`. An empty
+  list allows no file, so the submission is rejected.
+
+Its `PASS` means only that the type of the file is allowed. With the allow-list check alone in the list, every file
+of an allowed type is released with no scan. A scanner therefore comes after the allow-list check. The help text of
+the check says so in the Page Builder and in the content editor.
 
 The check API follows semantic versioning. Jahia implements the types marked `@ProviderType`, and a check module
 implements the types marked `@ConsumerType`. ADR 0003 decides that the build compares the exported package with its
@@ -227,7 +247,8 @@ A user without the permission gets the same answer as for a submission that does
   inheritance of the ACL and has no entry, so no site role reads it.
 - The bytes of a file are a binary property of the item. They are never `jcr:data` of a file node, so no file
   servlet serves them, and no text extraction or listener reads them.
-- The store computes the SHA-256 again before a release and before a download:
+- The store computes the SHA-256 again before a release and before a download, as the bytes stream from the
+  repository:
   - A mismatch before a release moves the submission to review with the reason `INTEGRITY_FAILED`.
   - A mismatch before a download refuses the download and writes an audit record. The submission stays in
     `needsReview`.
