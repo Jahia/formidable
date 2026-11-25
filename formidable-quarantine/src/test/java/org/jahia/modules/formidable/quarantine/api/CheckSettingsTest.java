@@ -2,6 +2,9 @@ package org.jahia.modules.formidable.quarantine.api;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -45,6 +48,26 @@ class CheckSettingsTest {
                 () -> new CheckSettings("fmdbquar:remoteStubCheck", "scan", null, OnUnavailable.RETRY));
         assertThrows(NullPointerException.class,
                 () -> new CheckSettings("fmdbquar:remoteStubCheck", null, OnInconclusive.REVIEW, OnUnavailable.RETRY));
+    }
+
+    @Test
+    void settingsWithNoPropertyHoldAnEmptyMap() {
+        assertEquals(Map.of(), CheckSettings.withDefaults("acme:check", "scan").properties());
+        assertEquals(Map.of(), new CheckSettings("acme:check", "scan", OnInconclusive.REVIEW, OnUnavailable.RETRY,
+                null).properties());
+    }
+
+    @Test
+    void thePropertiesAreACopyThatNobodyChanges() {
+        Map<String, String> source = new LinkedHashMap<>();
+        source.put("extensions", "pdf,png");
+        CheckSettings settings = new CheckSettings("acme:check", "scan", OnInconclusive.REVIEW, OnUnavailable.RETRY,
+                source);
+        source.put("mimeTypes", "application/pdf");
+
+        assertEquals(Map.of("extensions", "pdf,png"), settings.properties());
+        Map<String, String> properties = settings.properties();
+        assertThrows(UnsupportedOperationException.class, () -> properties.put("mimeTypes", "text/plain"));
     }
 
     @Test
