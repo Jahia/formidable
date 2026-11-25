@@ -178,25 +178,42 @@ sequenceDiagram
 
 ### The lock of the run
 
-The run of a site takes a lock in the repository before it reads the held submissions of the site. The lock keeps
-one run at a time on a site across the cluster:
+Locks narrow the window in which two runs, or a run and an operation, work on one submission. The guard is the
+compare-and-set of every state move:
 
-- The lock is the node `runLock` under the root of the quarantine tree of the site. It stores the owner of the lock
-  and the end of its lease. The owner is the identifier of the server (`cluster.node.serverId`) and a token that
-  each start of the lock service draws, so two starts of the module on one server are two owners.
-- An owner takes the lock when no owner holds it, when its lease ended, or when it holds the lock already. Two
-  owners that take the lock at the same moment both write the node: the repository saves the first write and
-  refuses the second, so the second owner does not get the lock.
-- A new start of the module on a server waits for the lease of the start before it, unless the start before
-  released the lock.
-- The lease lasts `lockLeaseSeconds`, 10 minutes by default. A run extends it each time half of the lease has gone
-  by. A run that cannot extend its lease stops before the next submission.
-- The run releases the lock when its pass ends, even after a failure. When the module stops, the lock service
-  releases each lock it holds, and takes no lock any more: a run of the old start that is still under way stops
-  before its next submission. A server that stops with no release keeps the lock until the lease ends.
-- A scheduled run that does not get the lock skips the site until its next call. "Run now" fails instead.
-- In one server, the run and the operations of a manager also take the lock of the Java object of the run, so no
-  operation runs while the run releases a submission.
+- **Compare-and-set.** A move of the state reads the stored state in the session it saves with, and writes the new
+  state only when the stored state is still the state the mover read. A concurrent save of the same held submission
+  is refused by the repository. So a submission enters `releasing` from `checking` or `needsReview` once, and its
+  actions after release run once. A run skips a submission that another run or an operation moved first, and
+  reports it with the error `moved by another run or operation`. An operation answers a conflict.
+- **The lock of the site in one server.** A pass of the run holds the lock of its site in the JVM for the whole
+  pass, and so does an operation of a manager. An operation waits 2 seconds at most, then answers a conflict, "a
+  run is in progress, retry". A pass of another site does not hold it back.
+- **The lock of the run in the repository.** A pass takes the lock of the run of the site before it reads the held
+  submissions of the site. The lock keeps one pass at a time on a site across the cluster:
+  - The lock is the node `runLock` under the root of the quarantine tree of the site. It stores the owner of the
+    lock and the end of its lease.
+  - The owner is the identifier of the server (`cluster.node.serverId`), a token that each start of the lock
+    service draws, and a token of the holder. Each pass is an owner of its own, even in one server.
+  - An owner takes the lock when no owner holds it, or when its lease ended. Two owners that take the lock at the
+    same moment both write the node: the repository saves the first write and refuses the second, so the second
+    owner does not get the lock.
+  - The lease lasts `lockLeaseSeconds`, 10 minutes by default. Before each submission, and before each call of a
+    check and of the actions after release, a pass checks that its lease is still valid, and extends it once half
+    of the lease has gone by. A pass that lost its lease, or cannot extend it, stops before the call, and keeps the
+    report of what it already did.
+  - The pass releases the lock when it ends, even after a failure. When the module stops, the lock service
+    releases each lease it granted, and grants no lease any more: a pass of the old start that is still under way
+    stops before its next submission or call. A server that stops with no release keeps the lock until the lease
+    ends.
+  - A scheduled run takes the lock of a site only when the site holds a due submission, which a query finds with
+    no write. A scheduled run that does not get the lock skips the site until its next call. "Run now" answers
+    "a run is in progress" instead.
+- **The operations in a cluster.** An operation on another server does not take the lock of the site of this
+  server. A release and a resume, which run the actions after release, take the lock of the run of the site in the
+  repository for their duration, and a reject of a submission in `releasing` needs that no pass holds it. So a
+  resume of a release that stopped never runs beside a release under way, on any server. Any other operation
+  relies on the compare-and-set.
 
 ### The scheduled purge
 

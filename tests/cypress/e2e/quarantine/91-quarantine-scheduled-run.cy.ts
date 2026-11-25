@@ -40,10 +40,12 @@ describe('Quarantine - 91 The scheduled run moves a held submission with no "run
 	before(() => {
 		enableModule(QUARANTINE_MODULE_ID, FORMIDABLE_TEST_SITE.key);
 		setUploadsRequireQuarantine(false);
-		setQuarantineRunPeriod(SHORT_PERIOD_SECONDS);
+		// no wait for the scheduler here: the control build schedules nothing, and Q29 must fail on its assertion
+		setQuarantineRunPeriod(SHORT_PERIOD_SECONDS, false);
 	});
 
 	after(() => {
+		// waits until the scheduler holds no run, so that no scheduled call touches the submissions of the next spec
 		setQuarantineRunPeriod(0);
 	});
 

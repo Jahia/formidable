@@ -41,8 +41,8 @@ class RetentionServletTest {
     @BeforeEach
     void setUp() throws Exception {
         retention = mock(QuarantineRetention.class);
-        when(retention.purge(anyString(), any())).thenReturn(new QuarantineRetention.Report(30, List.of(HELD_PATH),
-                List.of()));
+        when(retention.purge(anyString(), any())).thenReturn(new QuarantineRetention.Report(30,
+                QuarantineRetention.Limit.PLATFORM, List.of(HELD_PATH), List.of()));
     }
 
     /** A call of the specs: a POST carries the header that a cross-site form or a simple request cannot send. */

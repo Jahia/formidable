@@ -3,11 +3,18 @@ package org.jahia.modules.formidable.quarantine.store;
 import org.jahia.services.content.JCRCallback;
 import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
+import org.jahia.services.content.JCRSessionWrapper;
 import org.jahia.services.content.JCRTemplate;
 import org.osgi.service.component.annotations.Component;
 
 import javax.jcr.RepositoryException;
+import javax.jcr.ValueFactory;
+import javax.jcr.query.Query;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.TimeZone;
 import java.util.List;
 import java.util.OptionalLong;
 
@@ -20,6 +27,16 @@ public class JcrQuarantineSites implements QuarantineSites {
     static final String RETENTION_DAYS = "retentionDays";
     private static final String SITES = "/sites";
     private static final String DEFAULT_WORKSPACE = "default";
+    /**
+     * The due submissions under the root of a site. The path is the one literal: JCR-SQL2 takes no bind variable in
+     * ISDESCENDANTNODE, and a JCR name holds no bracket. The states and the time are bind variables.
+     */
+    static final String DUE_QUERY = "SELECT * FROM [" + QuarantineTree.HELD_TYPE + "] AS held"
+            + " WHERE ISDESCENDANTNODE(held, [%s])"
+            + " AND (held.[" + QuarantineTree.STATE + "] = $held"
+            + " OR (held.[" + QuarantineTree.STATE + "] = $checking"
+            + " AND (NOT held.[" + QuarantineTree.NEXT_ATTEMPT + "] IS NOT NULL"
+            + " OR held.[" + QuarantineTree.NEXT_ATTEMPT + "] <= $now)))";
 
     /** Runs the callback in a system session of the workspace. A unit test overrides it with a mocked session. */
     <T> T inSystemSession(String workspace, JCRCallback<T> callback) throws RepositoryException {
@@ -46,6 +63,38 @@ public class JcrQuarantineSites implements QuarantineSites {
         } catch (RepositoryException e) {
             throw new QuarantineStoreException("The sites of the quarantine cannot be read", e);
         }
+    }
+
+    @Override
+    public boolean anyDue(String siteKey, Instant now) throws QuarantineStoreException {
+        try {
+            return inSystemSession(JcrQuarantineStore.LIVE_WORKSPACE, session -> {
+                String root = QuarantineTree.rootPath(siteKey);
+                if (!session.nodeExists(root)) {
+                    return false;
+                }
+                Query query = createQuery(session, String.format(DUE_QUERY, root));
+                ValueFactory values = session.getValueFactory();
+                query.bindValue("held", values.createValue(HeldStates.HELD));
+                query.bindValue("checking", values.createValue(HeldStates.CHECKING));
+                query.bindValue("now", values.createValue(calendar(now)));
+                query.setLimit(1);
+                return query.execute().getNodes().hasNext();
+            });
+        } catch (RepositoryException e) {
+            throw new QuarantineStoreException("The due submissions of site " + siteKey + " cannot be read", e);
+        }
+    }
+
+    /** Creates a JCR-SQL2 query of the session. A unit test overrides it with a mocked query. */
+    Query createQuery(JCRSessionWrapper session, String statement) throws RepositoryException {
+        return session.getWorkspace().getQueryManager().createQuery(statement, Query.JCR_SQL2);
+    }
+
+    private static Calendar calendar(Instant at) {
+        GregorianCalendar calendar = new GregorianCalendar(TimeZone.getTimeZone("UTC"));
+        calendar.setTimeInMillis(at.toEpochMilli());
+        return calendar;
     }
 
     @Override

@@ -25,8 +25,8 @@ import java.util.OptionalLong;
  * The retention of the quarantine tree of a site, an OSGi service: it purges each held submission in a final state,
  * {@code completed} or {@code rejected}, whose last change ({@link HeldRecord#changedAt()}) is older than the limit,
  * with its items, its values, its outcomes, its decision and its audit. A submission in any other state is never
- * purged, whatever its age: it still waits for the run or for a manager. It runs on its own schedule on the processing server ({@code schedule.PurgeSchedule}), and a spec starts it through its
- * endpoint.
+ * purged, whatever its age: it still waits for the run or for a manager. It runs on its own schedule on the
+ * processing server ({@code schedule.PurgeSchedule}), and a spec starts it through its endpoint.
  *
  * <p>The limit of a site is the platform setting {@code retentionDays}, or the setting of the site when it is lower: a
  * site can shorten the retention of its finished submissions, and never lengthen it.</p>
@@ -43,8 +43,22 @@ public class QuarantineRetention {
     /** The scheduled purge runs once a day. */
     static final long DEFAULT_PERIOD_SECONDS = 86_400;
 
-    /** What a pass purged, and what it could not purge. */
-    public record Report(int retentionDays, List<String> purged, List<String> failed) {
+    /** Whose limit a pass applied. */
+    public enum Limit {
+        /** The setting of the platform: the site sets none, a higher one, a negative one, or cannot be read. */
+        PLATFORM,
+        /** The lower setting of the site. */
+        SITE,
+        /** The limit given for the pass alone ({@code olderThanDays}). */
+        CALL
+    }
+
+    /** A limit in days, and whose it is. */
+    public record LimitOfSite(int days, Limit limit) {
+    }
+
+    /** What a pass purged, and what it could not purge, under which limit. */
+    public record Report(int retentionDays, Limit limit, List<String> purged, List<String> failed) {
         public Report {
             purged = List.copyOf(purged);
             failed = List.copyOf(failed);
@@ -97,12 +111,17 @@ public class QuarantineRetention {
         return retentionDays;
     }
 
+    /** @return the days of the limit of the site, as {@link #limitOf} decides it */
+    public int retentionDaysOf(String siteKey) {
+        return limitOf(siteKey).days();
+    }
+
     /**
      * The limit of the site: the setting of the site when it is lower than the setting of the platform, else the
-     * setting of the platform. A negative setting of the site is ignored, and so is a site that cannot be read: the
-     * retention then keeps the longer limit of the platform.
+     * setting of the platform. A negative setting of the site is ignored, and so is a site that cannot be read, which
+     * is logged: the retention then keeps the longer limit of the platform, and reports it as the platform's.
      */
-    public int retentionDaysOf(String siteKey) {
+    public LimitOfSite limitOf(String siteKey) {
         int platform = retentionDays;
         OptionalLong site;
         try {
@@ -110,23 +129,24 @@ public class QuarantineRetention {
         } catch (QuarantineStoreException e) {
             log.warn("The retention of site {} cannot be read, the platform setting of {} days applies: {}", siteKey,
                     platform, e.getMessage());
-            return platform;
+            return new LimitOfSite(platform, Limit.PLATFORM);
         }
         if (site.isPresent() && site.getAsLong() >= 0 && site.getAsLong() < platform) {
-            return (int) site.getAsLong();
+            return new LimitOfSite((int) site.getAsLong(), Limit.SITE);
         }
-        return platform;
+        return new LimitOfSite(platform, Limit.PLATFORM);
     }
 
     /**
-     * Purges the completed and rejected held submissions of the site whose last change is older than the limit. A submission that
-     * cannot be purged is reported, and the pass goes on.
+     * Purges the completed and rejected held submissions of the site whose last change is older than the limit. A
+     * submission that cannot be purged is reported, and the pass goes on.
      *
      * @param olderThanDays the limit for this pass, in place of {@code retentionDays}; {@code null} keeps the limit of
      *                      the site ({@link #retentionDaysOf})
      */
     public synchronized Report purge(String siteKey, Integer olderThanDays) throws QuarantineStoreException {
-        int days = olderThanDays != null ? olderThanDays : retentionDaysOf(siteKey);
+        LimitOfSite applied = olderThanDays != null ? new LimitOfSite(olderThanDays, Limit.CALL) : limitOf(siteKey);
+        int days = applied.days();
         Instant limit = clock.instant().minus(Duration.ofDays(days));
         List<String> purged = new ArrayList<>();
         List<String> failed = new ArrayList<>();
@@ -139,7 +159,7 @@ public class QuarantineRetention {
         }
         log.info("Retention of the quarantine of site {}: {} finished held submissions purged, older than {} days",
                 siteKey, purged.size(), days);
-        return new Report(days, purged, failed);
+        return new Report(days, applied.limit(), purged, failed);
     }
 
     /** A final state, {@code completed} or {@code rejected}, whose last change is older than the limit. */

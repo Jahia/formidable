@@ -3,6 +3,7 @@ package org.jahia.modules.formidable.quarantine.run;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.quarantine.api.Qualifier;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunException;
+import org.jahia.modules.formidable.quarantine.api.QuarantineRunInProgressException;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunner;
 import org.jahia.modules.formidable.quarantine.api.RunReport;
 import org.jahia.modules.formidable.quarantine.api.RunnerSettings;
@@ -14,6 +15,7 @@ import org.jahia.modules.formidable.quarantine.store.HeldStates;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.jahia.modules.formidable.quarantine.store.RunLock;
+import org.jahia.modules.formidable.quarantine.store.StaleStateException;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Modified;
@@ -41,9 +43,12 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@link QuarantineRunner}. One run makes one pass over each due submission ({@link SubmissionRun}), each under the
  * system sessions of the stores. A submission that fails is reported, and the pass goes on with the next one.
  *
- * <p>One run at a time: the run is {@code synchronized} in the JVM, and takes the lock of the run of the site in the
- * repository ({@link RunLock}) before it reads, across the cluster. It extends the lease of the lock while it works,
- * once half of the lease has gone by.</p>
+ * <p>One pass at a time on a site: a pass takes the lock of its site in this JVM ({@link SiteLocks}), which the
+ * operations of a manager take too, then the lock of the run of the site in the repository ({@link RunLock}) before
+ * it reads, across the cluster. Before each submission and before each call of a check or of the actions after
+ * release, it checks that its lease is still valid, and extends the lease once half of it has gone by; a pass that
+ * lost its lease stops before the call. The locks narrow the window; the guard is the compare-and-set of each state
+ * move ({@link Transitions}): a submission moved by another run or an operation is skipped.</p>
  *
  * <p>A submission is due when its state is {@code held}, or {@code checking} with no next attempt or a next attempt
  * that is not in the future. A run that ignores the schedule takes every submission in one of these two states.</p>
@@ -59,6 +64,8 @@ public class QuarantineRun implements QuarantineRunner {
     public static final String PID = "org.jahia.modules.formidable.quarantine.run";
     /** How long the lock of the run of a site stays held after a server stopped without releasing it. */
     static final Duration DEFAULT_LEASE = Duration.ofMinutes(10);
+    /** The error of a submission that another run or an operation moved under the pass. */
+    static final String MOVED = "moved by another run or operation";
 
     private final CheckList checkList;
     private final Clock clock;
@@ -69,6 +76,7 @@ public class QuarantineRun implements QuarantineRunner {
     private CheckStore checkStore;
     private DeferredActions actions;
     private RunLock runLock;
+    private SiteLocks siteLocks = new SiteLocks();
 
     public QuarantineRun() {
         this(new JcrCheckList(), Clock.systemUTC());
@@ -97,6 +105,12 @@ public class QuarantineRun implements QuarantineRunner {
     @Reference
     public void setRunLock(RunLock runLock) {
         this.runLock = runLock;
+    }
+
+    /** The locks per site that the operations share; a test that sets none gets locks of its own. */
+    @Reference
+    public void setSiteLocks(SiteLocks siteLocks) {
+        this.siteLocks = siteLocks;
     }
 
     /** Every qualifier of the platform, matched to a check node by its node type. */
@@ -142,6 +156,8 @@ public class QuarantineRun implements QuarantineRunner {
     public RunReport runNow(String siteKey, String formId, boolean ignoreSchedule) throws QuarantineRunException {
         try {
             return run(siteKey, formId, ignoreSchedule);
+        } catch (RunLockedException e) {
+            throw new QuarantineRunInProgressException(e.getMessage(), e);
         } catch (QuarantineStoreException e) {
             throw new QuarantineRunException(e.getMessage(), e);
         }
@@ -156,44 +172,54 @@ public class QuarantineRun implements QuarantineRunner {
     }
 
     /**
-     * Makes one pass over the due held submissions of the site, as {@link #tryRun} does, and fails when another server
+     * Makes one pass over the due held submissions of the site, as {@link #tryRun} does, and fails when another run
      * holds the lock of the run of the site.
      *
-     * @throws QuarantineStoreException when the tree cannot be read, or another server runs the site
+     * @throws RunLockedException       when another run holds the lock of the site: nothing was read
+     * @throws QuarantineStoreException when the tree cannot be read
      */
-    public synchronized RunReport run(String siteKey, String formId, boolean ignoreSchedule)
-            throws QuarantineStoreException {
+    public RunReport run(String siteKey, String formId, boolean ignoreSchedule) throws QuarantineStoreException {
         Optional<RunReport> report = tryRun(siteKey, formId, ignoreSchedule);
         if (report.isEmpty()) {
-            throw new QuarantineStoreException("Another server runs the quarantine of site " + siteKey
-                    + ": its lock is held");
+            throw new RunLockedException("A run of the quarantine of site " + siteKey + " is in progress");
         }
         return report.get();
     }
 
     /**
-     * Makes one pass over the due held submissions of the site. One run at a time: in this JVM, under the lock of this
-     * run, which the operations of a manager take too, so no operation runs while the run releases a submission; and
-     * across the cluster, under the lock of the run of the site in the repository, taken before the run reads.
+     * Makes one pass over the due held submissions of the site. One pass at a time on a site: in this JVM, under the
+     * lock of the site, which the operations of a manager take too; and across the cluster, under the lock of the run
+     * of the site in the repository, taken before the run reads.
      *
      * @param siteKey        the key of the site
      * @param formId         the identifier of the one form to run, or {@code null} for every form of the site
      * @param ignoreSchedule true to take every submission in state {@code held} or {@code checking}, whatever its next
      *                       attempt says
-     * @return the submissions processed, with the state of each after the run; empty when another server holds the
-     *         lock of the run of the site, and nothing was read
+     * @return the submissions processed, with the state of each after the run; empty when another run holds the lock
+     *         of the site, in this JVM for longer than {@link SiteLocks#OPERATION_WAIT} or in the repository, and
+     *         nothing was read
      */
-    public synchronized Optional<RunReport> tryRun(String siteKey, String formId, boolean ignoreSchedule)
+    public Optional<RunReport> tryRun(String siteKey, String formId, boolean ignoreSchedule)
             throws QuarantineStoreException {
-        Duration leaseLength = lease.get();
-        if (!runLock.take(siteKey, leaseLength)) {
-            log.info("Run of the quarantine of site {} skipped: another server holds its lock", siteKey);
+        if (!siteLocks.tryLock(siteKey, SiteLocks.OPERATION_WAIT)) {
+            log.info("Run of the quarantine of site {} skipped: a run or an operation of this server holds it",
+                    siteKey);
             return Optional.empty();
         }
         try {
-            return Optional.of(pass(siteKey, formId, ignoreSchedule, new HeldLease(siteKey, leaseLength)));
+            Duration leaseLength = lease.get();
+            Optional<RunLock.Lease> taken = runLock.take(siteKey, leaseLength);
+            if (taken.isEmpty()) {
+                log.info("Run of the quarantine of site {} skipped: another run holds its lock", siteKey);
+                return Optional.empty();
+            }
+            try {
+                return Optional.of(pass(siteKey, formId, ignoreSchedule, new HeldLease(taken.get(), leaseLength)));
+            } finally {
+                taken.get().release();
+            }
         } finally {
-            runLock.release(siteKey);
+            siteLocks.of(siteKey).unlock();
         }
     }
 
@@ -202,44 +228,70 @@ public class QuarantineRun implements QuarantineRunner {
         Instant now = clock.instant();
         RunSettings current = settings.get();
         SubmissionRun submissionRun = new SubmissionRun(store, checkStore, checkList, qualifiers::get, release(),
-                current, clock);
+                current, clock, runLease::kept);
         List<String> forms = formId == null ? checkStore.forms(siteKey) : List.of(formId);
         List<RunReport.Processed> processed = new ArrayList<>();
-        for (String form : forms) {
-            for (HeldRecord heldRecord : store.list(siteKey, form)) {
-                if (!runLease.kept()) {
-                    log.warn("Run of the quarantine of site {} stopped: its lock went to another server", siteKey);
-                    return new RunReport(siteKey, formId, processed);
-                }
-                if (isDue(heldRecord, now, ignoreSchedule)) {
-                    processed.add(process(submissionRun, heldRecord));
+        try {
+            for (String form : forms) {
+                for (HeldRecord heldRecord : store.list(siteKey, form)) {
+                    runLease.keptOrStop();
+                    if (isDue(heldRecord, now, ignoreSchedule)) {
+                        processed.add(process(submissionRun, heldRecord));
+                    }
                 }
             }
+        } catch (RunStoppedException e) {
+            log.warn("Run of the quarantine of site {} stopped after {} held submissions: {}", siteKey,
+                    processed.size(), e.getMessage());
+            return new RunReport(siteKey, formId, processed);
         }
         log.info("Run of the quarantine of site {}: {} held submissions processed", siteKey, processed.size());
         return new RunReport(siteKey, formId, processed);
     }
 
-    /** The lease of the lock of the run, extended once half of it has gone by. */
+    /** The lease of one pass on the lock of the run of its site, extended once half of it has gone by. */
     private final class HeldLease {
-        private final String siteKey;
+        private final RunLock.Lease lease;
         private final Duration length;
         private Instant extendAt;
 
-        HeldLease(String siteKey, Duration length) {
-            this.siteKey = siteKey;
+        HeldLease(RunLock.Lease lease, Duration length) {
+            this.lease = lease;
             this.length = length;
             this.extendAt = clock.instant().plus(length.dividedBy(2));
         }
 
-        /** @return false when the lease cannot be extended: another server took the lock, or the repository failed */
-        boolean kept() throws QuarantineStoreException {
+        /**
+         * Checks the lease before a submission or a call: still valid where it was granted, and extended once half of
+         * it has gone by.
+         *
+         * @return false when the lease is lost: released, its service stopped, its end came, another owner took the
+         *         lock, or the repository failed to extend it
+         */
+        boolean kept() {
+            if (!lease.valid()) {
+                return false;
+            }
             Instant now = clock.instant();
             if (now.isBefore(extendAt)) {
                 return true;
             }
+            try {
+                if (!lease.extend(length)) {
+                    return false;
+                }
+            } catch (QuarantineStoreException e) {
+                log.warn("The lease of the run of site {} could not be extended: {}", lease.siteKey(), e.getMessage());
+                return false;
+            }
             extendAt = now.plus(length.dividedBy(2));
-            return runLock.take(siteKey, length);
+            return true;
+        }
+
+        void keptOrStop() throws RunStoppedException {
+            if (!kept()) {
+                throw new RunStoppedException("the lock of the run of site " + lease.siteKey() + " is lost");
+            }
         }
     }
 
@@ -250,11 +302,17 @@ public class QuarantineRun implements QuarantineRunner {
         return ignoreSchedule || held.nextAttempt() == null || !held.nextAttempt().isAfter(now);
     }
 
-    private RunReport.Processed process(SubmissionRun submissionRun, HeldRecord held) {
+    private RunReport.Processed process(SubmissionRun submissionRun, HeldRecord held) throws RunStoppedException {
         try {
             HeldState state = submissionRun.run(held);
             auditIfStopped(held, state);
             return new RunReport.Processed(held.path(), held.formId(), held.state(), state.value(), null);
+        } catch (RunStoppedException e) {
+            throw e;
+        } catch (StaleStateException e) {
+            // another run or an operation moved it first: it is theirs, and this pass leaves it alone
+            log.info("Held submission {}: moved by another run or operation, the pass skips it", held.path());
+            return new RunReport.Processed(held.path(), held.formId(), held.state(), stateOf(held.path()), MOVED);
         } catch (QuarantineStoreException | RepositoryException e) {
             log.warn("Held submission {}: the run failed, the pass goes on: {}", held.path(), e.toString());
             return failed(held, e.getClass().getSimpleName() + ": " + e.getMessage());

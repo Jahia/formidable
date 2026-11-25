@@ -6,9 +6,9 @@ truth — a row here summarises a declaration, it never replaces it — and
 [CND module ownership](cnd-module-ownership.md) says *why* a mixin lives in the module it lives in.
 This page says *what each one is for*.
 
-Sixty-nine mixins, in eleven families: the form tree, the value kinds, the options of a choice field,
-the bounds of a date field, the form-level features, the actions, the field settings, jExperience,
-the import of Jahia Forms, the migration markers and the samples. A last table lists the platform
+Seventy mixins, in twelve families: the form tree, the value kinds, the options of a choice field,
+the bounds of a date field, the form-level features, the actions, the quarantine module, the field
+settings, jExperience, the import of Jahia Forms, the migration markers and the samples. A last table lists the platform
 mixins Formidable relies on, and why.
 
 ## How to read the tables
@@ -170,6 +170,15 @@ Formidable or elsewhere, bound to an OSGi service by type name
 | `fmdbmix:providerFieldAction` | — | **Deprecated, removed in 0.6.** The provider a field action picked when the services were a list of the engine's configuration; a field action now reads its service from its own module's configuration. Kept hidden so that a type or a node still carrying it deploys. | nothing | — |
 
 [Field actions](field-actions.md#jcr-definitions) gives the full model and the decision log.
+
+## The quarantine module
+
+Declared by `formidable-quarantine`, under the prefix `fmdbqmix`
+([Quarantine of the uploads](quarantine.md)).
+
+| Mixin | Use | What it says | Read by | Carried by |
+|---|---|---|---|---|
+| `fmdbqmix:quarantineSite` | site setting, `extends = jnt:virtualsite` | The settings of the quarantine on a site, in the site settings of a site that has the module. `retentionDays` (long) lowers the retention of the completed and rejected held submissions of the site, in days: a value above the setting of the platform, or a negative one, is ignored. | `JcrQuarantineSites` (in the default workspace), for `QuarantineRetention` and the scheduled purge ([The scheduled purge](quarantine.md#the-scheduled-purge)) | a site, when its administrator sets the retention |
 
 ## Field settings
 

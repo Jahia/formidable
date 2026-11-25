@@ -15,6 +15,8 @@ order.
 
 Specs:
 
+- `tests/cypress/e2e/quarantine/91-quarantine-scheduled-run.cy.ts` covers Q29:
+  the scheduled run.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -117,9 +119,10 @@ Specs:
   with no user, when it releases, rejects or sends to review. The inspection
   answers them.
 - **Retention**: `POST /modules/formidable-quarantine/retention?site=<site>`.
-  It purges each `rejected` held submission whose last change is older than
-  `retentionDays` (30 by default), or `olderThanDays` for that call. Server
-  administrators only.
+  It purges each `completed` or `rejected` held submission whose last change is
+  older than the limit: `retentionDays` (30 by default), or the lower
+  `retentionDays` of the site settings, or `olderThanDays` for that call.
+  Server administrators only. The module also runs it on its own schedule.
 - **Mailbox**: Mailpit, the `smtp-server` service of `tests/docker-compose.yml`.
   The provisioning of `@jahia/cypress` points the mail service of Jahia at it.
 

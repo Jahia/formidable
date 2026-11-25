@@ -18,11 +18,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * The {@link RunLock} of the module: a lock node {@code runLock} of the type {@code fmdbq:runLock} under the root of
@@ -30,11 +32,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * the end of its lease. Two owners that take the lock at the same moment both write the node; the repository saves
  * the first write and refuses the second as stale, so the second owner does not get the lock.
  *
- * <p>The owner is the server, named by {@code cluster.node.serverId} of its settings ({@value #STANDALONE} when it
- * has none), and a token drawn for each activation of this component: Declarative Services creates a new instance at
- * each activation. A new activation on the same server is another owner, so it waits for the lease of the activation
- * before it, unless that one released its locks. At deactivation, the component releases every lock it holds and
- * takes none any more: a run of the old activation still under way cannot extend its lease, and stops.</p>
+ * <p>The owner of a lease is the server, named by {@code cluster.node.serverId} of its settings ({@value #STANDALONE}
+ * when it has none), a token drawn for each activation of this component (Declarative Services creates a new
+ * instance at each activation), and a token drawn for each {@link #take}: each holder, such as one pass of the run,
+ * is an owner of its own. Another holder, of this activation or of a new one on the same server, waits for the lease
+ * unless its holder released it. At deactivation, the component releases every lease it granted and grants none any
+ * more: a lease of the old activation is no longer {@link Lease#valid() valid}, so a pass still under way stops.</p>
  */
 @Component(service = RunLock.class, immediate = true)
 public class JcrRunLock implements RunLock {
@@ -50,32 +53,32 @@ public class JcrRunLock implements RunLock {
     private static final String STANDALONE = "standalone";
 
     private final Clock clock;
-    private final String owner;
-    /** The sites whose lock this activation took and did not release. */
-    private final Set<String> held = ConcurrentHashMap.newKeySet();
+    private final String activation;
+    /** The leases this activation granted and that were not released. */
+    private final Set<JcrLease> leases = ConcurrentHashMap.newKeySet();
     private final AtomicBoolean deactivated = new AtomicBoolean();
 
     public JcrRunLock() {
         this(Clock.systemUTC(), SettingsBean.getInstance().getString(SERVER_ID, STANDALONE) + ":" + UUID.randomUUID());
     }
 
-    /** @param owner the server and the token of this activation */
-    JcrRunLock(Clock clock, String owner) {
+    /** @param activation the server and the token of this activation */
+    JcrRunLock(Clock clock, String activation) {
         this.clock = clock;
-        this.owner = owner;
+        this.activation = activation;
     }
 
-    /** @return the server and the token of this activation, as the lock node stores them */
-    String owner() {
-        return owner;
+    /** @return the server and the token of this activation, the start of the owner of each of its leases */
+    String activation() {
+        return activation;
     }
 
-    /** Releases every lock this activation holds, and refuses every lock from now on. */
+    /** Releases every lease of this activation, and refuses every lock from now on. */
     @Deactivate
     public void deactivate() {
         deactivated.set(true);
-        for (String siteKey : Set.copyOf(held)) {
-            release(siteKey);
+        for (JcrLease lease : Set.copyOf(leases)) {
+            lease.release();
         }
     }
 
@@ -86,63 +89,125 @@ public class JcrRunLock implements RunLock {
     }
 
     @Override
-    public boolean take(String siteKey, Duration lease) throws QuarantineStoreException {
+    public Optional<Lease> take(String siteKey, Duration length) throws QuarantineStoreException {
         if (deactivated.get()) {
             log.info("The lock of the run of site {} is refused: the module stopped", siteKey);
-            return false;
+            return Optional.empty();
         }
-        try {
-            boolean taken = inLiveSystemSession(session -> take(session, siteKey, lease));
-            if (taken) {
-                held.add(siteKey);
-            }
-            return taken;
-        } catch (InvalidItemStateException | ItemExistsException e) {
-            log.info("The lock of the run of site {} was taken by another server at the same moment", siteKey);
-            return false;
-        } catch (RepositoryException e) {
-            throw new QuarantineStoreException("The lock of the run of site " + siteKey + " cannot be taken", e);
+        JcrLease lease = new JcrLease(siteKey, activation + ":" + UUID.randomUUID());
+        if (!lease.write(length)) {
+            return Optional.empty();
         }
-    }
-
-    private boolean take(JCRSessionWrapper session, String siteKey, Duration lease) throws RepositoryException {
-        String rootPath = QuarantineTree.rootPath(siteKey);
-        if (!session.nodeExists(rootPath)) {
-            return true;
-        }
-        JCRNodeWrapper root = session.getNode(rootPath);
-        Instant now = clock.instant();
-        JCRNodeWrapper lock = root.hasNode(LOCK_NAME) ? root.getNode(LOCK_NAME) : null;
-        if (!RunLease.mayTake(lock == null ? null : leaseOf(lock), owner, now)) {
-            return false;
-        }
-        if (lock == null) {
-            lock = root.addNode(LOCK_NAME, LOCK_TYPE);
-        }
-        lock.setProperty(OWNER, owner);
-        lock.setProperty(UNTIL, calendar(now.plus(lease)));
-        session.save();
-        return true;
+        leases.add(lease);
+        return Optional.of(lease);
     }
 
     @Override
-    public void release(String siteKey) {
-        held.remove(siteKey);
+    public boolean isHeld(String siteKey) throws QuarantineStoreException {
         try {
-            inLiveSystemSession(session -> {
-                String lockPath = QuarantineTree.rootPath(siteKey) + "/" + LOCK_NAME;
-                if (session.nodeExists(lockPath)) {
-                    JCRNodeWrapper lock = session.getNode(lockPath);
-                    if (owner.equals(leaseOf(lock).owner())) {
-                        lock.setProperty(UNTIL, calendar(clock.instant()));
-                        session.save();
-                    }
+            return inLiveSystemSession(session -> {
+                String lockPath = lockPath(siteKey);
+                if (!session.nodeExists(lockPath)) {
+                    return false;
                 }
-                return null;
+                RunLease current = leaseOf(session.getNode(lockPath));
+                return current.owner() != null && current.until() != null && current.until().isAfter(clock.instant());
             });
-        } catch (RepositoryException | RuntimeException e) {
-            log.warn("The lock of the run of site {} could not be released, its lease ends it: {}", siteKey,
-                    e.toString());
+        } catch (RepositoryException e) {
+            throw new QuarantineStoreException("The lock of the run of site " + siteKey + " cannot be read", e);
+        }
+    }
+
+    private static String lockPath(String siteKey) {
+        return QuarantineTree.rootPath(siteKey) + "/" + LOCK_NAME;
+    }
+
+    /** The lease of one holder, written on the lock node of its site. */
+    private final class JcrLease implements Lease {
+
+        private final String siteKey;
+        private final String owner;
+        private final AtomicBoolean released = new AtomicBoolean();
+        private final AtomicReference<Instant> until = new AtomicReference<>(Instant.MIN);
+
+        JcrLease(String siteKey, String owner) {
+            this.siteKey = siteKey;
+            this.owner = owner;
+        }
+
+        @Override
+        public String siteKey() {
+            return siteKey;
+        }
+
+        @Override
+        public boolean valid() {
+            return !released.get() && !deactivated.get() && clock.instant().isBefore(until.get());
+        }
+
+        @Override
+        public boolean extend(Duration length) throws QuarantineStoreException {
+            return valid() && write(length);
+        }
+
+        /** Writes this owner and the end of its lease, when the rule of the lease allows it. */
+        boolean write(Duration length) throws QuarantineStoreException {
+            Instant end = clock.instant().plus(length);
+            try {
+                boolean written = inLiveSystemSession(session -> write(session, end));
+                if (written) {
+                    until.set(end);
+                }
+                return written;
+            } catch (InvalidItemStateException | ItemExistsException e) {
+                log.info("The lock of the run of site {} was taken by another owner at the same moment", siteKey);
+                return false;
+            } catch (RepositoryException e) {
+                throw new QuarantineStoreException("The lock of the run of site " + siteKey + " cannot be taken", e);
+            }
+        }
+
+        private boolean write(JCRSessionWrapper session, Instant end) throws RepositoryException {
+            String rootPath = QuarantineTree.rootPath(siteKey);
+            if (!session.nodeExists(rootPath)) {
+                return true;
+            }
+            JCRNodeWrapper root = session.getNode(rootPath);
+            JCRNodeWrapper lock = root.hasNode(LOCK_NAME) ? root.getNode(LOCK_NAME) : null;
+            if (!RunLease.mayTake(lock == null ? null : leaseOf(lock), owner, clock.instant())) {
+                return false;
+            }
+            if (lock == null) {
+                lock = root.addNode(LOCK_NAME, LOCK_TYPE);
+            }
+            lock.setProperty(OWNER, owner);
+            lock.setProperty(UNTIL, calendar(end));
+            session.save();
+            return true;
+        }
+
+        @Override
+        public void release() {
+            if (!released.compareAndSet(false, true)) {
+                return;
+            }
+            leases.remove(this);
+            try {
+                inLiveSystemSession(session -> {
+                    String lockPath = lockPath(siteKey);
+                    if (session.nodeExists(lockPath)) {
+                        JCRNodeWrapper lock = session.getNode(lockPath);
+                        if (owner.equals(leaseOf(lock).owner())) {
+                            lock.setProperty(UNTIL, calendar(clock.instant()));
+                            session.save();
+                        }
+                    }
+                    return null;
+                });
+            } catch (RepositoryException | RuntimeException e) {
+                log.warn("The lock of the run of site {} could not be released, its lease ends it: {}", siteKey,
+                        e.toString());
+            }
         }
     }
 

@@ -42,6 +42,11 @@ class QuarantineRetentionTest {
         }
 
         @Override
+        public boolean anyDue(String siteKey, Instant now) {
+            return false;
+        }
+
+        @Override
         public OptionalLong retentionDays(String siteKey) throws QuarantineStoreException {
             if (unreadableSites.contains(siteKey)) {
                 throw new QuarantineStoreException("The site " + siteKey + " cannot be read");
@@ -168,6 +173,7 @@ class QuarantineRetentionTest {
         QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, null);
 
         assertEquals(7, report.retentionDays());
+        assertEquals(QuarantineRetention.Limit.SITE, report.limit());
         assertEquals(List.of(tenDaysOld.path), report.purged());
         assertTrue(stores.held.containsKey(twoDaysOld.path));
     }
@@ -180,6 +186,7 @@ class QuarantineRetentionTest {
         QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, null);
 
         assertEquals(30, report.retentionDays());
+        assertEquals(QuarantineRetention.Limit.PLATFORM, report.limit());
         assertEquals(List.of(fortyDaysOld.path), report.purged());
     }
 
@@ -195,10 +202,15 @@ class QuarantineRetentionTest {
     }
 
     @Test
-    void aSiteThatCannotBeReadKeepsThePlatformRetention() {
+    void aSiteThatCannotBeReadKeepsThePlatformRetentionAndReportsItAsThePlatformOne() throws Exception {
         unreadableSites.add(InMemoryQuarantine.SITE);
+        Held fortyDaysOld = held(HeldState.REJECTED, 40);
 
-        assertEquals(30, retention.retentionDaysOf(InMemoryQuarantine.SITE));
+        QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, null);
+
+        assertEquals(30, report.retentionDays());
+        assertEquals(QuarantineRetention.Limit.PLATFORM, report.limit());
+        assertEquals(List.of(fortyDaysOld.path), report.purged());
     }
 
     @Test
@@ -209,6 +221,7 @@ class QuarantineRetentionTest {
         QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, 1);
 
         assertEquals(1, report.retentionDays());
+        assertEquals(QuarantineRetention.Limit.CALL, report.limit());
         assertEquals(List.of(fiveDaysOld.path), report.purged());
     }
 }

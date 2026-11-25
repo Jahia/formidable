@@ -3,12 +3,14 @@ package org.jahia.modules.formidable.quarantine.schedule;
 import org.jahia.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.modules.formidable.quarantine.run.RunConfig;
 import org.jahia.modules.formidable.quarantine.store.QuarantineSites;
+import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Deactivate;
 import org.osgi.service.component.annotations.Modified;
 import org.osgi.service.component.annotations.Reference;
 
+import java.time.Clock;
 import java.time.Duration;
 
 /**
@@ -23,6 +25,7 @@ public class RunSchedule {
     static final String JOB_NAME = "formidable-quarantine-run";
 
     private final RecurringJob job;
+    private final Clock clock;
     private QuarantineRun run;
     private QuarantineSites sites;
 
@@ -31,7 +34,12 @@ public class RunSchedule {
     }
 
     RunSchedule(RecurringJob job) {
+        this(job, Clock.systemUTC());
+    }
+
+    RunSchedule(RecurringJob job, Clock clock) {
         this.job = job;
+        this.clock = clock;
     }
 
     @Reference
@@ -57,6 +65,13 @@ public class RunSchedule {
 
     /** One call of the job: one pass over each site that has a quarantine tree, on schedule. */
     void runEverySite() {
-        EverySite.apply(sites, "scheduled run", siteKey -> run.tryRun(siteKey, null, false));
+        EverySite.apply(sites, "scheduled run", this::runIfDue);
+    }
+
+    /** A site with no due submission is left alone: no lock is taken, nothing is written. */
+    private void runIfDue(String siteKey) throws QuarantineStoreException {
+        if (sites.anyDue(siteKey, clock.instant())) {
+            run.tryRun(siteKey, null, false);
+        }
     }
 }

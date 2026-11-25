@@ -21,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 
 /**
  * The release of a held submission: the bytes are read again and hashed again, and a difference from the SHA-256 of
@@ -64,6 +65,16 @@ public final class Release {
      * @throws IllegalTransitionException for any other state: no byte is read and no action runs
      */
     public HeldState release(String path, HeldState state) throws QuarantineStoreException {
+        return release(path, state, () -> true);
+    }
+
+    /**
+     * Releases the held submission, as {@link #release(String, HeldState)} does, for a holder of the lock of the run:
+     * the lease is asked before the actions after release run, and a lost lease stops the release before them.
+     *
+     * @throws RunStoppedException when the lease is lost before the actions: they did not run
+     */
+    public HeldState release(String path, HeldState state, BooleanSupplier leaseKept) throws QuarantineStoreException {
         // refuses a state the release cannot leave, before any byte is read and any action runs
         StateMachine.next(state, state == HeldState.CHECKING ? HeldEvent.ALL_PASSED : HeldEvent.ACTIONS_DONE);
         HeldRecord held = store.heldRecord(path)
@@ -73,6 +84,9 @@ public final class Release {
         ItemRecord changed = firstChanged(held, submission);
         if (changed != null) {
             return integrityFailed(path, state, changed);
+        }
+        if (!leaseKept.getAsBoolean()) {
+            throw new RunStoppedException("the lock of the run is lost before the release of " + path);
         }
         HeldState releasing = state == HeldState.CHECKING ? transitions.move(path, state, HeldEvent.ALL_PASSED) : state;
         return runActions(path, releasing, submission, held.completedActions());
