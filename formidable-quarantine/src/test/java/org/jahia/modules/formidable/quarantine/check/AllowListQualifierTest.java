@@ -21,6 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The allow-list check: both lists must allow a file, case aside, and it never reads a byte. */
 class AllowListQualifierTest {
 
+    private static final CheckSettings PDF_AND_PNG = lists("pdf,png", "application/pdf,image/png");
+
     private final AllowListQualifier allowList = new AllowListQualifier();
 
     /** A file whose bytes the check must never read. */
@@ -57,8 +59,6 @@ class AllowListQualifierTest {
         Submitted submitted = allowList.submit(new MetadataFile(fileName, mimeType), settings);
         return ((Submitted.Answered) submitted).outcome();
     }
-
-    private static final CheckSettings PDF_AND_PNG = lists("pdf,png", "application/pdf,image/png");
 
     @Test
     void itIsAMetadataCheckThatAppliesToEveryFile() {

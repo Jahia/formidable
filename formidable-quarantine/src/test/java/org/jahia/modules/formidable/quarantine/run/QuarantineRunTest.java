@@ -515,13 +515,11 @@ class QuarantineRunTest {
         @Override
         public Submitted submit(QuarantinedFile handed, CheckSettings settings) {
             file = handed;
-            try {
-                InputStream in = handed.open();
+            try (InputStream in = handed.open()) {
                 String hash = Sha256.hex(in);
                 if (keepStream) {
+                    // closed here, then ended with the session: the read after the call must still throw
                     kept = in;
-                } else {
-                    in.close();
                 }
                 hashes.add(hash);
                 return Submitted.answered(hash.equals(handed.sha256()) ? Outcome.pass("stream.ok", null)
