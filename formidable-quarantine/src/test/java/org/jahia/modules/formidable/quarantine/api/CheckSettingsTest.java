@@ -76,7 +76,8 @@ class CheckSettingsTest {
         assertEquals(expected, settings.properties());
         Map<String, List<String>> properties = settings.properties();
         List<String> values = properties.get("extensions");
-        assertThrows(UnsupportedOperationException.class, () -> properties.put("mimeTypes", List.of("text/plain")));
+        List<String> mimeTypes = List.of("text/plain");
+        assertThrows(UnsupportedOperationException.class, () -> properties.put("mimeTypes", mimeTypes));
         assertThrows(UnsupportedOperationException.class, () -> values.add("exe"));
     }
 

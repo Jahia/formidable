@@ -562,13 +562,13 @@ class QuarantineRunTest {
         byte[] bytes = "VERDICT:PASS".getBytes(StandardCharsets.UTF_8);
         ItemRecord item = new ItemRecord("item0", "document", "a.txt", "text/plain", bytes.length,
                 Sha256.hex(bytes), true);
-        HeldRecord record = new HeldRecord("/p", FORM, InMemoryQuarantine.SITE, HeldStates.CHECKING, NOW, 0, null, 0,
+        HeldRecord held = new HeldRecord("/p", FORM, InMemoryQuarantine.SITE, HeldStates.CHECKING, NOW, 0, null, 0,
                 List.of(), List.of(), true, List.of(item), NOW);
 
-        assertNull(Release.firstChanged(record, submissionOf(new SubmittedFile("document", "a.txt", "text/plain",
+        assertNull(Release.firstChanged(held, submissionOf(new SubmittedFile("document", "a.txt", "text/plain",
                 bytes))));
-        assertEquals(Release.ITEM_COUNT, Release.firstChanged(record, submissionOf()).name());
-        assertEquals("item0", Release.firstChanged(record, submissionOf(new SubmittedFile("document", "a.txt",
+        assertEquals(Release.ITEM_COUNT, Release.firstChanged(held, submissionOf()).name());
+        assertEquals("item0", Release.firstChanged(held, submissionOf(new SubmittedFile("document", "a.txt",
                 "text/plain", "VERDICT:PASS but changed".getBytes(StandardCharsets.UTF_8)))).name());
     }
 

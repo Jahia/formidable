@@ -234,7 +234,8 @@ class JcrCheckStoreTest {
             try {
                 String first = new String(kept[0].readNBytes(7), StandardCharsets.UTF_8);
                 // a read of the whole stream reaches the binary of the repository, which refuses it here
-                assertThrows(AssertionError.class, () -> kept[0].readAllBytes());
+                InputStream stream = kept[0];
+                assertThrows(AssertionError.class, stream::readAllBytes);
                 return first + ":" + kept[0].available();
             } catch (IOException e) {
                 throw new QuarantineStoreException("unreadable", e);
@@ -243,7 +244,8 @@ class JcrCheckStoreTest {
 
         // the store copied nothing: the stream of the binary still holds the 5 bytes left
         assertEquals("VERDICT:5", read);
-        assertThrows(IOException.class, () -> kept[0].read());
+        InputStream closed = kept[0];
+        assertThrows(IOException.class, closed::read);
         verify(binary).dispose();
     }
 
