@@ -36,6 +36,13 @@ public class GqlQuarantine {
 
     @GraphQLField
     @GraphQLNonNull
+    @GraphQLDescription("The forms of the site that have held submissions, with their number, by title")
+    public List<@GraphQLNonNull GqlForm> getForms() {
+        return site.forms();
+    }
+
+    @GraphQLField
+    @GraphQLNonNull
     @GraphQLDescription("A page of the held submissions of the site, or of one form, oldest first. limit is at most 100")
     public GqlSubmissionPage submissions(
             @GraphQLName("formId") @GraphQLDescription("The identifier of a form of the site") String formId,

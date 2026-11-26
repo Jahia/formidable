@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -86,6 +87,8 @@ final class SiteQuarantine {
      * a purge forgets them.
      */
     private final Map<String, Long> totals = new HashMap<>();
+    /** The forms of the folders below the root, listed once per request; a purge forgets them. */
+    private List<String> formIds;
 
     SiteQuarantine(String siteKey, Services services) {
         this(siteKey, services, LoggerFactory.getLogger(SiteQuarantine.class));
@@ -114,6 +117,34 @@ final class SiteQuarantine {
             }
             return counts;
         });
+    }
+
+    /**
+     * The forms of the site that have held submissions, each with their number, by title then identifier: one query of
+     * the folders of the forms, then one count per form, read once per request as the counts are. A folder whose
+     * identifier is not one of a form, or whose submissions the retention purged, is left out.
+     */
+    List<GqlForm> forms() {
+        return guarded("list the forms", () -> {
+            List<GqlForm> forms = new ArrayList<>();
+            for (String formId : new TreeSet<>(formIds())) {
+                long count = HeldIds.isFormId(formId) ? total(formId, Set.of()) : 0;
+                if (count > 0) {
+                    forms.add(new GqlForm(this, formId, (int) Math.min(count, Integer.MAX_VALUE)));
+                }
+            }
+            forms.sort(Comparator.comparing((GqlForm form) -> form.getFormTitle() == null ? "" : form.getFormTitle(),
+                    String.CASE_INSENSITIVE_ORDER));
+            return forms;
+        });
+    }
+
+    /** The identifiers of the folders of the forms, listed once per request. */
+    private synchronized List<String> formIds() {
+        if (formIds == null) {
+            formIds = read(() -> services.queries().formIds(siteKey));
+        }
+        return formIds;
     }
 
     /** The count of the query of the form and the states, counted once per request. */
@@ -299,9 +330,10 @@ final class SiteQuarantine {
         }
     }
 
-    /** An operation or a purge changed the counts: the next read counts again. */
+    /** An operation or a purge changed the counts: the next read counts again, and lists the forms again. */
     private synchronized void forgetTotals() {
         totals.clear();
+        formIds = null;
     }
 
     private GqlHeldSubmission answer(HeldRecord held) {

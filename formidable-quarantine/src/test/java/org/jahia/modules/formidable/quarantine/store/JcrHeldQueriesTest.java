@@ -45,6 +45,22 @@ class JcrHeldQueriesTest {
             pages.add(new int[]{offset, limit});
             return found;
         }
+
+        @Override
+        public List<String> formIds(String statement) {
+            statements.add(statement);
+            return List.of(FORM);
+        }
+    }
+
+    @Test
+    void theFormsAreTheFoldersBelowTheRootOfTheSite() throws Exception {
+        RecordingRunner runner = new RecordingRunner();
+
+        assertEquals(List.of(FORM), new JcrHeldQueries(runner).formIds("siteA"));
+        assertEquals(List.of("SELECT * FROM [" + QuarantineTree.FORM_TYPE + "] AS form"
+                + " WHERE ISCHILDNODE(form, '/sites/siteA/formidable-quarantine')"), runner.statements);
+        assertThrows(IllegalArgumentException.class, () -> JcrHeldQueries.formsStatement("a') OR (1=1"));
     }
 
     @Test

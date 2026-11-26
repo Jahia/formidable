@@ -25,6 +25,7 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -308,6 +309,21 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     public long count(String siteKey, String formId, Set<String> states) {
         return matching(siteKey, formId, states).size();
     }
+
+    /** The folders of the forms that a test made: the forms of its held submissions, and {@link #emptyForms}. */
+    @Override
+    public List<String> formIds(String siteKey) {
+        Set<String> formIds = new LinkedHashSet<>(emptyForms);
+        for (Held one : held.values()) {
+            if (one.path.startsWith("/sites/" + siteKey + "/formidable-quarantine/")) {
+                formIds.add(one.formId);
+            }
+        }
+        return List.copyOf(formIds);
+    }
+
+    /** The folders of forms that hold no submission, such as a form whose submissions the retention purged. */
+    public final Set<String> emptyForms = new LinkedHashSet<>();
 
     private List<HeldRecord> matching(String siteKey, String formId, Set<String> states) {
         List<HeldRecord> matching = new ArrayList<>();

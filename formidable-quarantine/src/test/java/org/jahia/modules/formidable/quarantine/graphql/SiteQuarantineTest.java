@@ -261,6 +261,44 @@ class SiteQuarantineTest {
     }
 
     @Test
+    void theFormsAreThoseWithHeldSubmissionsByTitleWithTheirCount() {
+        inState(FORM, HeldState.NEEDS_REVIEW);
+        inState(FORM, HeldState.COMPLETED);
+        inState(OTHER_FORM, HeldState.HELD);
+        stores.emptyForms.add("6a1f0c3e-0000-4000-8000-000000000003");
+        stores.emptyForms.add("not-a-form");
+        Map<String, FormFacts> titles = Map.of(FORM, new FormFacts("Zeta claims", false, Map.of()),
+                OTHER_FORM, new FormFacts("alpha contact", false, Map.of()));
+        SiteQuarantine site = new SiteQuarantine(SITE, new SiteQuarantine.Services(stores, stores,
+                recording(HeldQueries.class), this::operate, this::purge, managers,
+                (siteKey, formId) -> titles.getOrDefault(formId, FormFacts.NONE)), log);
+
+        List<GqlForm> forms = site.forms();
+
+        assertEquals(List.of(OTHER_FORM, FORM), forms.stream().map(GqlForm::getFormId).toList(), "by title");
+        assertEquals(List.of(1, 2), forms.stream().map(GqlForm::getCount).toList());
+        assertEquals("alpha contact", forms.get(0).getFormTitle());
+        assertEquals(1, callsOf("formIds").size());
+        assertFalse(callsOf("count").toString().contains("not-a-form"), "no query for a folder that is not a form");
+    }
+
+    /** The forms of a request are listed once, whatever the aliases, and listed again after an operation. */
+    @Test
+    void theFormsAreListedOncePerRequestAndAgainAfterAnOperation() {
+        String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
+        SiteQuarantine site = site();
+
+        site.forms();
+        site.forms();
+        assertEquals(1, callsOf("formIds").size(), "aliases");
+        assertEquals(1, callsOf("count").size(), "one count per form");
+
+        site.operate(id, GqlOperation.REJECT);
+        assertEquals(1, site.forms().get(0).getCount());
+        assertEquals(2, callsOf("formIds").size(), "listed again after the operation");
+    }
+
+    @Test
     void anOperationCountsAgain() {
         String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
         SiteQuarantine site = site();
@@ -547,11 +585,17 @@ class SiteQuarantineTest {
                     public long count(String siteKey, String formId, Set<String> states) {
                         throw new NullPointerException("the property fullName of Ada");
                     }
+
+                    @Override
+                    public List<String> formIds(String siteKey) {
+                        throw new NullPointerException("the property fullName of Ada");
+                    }
                 }, this::operate, this::purge, managers, (siteKey, formId) -> facts), log);
 
         assertEquals(SiteQuarantine.READ_FAILED,
                 assertThrows(DataFetchingException.class, () -> site.page(null, null, 0, 25)).getMessage());
         assertEquals(SiteQuarantine.READ_FAILED, assertThrows(DataFetchingException.class, site::counts).getMessage());
+        assertEquals(SiteQuarantine.READ_FAILED, assertThrows(DataFetchingException.class, site::forms).getMessage());
         List<Object> logged = loggedArguments();
         assertTrue(logged.contains(NullPointerException.class.getName()), "the class of the failure in the log line");
         assertFalse(logged.toString().contains("Ada"), "the message of the failure in the log line");

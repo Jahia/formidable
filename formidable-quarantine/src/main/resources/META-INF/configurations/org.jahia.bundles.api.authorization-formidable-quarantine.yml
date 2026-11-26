@@ -11,5 +11,5 @@ formidable-quarantine:
   auto_apply:
     - origin: hosted
   grants:
-    - api: graphql.Query.formidableQuarantine, graphql.Mutation.formidableQuarantine, graphql.FmdbqQuarantine, graphql.FmdbqQuarantineMutation, graphql.FmdbqSubmissionPage, graphql.FmdbqStateCount, graphql.FmdbqHeldSubmission, graphql.FmdbqFile, graphql.FmdbqCheckOutcome, graphql.FmdbqDecision, graphql.FmdbqValue, graphql.FmdbqAuditRecord, graphql.FmdbqPurgeReport
+    - api: graphql.Query.formidableQuarantine, graphql.Mutation.formidableQuarantine, graphql.FmdbqQuarantine, graphql.FmdbqQuarantineMutation, graphql.FmdbqSubmissionPage, graphql.FmdbqStateCount, graphql.FmdbqForm, graphql.FmdbqHeldSubmission, graphql.FmdbqFile, graphql.FmdbqCheckOutcome, graphql.FmdbqDecision, graphql.FmdbqValue, graphql.FmdbqAuditRecord, graphql.FmdbqPurgeReport
       node: none

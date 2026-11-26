@@ -229,6 +229,7 @@ named `formidableQuarantine(siteKey)`:
 | Field | Answers |
 |---|---|
 | `counts` | The number of held submissions of the site in each state. |
+| `forms` | The forms of the site that have held submissions, each with its identifier, its title and its number of held submissions, ordered by title. |
 | `submissions(formId, states, offset, limit)` | A page of the held submissions of the site, or of one form, oldest first. `limit` is 25 by default and 100 at most: a larger value reads as 100. `states` names each state once at most. |
 | `submission(id)` | One held submission, or `null` when the site has none with this identifier. |
 | `operate(id, operation)` | The mutation of a manager: `RETRY`, `RELEASE`, `RESUME` or `REJECT`. It answers the submission as the operation left it. |
@@ -249,6 +250,9 @@ named `formidableQuarantine(siteKey)`:
   practice. A request runs each count query once, however many aliases ask for it, and an operation or a purge
   counts again. A page leaves out a record that names another site, as the reading by identifier does; only a
   damaged tree holds one, and the counts still count it.
+- `forms` runs one query of the folders of the forms below the quarantine root, then one count query per form, read
+  once per request as the counts are. It binds no value: the root is its one literal. A form whose submissions the
+  retention purged is left out.
 - The records of the submissions of a request, their outcomes, decision, audit and values, are read in one session,
   on the first field that needs them. An operation reads the records and the form of its submission before it
   answers, so that a failure of that read says that the operation ran.

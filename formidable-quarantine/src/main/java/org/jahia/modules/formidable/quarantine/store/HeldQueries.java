@@ -29,4 +29,12 @@ public interface HeldQueries {
      */
     List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit)
             throws QuarantineStoreException;
+
+    /**
+     * The identifiers of the forms that have a folder below the quarantine root of the site, in no particular order: a
+     * form whose held submissions the retention purged may still have one, so a caller counts each form.
+     *
+     * @param siteKey the key of the site, which the caller checked
+     */
+    List<String> formIds(String siteKey) throws QuarantineStoreException;
 }
