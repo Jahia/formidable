@@ -41,14 +41,18 @@ public class GqlQuarantine {
             @GraphQLName("formId") @GraphQLDescription("The identifier of a form of the site") String formId,
             @GraphQLName("states") @GraphQLDescription("The states to keep; every state when absent")
             List<@GraphQLNonNull GqlState> states,
-            @GraphQLName("offset") @GraphQLDefaultValue(DefaultOffset.class) Integer offset,
-            @GraphQLName("limit") @GraphQLDefaultValue(DefaultLimit.class) Integer limit) {
+            @GraphQLName("offset") @GraphQLDefaultValue(DefaultOffset.class)
+            @GraphQLDescription("The index of the first item; a negative value reads as 0") Integer offset,
+            @GraphQLName("limit") @GraphQLDefaultValue(DefaultLimit.class)
+            @GraphQLDescription("The size of the page, at most 100: a larger value reads as 100") Integer limit) {
         return site.page(formId, states, offset, limit);
     }
 
     @GraphQLField
     @GraphQLDescription("The held submission of the site with this identifier; null when the site has none")
-    public GqlHeldSubmission submission(@GraphQLName("id") @GraphQLNonNull String id) {
+    public GqlHeldSubmission submission(@GraphQLName("id") @GraphQLNonNull
+                                        @GraphQLDescription("The identifier of the held submission in the site")
+                                        String id) {
         return site.submission(id);
     }
 

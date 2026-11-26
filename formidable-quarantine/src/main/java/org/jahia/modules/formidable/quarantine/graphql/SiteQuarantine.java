@@ -25,6 +25,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Supplier;
 
 /**
@@ -80,6 +81,11 @@ final class SiteQuarantine {
     /** The form of each held submission this request answered, by path. */
     private final Map<String, String> answered = new LinkedHashMap<>();
     private final Map<String, HeldDetails> details = new HashMap<>();
+    /**
+     * The totals this request counted, by form and states: each alias of a field reads the count once. An operation or
+     * a purge forgets them.
+     */
+    private final Map<String, Long> totals = new HashMap<>();
 
     SiteQuarantine(String siteKey, Services services) {
         this(siteKey, services, LoggerFactory.getLogger(SiteQuarantine.class));
@@ -95,16 +101,30 @@ final class SiteQuarantine {
         return siteKey;
     }
 
-    /** The number of held submissions of the site in each state, every state listed: one query per state. */
+    /**
+     * The number of held submissions of the site in each state, every state listed: one count query per state, run
+     * once per request whatever the number of aliases.
+     */
     List<GqlStateCount> counts() {
         return guarded("count", () -> {
             List<GqlStateCount> counts = new ArrayList<>();
             for (GqlState state : GqlState.values()) {
-                long count = read(() -> services.queries().count(siteKey, stored(state)));
+                long count = total(null, Set.of(stored(state)));
                 counts.add(new GqlStateCount(state, (int) Math.min(count, Integer.MAX_VALUE)));
             }
             return counts;
         });
+    }
+
+    /** The count of the query of the form and the states, counted once per request. */
+    private synchronized long total(String formId, Set<String> stored) {
+        String key = formId + "|" + new TreeSet<>(stored);
+        Long known = totals.get(key);
+        if (known == null) {
+            known = read(() -> services.queries().count(siteKey, formId, stored));
+            totals.put(key, known);
+        }
+        return known;
     }
 
     /**
@@ -129,9 +149,11 @@ final class SiteQuarantine {
             if (states != null && !states.isEmpty()) {
                 EnumSet.copyOf(states).forEach(state -> stored.add(stored(state)));
             }
-            HeldQueries.Page page = read(() -> services.queries().page(siteKey, formId, stored, from, size));
-            List<GqlHeldSubmission> items = page.records().stream().map(this::answer).toList();
-            return new GqlSubmissionPage((int) Math.min(page.total(), Integer.MAX_VALUE), from, size, items);
+            long total = total(formId, stored);
+            List<HeldRecord> records = total == 0 || from >= total ? List.of()
+                    : read(() -> services.queries().page(siteKey, formId, stored, from, size));
+            List<GqlHeldSubmission> items = records.stream().map(this::answer).toList();
+            return new GqlSubmissionPage((int) Math.min(total, Integer.MAX_VALUE), from, size, items);
         });
     }
 
@@ -179,6 +201,7 @@ final class SiteQuarantine {
             throw new DataFetchingException(OPERATION_FAILED);
         }
         details.remove(path);
+        forgetTotals();
         GqlHeldSubmission after;
         try {
             after = submission(id);
@@ -212,6 +235,7 @@ final class SiteQuarantine {
         }
         return guarded("purge", () -> {
             QuarantineRetention.Report report = read(() -> services.purger().purge(siteKey, olderThanDays));
+            forgetTotals();
             return new GqlPurgeReport(report.retentionDays(), ids(report.purged()), ids(report.failed()));
         });
     }
@@ -273,6 +297,11 @@ final class SiteQuarantine {
             }
             throw new DataFetchingException(READ_FAILED);
         }
+    }
+
+    /** An operation or a purge changed the counts: the next read counts again. */
+    private synchronized void forgetTotals() {
+        totals.clear();
     }
 
     private GqlHeldSubmission answer(HeldRecord held) {

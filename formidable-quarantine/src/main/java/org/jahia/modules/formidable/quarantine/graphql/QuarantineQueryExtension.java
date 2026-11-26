@@ -5,6 +5,7 @@ import graphql.annotations.annotationTypes.GraphQLField;
 import graphql.annotations.annotationTypes.GraphQLName;
 import graphql.annotations.annotationTypes.GraphQLNonNull;
 import graphql.annotations.annotationTypes.GraphQLTypeExtension;
+import graphql.schema.DataFetchingEnvironment;
 import org.jahia.modules.graphql.provider.dxm.DXGraphQLProvider;
 import org.jahia.modules.graphql.provider.dxm.DataFetchingException;
 import org.jahia.osgi.BundleUtils;
@@ -25,8 +26,9 @@ public final class QuarantineQueryExtension {
             + " formidableQuarantineManage on the site). Null when the user does not manage the site, or when no site"
             + " has this key")
     public static GqlQuarantine formidableQuarantine(
-            @GraphQLName("siteKey") @GraphQLNonNull @GraphQLDescription("The key of the site") String siteKey) {
-        SiteQuarantine site = api().open(siteKey);
+            @GraphQLName("siteKey") @GraphQLNonNull @GraphQLDescription("The key of the site") String siteKey,
+            DataFetchingEnvironment environment) {
+        SiteQuarantine site = api().open(siteKey, environment.getGraphQlContext());
         return site == null ? null : new GqlQuarantine(site);
     }
 

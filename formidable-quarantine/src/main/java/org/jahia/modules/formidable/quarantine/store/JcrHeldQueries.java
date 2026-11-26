@@ -60,27 +60,27 @@ public class JcrHeldQueries implements HeldQueries {
     }
 
     @Override
-    public Page page(String siteKey, String formId, Set<String> states, int offset, int limit)
-            throws QuarantineStoreException {
+    public long count(String siteKey, String formId, Set<String> states) throws QuarantineStoreException {
         List<String> ordered = new ArrayList<>(new TreeSet<>(states));
-        String statement = statement(siteKey, formId != null, ordered.size());
-        Map<String, String> values = values(formId, ordered);
         try {
-            long total = runner.count(statement, values);
-            List<HeldRecord> records = total == 0 || limit == 0 || offset >= total ? List.of()
-                    : ofTheSite(siteKey, runner.page(statement, values, offset, limit));
-            return new Page(total, records);
+            return runner.count(statement(siteKey, formId != null, ordered.size()), values(formId, ordered));
         } catch (RepositoryException e) {
-            throw new QuarantineStoreException("Could not query the held submissions of site " + siteKey, e);
+            throw new QuarantineStoreException("Could not count the held submissions of site " + siteKey, e);
         }
     }
 
     @Override
-    public long count(String siteKey, String state) throws QuarantineStoreException {
+    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit)
+            throws QuarantineStoreException {
+        if (limit == 0) {
+            return List.of();
+        }
+        List<String> ordered = new ArrayList<>(new TreeSet<>(states));
         try {
-            return runner.count(statement(siteKey, false, 1), values(null, List.of(state)));
+            return ofTheSite(siteKey, runner.page(statement(siteKey, formId != null, ordered.size()),
+                    values(formId, ordered), offset, limit));
         } catch (RepositoryException e) {
-            throw new QuarantineStoreException("Could not count the held submissions of site " + siteKey, e);
+            throw new QuarantineStoreException("Could not query the held submissions of site " + siteKey, e);
         }
     }
 

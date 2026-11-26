@@ -770,7 +770,7 @@ hold no such role.
 - The page applies the limit 100 and the offset 0, and holds every held
   submission of the site
 
-### Q34 — A forged cross-site shape of an operation changes nothing
+### Q34 — A forged cross-site shape of an operation is refused
 
 **Steps:**
 1. As the manager, send the mutation that rejects the second held submission
@@ -778,10 +778,16 @@ hold no such role.
    form-urlencoded fields, and a JSON POST that carries
    `Sec-Fetch-Site: cross-site` and a foreign `Origin`.
 2. As root, read the held submission.
+3. As the manager, send the same mutation as a JSON POST from a page of this
+   server, then read the held submission as root.
 
 **Expected:**
-- The submission is still `needsReview`, with the audit record of the run
-  alone: the platform refused each shape
+- Each forged shape is refused: a 4xx status, or the refusal of the API
+  security filter (`GqlAccessDeniedException`), and no answer of the operation
+- After step 2, the submission is still `needsReview`, with the audit record of
+  the run alone
+- The same-origin mutation runs: the submission is `rejected`, and its last
+  audit record names the manager
 
 ---
 

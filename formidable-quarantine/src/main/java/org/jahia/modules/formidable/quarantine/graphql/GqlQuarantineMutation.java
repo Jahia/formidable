@@ -21,8 +21,11 @@ public class GqlQuarantineMutation {
     @GraphQLDescription("Runs an operation on a held submission of the site, writes the audit record with the name of"
             + " the user, and answers the submission as the operation left it. An unknown identifier, a state that"
             + " does not allow the operation, or a failure answers an error")
-    public GqlHeldSubmission operate(@GraphQLName("id") @GraphQLNonNull String id,
-                                     @GraphQLName("operation") @GraphQLNonNull GqlOperation operation) {
+    public GqlHeldSubmission operate(
+            @GraphQLName("id") @GraphQLNonNull @GraphQLDescription("The identifier of the held submission in the site")
+            String id,
+            @GraphQLName("operation") @GraphQLNonNull @GraphQLDescription("The operation to run")
+            GqlOperation operation) {
         return site.operate(id, operation);
     }
 
@@ -30,7 +33,9 @@ public class GqlQuarantineMutation {
     @GraphQLNonNull
     @GraphQLDescription("Purges the rejected held submissions of the site whose last change is older than the limit:"
             + " the configured retention, or olderThanDays for this call. Server administrators only")
-    public GqlPurgeReport purge(@GraphQLName("olderThanDays") Integer olderThanDays) {
+    public GqlPurgeReport purge(@GraphQLName("olderThanDays")
+                                @GraphQLDescription("The limit for this call, in days; the configured one when absent")
+                                Integer olderThanDays) {
         return site.purge(olderThanDays);
     }
 }

@@ -75,9 +75,9 @@ class JcrHeldQueriesTest {
         RecordingRunner runner = new RecordingRunner();
         runner.found = List.of(heldOf("siteB"), ofTheSite, heldOf(null));
 
-        HeldQueries.Page page = new JcrHeldQueries(runner).page("siteA", null, Set.of(), 0, 25);
+        List<HeldRecord> page = new JcrHeldQueries(runner).page("siteA", null, Set.of(), 0, 25);
 
-        assertEquals(List.of(ofTheSite), page.records());
+        assertEquals(List.of(ofTheSite), page);
     }
 
     private static HeldRecord heldOf(String siteKey) {
@@ -97,10 +97,12 @@ class JcrHeldQueriesTest {
         RecordingRunner runner = new RecordingRunner();
         String form = FORM;
 
-        new JcrHeldQueries(runner).page("siteA", form, Set.of("rejected", "needsReview"), 0, 25);
+        JcrHeldQueries queries = new JcrHeldQueries(runner);
+        queries.count("siteA", form, Set.of("rejected", "needsReview"));
+        queries.page("siteA", form, Set.of("rejected", "needsReview"), 0, 25);
 
-        Map<String, String> bound = runner.values.get(0);
-        assertEquals(Map.of("form", form, "state0", "needsReview", "state1", "rejected"), bound);
+        Map<String, String> bound = Map.of("form", form, "state0", "needsReview", "state1", "rejected");
+        assertEquals(List.of(bound, bound), runner.values);
         runner.statements.forEach(statement -> {
             assertFalse(statement.contains(form), "the form in the statement");
             assertFalse(statement.contains("needsReview"), "a state in the statement");
@@ -109,25 +111,23 @@ class JcrHeldQueriesTest {
     }
 
     @Test
-    void thePageAsksForItsOffsetAndLimitAndSkipsTheQueryWhenNothingMatches() throws Exception {
+    void thePageAsksForItsOffsetAndLimitAndAPageOfNoItemRunsNoQuery() throws Exception {
         RecordingRunner runner = new RecordingRunner();
         JcrHeldQueries queries = new JcrHeldQueries(runner);
 
-        HeldQueries.Page page = queries.page("siteA", null, Set.of(), 1, 2);
-        assertEquals(3, page.total());
+        queries.page("siteA", null, Set.of(), 1, 2);
         assertEquals(List.of(1, 2), List.of(runner.pages.get(0)[0], runner.pages.get(0)[1]));
 
-        runner.total = 0;
         runner.pages.clear();
-        assertTrue(queries.page("siteA", null, Set.of(), 0, 25).records().isEmpty());
-        assertTrue(runner.pages.isEmpty(), "no page query when nothing matches");
+        assertTrue(queries.page("siteA", null, Set.of(), 0, 0).isEmpty());
+        assertTrue(runner.pages.isEmpty(), "no page query for a limit of 0");
     }
 
     @Test
     void aCountBindsTheState() throws Exception {
         RecordingRunner runner = new RecordingRunner();
 
-        assertEquals(3, new JcrHeldQueries(runner).count("siteA", "held"));
+        assertEquals(3, new JcrHeldQueries(runner).count("siteA", null, Set.of("held")));
 
         assertEquals(Map.of("state0", "held"), runner.values.get(0));
     }

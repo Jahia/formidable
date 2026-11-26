@@ -21,6 +21,7 @@ import {
 	quarantineGraphql,
 	quarantineIsVisible,
 	readHeldSubmissions,
+	refusedByThePlatform,
 	runQuarantine,
 	runQuarantineRetention,
 	setUploadsRequireQuarantine,
@@ -246,29 +247,53 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 		});
 	});
 
-	it('Q34: the mutation operate in a shape that a cross-site page can forge changes nothing', () => {
+	it('Q34: the mutation operate in a shape that a cross-site page can forge is refused, and the same from this server runs', () => {
 		const id = heldIdOf(pathsA[1]);
 		const mutation = `mutation { formidableQuarantine(siteKey: "${SITE_A}") { operate(id: "${id}", operation: REJECT) { id } } }`;
+		/**
+		 * The refusal of a forged shape: a 4xx status of the platform (401 or 403 above all), or the refusal of the API
+		 * security filter (GqlAccessDeniedException); never an answer of the operation.
+		 */
+		const expectRefused = (shape: string) => (response: Cypress.Response<GraphqlAnswer<{formidableQuarantine: {operate: unknown} | null}>>) => {
+			const body = typeof response.body === 'object' ? response.body : undefined;
+			const refused = (response.status >= 400 && response.status < 500) || refusedByThePlatform(body);
+			expect(refused, `refusal of the ${shape}: ${response.status} ${JSON.stringify(response.body)}`).to.eq(true);
+			expect(body?.data?.formidableQuarantine?.operate ?? null, `operation of the ${shape}`).to.eq(null);
+		};
 		asUser(MANAGER);
 		// a simple request that a cross-site form sends with no preflight: text/plain, then form-urlencoded, no Origin
 		cy.request({
 			method: 'POST', url: GRAPHQL_PATH, failOnStatusCode: false,
 			headers: {'Content-Type': 'text/plain'}, body: JSON.stringify({query: mutation})
-		});
+		}).then(expectRefused('text/plain POST'));
 		cy.request({
 			method: 'POST', url: GRAPHQL_PATH, failOnStatusCode: false, form: true, body: {query: mutation}
-		});
+		}).then(expectRefused('form-urlencoded POST'));
 		// a JSON request that a browser marks as cross-site
 		cy.request({
 			method: 'POST', url: GRAPHQL_PATH, failOnStatusCode: false,
 			headers: {'Content-Type': 'application/json', 'Sec-Fetch-Site': 'cross-site', Origin: 'https://attacker.example'},
 			body: {query: mutation}
-		});
+		}).then(expectRefused('cross-site JSON POST'));
 		asRoot();
 		readHeldSubmissions(formIdA).then(held => {
 			const target = held.find(one => one.path === pathsA[1]);
 			expect(target?.state, 'state of the target').to.eq('needsReview');
 			expect(target?.audit.map(record => record.operation), 'audit of the target').to.deep.equal(['run']);
+		});
+
+		// the control: the same mutation, as a JSON POST from a page of this server, runs
+		asUser(MANAGER);
+		quarantineGraphql<{formidableQuarantine: {operate: {id: string}} | null}>(mutation, {}).then(response => {
+			expect(response.body.errors ?? [], 'errors of the same-origin mutation').to.deep.equal([]);
+			expect(response.body.data?.formidableQuarantine?.operate?.id, 'the operation ran').to.eq(id);
+		});
+		asRoot();
+		readHeldSubmissions(formIdA).then(held => {
+			const target = held.find(one => one.path === pathsA[1]);
+			expect(target?.state, 'state of the target after the control').to.eq('rejected');
+			expect(target?.audit.map(record => [record.operation, record.user]), 'audit after the control')
+				.to.deep.equal([['run', null], ['reject', MANAGER]]);
 		});
 	});
 

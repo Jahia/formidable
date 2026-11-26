@@ -21,12 +21,14 @@ public class GqlValue {
 
     @GraphQLField
     @GraphQLNonNull
+    @GraphQLDescription("The name of the field")
     public String getName() {
         return name;
     }
 
     @GraphQLField
     @GraphQLNonNull
+    @GraphQLDescription("The values of the field, in the order of the submission")
     public List<@GraphQLNonNull String> getValues() {
         return values;
     }

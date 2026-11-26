@@ -43,6 +43,7 @@ public class GqlSubmissionPage {
 
     @GraphQLField
     @GraphQLNonNull
+    @GraphQLDescription("The held submissions of the page, oldest first")
     public List<@GraphQLNonNull GqlHeldSubmission> getItems() {
         return items;
     }

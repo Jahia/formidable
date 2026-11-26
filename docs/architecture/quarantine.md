@@ -243,14 +243,18 @@ named `formidableQuarantine(siteKey)`:
 - `publicValues` is `null` unless the form sets `showValues`. The sensitive values never appear, only the names of
   their fields.
 - A page and the counts come from queries of the repository on the held submissions below the quarantine root of
-  the site: the cost of a request follows the size of the page, not the history of the site. The form and the states
-  enter each query as bound values. The counts take one query per state. A page leaves out a record that names
-  another site, as the reading by identifier does; only a damaged tree holds one, and the counts still count it.
+  the site. The form and the states enter each query as bound values. The page reads at most 100 records. The
+  `totalCount` of a page and each of the `counts` run one count query over every held record of the site that
+  matches: their cost follows the number of records that the site keeps, which the retention purge bounds in
+  practice. A request runs each count query once, however many aliases ask for it, and an operation or a purge
+  counts again. A page leaves out a record that names another site, as the reading by identifier does; only a
+  damaged tree holds one, and the counts still count it.
 - The records of the submissions of a request, their outcomes, decision, audit and values, are read in one session,
   on the first field that needs them. An operation reads the records and the form of its submission before it
   answers, so that a failure of that read says that the operation ran.
 - The query depth and complexity limits of the GraphQL provider of the platform bound the number of aliased
-  selections of a request. The API adds no limit of its own beyond the page of 100.
+  selections of a request. Aliases of `formidableQuarantine` on one site share one reading of the site: its counts,
+  totals, forms and records are read once per request. The API adds no limit of its own beyond the page of 100.
 - Any failure answers an error with a fixed message. The log line names the site, the path or the class of the
   failure, never a value. An operation that ran, and whose submission cannot be read again, answers that it ran.
 - The API has no field for the file access yet (`fileAccess`, `canAccessFiles`): the download comes with the file
@@ -267,11 +271,15 @@ named `formidableQuarantine(siteKey)`:
   - A mismatch before a download refuses the download and writes an audit record. The submission stays in
     `needsReview`.
 - The module reads the tree with a system session, and only after the permission check on the site node.
-- The mutations of the API have no request check of their own. They rely on the controls of the platform on
-  `/modules/graphql`: a JSON POST, the API security filter, and the token and fetch-metadata policy of
-  `jahia-csrf-guard`. The scope of the module applies only to a request whose `Origin` or `Referer` is this server,
-  as the scope `graphql` of the platform does. Spec 90 sends the mutation `operate` in the shapes that a cross-site page can forge, and checks
-  that nothing changes.
+- The mutations of the API have no request check of their own, and no token of `jahia-csrf-guard` protects
+  `/modules/graphql`. Three controls of the platform stand against a forged request:
+  - The scope `formidable-quarantine` of the API security filter applies only to a request whose `Origin` or
+    `Referer` is this server. A request from another site, or with neither header, gets no access to the fields.
+  - The mutation is sent as a JSON POST: a page of another site cannot send that media type without a CORS
+    preflight.
+  - The fetch-metadata policy of `jahia-csrf-guard` refuses a write whose `Sec-Fetch-Site` is `cross-site`.
+- Spec 90 sends the mutation `operate` in the shapes that a cross-site page can forge, checks each refusal and that
+  nothing changes, and sends the same mutation from a page of this server as the control.
 - No value of a submission appears in a log line or in an error message.
 
 ### Permissions

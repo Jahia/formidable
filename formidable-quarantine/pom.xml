@@ -86,13 +86,13 @@
                 </exclusion>
             </exclusions>
         </dependency>
-        <!-- The unit tests throw the error type of graphql-dxm-provider, whose class names a type of graphql-java: the
-             version that graphql-java-annotations depends on. -->
+        <!-- graphql-java, the version that graphql-java-annotations depends on: the root fields keep the quarantines
+             a request opened in its GraphQLContext, and the error type of graphql-dxm-provider names a type of it. -->
         <dependency>
             <groupId>com.graphql-java</groupId>
             <artifactId>graphql-java</artifactId>
             <version>21.1</version>
-            <scope>test</scope>
+            <scope>provided</scope>
             <exclusions>
                 <exclusion>
                     <groupId>*</groupId>

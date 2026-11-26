@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.quarantine.graphql;
 
+import graphql.GraphQLContext;
 import org.jahia.modules.formidable.quarantine.ops.Managers;
 import org.jahia.modules.formidable.quarantine.ops.Operation;
 import org.jahia.modules.formidable.quarantine.ops.OperationRefusedException;
@@ -13,6 +14,7 @@ import org.jahia.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldQueries;
+import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
@@ -228,6 +230,48 @@ class SiteQuarantineTest {
             assertEquals(expected, count.getCount(), count.getState().name());
         }
         assertEquals(GqlState.values().length, callsOf("count").size(), "one query per state");
+    }
+
+    /** 1+4: aliases of the quarantine of a site, and of its counts and totals, run each count query once. */
+    @Test
+    void theAliasesOfARequestRunEachCountQueryOnce() {
+        inState(FORM, HeldState.NEEDS_REVIEW);
+        ManagerApi api = new ManagerApi(managers, (siteKey, formId) -> facts);
+        api.setStore(stores);
+        api.setCheckStore(stores);
+        api.setQueries(recording(HeldQueries.class));
+        api.setOperations(new QuarantineOperations());
+        api.setRetention(new QuarantineRetention());
+        GraphQLContext request = GraphQLContext.newContext().build();
+
+        api.open(SITE, request).counts();
+        api.open(SITE, request).counts();
+        api.open(SITE, request).page(FORM, null, 0, 25);
+        api.open(SITE, request).page(FORM, null, 0, 25);
+
+        assertEquals(GqlState.values().length + 1, callsOf("count").size(), callsOf("count").toString());
+        assertEquals(2, callsOf("page").size(), "the page itself is read for each alias");
+        assertEquals(GqlState.values().length * 2 + 1,
+                countsOfAnotherRequest(api), "another request counts again");
+    }
+
+    private int countsOfAnotherRequest(ManagerApi api) {
+        api.open(SITE, GraphQLContext.newContext().build()).counts();
+        return callsOf("count").size();
+    }
+
+    @Test
+    void anOperationCountsAgain() {
+        String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
+        SiteQuarantine site = site();
+        site.counts();
+
+        site.operate(id, GqlOperation.REJECT);
+        List<GqlStateCount> after = site.counts();
+
+        assertEquals(GqlState.values().length * 2, callsOf("count").size());
+        assertEquals(1, after.stream().filter(count -> count.getState() == GqlState.REJECTED).findFirst()
+                .orElseThrow().getCount());
     }
 
     @Test
@@ -494,12 +538,13 @@ class SiteQuarantineTest {
         SiteQuarantine site = new SiteQuarantine(SITE, new SiteQuarantine.Services(stores, stores,
                 new HeldQueries() {
                     @Override
-                    public Page page(String siteKey, String formId, Set<String> states, int offset, int limit) {
+                    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset,
+                                                 int limit) {
                         throw new NullPointerException("the property fullName of Ada");
                     }
 
                     @Override
-                    public long count(String siteKey, String state) {
+                    public long count(String siteKey, String formId, Set<String> states) {
                         throw new NullPointerException("the property fullName of Ada");
                     }
                 }, this::operate, this::purge, managers, (siteKey, formId) -> facts), log);

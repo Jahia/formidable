@@ -69,6 +69,7 @@ public class GqlHeldSubmission {
 
     @GraphQLField
     @GraphQLNonNull
+    @GraphQLDescription("The state of the held submission")
     public GqlState getState() {
         return site.guarded("read the state", () -> GqlState.of(held.state()));
     }

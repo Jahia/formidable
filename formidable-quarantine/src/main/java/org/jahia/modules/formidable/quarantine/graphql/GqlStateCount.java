@@ -19,11 +19,13 @@ public class GqlStateCount {
 
     @GraphQLField
     @GraphQLNonNull
+    @GraphQLDescription("The state")
     public GqlState getState() {
         return state;
     }
 
     @GraphQLField
+    @GraphQLDescription("The number of held submissions of the site in the state")
     public int getCount() {
         return count;
     }
