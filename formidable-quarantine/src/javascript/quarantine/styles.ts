@@ -107,8 +107,17 @@ ${R} .fmdbq-chip .fmdbq-chip-empty {
 ${R} .fmdbq-table-wrapper tr {
     flex-wrap: nowrap;
 }
+/* The DataTable is a flex layout whose cells shrink: with the detail open they would clip their text. The table keeps
+   the width of its columns, and the wrapper scrolls sideways instead. */
+${R} .fmdbq-table-wrapper table {
+    min-width: 1190px;
+}
+${R} .fmdbq-table-wrapper th,
+${R} .fmdbq-table-wrapper td {
+    flex-shrink: 0;
+}
 ${R} .fmdbq-table-wrapper tr > :first-child {
-    min-width: 260px;
+    min-width: 340px;
 }
 ${R} .fmdbq-pager.fmdbq-pager {
     position: sticky;
@@ -207,6 +216,14 @@ ${R} .fmdbq-scroll-x {
 }
 ${R} .fmdbq-detail-table tr {
     flex-wrap: nowrap;
+}
+/* The audit keeps the width of its columns, and its region scrolls sideways (D6) */
+${R} .fmdbq-scroll-x .fmdbq-detail-table {
+    min-width: 560px;
+}
+${R} .fmdbq-scroll-x .fmdbq-detail-table th,
+${R} .fmdbq-scroll-x .fmdbq-detail-table td {
+    flex: 1 0 112px;
 }
 ${R} ul.fmdbq-inline {
     display: flex;
