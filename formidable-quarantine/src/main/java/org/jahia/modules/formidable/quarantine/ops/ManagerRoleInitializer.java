@@ -20,14 +20,19 @@ import java.util.Map;
  * role of the group {@code site-role}, granted on a site node ({@code jnt:virtualsite}), that grants the permission
  * {@value Managers#PERMISSION}, which the module declares in its {@code permissions.xml}. An administrator grants the
  * role to a user or a group on the site, and publishes the site: the GraphQL API and the operations check the
- * permission on the live site node, so a grant and a revocation both apply once the site is published. The role gives
- * no privileged access: its holder does not join the privileged
- * group of the site, so it reads no draft of the site.
+ * permission on the live site node, so a grant and a revocation both apply once the site is published.
  *
- * <p>A role that exists keeps its other permissions, and gets the permission of the module when it lacks it. A role
- * whose group is not {@code site-role}, the role of an earlier version granted on a form, becomes a site role, and
- * loses its privileged access then, once. A site role is otherwise left as it is, its node types and its access
- * included: the module never sets privileged access, and never undoes what an administrator set.</p>
+ * <p>The role gives privileged access and the permission {@value #JCONTENT_ACCESS}: the jContent shell admits only a
+ * member of the group {@code privileged}, which the holder of a privileged role joins through the group
+ * {@code site-privileged} of the site, and jContent shows its entry to a holder of {@value #JCONTENT_ACCESS}. The
+ * privileged access reads the drafts of the site, as an editor does; it reaches no node of the quarantine tree, whose
+ * root breaks the inheritance of the access control and grants nothing.</p>
+ *
+ * <p>The role is written with that access when it is created. A role that exists keeps its other permissions, and gets
+ * the permission of the module when it lacks it. A role whose group is not {@code site-role}, the role of an earlier
+ * version granted on a form, becomes a site role, and loses its privileged access then, once. A site role is
+ * otherwise left as it is, its node types and its access included: the module never changes the access of a role that
+ * exists, and never undoes what an administrator set.</p>
  */
 @Component(immediate = true)
 public class ManagerRoleInitializer {
@@ -41,6 +46,8 @@ public class ManagerRoleInitializer {
     static final String PRIVILEGED_ACCESS = "j:privilegedAccess";
     static final String SITE_ROLE = "site-role";
     static final String SITE_TYPE = "jnt:virtualsite";
+    /** The permission of jContent that shows its entry in the navigation of the Jahia interface. */
+    static final String JCONTENT_ACCESS = "jContentAccess";
     /** The title of the role in each language of the labels of the module. */
     static final Map<Locale, String> TITLES = Map.of(
             Locale.ENGLISH, "Quarantine manager",
@@ -73,7 +80,7 @@ public class ManagerRoleInitializer {
                     role.setProperty(PERMISSION_NAMES, names.toArray(String[]::new));
                 }
                 if (!siteRole) {
-                    makeSiteRole(role);
+                    makeSiteRole(role, false);
                 }
                 session.save();
                 log.info("Made {} a site role with the permission {}", Managers.ROLE, Managers.PERMISSION);
@@ -83,8 +90,8 @@ public class ManagerRoleInitializer {
         JCRNodeWrapper roles = session.getNode("/roles");
         session.checkout(roles);
         JCRNodeWrapper role = roles.addNode(Managers.ROLE, "jnt:role");
-        makeSiteRole(role);
-        role.setProperty(PERMISSION_NAMES, new String[]{Managers.PERMISSION});
+        makeSiteRole(role, true);
+        role.setProperty(PERMISSION_NAMES, new String[]{Managers.PERMISSION, JCONTENT_ACCESS});
         role.addMixin("mix:title");
         // through the i18n accessor, as the engine does: raw j:translation_* nodes stay invisible to a locale session
         for (Map.Entry<Locale, String> title : TITLES.entrySet()) {
@@ -99,11 +106,11 @@ public class ManagerRoleInitializer {
         return role.hasProperty(ROLE_GROUP) && SITE_ROLE.equals(role.getProperty(ROLE_GROUP).getString());
     }
 
-    /** A site role with no privileged access: written when the role is created, or converted once. */
-    private static void makeSiteRole(JCRNodeWrapper role) throws RepositoryException {
+    /** A site role: written when the role is created, with privileged access, or converted once, without it. */
+    private static void makeSiteRole(JCRNodeWrapper role, boolean privileged) throws RepositoryException {
         role.setProperty(ROLE_GROUP, SITE_ROLE);
         role.setProperty(NODE_TYPES, new String[]{SITE_TYPE});
-        role.setProperty(PRIVILEGED_ACCESS, false);
+        role.setProperty(PRIVILEGED_ACCESS, privileged);
     }
 
     private static List<String> strings(JCRNodeWrapper role, String property) throws RepositoryException {

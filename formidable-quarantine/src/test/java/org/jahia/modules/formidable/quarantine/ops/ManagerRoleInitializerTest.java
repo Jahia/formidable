@@ -68,7 +68,7 @@ class ManagerRoleInitializerTest {
         verify(session).checkout(role);
         verify(role).setProperty(ManagerRoleInitializer.PERMISSION_NAMES,
                 new String[]{"jcr:read_live", Managers.PERMISSION});
-        // a site role keeps the privileged access that an administrator gave it, or cleared
+        // a site role that exists keeps its access, privileged or not: the module adds no access to it
         verify(role, never()).setProperty(eq(ManagerRoleInitializer.PRIVILEGED_ACCESS), anyBoolean());
         verify(session).save();
     }
@@ -113,7 +113,7 @@ class ManagerRoleInitializerTest {
     }
 
     @Test
-    void aMissingRoleIsCreatedAsASiteRoleWithThePermission() throws Exception {
+    void aMissingRoleIsCreatedAsAPrivilegedSiteRoleWithThePermissionAndTheAccessToJContent() throws Exception {
         JCRNodeWrapper roles = mock(JCRNodeWrapper.class);
         JCRNodeWrapper role = mock(JCRNodeWrapper.class);
         JCRNodeWrapper translation = mock(JCRNodeWrapper.class);
@@ -124,11 +124,13 @@ class ManagerRoleInitializerTest {
         ManagerRoleInitializer.ensureRole(session);
 
         verify(session).checkout(roles);
-        verify(role).setProperty(ManagerRoleInitializer.PERMISSION_NAMES, new String[]{Managers.PERMISSION});
+        // the jContent shell admits privileged users alone, and jContent shows its entry to jContentAccess
+        verify(role).setProperty(ManagerRoleInitializer.PERMISSION_NAMES,
+                new String[]{Managers.PERMISSION, ManagerRoleInitializer.JCONTENT_ACCESS});
         verify(role).setProperty(ManagerRoleInitializer.ROLE_GROUP, ManagerRoleInitializer.SITE_ROLE);
         verify(role).setProperty(ManagerRoleInitializer.NODE_TYPES, new String[]{ManagerRoleInitializer.SITE_TYPE});
-        verify(role).setProperty(ManagerRoleInitializer.PRIVILEGED_ACCESS, false);
-        verify(role, never()).setProperty(ManagerRoleInitializer.PRIVILEGED_ACCESS, true);
+        verify(role).setProperty(ManagerRoleInitializer.PRIVILEGED_ACCESS, true);
+        verify(role, never()).setProperty(ManagerRoleInitializer.PRIVILEGED_ACCESS, false);
         // en, fr, de, es
         verify(translation, times(4)).setProperty(eq("jcr:title"), anyString());
         verify(session).save();

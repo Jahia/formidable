@@ -303,16 +303,25 @@ named `formidableQuarantine(siteKey)`:
 | `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms of the site where it is granted. |
 | `formidableQuarantineFileAccess` | The download of a held file, when the file access allows it. |
 
-- The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`. The module creates the role when
-  it starts. The role gives no privileged access, so its holder reads no draft of the site.
+- The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`, `jContentAccess` and privileged
+  access. The manager screen is a route of jContent, and the jContent shell admits only a member of the group
+  `privileged`; a holder of a privileged site role joins it through the group `site-privileged` of the site, and
+  `jContentAccess` shows the entry of jContent. The privileged access gives the read of the drafts of the site, as an
+  editor has: the access control of the site grants the role `privileged` to `site-privileged`. The role gives no
+  write and no publication. It reads no node of the quarantine tree, whose root breaks the inheritance of the access
+  control.
+- The module creates the role with that access when the role is missing. It never changes the access of a role that
+  exists: an installation that has the role keeps the access that the role had, and an administrator adds
+  `jContentAccess` and privileged access to it.
 - Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the live workspace, under the
   session of the user, before it reads anything. A grant of the role applies once the site is published, and a site
   with no live node has no manager. A revocation applies the same way: a role removed in the edit workspace stops
   granting the list and the operations only once the site is published, because the check reads the live ACL.
 - A failure of the repository during the check answers an error, never the answer of a user who does not manage the
   site.
-- The API security filter of the platform admits only privileged users to `/modules/graphql`, and the role gives no
-  privileged access. The module therefore ships the scope `formidable-quarantine`, which opens the two fields
+- The API security filter of the platform admits only privileged users to `/modules/graphql`. The role gives
+  privileged access, but a role that an administrator keeps without it still manages the site. The module therefore
+  ships the scope `formidable-quarantine`, which opens the two fields
   `formidableQuarantine` and the types of the module that they reach, from a page of this server, and nothing else of
   the platform. The scope is the door, and the check of the module on the site is the lock. The filter can require a
   permission on one fixed path only, so the scope cannot require the permission on the site of the request: any user
