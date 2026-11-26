@@ -238,7 +238,8 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 		readHeldSubmissions(formIdA).then(held => {
 			const audit = held[0].audit.map(record => [record.operation, record.user, record.from, record.to]);
 			expect(audit, 'audit of the rejected submission').to.deep.equal([
-				['run', null, 'checking', 'needsReview'],
+				// one run took the submission from held to review: the record names the state before that run
+				['run', null, 'held', 'needsReview'],
 				['reject', MANAGER, 'needsReview', 'rejected']
 			]);
 			expect(held[0].valuesPresent, 'values of the rejected submission').to.eq(false);
