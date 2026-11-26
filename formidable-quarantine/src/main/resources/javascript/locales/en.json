@@ -1,0 +1,151 @@
+{
+	"quarantine": {
+		"nav": {
+			"title": "Quarantine"
+		},
+		"title": "Quarantine",
+		"noSite": "Open the quarantine from a site.",
+		"loading": "Loading the held submissions",
+		"loadFailed": "The quarantine could not be loaded.",
+		"tryAgain": "Try again",
+		"noAccess": "You do not manage the quarantine of this site.",
+		"empty": "No submission is held.",
+		"failed": "The operation could not be completed. Reload the submission to see its state.",
+		"changed": "Conflict: the submission changed. Reload it.",
+		"reload": "Reload submission",
+		"reloaded": "Submission reloaded. State: {{state}}.",
+		"state": {
+			"HELD": "Held",
+			"CHECKING": "Checking",
+			"RELEASING": "Releasing",
+			"NEEDS_REVIEW": "Needs review",
+			"COMPLETED": "Completed",
+			"REJECTED": "Rejected"
+		},
+		"verdict": {
+			"PASS": "Pass",
+			"FAIL": "Fail",
+			"INCONCLUSIVE": "Inconclusive",
+			"PENDING": "Pending",
+			"FAILED": "Check error"
+		},
+		"reason": {
+			"CHECK_FAILED": "Check failed",
+			"INCONCLUSIVE": "Inconclusive",
+			"UNAVAILABLE": "Check unavailable",
+			"ATTEMPTS_EXHAUSTED": "Attempts exhausted",
+			"IN_PROCESS_FIRST": "In-process check first",
+			"FILE_WITHHELD": "File withheld",
+			"NO_CHECK": "No check",
+			"NO_FILE": "No file",
+			"INTEGRITY_FAILED": "Integrity failed",
+			"ACTION_FAILED": "Action failed",
+			"FORM_GONE": "Form gone"
+		},
+		"filter": {
+			"state": "Filter by state",
+			"form": "Form",
+			"allForms": "All forms",
+			"formOption": "{{title}} ({{count}})",
+			"noMatch": "No submission matches these filters.",
+			"clear": "Clear filters",
+			"stateWord": "state {{state}}",
+			"formWord": "form {{form}}"
+		},
+		"table": {
+			"caption": "Held submissions, oldest first",
+			"captionFiltered": "Held submissions, oldest first: {{filters}}",
+			"form": "Form",
+			"received": "Received",
+			"state": "State",
+			"attempts": "Attempts",
+			"reason": "Reason",
+			"files": "Files",
+			"open": "{{form}}, received {{date}}",
+			"noFiles": "None",
+			"moreFiles": "+{{count}} more"
+		},
+		"paging": {
+			"label": "Pages of held submissions",
+			"previous": "Previous page",
+			"next": "Next page",
+			"range": "{{from}} to {{to}} of {{total}}"
+		},
+		"announce": {
+			"list": "Showing {{from}} to {{to}} of {{total}} submissions"
+		},
+		"detail": {
+			"title": "{{form}}, received {{date}}",
+			"close": "Close submission details",
+			"region": "Submission detail",
+			"loading": "Loading the submission",
+			"loadFailed": "The submission could not be loaded.",
+			"gone": "This submission is no longer in the quarantine.",
+			"actions": "Actions",
+			"noActions": "No operation is possible in this state.",
+			"files": "Files",
+			"noFiles": "This submission has no file.",
+			"fileType": "Type",
+			"fileSize": "Size",
+			"bytesDeleted": "The bytes of this file were deleted.",
+			"noChecks": "No check has answered for this file yet.",
+			"checksCaption": "{{name}}: checks",
+			"check": "Check",
+			"verdict": "Verdict",
+			"reason": "Reason",
+			"decision": "Decision",
+			"decisionFile": "File",
+			"at": "At",
+			"noDecision": "No decision yet.",
+			"audit": "Audit",
+			"auditRegion": "Audit trail",
+			"auditCaption": "Audit trail, oldest first",
+			"audit_operation": "Operation",
+			"audit_user": "User",
+			"audit_from": "From",
+			"audit_to": "To",
+			"audit_at": "Time",
+			"values": "Values",
+			"valuesDeleted": "The values were deleted.",
+			"sensitive": "Sensitive fields",
+			"sensitiveNote": "Values are never shown."
+		},
+		"audit": {
+			"run": "Run of the checks",
+			"retry": "Retry",
+			"release": "Release",
+			"resume": "Resume",
+			"reject": "Reject",
+			"system": "System"
+		},
+		"action": {
+			"RETRY": "Retry",
+			"RESUME": "Resume",
+			"RELEASE": "Release",
+			"REJECT": "Reject",
+			"busy": {
+				"RETRY": "Retrying…",
+				"RESUME": "Resuming…",
+				"RELEASE": "Releasing…",
+				"REJECT": "Rejecting…"
+			}
+		},
+		"confirm": {
+			"RELEASE": {
+				"title": "Release this submission?",
+				"description": "{{subject}}. Its files go to the actions after release without further checks."
+			},
+			"REJECT": {
+				"title": "Reject this submission?",
+				"description": "{{subject}}. Its values and files are deleted. This cannot be undone."
+			},
+			"cancel": "Cancel"
+		},
+		"done": {
+			"RETRY": "Retry started. State: {{state}}.",
+			"RESUME": "Submission resumed. State: {{state}}.",
+			"RELEASE": "Submission released. State: {{state}}.",
+			"REJECT": "Submission rejected. State: {{state}}."
+		}
+	}
+}

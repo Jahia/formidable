@@ -1,0 +1,151 @@
+{
+	"quarantine": {
+		"nav": {
+			"title": "Cuarentena"
+		},
+		"title": "Cuarentena",
+		"noSite": "Abra la cuarentena desde un sitio.",
+		"loading": "Cargando los envíos retenidos",
+		"loadFailed": "No se pudo cargar la cuarentena.",
+		"tryAgain": "Reintentar",
+		"noAccess": "Usted no gestiona la cuarentena de este sitio.",
+		"empty": "No hay ningún envío retenido.",
+		"failed": "La operación no se pudo completar. Vuelva a cargar el envío para ver su estado.",
+		"changed": "Conflicto: el envío ha cambiado. Vuelva a cargarlo.",
+		"reload": "Volver a cargar el envío",
+		"reloaded": "Envío recargado. Estado: {{state}}.",
+		"state": {
+			"HELD": "Retenido",
+			"CHECKING": "En verificación",
+			"RELEASING": "En liberación",
+			"NEEDS_REVIEW": "Por revisar",
+			"COMPLETED": "Completado",
+			"REJECTED": "Rechazado"
+		},
+		"verdict": {
+			"PASS": "Correcto",
+			"FAIL": "Fallido",
+			"INCONCLUSIVE": "No concluyente",
+			"PENDING": "Pendiente",
+			"FAILED": "Error de control"
+		},
+		"reason": {
+			"CHECK_FAILED": "Control fallido",
+			"INCONCLUSIVE": "No concluyente",
+			"UNAVAILABLE": "Control no disponible",
+			"ATTEMPTS_EXHAUSTED": "Intentos agotados",
+			"IN_PROCESS_FIRST": "Control local primero",
+			"FILE_WITHHELD": "Archivo retenido",
+			"NO_CHECK": "Ningún control",
+			"NO_FILE": "Ningún archivo",
+			"INTEGRITY_FAILED": "Integridad fallida",
+			"ACTION_FAILED": "Acción fallida",
+			"FORM_GONE": "Formulario eliminado"
+		},
+		"filter": {
+			"state": "Filtrar por estado",
+			"form": "Formulario",
+			"allForms": "Todos los formularios",
+			"formOption": "{{title}} ({{count}})",
+			"noMatch": "Ningún envío coincide con estos filtros.",
+			"clear": "Borrar los filtros",
+			"stateWord": "estado {{state}}",
+			"formWord": "formulario {{form}}"
+		},
+		"table": {
+			"caption": "Envíos retenidos, los más antiguos primero",
+			"captionFiltered": "Envíos retenidos, los más antiguos primero: {{filters}}",
+			"form": "Formulario",
+			"received": "Recibido",
+			"state": "Estado",
+			"attempts": "Intentos",
+			"reason": "Motivo",
+			"files": "Archivos",
+			"open": "{{form}}, recibido el {{date}}",
+			"noFiles": "Ninguno",
+			"moreFiles": "+{{count}} más"
+		},
+		"paging": {
+			"label": "Páginas de envíos retenidos",
+			"previous": "Página anterior",
+			"next": "Página siguiente",
+			"range": "{{from}} a {{to}} de {{total}}"
+		},
+		"announce": {
+			"list": "Envíos {{from}} a {{to}} de {{total}}"
+		},
+		"detail": {
+			"title": "{{form}}, recibido el {{date}}",
+			"close": "Cerrar el detalle del envío",
+			"region": "Detalle del envío",
+			"loading": "Cargando el envío",
+			"loadFailed": "No se pudo cargar el envío.",
+			"gone": "Este envío ya no está en la cuarentena.",
+			"actions": "Acciones",
+			"noActions": "Ninguna operación es posible en este estado.",
+			"files": "Archivos",
+			"noFiles": "Este envío no tiene archivo.",
+			"fileType": "Tipo",
+			"fileSize": "Tamaño",
+			"bytesDeleted": "El contenido de este archivo se eliminó.",
+			"noChecks": "Ningún control ha respondido aún para este archivo.",
+			"checksCaption": "{{name}}: controles",
+			"check": "Control",
+			"verdict": "Veredicto",
+			"reason": "Motivo",
+			"decision": "Decisión",
+			"decisionFile": "Archivo",
+			"at": "El",
+			"noDecision": "Todavía no hay decisión.",
+			"audit": "Auditoría",
+			"auditRegion": "Registro de auditoría",
+			"auditCaption": "Registro de auditoría, los más antiguos primero",
+			"audit_operation": "Operación",
+			"audit_user": "Usuario",
+			"audit_from": "De",
+			"audit_to": "A",
+			"audit_at": "Hora",
+			"values": "Valores",
+			"valuesDeleted": "Los valores se eliminaron.",
+			"sensitive": "Campos sensibles",
+			"sensitiveNote": "Los valores nunca se muestran."
+		},
+		"audit": {
+			"run": "Ejecución de los controles",
+			"retry": "Reintento",
+			"release": "Liberación",
+			"resume": "Reanudación",
+			"reject": "Rechazo",
+			"system": "Sistema"
+		},
+		"action": {
+			"RETRY": "Reintentar",
+			"RESUME": "Reanudar",
+			"RELEASE": "Liberar",
+			"REJECT": "Rechazar",
+			"busy": {
+				"RETRY": "Reintentando…",
+				"RESUME": "Reanudando…",
+				"RELEASE": "Liberando…",
+				"REJECT": "Rechazando…"
+			}
+		},
+		"confirm": {
+			"RELEASE": {
+				"title": "¿Liberar este envío?",
+				"description": "{{subject}}. Sus archivos pasan a las acciones tras la liberación sin más controles."
+			},
+			"REJECT": {
+				"title": "¿Rechazar este envío?",
+				"description": "{{subject}}. Sus valores y archivos se eliminan. No se puede deshacer."
+			},
+			"cancel": "Cancelar"
+		},
+		"done": {
+			"RETRY": "Reintento iniciado. Estado: {{state}}.",
+			"RESUME": "Envío reanudado. Estado: {{state}}.",
+			"RELEASE": "Envío liberado. Estado: {{state}}.",
+			"REJECT": "Envío rechazado. Estado: {{state}}."
+		}
+	}
+}

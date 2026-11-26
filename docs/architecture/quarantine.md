@@ -62,7 +62,7 @@ flowchart LR
 | Run and chain | The scheduled run. It finds the due submissions, asks the checks, and concludes: release, review or reject. |
 | Manager operations | Retry, release, resume and reject, each allowed by the state machine and written to the audit. |
 | GraphQL API and download | The API of the manager screen. A resolver checks the permission of the user on the site before every read and every operation. |
-| Manager screen | A jContent route of the site: the list, the detail of a submission, the operations and the download. |
+| Manager screen | A jContent route of a site that has the module: the held submissions with their counts per state and their filters by state and by form, the detail of a submission, and the operations that the API allows, Release and Reject after a confirmation. It reads and changes the quarantine through the GraphQL API alone, so a user who does not manage the site sees no submission. |
 | Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `FAIL` for a type outside its list, and `PASS` for a type on it. |
 
 ## The check API

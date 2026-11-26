@@ -1,0 +1,151 @@
+{
+	"quarantine": {
+		"nav": {
+			"title": "Quarantaine"
+		},
+		"title": "Quarantaine",
+		"noSite": "Ouvrez la quarantaine depuis un site.",
+		"loading": "Chargement des soumissions retenues",
+		"loadFailed": "La quarantaine n’a pas pu être chargée.",
+		"tryAgain": "Réessayer",
+		"noAccess": "Vous ne gérez pas la quarantaine de ce site.",
+		"empty": "Aucune soumission n’est retenue.",
+		"failed": "L’opération n’a pas pu aboutir. Rechargez la soumission pour voir son état.",
+		"changed": "Conflit : la soumission a changé. Rechargez-la.",
+		"reload": "Recharger la soumission",
+		"reloaded": "Soumission rechargée. État : {{state}}.",
+		"state": {
+			"HELD": "Retenue",
+			"CHECKING": "En vérification",
+			"RELEASING": "En libération",
+			"NEEDS_REVIEW": "À examiner",
+			"COMPLETED": "Terminée",
+			"REJECTED": "Rejetée"
+		},
+		"verdict": {
+			"PASS": "Réussi",
+			"FAIL": "Échec",
+			"INCONCLUSIVE": "Non concluant",
+			"PENDING": "En attente",
+			"FAILED": "Erreur de contrôle"
+		},
+		"reason": {
+			"CHECK_FAILED": "Contrôle en échec",
+			"INCONCLUSIVE": "Non concluant",
+			"UNAVAILABLE": "Contrôle indisponible",
+			"ATTEMPTS_EXHAUSTED": "Tentatives épuisées",
+			"IN_PROCESS_FIRST": "Contrôle local en premier",
+			"FILE_WITHHELD": "Fichier retenu",
+			"NO_CHECK": "Aucun contrôle",
+			"NO_FILE": "Aucun fichier",
+			"INTEGRITY_FAILED": "Intégrité en échec",
+			"ACTION_FAILED": "Action en échec",
+			"FORM_GONE": "Formulaire supprimé"
+		},
+		"filter": {
+			"state": "Filtrer par état",
+			"form": "Formulaire",
+			"allForms": "Tous les formulaires",
+			"formOption": "{{title}} ({{count}})",
+			"noMatch": "Aucune soumission ne correspond à ces filtres.",
+			"clear": "Effacer les filtres",
+			"stateWord": "état {{state}}",
+			"formWord": "formulaire {{form}}"
+		},
+		"table": {
+			"caption": "Soumissions retenues, les plus anciennes d’abord",
+			"captionFiltered": "Soumissions retenues, les plus anciennes d’abord : {{filters}}",
+			"form": "Formulaire",
+			"received": "Reçue le",
+			"state": "État",
+			"attempts": "Tentatives",
+			"reason": "Raison",
+			"files": "Fichiers",
+			"open": "{{form}}, reçue le {{date}}",
+			"noFiles": "Aucun",
+			"moreFiles": "+{{count}} autre(s)"
+		},
+		"paging": {
+			"label": "Pages des soumissions retenues",
+			"previous": "Page précédente",
+			"next": "Page suivante",
+			"range": "{{from}} à {{to}} sur {{total}}"
+		},
+		"announce": {
+			"list": "Soumissions {{from}} à {{to}} sur {{total}}"
+		},
+		"detail": {
+			"title": "{{form}}, reçue le {{date}}",
+			"close": "Fermer le détail de la soumission",
+			"region": "Détail de la soumission",
+			"loading": "Chargement de la soumission",
+			"loadFailed": "La soumission n’a pas pu être chargée.",
+			"gone": "Cette soumission n’est plus dans la quarantaine.",
+			"actions": "Actions",
+			"noActions": "Aucune opération n’est possible dans cet état.",
+			"files": "Fichiers",
+			"noFiles": "Cette soumission n’a pas de fichier.",
+			"fileType": "Type",
+			"fileSize": "Taille",
+			"bytesDeleted": "Le contenu de ce fichier a été supprimé.",
+			"noChecks": "Aucun contrôle n’a encore répondu pour ce fichier.",
+			"checksCaption": "{{name}} : contrôles",
+			"check": "Contrôle",
+			"verdict": "Verdict",
+			"reason": "Raison",
+			"decision": "Décision",
+			"decisionFile": "Fichier",
+			"at": "Le",
+			"noDecision": "Pas encore de décision.",
+			"audit": "Journal",
+			"auditRegion": "Journal d’audit",
+			"auditCaption": "Journal d’audit, les plus anciens d’abord",
+			"audit_operation": "Opération",
+			"audit_user": "Utilisateur",
+			"audit_from": "De",
+			"audit_to": "Vers",
+			"audit_at": "Heure",
+			"values": "Valeurs",
+			"valuesDeleted": "Les valeurs ont été supprimées.",
+			"sensitive": "Champs sensibles",
+			"sensitiveNote": "Les valeurs ne sont jamais affichées."
+		},
+		"audit": {
+			"run": "Passage des contrôles",
+			"retry": "Réessai",
+			"release": "Libération",
+			"resume": "Reprise",
+			"reject": "Rejet",
+			"system": "Système"
+		},
+		"action": {
+			"RETRY": "Réessayer",
+			"RESUME": "Reprendre",
+			"RELEASE": "Libérer",
+			"REJECT": "Rejeter",
+			"busy": {
+				"RETRY": "Nouvel essai…",
+				"RESUME": "Reprise…",
+				"RELEASE": "Libération…",
+				"REJECT": "Rejet…"
+			}
+		},
+		"confirm": {
+			"RELEASE": {
+				"title": "Libérer cette soumission ?",
+				"description": "{{subject}}. Ses fichiers passent aux actions après libération sans autre contrôle."
+			},
+			"REJECT": {
+				"title": "Rejeter cette soumission ?",
+				"description": "{{subject}}. Ses valeurs et ses fichiers sont supprimés. C’est définitif."
+			},
+			"cancel": "Annuler"
+		},
+		"done": {
+			"RETRY": "Nouvel essai lancé. État : {{state}}.",
+			"RESUME": "Soumission reprise. État : {{state}}.",
+			"RELEASE": "Soumission libérée. État : {{state}}.",
+			"REJECT": "Soumission rejetée. État : {{state}}."
+		}
+	}
+}
