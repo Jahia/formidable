@@ -128,10 +128,9 @@
 // uploads in quarantine". It extends fmdbmix:formRoot, as that switch does, because Content Editor offers only the
 // mixins that extend the primary type or a supertype of the node, never a mixin that extends a mixin added to it. So
 // it is offered on every form, and it does nothing while the quarantine switch is off. A form without it rejects a
-// submission whose file a check failed. The run reads it in live each time it concludes, and so does a reject by a
-// manager.
+// submission whose file a check failed.
 // - onFail: reject, or releaseValues: the bytes of every file are deleted, then the actions after release run with
-//   the values alone and the failed scan status. A reject by a manager does the same.
+//   the values alone and the failed scan status.
 // - scanStatusName: the name of the value that the run adds to the values of the actions after release, written over
 //   any value of that name: scanStatusClean on a release of the files, scanStatusFailed on a release of the values
 //   alone. No value is added when it is empty. The name is a field-like identifier, so that an action can write it
