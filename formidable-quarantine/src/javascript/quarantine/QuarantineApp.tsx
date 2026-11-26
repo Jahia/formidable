@@ -103,24 +103,39 @@ function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement |
     }
 }
 
+/** How long after a dialog closed a move of the focus elsewhere is the Modal giving it back, not the user, in ms. */
+const FOCUS_GRACE = 300;
+
 /**
- * Moves the focus to the element a request names, as soon as it is rendered, and keeps it there until the user acts:
- * the request stays after each render, because a later render can re-mount the element (the data of the detail
- * arriving), and a closing Modal gives the focus back to its opener after the render. The next key or pointer press
- * of the user spends the request.
+ * Moves the focus to the element a request names, as soon as it is rendered, and keeps it there until something else
+ * takes it: the request stays after each render, because a later render can re-mount the element (the data of the
+ * detail arriving), and a closing Modal gives the focus back to its opener after the render. A key or pointer press,
+ * or the focus moving to another element, such as a screen reader moving it, spends the request. Only a request made
+ * as a dialog closes lets a move pass during the grace time: the Modal giving the focus back to its opener.
  */
 function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
     const requestRef = useRef<FocusRequest | null>(null);
+    const targetRef = useRef<HTMLElement | null>(null);
+    const placedAtRef = useRef(0);
+    const afterDialogRef = useRef(false);
 
     useEffect(() => {
         const spend = () => {
             requestRef.current = null;
         };
+        const moved = (event: FocusEvent) => {
+            const inGrace = afterDialogRef.current && Date.now() - placedAtRef.current <= FOCUS_GRACE;
+            if (requestRef.current && event.target !== targetRef.current && !inGrace) {
+                spend();
+            }
+        };
         document.addEventListener('keydown', spend, true);
         document.addEventListener('mousedown', spend, true);
+        document.addEventListener('focusin', moved, true);
         return () => {
             document.removeEventListener('keydown', spend, true);
             document.removeEventListener('mousedown', spend, true);
+            document.removeEventListener('focusin', moved, true);
         };
     }, []);
 
@@ -131,6 +146,8 @@ function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
             return;
         }
 
+        targetRef.current = target;
+        placedAtRef.current = Date.now();
         target.focus();
         // again on the next frame, unless the user acted or the focus is there: it comes after the focus that a closing
         // Modal gives back to its opener
@@ -140,8 +157,12 @@ function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
             }
         });
     });
-    return useCallback((wanted: FocusRequest) => {
+    return useCallback((wanted: FocusRequest, afterDialog = false) => {
         requestRef.current = wanted;
+        targetRef.current = null;
+        afterDialogRef.current = afterDialog;
+        // a new request: its grace starts when it is made, and again when its element takes the focus
+        placedAtRef.current = Date.now();
     }, []);
 }
 
@@ -238,7 +259,7 @@ export const QuarantineApp = () => {
     const showChanged = () => {
         setConfirm(null);
         setChanged(true);
-        focus({kind: 'reload'});
+        focus({kind: 'reload'}, true);
     };
 
     const run = async (operation: QuarantineOperation) => {
@@ -264,10 +285,10 @@ export const QuarantineApp = () => {
             if (filters.state !== null && after.state !== filters.state) {
                 // the submission leaves the filtered list: the detail closes, the focus goes to a neighbour row
                 setOpenId(null);
-                focus(neighbour ? {kind: 'row', id: neighbour} : {kind: 'listHeading'});
+                focus(neighbour ? {kind: 'row', id: neighbour} : {kind: 'listHeading'}, true);
                 await list.refetch();
             } else {
-                focus({kind: 'detailHeading'});
+                focus({kind: 'detailHeading'}, true);
                 await Promise.all([list.refetch(), detail.refetch()]);
             }
 
@@ -415,7 +436,7 @@ export const QuarantineApp = () => {
                         onCancel={() => {
                             setConfirm(null);
                             setConfirmFailure(null);
-                            focus({kind: 'action', operation: confirm});
+                            focus({kind: 'action', operation: confirm}, true);
                         }}
                     />
                 )}

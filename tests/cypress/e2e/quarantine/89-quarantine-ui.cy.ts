@@ -141,6 +141,9 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 	it('Q37: the confirm dialog is reached and left with the keyboard, with the focus on Cancel first', () => {
 		asUser(MANAGER);
 		openQuarantinePage();
+		// Q35 released the oldest submission: the filter keeps those that a manager can still reject
+		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').click();
+		byRole('quarantine-row').should('have.length', 2);
 		byRole('quarantine-open').first().focus();
 		cy.realPress('Enter');
 		cy.focused().should('have.attr', 'id', 'fmdbq-detail-title');
