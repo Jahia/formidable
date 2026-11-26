@@ -1,4 +1,4 @@
-import React, {useId} from 'react';
+import React, {useEffect, useId} from 'react';
 import {Banner, Button, Close, DataTable, Paper, Reload, Separator, Typography} from '@jahia/moonstone';
 import type {DataTableColumn} from '@jahia/moonstone/DataTable';
 import {useTranslation} from 'react-i18next';
@@ -279,6 +279,13 @@ interface DetailFrameProps {
  */
 export const DetailFrame = ({onClose, children}: DetailFrameProps) => {
     const {t} = useTranslation('formidable-quarantine');
+    useEffect(() => {
+        // the head row of a DataTable is a tab stop that does nothing (TableRow sets tabIndex 0): the tables of the
+        // detail take no other patch of useDataTableA11y, as they have no pager
+        // the Paper takes no ref: the frame is found by its id
+        document.getElementById(DETAIL_ID)?.querySelectorAll('thead tr[tabindex]').forEach(row => row.removeAttribute('tabindex'));
+    });
+
     return (
         <Paper
             id={DETAIL_ID}
