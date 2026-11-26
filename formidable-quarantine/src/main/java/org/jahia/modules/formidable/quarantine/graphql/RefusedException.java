@@ -14,7 +14,7 @@ final class RefusedException extends BaseGqlClientException {
     private static final long serialVersionUID = 1L;
 
     /** The key of the code in the extensions of the error. */
-    static final String CODE = "code";
+    static final String EXTENSION_KEY = "code";
 
     /** Why a request did not run. */
     enum Code {
@@ -26,14 +26,7 @@ final class RefusedException extends BaseGqlClientException {
         NOT_FOUND
     }
 
-    private final Code code;
-
     RefusedException(String message, Code code) {
-        super(message, null, ErrorType.DataFetchingException, Map.of(CODE, code.name()));
-        this.code = code;
-    }
-
-    Code code() {
-        return code;
+        super(message, null, ErrorType.DataFetchingException, Map.of(EXTENSION_KEY, code.name()));
     }
 }

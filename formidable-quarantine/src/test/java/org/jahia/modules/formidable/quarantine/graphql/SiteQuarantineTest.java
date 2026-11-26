@@ -488,7 +488,7 @@ class SiteQuarantineTest {
                 () -> site.operate("../../otherSite/x", GqlOperation.REJECT));
 
         assertTrue(error.getMessage().contains("No held submission"), error.getMessage());
-        assertEquals(Map.of(RefusedException.CODE, "NOT_FOUND"), error.getExtensions());
+        assertEquals(Map.of(RefusedException.EXTENSION_KEY, "NOT_FOUND"), error.getExtensions());
         assertTrue(operated.isEmpty());
     }
 
@@ -501,15 +501,14 @@ class SiteQuarantineTest {
         RefusedException notFound = assertThrows(RefusedException.class,
                 () -> site.operate(id, GqlOperation.RELEASE));
         assertEquals(String.format(SiteQuarantine.NOT_FOUND, id), notFound.getMessage());
-        assertEquals(Map.of(RefusedException.CODE, "NOT_FOUND"), notFound.getExtensions());
+        assertEquals(Map.of(RefusedException.EXTENSION_KEY, "NOT_FOUND"), notFound.getExtensions());
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                 "The operation release is not allowed in state completed");
         RefusedException conflict = assertThrows(RefusedException.class,
                 () -> site.operate(id, GqlOperation.RELEASE));
         assertTrue(conflict.getMessage().contains("is not allowed in state"), conflict.getMessage());
-        assertEquals(Map.of(RefusedException.CODE, "CONFLICT"), conflict.getExtensions());
-        assertEquals(RefusedException.Code.CONFLICT, conflict.code());
+        assertEquals(Map.of(RefusedException.EXTENSION_KEY, "CONFLICT"), conflict.getExtensions());
     }
 
     /** A failure that is not a refusal carries no code: the client cannot read it as a refusal. */
@@ -627,7 +626,7 @@ class SiteQuarantineTest {
         SiteQuarantine site = site();
         RefusedException error = assertThrows(RefusedException.class, () -> site.purge(0));
         assertEquals(SiteQuarantine.ADMINISTRATORS_ONLY, error.getMessage());
-        assertEquals(Map.of(RefusedException.CODE, "FORBIDDEN"), error.getExtensions());
+        assertEquals(Map.of(RefusedException.EXTENSION_KEY, "FORBIDDEN"), error.getExtensions());
         assertEquals(2, stores.held.size(), "nothing purged");
 
         managers.administrator = true;
