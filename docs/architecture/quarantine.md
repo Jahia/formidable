@@ -230,7 +230,7 @@ named `formidableQuarantine(siteKey)`:
 |---|---|
 | `counts` | The number of held submissions of the site in each state. |
 | `forms` | The forms of the site that have held submissions, each with its identifier, its title and its number of held submissions, ordered by title. |
-| `submissions(formId, states, offset, limit)` | A page of the held submissions of the site, or of one form, oldest first. `limit` is 25 by default and 100 at most: a larger value reads as 100. `states` names each state once at most. |
+| `submissions(formId, states, offset, limit, newestFirst)` | A page of the held submissions of the site, or of one form, by time of intake: oldest first, or newest first when `newestFirst` is true. `limit` is 25 by default and 100 at most: a larger value reads as 100. `states` names each state once at most. |
 | `submission(id)` | One held submission, or `null` when the site has none with this identifier. |
 | `operate(id, operation)` | The mutation of a manager: `RETRY`, `RELEASE`, `RESUME` or `REJECT`. It answers the submission as the operation left it. |
 | `purge(olderThanDays)` | The mutation of the retention, for server administrators only. |
@@ -244,7 +244,8 @@ named `formidableQuarantine(siteKey)`:
 - `publicValues` is `null` unless the form sets `showValues`. The sensitive values never appear, only the names of
   their fields.
 - A page and the counts come from queries of the repository on the held submissions below the quarantine root of
-  the site. The form and the states enter each query as bound values. The page reads at most 100 records. The
+  the site. The form and the states enter each query as bound values. `newestFirst` chooses between the two fixed orders
+  of the query, and no value of the request enters the statement. The page reads at most 100 records. The
   `totalCount` of a page and each of the `counts` run one count query over every held record of the site that
   matches: their cost follows the number of records that the site keeps, which the retention purge bounds in
   practice. A request runs each count query once, however many aliases ask for it, and an operation or a purge

@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -301,8 +302,13 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
      * covers: this double does not repeat it.
      */
     @Override
-    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit) {
-        return matching(siteKey, formId, states).stream().skip(offset).limit(limit).toList();
+    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit,
+                                 boolean newestFirst) {
+        List<HeldRecord> matching = new ArrayList<>(matching(siteKey, formId, states));
+        if (newestFirst) {
+            Collections.reverse(matching);
+        }
+        return matching.stream().skip(offset).limit(limit).toList();
     }
 
     @Override

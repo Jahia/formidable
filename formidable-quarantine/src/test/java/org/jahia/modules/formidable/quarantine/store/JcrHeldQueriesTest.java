@@ -72,6 +72,8 @@ class JcrHeldQueriesTest {
                 + " AND held.[" + QuarantineTree.FORM_ID + "] = $form"
                 + " AND (held.[" + QuarantineTree.STATE + "] = $state0 OR held.[" + QuarantineTree.STATE + "] = $state1)"
                 + " ORDER BY held.[" + QuarantineTree.CREATED_AT + "] ASC", statement);
+        assertTrue(JcrHeldQueries.statement("siteA", false, 0, true).endsWith(
+                " ORDER BY held.[" + QuarantineTree.CREATED_AT + "] DESC"), "the newest first");
         assertFalse(JcrHeldQueries.statement("siteA", false, 0).contains("$form"), "no form");
         assertFalse(JcrHeldQueries.statement("siteA", false, 0).contains("$state"), "no state");
     }

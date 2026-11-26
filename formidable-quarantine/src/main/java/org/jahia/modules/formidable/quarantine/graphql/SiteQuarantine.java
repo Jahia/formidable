@@ -168,6 +168,16 @@ final class SiteQuarantine {
      * @param limit  the size of the page, {@value #DEFAULT_LIMIT} when missing, at most {@value #MAX_LIMIT}
      */
     GqlSubmissionPage page(String formId, List<GqlState> states, Integer offset, Integer limit) {
+        return page(formId, states, offset, limit, false);
+    }
+
+    /**
+     * The page of {@link #page(String, List, Integer, Integer)}, the newest first when asked.
+     *
+     * @param newestFirst {@code true} for the newest first; {@code null} or {@code false} for the oldest first
+     */
+    GqlSubmissionPage page(String formId, List<GqlState> states, Integer offset, Integer limit, Boolean newestFirst) {
+        boolean newest = Boolean.TRUE.equals(newestFirst);
         int from = offset == null ? 0 : Math.max(0, offset);
         int size = limit == null ? DEFAULT_LIMIT : Math.min(Math.max(0, limit), MAX_LIMIT);
         if (states != null && states.size() > GqlState.values().length) {
@@ -183,7 +193,7 @@ final class SiteQuarantine {
             }
             long total = total(formId, stored);
             List<HeldRecord> records = total == 0 || from >= total ? List.of()
-                    : read(() -> services.queries().page(siteKey, formId, stored, from, size));
+                    : read(() -> services.queries().page(siteKey, formId, stored, from, size, newest));
             List<GqlHeldSubmission> items = records.stream().map(this::answer).toList();
             return new GqlSubmissionPage((int) Math.min(total, Integer.MAX_VALUE), from, size, items);
         });

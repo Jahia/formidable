@@ -51,8 +51,10 @@ public class GqlQuarantine {
             @GraphQLName("offset") @GraphQLDefaultValue(DefaultOffset.class)
             @GraphQLDescription("The index of the first item; a negative value reads as 0") Integer offset,
             @GraphQLName("limit") @GraphQLDefaultValue(DefaultLimit.class)
-            @GraphQLDescription("The size of the page, at most 100: a larger value reads as 100") Integer limit) {
-        return site.page(formId, states, offset, limit);
+            @GraphQLDescription("The size of the page, at most 100: a larger value reads as 100") Integer limit,
+            @GraphQLName("newestFirst")
+            @GraphQLDescription("True for the newest first; the oldest first when false or absent") Boolean newestFirst) {
+        return site.page(formId, states, offset, limit, newestFirst);
     }
 
     @GraphQLField

@@ -27,7 +27,17 @@ public interface HeldQueries {
      * @param offset the index of the first held submission of the page
      * @param limit  the size of the page
      */
-    List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit)
+    default List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit)
+            throws QuarantineStoreException {
+        return page(siteKey, formId, states, offset, limit, false);
+    }
+
+    /**
+     * One page of held submissions, by their time of intake: those of {@link #count} that name the site.
+     *
+     * @param newestFirst {@code true} for the newest first, {@code false} for the oldest first
+     */
+    List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit, boolean newestFirst)
             throws QuarantineStoreException;
 
     /**

@@ -328,6 +328,18 @@ class SiteQuarantineTest {
     }
 
     @Test
+    void aPageListsTheNewestFirstWhenAsked() {
+        Held first = inState(FORM, HeldState.NEEDS_REVIEW);
+        Held second = inState(FORM, HeldState.NEEDS_REVIEW);
+
+        assertEquals(List.of(idOf(second), idOf(first)), site().page(FORM, null, 0, 25, true).getItems().stream()
+                .map(GqlHeldSubmission::getId).toList());
+        assertEquals(List.of(idOf(first), idOf(second)), site().page(FORM, null, 0, 25, null).getItems().stream()
+                .map(GqlHeldSubmission::getId).toList(), "the oldest first by default");
+        assertTrue(callsOf("page").get(0).endsWith(", 0, 25, true]"), callsOf("page").toString());
+    }
+
+    @Test
     void aPageHoldsAtMostOneHundredItemsAndANegativeOffsetStartsAtTheFirst() {
         for (int i = 0; i < 105; i++) {
             inState(FORM, HeldState.NEEDS_REVIEW);
@@ -339,7 +351,7 @@ class SiteQuarantineTest {
         assertEquals(SiteQuarantine.MAX_LIMIT, page.getLimit());
         assertEquals(SiteQuarantine.MAX_LIMIT, page.getItems().size());
         assertEquals(0, page.getOffset());
-        assertTrue(callsOf("page").get(0).endsWith(", 0, 100]"), callsOf("page").toString());
+        assertTrue(callsOf("page").get(0).endsWith(", 0, 100, false]"), callsOf("page").toString());
         assertEquals(5, site().page(FORM, List.of(), 100, 100).getItems().size(), "the last page");
         assertEquals(SiteQuarantine.DEFAULT_LIMIT, site().page(FORM, null, null, null).getItems().size());
     }
@@ -594,7 +606,7 @@ class SiteQuarantineTest {
                 new HeldQueries() {
                     @Override
                     public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset,
-                                                 int limit) {
+                                                 int limit, boolean newestFirst) {
                         throw new NullPointerException("the property fullName of Ada");
                     }
 

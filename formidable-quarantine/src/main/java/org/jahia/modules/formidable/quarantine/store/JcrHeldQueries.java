@@ -73,14 +73,14 @@ public class JcrHeldQueries implements HeldQueries {
     }
 
     @Override
-    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit)
-            throws QuarantineStoreException {
+    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit,
+                                 boolean newestFirst) throws QuarantineStoreException {
         if (limit == 0) {
             return List.of();
         }
         List<String> ordered = new ArrayList<>(new TreeSet<>(states));
         try {
-            return ofTheSite(siteKey, runner.page(statement(siteKey, formId != null, ordered.size()),
+            return ofTheSite(siteKey, runner.page(statement(siteKey, formId != null, ordered.size(), newestFirst),
                     values(formId, ordered), offset, limit));
         } catch (RepositoryException e) {
             throw new QuarantineStoreException("Could not query the held submissions of site " + siteKey, e);
@@ -116,6 +116,11 @@ public class JcrHeldQueries implements HeldQueries {
      * one of the states when asked, oldest first.
      */
     static String statement(String siteKey, boolean byForm, int states) {
+        return statement(siteKey, byForm, states, false);
+    }
+
+    /** The statement of {@link #statement(String, boolean, int)}, in the order asked for. */
+    static String statement(String siteKey, boolean byForm, int states, boolean newestFirst) {
         String root = checkedRoot(siteKey);
         StringBuilder sql = new StringBuilder("SELECT * FROM [").append(QuarantineTree.HELD_TYPE)
                 .append("] AS held WHERE ISDESCENDANTNODE(held, '").append(root).append("')");
@@ -129,7 +134,8 @@ public class JcrHeldQueries implements HeldQueries {
         if (states > 0) {
             sql.append(')');
         }
-        return sql.append(" ORDER BY held.[").append(QuarantineTree.CREATED_AT).append("] ASC").toString();
+        return sql.append(" ORDER BY held.[").append(QuarantineTree.CREATED_AT).append(newestFirst ? "] DESC" : "] ASC")
+                .toString();
     }
 
     static Map<String, String> values(String formId, List<String> states) {
