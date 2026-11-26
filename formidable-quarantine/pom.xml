@@ -100,6 +100,13 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- The unit test of the scope of the API security filter parses its YAML file as the filter reads it. -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>2.4</version>
+            <scope>test</scope>
+        </dependency>
         <!-- Mockito needs the supertypes of the Jahia types it mocks (org.apache.commons.lang.mutable). -->
         <dependency>
             <groupId>commons-lang</groupId>

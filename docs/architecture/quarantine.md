@@ -247,7 +247,8 @@ named `formidableQuarantine(siteKey)`:
   enter each query as bound values. The counts take one query per state. A page leaves out a record that names
   another site, as the reading by identifier does; only a damaged tree holds one, and the counts still count it.
 - The records of the submissions of a request, their outcomes, decision, audit and values, are read in one session,
-  on the first field that needs them.
+  on the first field that needs them. An operation reads the records and the form of its submission before it
+  answers, so that a failure of that read says that the operation ran.
 - The query depth and complexity limits of the GraphQL provider of the platform bound the number of aliased
   selections of a request. The API adds no limit of its own beyond the page of 100.
 - Any failure answers an error with a fixed message. The log line names the site, the path or the class of the

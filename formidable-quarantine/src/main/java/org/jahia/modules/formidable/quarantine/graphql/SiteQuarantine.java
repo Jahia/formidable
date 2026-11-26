@@ -31,7 +31,8 @@ import java.util.function.Supplier;
  * The quarantine of one site, for a user that the resolver found to be a manager of it: every read and every operation
  * of a GraphQL request goes through one instance, which never reads outside the quarantine root of its site. The
  * instance lives for one request: it keeps what it read of each form, and reads the records of the held submissions
- * it answered in one session, on the first field that needs them.
+ * it answered in one session, on the first field that needs them. An operation reads the records and the form of its
+ * submission before it answers, so that a failure of that read says that the operation ran.
  *
  * <p>Any failure answers a GraphQL error with a fixed message; the log line names the site and the class of the
  * failure, or the path, never a value.</p>
