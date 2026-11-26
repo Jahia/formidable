@@ -32,17 +32,24 @@ final class EverySite {
         try {
             keys = sites.withTree();
         } catch (QuarantineStoreException e) {
-            log.warn("The {} of the quarantine cannot list the sites: {}", what, e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("The {} of the quarantine cannot list the sites: {}", what, e.getMessage());
+            }
             return;
         }
         for (String siteKey : keys) {
             try {
                 task.apply(siteKey);
             } catch (QuarantineStoreException e) {
-                log.warn("The {} of the quarantine of site {} failed: {}", what, siteKey, e.getMessage());
+                if (log.isWarnEnabled()) {
+                    log.warn("The {} of the quarantine of site {} failed: {}", what, siteKey, e.getMessage());
+                }
             } catch (RuntimeException e) {
                 // the class alone: the message of an unexpected failure may quote a held value
-                log.warn("The {} of the quarantine of site {} failed with {}", what, siteKey, e.getClass().getName());
+                if (log.isWarnEnabled()) {
+                    log.warn("The {} of the quarantine of site {} failed with {}", what, siteKey,
+                            e.getClass().getName());
+                }
             }
         }
     }

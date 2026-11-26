@@ -46,7 +46,9 @@ final class ScheduledRun {
                 }
             }
         } catch (SchedulerException | RuntimeException e) {
-            log.warn("The schedule of the run of the quarantine cannot be read: {}", e.toString());
+            if (log.isWarnEnabled()) {
+                log.warn("The schedule of the run of the quarantine cannot be read: {}", e.toString());
+            }
             return UNREAD;
         }
         return 0;

@@ -205,8 +205,10 @@ public class JcrRunLock implements RunLock {
                     return null;
                 });
             } catch (RepositoryException | RuntimeException e) {
-                log.warn("The lock of the run of site {} could not be released, its lease ends it: {}", siteKey,
-                        e.toString());
+                if (log.isWarnEnabled()) {
+                    log.warn("The lock of the run of site {} could not be released, its lease ends it: {}", siteKey,
+                            e.toString());
+                }
             }
         }
     }

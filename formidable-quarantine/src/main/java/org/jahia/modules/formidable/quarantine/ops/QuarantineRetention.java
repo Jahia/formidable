@@ -129,8 +129,10 @@ public class QuarantineRetention {
         try {
             site = sites.retentionDays(siteKey);
         } catch (QuarantineStoreException e) {
-            log.warn("The retention of site {} cannot be read, the platform setting of {} days applies: {}", siteKey,
-                    platform, e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("The retention of site {} cannot be read, the platform setting of {} days applies: {}",
+                        siteKey, platform, e.getMessage());
+            }
             return new LimitOfSite(platform, Limit.PLATFORM_UNREAD);
         }
         if (site.isPresent() && site.getAsLong() >= 0 && site.getAsLong() < platform) {
@@ -159,8 +161,10 @@ public class QuarantineRetention {
                 }
             }
         }
-        log.info("Retention of the quarantine of site {}: {} finished held submissions purged, older than {} days",
-                siteKey, purged.size(), days);
+        if (log.isInfoEnabled()) {
+            log.info("Retention of the quarantine of site {}: {} finished held submissions purged, older than {} days",
+                    siteKey, purged.size(), days);
+        }
         return new Report(days, applied.limit(), purged, failed);
     }
 

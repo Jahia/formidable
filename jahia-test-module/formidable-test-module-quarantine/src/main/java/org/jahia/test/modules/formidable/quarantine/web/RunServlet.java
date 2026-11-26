@@ -112,10 +112,14 @@ public class RunServlet extends HttpServlet {
             RunReport report = current.runNow(site, form, ignoreSchedule);
             JsonAnswers.answer(resp, HttpServletResponse.SC_OK, report(report, current.runnerSettings()));
         } catch (QuarantineRunInProgressException e) {
-            log.info("The run of the quarantine of site {} is held back: {}", site, e.getMessage());
+            if (log.isInfoEnabled()) {
+                log.info("The run of the quarantine of site {} is held back: {}", site, e.getMessage());
+            }
             JsonAnswers.answer(resp, HttpServletResponse.SC_CONFLICT, JsonAnswers.error("a run is in progress"));
         } catch (QuarantineRunStoppedException e) {
-            log.warn("The run of the quarantine of site {} stopped before its end: {}", site, e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("The run of the quarantine of site {} stopped before its end: {}", site, e.getMessage());
+            }
             JsonAnswers.answer(resp, HttpServletResponse.SC_CONFLICT, report(e.report(), run.get().runnerSettings())
                     .put("stopped", true)
                     .put("error", "the run stopped: it lost the lock of the site"));

@@ -47,7 +47,9 @@ public final class LeaseKeeper {
                 return false;
             }
         } catch (QuarantineStoreException e) {
-            log.warn("The lease of the run of site {} could not be extended: {}", lease.siteKey(), e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("The lease of the run of site {} could not be extended: {}", lease.siteKey(), e.getMessage());
+            }
             return false;
         }
         extendAt = now.plus(length.dividedBy(2));

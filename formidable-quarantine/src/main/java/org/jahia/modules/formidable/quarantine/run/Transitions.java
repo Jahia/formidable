@@ -51,7 +51,9 @@ public final class Transitions {
     public HeldState retry(String path, HeldState from) throws QuarantineStoreException {
         HeldState to = StateMachine.next(from, HeldEvent.MANAGER_RETRY);
         store.restartChecks(path, from.value(), to.value());
-        log.info("Held submission {}: {} to {} on {}", path, from.value(), to.value(), HeldEvent.MANAGER_RETRY);
+        if (log.isInfoEnabled()) {
+            log.info("Held submission {}: {} to {} on {}", path, from.value(), to.value(), HeldEvent.MANAGER_RETRY);
+        }
         return to;
     }
 

@@ -89,7 +89,9 @@ public final class RecurringJob {
             return false;
         }
         if (period.isZero() || period.isNegative()) {
-            log.info("The job {} is off: its period is {} seconds", name, period.toSeconds());
+            if (log.isInfoEnabled()) {
+                log.info("The job {} is off: its period is {} seconds", name, period.toSeconds());
+            }
             return false;
         }
         Duration firstDelay = period.compareTo(LONGEST_FIRST_DELAY) < 0 ? period : LONGEST_FIRST_DELAY;
@@ -99,8 +101,9 @@ public final class RecurringJob {
         data.put(BackgroundJob.JOB_CREATED, new Date(clock.millis()));
         data.put(BackgroundJob.JOB_STATUS, BackgroundJob.STATUS_ADDED);
         detail.setJobDataMap(data);
-        SimpleTrigger trigger = new SimpleTrigger(name, group(), new Date(clock.instant().plus(firstDelay).toEpochMilli()),
-                null, SimpleTrigger.REPEAT_INDEFINITELY, period.toMillis());
+        Date firstCall = new Date(clock.instant().plus(firstDelay).toEpochMilli());
+        SimpleTrigger trigger = new SimpleTrigger(name, group(), firstCall, null, SimpleTrigger.REPEAT_INDEFINITELY,
+                period.toMillis());
         // a call that the scheduler could not make in time is dropped: the next one comes at its period
         trigger.setMisfireInstruction(SimpleTrigger.MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT);
         TASKS.put(name, task);
@@ -108,10 +111,14 @@ public final class RecurringJob {
             scheduler.get().scheduleJob(detail, trigger);
         } catch (SchedulerException | RuntimeException e) {
             TASKS.remove(name);
-            log.error("The job {} could not be scheduled: {}", name, e.toString());
+            if (log.isErrorEnabled()) {
+                log.error("The job {} could not be scheduled: {}", name, e.toString());
+            }
             return false;
         }
-        log.info("The job {} is scheduled every {} seconds", name, period.toSeconds());
+        if (log.isInfoEnabled()) {
+            log.info("The job {} is scheduled every {} seconds", name, period.toSeconds());
+        }
         return true;
     }
 
@@ -124,7 +131,9 @@ public final class RecurringJob {
                 current.deleteJob(name, group());
             }
         } catch (SchedulerException | RuntimeException e) {
-            log.warn("The job {} could not be removed from the scheduler: {}", name, e.toString());
+            if (log.isWarnEnabled()) {
+                log.warn("The job {} could not be removed from the scheduler: {}", name, e.toString());
+            }
         }
     }
 }

@@ -133,12 +133,16 @@ public class QuarantineRun implements QuarantineRunner {
         if (config.lockLeaseSeconds() > 0) {
             lease.set(Duration.ofSeconds(config.lockLeaseSeconds()));
         } else {
-            log.warn("lockLeaseSeconds={} is not positive: the lease of the lock of the run is {}",
-                    config.lockLeaseSeconds(), DEFAULT_LEASE);
+            if (log.isWarnEnabled()) {
+                log.warn("lockLeaseSeconds={} is not positive: the lease of the lock of the run is {}",
+                        config.lockLeaseSeconds(), DEFAULT_LEASE);
+            }
             lease.set(DEFAULT_LEASE);
         }
-        log.info("Run of the quarantine configured: allowInProcessFirst={}, maxAttempts={}, lease={}",
-                configured.allowInProcessFirst(), configured.backoff().maxAttempts(), lease.get());
+        if (log.isInfoEnabled()) {
+            log.info("Run of the quarantine configured: allowInProcessFirst={}, maxAttempts={}, lease={}",
+                    configured.allowInProcessFirst(), configured.backoff().maxAttempts(), lease.get());
+        }
     }
 
     /** @return how long the lock of the run of a site is leased, from {@code lockLeaseSeconds} */
@@ -252,8 +256,10 @@ public class QuarantineRun implements QuarantineRunner {
                 }
             }
         } catch (RunStoppedException e) {
-            log.warn("Run of the quarantine of site {} stopped after {} held submissions: {}", siteKey,
-                    processed.size(), e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("Run of the quarantine of site {} stopped after {} held submissions: {}", siteKey,
+                        processed.size(), e.getMessage());
+            }
             throw new PassStoppedException(e.getMessage(), new RunReport(siteKey, formId, processed));
         }
         log.info("Run of the quarantine of site {}: {} held submissions processed", siteKey, processed.size());
@@ -276,7 +282,9 @@ public class QuarantineRun implements QuarantineRunner {
             throw e;
         } catch (StaleStateException e) {
             // another run or an operation moved it first: it is theirs, and this pass leaves it alone
-            log.info("Held submission {}: moved by another run or operation, the pass skips it", held.path());
+            if (log.isInfoEnabled()) {
+                log.info("Held submission {}: moved by another run or operation, the pass skips it", held.path());
+            }
             return new RunReport.Processed(held.path(), held.formId(), held.state(), stateOf(held.path()), MOVED);
         } catch (QuarantineStoreException | RepositoryException e) {
             log.warn("Held submission {}: the run failed, the pass goes on: {}", held.path(), e.toString());
