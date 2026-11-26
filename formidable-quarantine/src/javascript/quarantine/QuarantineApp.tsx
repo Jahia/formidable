@@ -104,25 +104,41 @@ function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement |
 }
 
 /**
- * Moves the focus to the element a request names, as soon as it is rendered; the request is then spent. The move waits
- * one frame, so that it comes after the focus that a closing Modal gives back.
+ * Moves the focus to the element a request names, as soon as it is rendered, and keeps it there until the user acts:
+ * the request stays after each render, because a later render can re-mount the element (the data of the detail
+ * arriving), and a closing Modal gives the focus back to its opener after the render. The next key or pointer press
+ * of the user spends the request.
  */
 function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
     const requestRef = useRef<FocusRequest | null>(null);
+
+    useEffect(() => {
+        const spend = () => {
+            requestRef.current = null;
+        };
+        document.addEventListener('keydown', spend, true);
+        document.addEventListener('mousedown', spend, true);
+        return () => {
+            document.removeEventListener('keydown', spend, true);
+            document.removeEventListener('mousedown', spend, true);
+        };
+    }, []);
+
     useEffect(() => {
         const wanted = requestRef.current;
-        if (!wanted) {
-            return undefined;
+        const target = wanted ? targetOf(wanted, rootRef.current) : null;
+        if (!target || document.activeElement === target) {
+            return;
         }
 
-        const target = targetOf(wanted, rootRef.current);
-        if (!target) {
-            return undefined;
-        }
-
-        requestRef.current = null;
-        const frame = requestAnimationFrame(() => target.focus());
-        return () => cancelAnimationFrame(frame);
+        target.focus();
+        // again on the next frame, unless the user acted or the focus is there: it comes after the focus that a closing
+        // Modal gives back to its opener
+        requestAnimationFrame(() => {
+            if (requestRef.current === wanted && document.activeElement !== target && target.isConnected) {
+                target.focus();
+            }
+        });
     });
     return useCallback((wanted: FocusRequest) => {
         requestRef.current = wanted;
