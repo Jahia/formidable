@@ -253,10 +253,12 @@ final class SubmissionRun {
             return policy.releasesValues();
         }
         if (policy.scanStatusTaken()) {
-            log.error("Held submission {}: a field of form {} has the name of the scan status {}, the submission is "
-                    + "rejected instead of releasing its values", pass.path(), pass.held.formId(),
-                    policy.scanStatusName());
-        } else {
+            if (log.isErrorEnabled()) {
+                log.error("Held submission {}: a field of form {} has the name of the scan status {}, the submission "
+                        + "is rejected instead of releasing its values", pass.path(), pass.held.formId(),
+                        policy.scanStatusName());
+            }
+        } else if (log.isInfoEnabled()) {
             log.info("Held submission {}: an action after release already ran, the submission is rejected instead "
                     + "of releasing its values", pass.path());
         }

@@ -180,8 +180,10 @@ public final class Release {
      */
     private HeldState scanStatusTaken(String path, HeldState state, String formId, FormPolicy policy)
             throws QuarantineStoreException {
-        log.error("Held submission {}: a field of form {} has the name of the scan status {}, the release stops at "
-                + "review", path, formId, policy.scanStatusName());
+        if (log.isErrorEnabled()) {
+            log.error("Held submission {}: a field of form {} has the name of the scan status {}, the release stops "
+                    + "at review", path, formId, policy.scanStatusName());
+        }
         checkStore.writeDecision(path, new DecisionRecord(DecisionRecord.SCAN_STATUS_TAKEN, null, null, null, null,
                 clock.instant()));
         return transitions.move(path, state, HeldEvent.REVIEW);

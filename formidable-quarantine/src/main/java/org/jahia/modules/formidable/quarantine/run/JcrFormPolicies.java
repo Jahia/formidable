@@ -54,7 +54,7 @@ public final class JcrFormPolicies implements FormPolicies {
             return FormPolicy.DEFAULT;
         }
         String name = string(form, SCAN_STATUS_NAME);
-        if (name != null && !name.isBlank() && !FormPolicy.isValidName(name)) {
+        if (name != null && !name.isBlank() && !FormPolicy.isValidName(name) && log.isErrorEnabled()) {
             log.error("Form {}: the name of its scan status is not valid, the releases of the form add none",
                     form.getIdentifier());
         }

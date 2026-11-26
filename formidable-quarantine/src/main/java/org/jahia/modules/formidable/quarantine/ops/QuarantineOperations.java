@@ -229,15 +229,17 @@ public class QuarantineOperations {
         }
         FormPolicy policy = release.get().policy(held.formId());
         if (operation == Operation.REJECT) {
-            if (policy.releasesValues() && policy.scanStatusTaken()) {
+            if (policy.releasesValues() && policy.scanStatusTaken() && log.isErrorEnabled()) {
                 log.error("Held submission {}: a field of form {} has the name of the scan status {}, the reject does "
                         + "not release the values", path, held.formId(), policy.scanStatusName());
             }
             return new Plan(policy, Release.mayReleaseValues(held, policy) && !store.valuesOnly(path));
         }
         if (policy.scanStatusTaken()) {
-            log.error("Held submission {}: {} refused, a field of form {} has the name of the scan status {}", path,
-                    operation.value(), held.formId(), policy.scanStatusName());
+            if (log.isErrorEnabled()) {
+                log.error("Held submission {}: {} refused, a field of form {} has the name of the scan status {}",
+                        path, operation.value(), held.formId(), policy.scanStatusName());
+            }
             throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                     "A field of the form has the name of the scan status of its quarantine policy");
         }
