@@ -107,7 +107,7 @@ class RecurringJobTest {
     }
 
     @Test
-    void theJobCallsItsTaskUntilItIsUnscheduled() throws Exception {
+    void theJobCallsItsTaskUntilItIsUnscheduled() {
         job.schedule(Duration.ofSeconds(60), calls::incrementAndGet);
 
         RecurringJob.call(NAME);

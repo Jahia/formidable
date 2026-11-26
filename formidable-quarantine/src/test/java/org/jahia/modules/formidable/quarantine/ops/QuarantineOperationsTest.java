@@ -29,6 +29,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -277,15 +281,18 @@ class QuarantineOperationsTest {
         assertEquals(List.of(new AuditRecord("reject", MANAGER, "releasing", "rejected", NOW)), held.audit);
     }
 
-    /** Holds the lock of the site of the in-memory store in another thread, as a pass of the run does. */
-    private Thread holdTheSite(long forMillis) throws InterruptedException {
+    /**
+     * Holds the lock of the site of the in-memory store in another thread, as a pass of the run does, until the latch
+     * is counted down.
+     */
+    private Thread holdTheSite(CountDownLatch end) throws InterruptedException {
         CountDownLatch held = new CountDownLatch(1);
         Thread pass = new Thread(() -> {
             ReentrantLock site = siteLocks.of(InMemoryQuarantine.SITE);
             site.lock();
             try {
                 held.countDown();
-                Thread.sleep(forMillis);
+                end.await();
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             } finally {
@@ -301,7 +308,8 @@ class QuarantineOperationsTest {
     void anOperationAnswersAConflictWhileAPassOfTheRunHoldsItsSite() throws Exception {
         Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
         held.state = HeldState.RELEASING.value();
-        Thread pass = holdTheSite(SiteLocks.OPERATION_WAIT.toMillis() + 2000);
+        CountDownLatch end = new CountDownLatch(1);
+        Thread pass = holdTheSite(end);
         try {
             OperationRefusedException refused = assertThrows(OperationRefusedException.class,
                     () -> operations.apply(held.path, Operation.RESUME));
@@ -311,7 +319,7 @@ class QuarantineOperationsTest {
             assertTrue(releasedFrom.isEmpty(), "no action after release ran while the pass held the site");
             assertEquals("releasing", held.state);
         } finally {
-            pass.interrupt();
+            end.countDown();
             pass.join();
         }
     }
@@ -320,12 +328,25 @@ class QuarantineOperationsTest {
     void anOperationWaitsForAPassThatEndsWithinTheWait() throws Exception {
         Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
         held.state = HeldState.RELEASING.value();
-        Thread pass = holdTheSite(300);
+        CountDownLatch end = new CountDownLatch(1);
+        Thread pass = holdTheSite(end);
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            Future<OperationResult> resumed = executor.submit(() -> operations.apply(held.path, Operation.RESUME));
+            // the operation waits for the site: the pass ends while it waits
+            ReentrantLock site = siteLocks.of(InMemoryQuarantine.SITE);
+            long deadline = System.nanoTime() + SiteLocks.OPERATION_WAIT.toNanos();
+            while (!site.hasQueuedThreads() && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
+            assertTrue(site.hasQueuedThreads(), "the operation waits for the pass");
+            end.countDown();
 
-        OperationResult result = assertDoesNotThrow(() -> operations.apply(held.path, Operation.RESUME));
-
-        assertEquals(HeldState.COMPLETED, result.to());
-        pass.join();
+            assertEquals(HeldState.COMPLETED, resumed.get(5, TimeUnit.SECONDS).to());
+        } finally {
+            executor.shutdownNow();
+            pass.join();
+        }
     }
 
     @Test

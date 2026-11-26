@@ -243,7 +243,7 @@ public class QuarantineRun implements QuarantineRunner {
         Instant now = clock.instant();
         RunSettings current = settings.get();
         SubmissionRun submissionRun = new SubmissionRun(store, checkStore, checkList, qualifiers::get, release(),
-                current, clock, runLease::kept);
+                new SubmissionRun.PassContext(current, clock, runLease::kept));
         List<String> forms = formId == null ? checkStore.forms(siteKey) : List.of(formId);
         List<RunReport.Processed> processed = new ArrayList<>();
         try {

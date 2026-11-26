@@ -34,7 +34,7 @@ class TransitionsTest {
     }
 
     @Test
-    void aFinishFromAStateThatIsNoLongerStoredDeletesNothing() throws Exception {
+    void aFinishFromAStateThatIsNoLongerStoredDeletesNothing() {
         InMemoryQuarantine stores = new InMemoryQuarantine();
         Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
         held.state = HeldStates.NEEDS_REVIEW;

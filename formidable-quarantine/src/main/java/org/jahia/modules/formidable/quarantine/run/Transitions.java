@@ -21,6 +21,7 @@ import java.util.Objects;
 public final class Transitions {
 
     private static final Logger log = LoggerFactory.getLogger(Transitions.class);
+    private static final String MOVED = "Held submission {}: {} to {} on {}";
 
     private final QuarantineStore store;
 
@@ -36,7 +37,7 @@ public final class Transitions {
     public HeldState move(String path, HeldState from, HeldEvent event) throws QuarantineStoreException {
         HeldState to = StateMachine.next(from, event);
         store.setState(path, from.value(), to.value());
-        log.info("Held submission {}: {} to {} on {}", path, from.value(), to.value(), event);
+        log.info(MOVED, path, from.value(), to.value(), event);
         return to;
     }
 
@@ -52,7 +53,7 @@ public final class Transitions {
         HeldState to = StateMachine.next(from, HeldEvent.MANAGER_RETRY);
         store.restartChecks(path, from.value(), to.value());
         if (log.isInfoEnabled()) {
-            log.info("Held submission {}: {} to {} on {}", path, from.value(), to.value(), HeldEvent.MANAGER_RETRY);
+            log.info(MOVED, path, from.value(), to.value(), HeldEvent.MANAGER_RETRY);
         }
         return to;
     }
@@ -68,7 +69,7 @@ public final class Transitions {
     public HeldState finish(String path, HeldState from, HeldEvent event) throws QuarantineStoreException {
         HeldState to = StateMachine.next(from, event);
         store.finish(path, from.value(), to.value());
-        log.info("Held submission {}: {} to {} on {}", path, from.value(), to.value(), event);
+        log.info(MOVED, path, from.value(), to.value(), event);
         return to;
     }
 }

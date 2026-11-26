@@ -59,21 +59,27 @@ final class SubmissionRun {
     private final BooleanSupplier leaseKept;
 
     /**
+     * What one pass of the run applies to each of its submissions.
+     *
+     * @param settings  the settings of the run when the pass started
+     * @param clock     the time of the pass
      * @param leaseKept asked before each call of a check and before the release: false stops the pass before the
      *                  call, with a {@link RunStoppedException}
      */
+    record PassContext(RunSettings settings, Clock clock, BooleanSupplier leaseKept) {
+    }
+
     SubmissionRun(QuarantineStore store, CheckStore checkStore, CheckList checkList,
-                  Function<String, Qualifier> qualifiers, Release release, RunSettings settings, Clock clock,
-                  BooleanSupplier leaseKept) {
+                  Function<String, Qualifier> qualifiers, Release release, PassContext context) {
         this.store = store;
         this.checkStore = checkStore;
         this.checkList = checkList;
         this.qualifiers = qualifiers;
         this.transitions = new Transitions(store);
         this.release = release;
-        this.settings = settings;
-        this.clock = clock;
-        this.leaseKept = leaseKept;
+        this.settings = context.settings();
+        this.clock = context.clock();
+        this.leaseKept = context.leaseKept();
     }
 
     /** Stops the pass before an external call when its lease is lost. */

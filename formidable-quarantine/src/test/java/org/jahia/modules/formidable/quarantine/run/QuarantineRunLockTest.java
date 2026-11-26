@@ -291,7 +291,7 @@ class QuarantineRunLockTest {
     }
 
     @Test
-    void aRunThatLosesItsLockStopsBeforeTheNextSubmissionAndKeepsItsReport() throws Exception {
+    void aRunThatLosesItsLockStopsBeforeTheNextSubmissionAndKeepsItsReport() {
         holdSubmissions(4);
         // the extension at 140 s finds the lock held by another owner
         lock.lostAfter = 1;
@@ -306,7 +306,7 @@ class QuarantineRunLockTest {
     }
 
     @Test
-    void aDeactivationDuringThePassStopsItBeforeTheNextSubmission() throws Exception {
+    void aDeactivationDuringThePassStopsItBeforeTheNextSubmission() {
         holdSubmissions(3);
         List<String> read = new ArrayList<>();
         QuarantineRun run = newRun(600, formId -> {
@@ -338,7 +338,7 @@ class QuarantineRunLockTest {
     }
 
     @Test
-    void aLeaseLostDuringASlowCallStopsThePassBeforeTheRelease() throws Exception {
+    void aLeaseLostDuringASlowCallStopsThePassBeforeTheRelease() {
         Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
         lock.lostAfter = 1;
         QuarantineRun run = newRun(240, formId -> List.of(CheckSettings.withDefaults(MarkerQualifier.REMOTE_TYPE,
