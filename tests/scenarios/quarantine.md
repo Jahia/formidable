@@ -790,6 +790,62 @@ hold no such role.
 - The same-origin mutation runs: the submission is `rejected`, and its last
   audit record names the manager
 
+## The manager screen in jContent
+
+Common to Q35 to Q37: the test site has the quarantine test module and a form
+whose three submissions the run sent to review. A manager holds the site role
+`formidable-quarantine-manager` and no other role on the site. An editor holds
+the role `editor` and not the manager role. The site is published after the
+grants. Each scenario opens the route `formidableQuarantine` of jContent on the
+test site.
+
+### Q35 — A manager lists, opens and releases a submission
+
+**Steps:**
+1. As the manager, open the screen, and press the state filter "Needs review".
+2. Open the first submission.
+3. Press Release, then confirm.
+4. As root, read the held submissions of the form.
+
+**Expected:**
+- The list shows the three submissions, the count of "Needs review" is 3, and
+  the form filter offers the form
+- The pressed filter has `aria-pressed="true"`, and the status region says
+  "1 to 3 of 3"
+- The detail takes the focus on its heading, names the file, and offers Retry,
+  Release and Reject, in that order; no value of the submission shows
+- After the confirmation, the status region says "Submission released", and the
+  list on review holds two rows
+- The released submission is `releasing` or `completed`, and its audit names the
+  manager for the release
+
+### Q36 — An editor without the role gets the no-access text
+
+**Steps:**
+1. As the editor, open the screen.
+
+**Expected:**
+- The screen shows the text "You do not manage the quarantine of this site.",
+  and no table and no row
+
+### Q37 — The confirm dialog works with the keyboard
+
+**Steps:**
+1. As the manager, open the screen, focus the button of the first row, and
+   press Enter.
+2. Focus Reject, and press Enter.
+3. Press Escape.
+4. Press Enter on Reject again, then Tab, then Enter.
+5. As root, read the held submissions of the form.
+
+**Expected:**
+- Enter on the row opens the detail, with the focus on its heading
+- The dialog is open, its role is `alertdialog`, and the focus is on Cancel
+- Escape closes the dialog, nothing runs, and the focus is back on Reject
+- Tab moves from Cancel to Reject in the dialog, and Enter rejects: the status
+  region says "Submission rejected"
+- One submission of the form is `rejected`
+
 ---
 
 ## Coverage map
@@ -823,3 +879,6 @@ hold no such role.
 | Q32 | each operation of the API names the real user in the audit |
 | Q33 | no request reads more than one page of 100 submissions |
 | Q34 | a page of another site cannot make a manager's browser run an operation |
+| Q35 | a manager runs an operation from the screen, and the audit names the manager |
+| Q36 | a user who does not manage the site sees no submission on the screen |
+| Q37 | a release or a reject never runs by accident from the keyboard |
