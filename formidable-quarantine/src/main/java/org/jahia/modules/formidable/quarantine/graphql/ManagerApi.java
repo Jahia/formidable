@@ -76,7 +76,9 @@ public class ManagerApi {
             manager = HeldIds.isSiteKey(siteKey) && managers.mayManage(siteKey);
         } catch (RuntimeException e) {
             // the class alone, as every failure of the API
-            log.warn("Could not check the manager of site {}: {}", siteKey, e.getClass().getName());
+            if (log.isWarnEnabled()) {
+                log.warn("Could not check the manager of site {}: {}", siteKey, e.getClass().getName());
+            }
             throw new DataFetchingException(SiteQuarantine.READ_FAILED);
         }
         if (!manager) {

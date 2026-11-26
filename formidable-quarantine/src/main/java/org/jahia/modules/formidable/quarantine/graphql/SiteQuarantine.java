@@ -167,11 +167,15 @@ final class SiteQuarantine {
             throw new DataFetchingException(e.reason() == OperationRefusedException.Reason.CONFLICT
                     ? e.getMessage() : String.format(NOT_FOUND, id));
         } catch (QuarantineStoreException e) {
-            log.warn("The operation {} on {} failed: {}", operation, path, e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("The operation {} on {} failed: {}", operation, path, e.getMessage());
+            }
             throw new DataFetchingException(OPERATION_FAILED);
         } catch (RuntimeException e) {
             // the class alone: the message of an action that a release or a resume ran may quote a held value
-            log.warn("The operation {} on {} failed with {}", operation, path, e.getClass().getName());
+            if (log.isWarnEnabled()) {
+                log.warn("The operation {} on {} failed with {}", operation, path, e.getClass().getName());
+            }
             throw new DataFetchingException(OPERATION_FAILED);
         }
         details.remove(path);
@@ -220,7 +224,9 @@ final class SiteQuarantine {
         try {
             return HeldIds.isFormId(formId) ? services.forms().read(siteKey, formId) : FormFacts.NONE;
         } catch (RepositoryException e) {
-            log.warn("Could not read form {} of site {}: {}", formId, siteKey, e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("Could not read form {} of site {}: {}", formId, siteKey, e.getMessage());
+            }
             throw new DataFetchingException(READ_FAILED);
         }
     }
@@ -262,7 +268,9 @@ final class SiteQuarantine {
             throw e;
         } catch (RuntimeException e) {
             // the class alone: a message may name a property or quote a value
-            log.warn("Could not {} in the quarantine of site {}: {}", what, siteKey, e.getClass().getName());
+            if (log.isWarnEnabled()) {
+                log.warn("Could not {} in the quarantine of site {}: {}", what, siteKey, e.getClass().getName());
+            }
             throw new DataFetchingException(READ_FAILED);
         }
     }
@@ -284,7 +292,9 @@ final class SiteQuarantine {
         try {
             return call.call();
         } catch (QuarantineStoreException e) {
-            log.warn("Could not read the quarantine tree of site {}: {}", siteKey, e.getMessage());
+            if (log.isWarnEnabled()) {
+                log.warn("Could not read the quarantine tree of site {}: {}", siteKey, e.getMessage());
+            }
             throw new DataFetchingException(READ_FAILED);
         }
     }

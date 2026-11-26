@@ -40,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockingDetails;
+import static org.mockito.Mockito.when;
 
 /**
  * The GraphQL API of the quarantine over the stores in memory: the permission on the site before any read, the scope
@@ -91,6 +92,8 @@ class SiteQuarantineTest {
         managers = new FakeManagers();
         facts = new FormFacts("Claims", false, Map.of("remoteCheck", "fmdbquar:remoteStubCheck"));
         log = mock(Logger.class);
+        // the warnings are guarded: a log that writes them, as the default configuration does
+        when(log.isWarnEnabled()).thenReturn(true);
     }
 
     /** A double that records each call, then hands it to the stores in memory. */

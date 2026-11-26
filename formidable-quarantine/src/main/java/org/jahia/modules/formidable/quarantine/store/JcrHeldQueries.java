@@ -125,7 +125,7 @@ public class JcrHeldQueries implements HeldQueries {
         for (HeldRecord held : records) {
             if (siteKey.equals(held.siteKey())) {
                 kept.add(held);
-            } else {
+            } else if (log.isWarnEnabled()) {
                 log.warn("The held submission at {} does not name site {}: left out of the page", held.path(), siteKey);
             }
         }
