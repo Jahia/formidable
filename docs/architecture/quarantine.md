@@ -200,8 +200,9 @@ compare-and-set of every state move:
     owner does not get the lock.
   - The lease lasts `lockLeaseSeconds`, 10 minutes by default. Before each submission, and before each call of a
     check and of the actions after release, a pass checks that its lease is still valid, and extends it once half
-    of the lease has gone by. A pass that lost its lease, or cannot extend it, stops before the call, and keeps the
-    report of what it already did.
+    of the lease has gone by. A pass that lost its lease, or cannot extend it, stops before the call. Its report of
+    what it already did comes with the stop: "run now" answers a conflict that names the stop and carries that
+    report, and the scheduled run logs it.
   - The pass releases the lock when it ends, even after a failure. When the module stops, the lock service
     releases each lease it granted, and grants no lease any more: a pass of the old start that is still under way
     stops before its next submission or call. A server that stops with no release keeps the lock until the lease
@@ -210,10 +211,12 @@ compare-and-set of every state move:
     no write. A scheduled run that does not get the lock skips the site until its next call. "Run now" answers
     "a run is in progress" instead.
 - **The operations in a cluster.** An operation on another server does not take the lock of the site of this
-  server. A release and a resume, which run the actions after release, take the lock of the run of the site in the
-  repository for their duration, and a reject of a submission in `releasing` needs that no pass holds it. So a
-  resume of a release that stopped never runs beside a release under way, on any server. Any other operation
-  relies on the compare-and-set.
+  server. A release and a resume, which run the actions after release, and a reject of a submission in
+  `releasing`, take the lock of the run of the site in the repository for their duration, with the lease of
+  `lockLeaseSeconds`, which a release checks before its actions and extends as a pass does. So a resume of a
+  release that stopped never runs beside a release under way, on any server. A retry resets the attempts, drops
+  the outcomes that are not a `PASS` and moves to `checking` in one compare-and-set save, so a stale retry changes
+  nothing. Any other operation relies on the compare-and-set.
 
 ### The scheduled purge
 
@@ -228,7 +231,8 @@ tree does not grow without bound.
 - Each call purges each site that has a quarantine tree, with the limit of the site.
 - The limit of the platform is `retentionDays`, 30 days by default. A site can lower it with `retentionDays` of its
   site settings, the mixin `fmdbqmix:quarantineSite`. A value of a site above the limit of the platform is
-  ignored, and so is a negative value. A site whose settings cannot be read keeps the limit of the platform.
+  ignored, and so is a negative value. A site whose settings cannot be read keeps the limit of the platform, and
+  the report of the purge says that the settings were not read.
 
 ### The states of a held submission
 

@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.quarantine.run.FakeRunLock;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
+import org.jahia.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.modules.formidable.quarantine.run.Release;
 import org.jahia.modules.formidable.quarantine.run.SiteLocks;
 import org.jahia.modules.formidable.quarantine.run.Transitions;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -34,6 +36,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * The operations of a manager, with the two stores in memory and the release of the module over a recording double of
@@ -595,5 +599,70 @@ class QuarantineOperationsTest {
         assertFalse(text.contains("Ada"), "a public value in the audit record");
         assertFalse(text.contains(InMemoryQuarantine.SECRET), "a sensitive value in the audit record");
         assertFalse(text.contains("INCONCLUSIVE"), "the content of the file in the audit record");
+    }
+
+    @Test
+    void aStaleRetryLeavesTheAttemptsAndTheOutcomesAndAnswersAConflict() {
+        Held held = inReview("ATTEMPTS_EXHAUSTED");
+        held.attempts = 2;
+        held.outcomes.put("item0/remoteCheck", new OutcomeRecord("item0", "remoteCheck", SHA, OutcomeRecord.FAILED,
+                "stub.down", true, null, 2, NOW));
+        // another operation, on another server, rejected it between the read of the retry and its save
+        stores.beforeStateWrite = () -> held.state = HeldState.REJECTED.value();
+
+        assertEquals(OperationRefusedException.Reason.CONFLICT, refusal(() -> operations.apply(held.path,
+                Operation.RETRY)));
+
+        assertEquals(2, held.attempts, "attempts untouched");
+        assertEquals(List.of("item0/remoteCheck"), List.copyOf(held.outcomes.keySet()), "outcomes untouched");
+        assertEquals("rejected", held.state);
+        assertEquals(List.of(), held.audit);
+    }
+
+    @Test
+    void aRejectOfAReleaseHoldsTheLockOfTheRunOfTheSiteAndReleasesIt() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+
+        OperationResult result = assertDoesNotThrow(() -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals(HeldState.REJECTED, result.to());
+        assertEquals(List.of("take " + InMemoryQuarantine.SITE, "release " + InMemoryQuarantine.SITE), runLock.calls);
+    }
+
+    @Test
+    void aRejectFromReviewTakesNoLockOfTheRun() {
+        Held held = inReview("INCONCLUSIVE");
+
+        assertDoesNotThrow(() -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals(List.of(), runLock.calls);
+    }
+
+    @Test
+    void theLeaseOfAReleaseIsTheLeaseOfTheConfigurationOfTheRun() {
+        QuarantineRun run = mock(QuarantineRun.class);
+        when(run.leaseLength()).thenReturn(Duration.ofMinutes(2));
+        operations.setRun(run);
+        operations.setRelease(() -> new Release(stores, stores, twoActions(), new Transitions(stores), clock));
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+
+        assertDoesNotThrow(() -> operations.apply(held.path, Operation.RESUME));
+
+        assertEquals(List.of(Duration.ofMinutes(2)), runLock.leases);
+    }
+
+    @Test
+    void aReleaseWhoseLeaseIsLostBeforeItsActionsRunsNone() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        // the lease is no longer valid where it was granted, as when the module stops
+        runLock.valid = false;
+
+        assertThrows(QuarantineStoreException.class, () -> operations.apply(held.path, Operation.RESUME));
+
+        assertTrue(releasedFrom.isEmpty(), "no action after release ran on a lost lease");
+        assertEquals("releasing", held.state);
     }
 }

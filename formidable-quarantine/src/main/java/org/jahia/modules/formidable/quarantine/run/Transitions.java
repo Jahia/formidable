@@ -41,6 +41,21 @@ public final class Transitions {
     }
 
     /**
+     * Starts the checks again on a retry of a manager: the attempts, the outcomes that are not a {@code PASS} and the
+     * state change in one compare-and-set save.
+     *
+     * @return the state the retry leads to
+     * @throws IllegalTransitionException when the state does not allow a retry: nothing is written
+     * @throws StaleStateException        when the stored state is no longer {@code from}: nothing is written
+     */
+    public HeldState retry(String path, HeldState from) throws QuarantineStoreException {
+        HeldState to = StateMachine.next(from, HeldEvent.MANAGER_RETRY);
+        store.restartChecks(path, from.value(), to.value());
+        log.info("Held submission {}: {} to {} on {}", path, from.value(), to.value(), HeldEvent.MANAGER_RETRY);
+        return to;
+    }
+
+    /**
      * Moves to a final state, {@code completed} or {@code rejected}, and deletes the values and the bytes in the same
      * save. A failure leaves the state it had, with its data.
      *

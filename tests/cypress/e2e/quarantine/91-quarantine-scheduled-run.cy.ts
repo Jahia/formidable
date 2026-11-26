@@ -13,6 +13,7 @@ import {
 	STUB_FILE,
 	fields,
 	readHeldSubmissions,
+	readQuarantineRunPeriod,
 	setQuarantineRunPeriod,
 	setUploadsRequireQuarantine,
 	submissionWithText
@@ -45,6 +46,8 @@ describe('Quarantine - 91 The scheduled run moves a held submission with no "run
 	});
 
 	after(() => {
+		// the afterEach of useFormidableSite logged out, and "run now" answers server administrators alone
+		cy.login();
 		// waits until the scheduler holds no run, so that no scheduled call touches the submissions of the next spec
 		setQuarantineRunPeriod(0);
 	});
@@ -70,9 +73,11 @@ describe('Quarantine - 91 The scheduled run moves a held submission with no "run
 				expect(released.checks.map(check => [check.check, check.outcome]), 'outcomes').to.deep.equal([['remoteCheck', 'PASS']]);
 				expect(released.completedActions, 'actions after release that ran').to.eq(1);
 				// the run moved the state, with no user: no operation of a manager
-				expect(released.audit.map(record => [record.operation, record.user, record.to]), 'audit')
+				expect(released.audit.map(entry => [entry.operation, entry.user, entry.to]), 'audit')
 					.to.deep.equal([['run', null, 'completed']]);
 			});
+			// "run now" reads the job of the module from the scheduler: the period the spec set, not a default
+			readQuarantineRunPeriod().should('eq', SHORT_PERIOD_SECONDS);
 		});
 	});
 });

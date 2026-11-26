@@ -31,6 +31,7 @@ The store writes the tree in live, with a system session:
 
 ```text
 /sites/<site>/formidable-quarantine              fmdbq:quarantineRoot   ACL inheritance cut, no ACE
+  ├─ runLock                                     fmdbq:runLock          owner, until: the lock of the run of the site
   └─ <formId>                                    fmdbq:formQuarantine
        └─ YYYY/MM/DD                             fmdbq:dateFolder (UTC date of intake)
             └─ held-<uuid>                       fmdbq:heldSubmission
@@ -49,6 +50,7 @@ The store writes the tree in live, with a system session:
                       └─ record1, record2, ...   fmdbq:auditRecord      operation, userName, fromState, toState, at
 ```
 
+- `JcrRunLock` writes `runLock` under the root the first time a run or a release of a manager takes the lock of the run of the site: `owner` names the server, the start of the module and the holder, `until` the end of its lease. The store and the inspection read only the form folders of the root.
 - The store creates the root on first use and cuts its ACL inheritance. It uses a node that already exists at `/sites/<site>/formidable-quarantine` only when the node is a `fmdbq:quarantineRoot`, its `j:acl` has `j:inherit=false`, and its `j:acl` holds no access control entry. It uses a form folder or a date folder that already exists only when the folder is of the type of the store and has no `j:acl` of its own. Any other node refuses the hold: the message of the refusal names its path, the engine logs it, and the visitor gets FMDB-018. A node that someone else created there could give its readers the held values and bytes.
 - `changedAt` records the last change of the state; the retention reads it.
 - No node of the tree is a file. An item holds its bytes in its own binary property, never in `jcr:data` on a `jnt:resource`. No core listener, no `/files` servlet and no text extraction reads it.
@@ -172,12 +174,12 @@ Each endpoint answers server administrators alone, as the inspection does: any o
 
 | Endpoint | Answer |
 |---|---|
-| `POST /modules/formidable-quarantine/run?site=<siteKey>[&form=<formId>][&ignoreSchedule=true]` | One pass of the run over the due submissions of the site, or of the form. `ignoreSchedule=true` also takes a `checking` submission whose next attempt is ahead. `{"site", "form", "settings", "processed": [{"path", "form", "from", "state", "error"}]}`: the state of each submission after the run, and why the run of a submission failed, or `null`. 409 when another run holds the lock of the site: nothing ran |
-| `GET /modules/formidable-quarantine/run` | `{"settings": {"allowInProcessFirst", "maxAttempts", "backoffInitialSeconds", "backoffCapSeconds"}, "schedule": {"periodSeconds"}}`: the settings the next run applies, and the period of the scheduled run as the scheduler of this server holds it, 0 when it is off |
+| `POST /modules/formidable-quarantine/run?site=<siteKey>[&form=<formId>][&ignoreSchedule=true]` | One pass of the run over the due submissions of the site, or of the form. `ignoreSchedule=true` also takes a `checking` submission whose next attempt is ahead. `{"site", "form", "settings", "processed": [{"path", "form", "from", "state", "error"}]}`: the state of each submission after the run, and why the run of a submission failed, or `null`. 409 when another run holds the lock of the site: nothing ran. 409 too, with `"stopped": true` and the same report of the submissions processed so far, when the pass lost the lock and stopped before its end |
+| `GET /modules/formidable-quarantine/run` | `{"settings": {"allowInProcessFirst", "maxAttempts", "backoffInitialSeconds", "backoffCapSeconds"}, "schedule": {"periodSeconds"}}`: the settings the next run applies, and the period of the scheduled run as the scheduler of this server holds it, 0 when it is off, -1 when the scheduler cannot be read |
 | `GET /modules/formidable-quarantine/stub/calls[?check=<name>]` | `{"outage", "calls": [{"nodeType", "checkName", "sha256", "kind"}]}`: the calls of the stubs, oldest first, all or those of one check node; `kind` is `SUBMIT` or `POLL` |
 | `POST /modules/formidable-quarantine/stub/calls/clear` | Forgets the calls |
 | `POST /modules/formidable-quarantine/stub/outage/lift`, `.../outage/set` | Lifts or sets the outage of the stubs. It is on when the module starts |
-| `POST /modules/formidable-quarantine/retention?site=<siteKey>[&olderThanDays=<n>]` | Purges the completed and rejected held submissions of the site older than the limit. `olderThanDays` replaces the limit of the site for this call. `{"site", "retentionDays", "limit", "purged": [<path>], "failed": [<path>]}`, where `limit` is `platform`, `site` or `call` |
+| `POST /modules/formidable-quarantine/retention?site=<siteKey>[&olderThanDays=<n>]` | Purges the completed and rejected held submissions of the site older than the limit. `olderThanDays` replaces the limit of the site for this call. `{"site", "retentionDays", "limit", "purged": [<path>], "failed": [<path>]}`, where `limit` is `platform`, `platform_unread` (the settings of the site could not be read), `site` or `call` |
 
 The operations answer managers too, not server administrators alone:
 

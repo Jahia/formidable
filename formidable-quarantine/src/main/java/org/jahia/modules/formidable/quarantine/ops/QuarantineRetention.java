@@ -45,8 +45,10 @@ public class QuarantineRetention {
 
     /** Whose limit a pass applied. */
     public enum Limit {
-        /** The setting of the platform: the site sets none, a higher one, a negative one, or cannot be read. */
+        /** The setting of the platform: the site sets none, a higher one, or a negative one. */
         PLATFORM,
+        /** The setting of the platform, because the settings of the site could not be read: the failure is logged. */
+        PLATFORM_UNREAD,
         /** The lower setting of the site. */
         SITE,
         /** The limit given for the pass alone ({@code olderThanDays}). */
@@ -119,7 +121,7 @@ public class QuarantineRetention {
     /**
      * The limit of the site: the setting of the site when it is lower than the setting of the platform, else the
      * setting of the platform. A negative setting of the site is ignored, and so is a site that cannot be read, which
-     * is logged: the retention then keeps the longer limit of the platform, and reports it as the platform's.
+     * is logged: the retention then keeps the longer limit of the platform, and reports {@link Limit#PLATFORM_UNREAD}.
      */
     public LimitOfSite limitOf(String siteKey) {
         int platform = retentionDays;
@@ -129,7 +131,7 @@ public class QuarantineRetention {
         } catch (QuarantineStoreException e) {
             log.warn("The retention of site {} cannot be read, the platform setting of {} days applies: {}", siteKey,
                     platform, e.getMessage());
-            return new LimitOfSite(platform, Limit.PLATFORM);
+            return new LimitOfSite(platform, Limit.PLATFORM_UNREAD);
         }
         if (site.isPresent() && site.getAsLong() >= 0 && site.getAsLong() < platform) {
             return new LimitOfSite((int) site.getAsLong(), Limit.SITE);

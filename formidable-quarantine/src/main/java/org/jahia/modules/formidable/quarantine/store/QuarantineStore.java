@@ -58,6 +58,17 @@ public interface QuarantineStore {
     void setState(String path, String expected, String state) throws QuarantineStoreException;
 
     /**
+     * Starts the checks of a held submission again, for a retry of a manager, in one save: the attempts start over at
+     * 0 with no next attempt, every outcome that is not a {@code PASS} is dropped, and the state is written. It is a
+     * compare-and-set, as {@link #setState} is: when the stored state is not {@code expected}, nothing changes, the
+     * attempts and the outcomes included.
+     *
+     * @throws StaleStateException when the stored state is not {@code expected}, or another session saved the held
+     *                             submission at the same moment: nothing changed
+     */
+    void restartChecks(String path, String expected, String state) throws QuarantineStoreException;
+
+    /**
      * Writes the number of attempts of the checks and when the next one is due.
      *
      * @param nextAttempt {@code null} removes the date: no attempt is due

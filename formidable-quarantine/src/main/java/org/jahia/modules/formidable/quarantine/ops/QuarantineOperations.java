@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.quarantine.ops;
 
+import org.jahia.modules.formidable.quarantine.run.LeaseKeeper;
 import org.jahia.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.modules.formidable.quarantine.run.Release;
 import org.jahia.modules.formidable.quarantine.run.SiteLocks;
@@ -52,15 +53,17 @@ import java.util.function.Supplier;
  * conflict, "a run is in progress, retry". On another server of the cluster, the scheduled run may work on the same
  * site: every state move is a compare-and-set ({@link Transitions}), so an operation on a submission that the run
  * moved first answers a conflict, and a submission enters {@code releasing} once. A release and a resume, which run
- * the actions after release, also take the lock of the run of the site in the repository ({@link RunLock}) for their
- * duration, and a reject of a submission in {@code releasing} needs that no run holds it: so a resume of a release
- * that stopped never runs beside a release under way on another server. A submission in {@code releasing} is then a
+ * the actions after release, and a reject of a submission in {@code releasing}, also take the lock of the run of the
+ * site in the repository ({@link RunLock}) for their duration: so a resume of a release that stopped never runs beside
+ * a release under way on another server. A submission in {@code releasing} is then a
  * release that stopped, not one under way.</p>
  */
 @Component(service = QuarantineOperations.class, immediate = true)
 public class QuarantineOperations {
 
     private static final Logger log = LoggerFactory.getLogger(QuarantineOperations.class);
+    /** The lease of a release when no run is bound, as in a test: the default of {@code lockLeaseSeconds}. */
+    private static final Duration DEFAULT_LEASE = Duration.ofMinutes(10);
 
     private final Managers managers;
     private final Clock clock;
@@ -70,7 +73,8 @@ public class QuarantineOperations {
     private RunLock runLock;
     /** The locks per site, shared with the run; a test that sets none gets locks of its own. */
     private SiteLocks siteLocks = new SiteLocks();
-    private Duration lease = Duration.ofMinutes(10);
+    /** How long a release or a resume leases the lock of the run of the site: {@code lockLeaseSeconds} of the run. */
+    private Supplier<Duration> leaseLength = () -> DEFAULT_LEASE;
 
     public QuarantineOperations() {
         this(Managers.ofThePlatform(), Clock.systemUTC());
@@ -94,6 +98,7 @@ public class QuarantineOperations {
     @Reference
     public void setRun(QuarantineRun run) {
         this.release = run::release;
+        this.leaseLength = run::leaseLength;
     }
 
     @Reference
@@ -106,10 +111,6 @@ public class QuarantineOperations {
         this.siteLocks = siteLocks;
     }
 
-    /** How long the lock of the run of the site is leased to a release or a resume of a manager. */
-    void setLease(Duration lease) {
-        this.lease = lease;
-    }
 
     /** The release the operations call, for a test that builds it from the stores in memory. */
     void setRelease(Supplier<Release> release) {
@@ -253,30 +254,40 @@ public class QuarantineOperations {
         Transitions transitions = new Transitions(store);
         switch (operation) {
             case RETRY:
-                store.setAttempts(path, 0, null);
-                checkStore.keepPassedOutcomesOnly(path);
-                return transitions.move(path, from, operation.event());
+                // the attempts, the outcomes and the state in one compare-and-set save: a stale retry changes nothing
+                return transitions.retry(path, from);
             case REJECT:
-                if (from == HeldState.RELEASING && runLock.isHeld(siteOf(held))) {
-                    throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT, RUN_IN_PROGRESS);
+                if (from == HeldState.RELEASING) {
+                    return underTheLock(held, lease -> transitions.finish(path, from, operation.event()));
                 }
                 // one save: a failure keeps the state and the data, and the manager rejects again
                 return transitions.finish(path, from, operation.event());
             default:
-                return releaseUnderTheLock(held, operation, from, transitions);
+                return underTheLock(held, lease -> release.get().release(path,
+                        transitions.move(path, from, operation.event()), lease::kept));
         }
     }
 
-    /** A release or a resume, which runs the actions after release, holds the lock of the run of the site. */
-    private HeldState releaseUnderTheLock(HeldRecord held, Operation operation, HeldState from, Transitions transitions)
+    /** What an operation does while it holds the lock of the run of the site. */
+    @FunctionalInterface
+    private interface UnderTheLock {
+        HeldState apply(LeaseKeeper lease) throws QuarantineStoreException;
+    }
+
+    /**
+     * Runs a release, a resume, or a reject of a submission in {@code releasing}, under a lease of the lock of the run
+     * of the site, of the length of the run's {@code lockLeaseSeconds}: so none of them runs beside a release under way
+     * on another server. The release checks the lease before its actions, and extends it as a pass does.
+     */
+    private HeldState underTheLock(HeldRecord held, UnderTheLock operation)
             throws QuarantineStoreException, OperationRefusedException {
-        Optional<RunLock.Lease> taken = runLock.take(siteOf(held), lease);
+        Duration length = leaseLength.get();
+        Optional<RunLock.Lease> taken = runLock.take(siteOf(held), length);
         if (taken.isEmpty()) {
             throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT, RUN_IN_PROGRESS);
         }
         try {
-            HeldState releasing = transitions.move(held.path(), from, operation.event());
-            return release.get().release(held.path(), releasing);
+            return operation.apply(new LeaseKeeper(taken.get(), length, clock));
         } finally {
             taken.get().release();
         }

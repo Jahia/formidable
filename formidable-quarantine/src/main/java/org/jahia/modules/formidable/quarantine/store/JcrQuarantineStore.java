@@ -304,6 +304,22 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     @Override
+    public void restartChecks(String path, String expected, String state) throws QuarantineStoreException {
+        if (!HeldStates.isState(state)) {
+            throw new QuarantineStoreException("Not a state of a held submission: " + state);
+        }
+        Instant at = clock.instant();
+        change(path, "start the checks again", held -> {
+            refuseUnlessStored(held, expected);
+            held.setProperty(QuarantineTree.ATTEMPTS, 0);
+            removeIfPresent(held, QuarantineTree.NEXT_ATTEMPT);
+            JcrCheckStore.dropUnpassedOutcomes(held);
+            held.setProperty(QuarantineTree.STATE, state);
+            held.setProperty(QuarantineTree.CHANGED_AT, calendar(at));
+        });
+    }
+
+    @Override
     public void setAttempts(String path, int attempts, Instant nextAttempt) throws QuarantineStoreException {
         change(path, "set the attempts", held -> {
             held.setProperty(QuarantineTree.ATTEMPTS, attempts);

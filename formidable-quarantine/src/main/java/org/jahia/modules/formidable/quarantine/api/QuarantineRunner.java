@@ -21,6 +21,8 @@ public interface QuarantineRunner {
      * @return the submissions processed, with the state of each after the run
      * @throws QuarantineRunInProgressException when another pass holds the lock of the run of the site, on this
      *                                          server or on another one: nothing was read, and the caller retries
+     * @throws QuarantineRunStoppedException    when the pass lost the lock of the run of the site and stopped: its
+     *                                          report names the submissions it processed before the stop
      * @throws QuarantineRunException           when the quarantine tree of the site cannot be read, possibly after
      *                                          the pass processed the submissions of earlier forms
      */

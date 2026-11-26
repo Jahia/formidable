@@ -2,6 +2,7 @@ package org.jahia.test.modules.formidable.quarantine.web;
 
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunException;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunInProgressException;
+import org.jahia.modules.formidable.quarantine.api.QuarantineRunStoppedException;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunner;
 import org.jahia.modules.formidable.quarantine.api.RunReport;
 import org.jahia.modules.formidable.quarantine.api.RunnerSettings;
@@ -27,11 +28,12 @@ import java.util.regex.Pattern;
  * <li>{@code POST ?site=<siteKey>[&form=<formId>][&ignoreSchedule=true]} makes one pass of the run over the due held
  * submissions of the site, or of one form, and answers each submission it processed with its state after the run;</li>
  * <li>{@code GET} answers the settings the next run applies, and the period of the scheduled run on this server
- * ({@code "schedule": {"periodSeconds"}}, 0 when it is off), so that a spec that edits the configuration can wait
- * until the module applies it.</li>
+ * ({@code "schedule": {"periodSeconds"}}, 0 when it is off, -1 when the scheduler cannot be read), so that a spec
+ * that edits the configuration can wait until the module applies it.</li>
  * </ul>
  * A run that another run holds back (the lock of the run of the site, on this server or another one) answers 409, "a
- * run is in progress": nothing ran.
+ * run is in progress": nothing ran. A pass that lost the lock and stopped before its end answers 409 too, with
+ * {@code "stopped": true} and the submissions it processed before the stop, in the shape of a report.
  * The answer names paths, states and settings: never a value, never a byte.
  *
  * <p>Server administrators only: any other caller gets 403, and nothing runs. A POST also needs the header
@@ -112,6 +114,11 @@ public class RunServlet extends HttpServlet {
         } catch (QuarantineRunInProgressException e) {
             log.info("The run of the quarantine of site {} is held back: {}", site, e.getMessage());
             JsonAnswers.answer(resp, HttpServletResponse.SC_CONFLICT, JsonAnswers.error("a run is in progress"));
+        } catch (QuarantineRunStoppedException e) {
+            log.warn("The run of the quarantine of site {} stopped before its end: {}", site, e.getMessage());
+            JsonAnswers.answer(resp, HttpServletResponse.SC_CONFLICT, report(e.report(), run.get().runnerSettings())
+                    .put("stopped", true)
+                    .put("error", "the run stopped: it lost the lock of the site"));
         } catch (QuarantineRunException e) {
             log.warn("The run of the quarantine of site {} failed: {}", site, e.getMessage());
             JsonAnswers.answer(resp, HttpServletResponse.SC_INTERNAL_SERVER_ERROR,

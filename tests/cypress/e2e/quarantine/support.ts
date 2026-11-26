@@ -270,15 +270,18 @@ export const setQuarantineRunSettings = (settings: Partial<QuarantineRunSettings
  * (tests/provisioning-manifest-*.yml), so that "run now" alone moves a held submission in a spec. A spec that turns it
  * on turns it off again in its after(). The configuration admin applies the edit after the call returns: the helper
  * waits until "run now" answers the period that the scheduler of the server holds, unless waitForTheScheduler is
- * false.
+ * false. "run now" answers -1 when it cannot read the scheduler: the wait matches the period read, never that.
  */
+/** The period of the scheduled run as the scheduler of the server holds it: 0 when it is off, -1 when unread. */
+export const readQuarantineRunPeriod = (): Cypress.Chainable<number> =>
+	cy.request<{schedule: {periodSeconds: number}}>(QUARANTINE_RUN_PATH).its('body.schedule.periodSeconds');
+
 export const setQuarantineRunPeriod = (periodSeconds: number, waitForTheScheduler = true): Cypress.Chainable => {
 	const edited = editConfiguration('org.jahia.modules.formidable.quarantine.run', {periodSeconds: String(periodSeconds)});
 	if (!waitForTheScheduler) {
 		return edited;
 	}
-	return cy.waitUntil(() => cy.request<{schedule: {periodSeconds: number}}>(QUARANTINE_RUN_PATH)
-		.then(response => response.body.schedule.periodSeconds === periodSeconds),
+	return cy.waitUntil(() => readQuarantineRunPeriod().then(read => read === periodSeconds),
 	{timeout: 30000, interval: 500, errorMsg: `The scheduled run of formidable-quarantine did not take the period ${periodSeconds}`});
 };
 

@@ -1,6 +1,7 @@
 package org.jahia.test.modules.formidable.quarantine.web;
 
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunInProgressException;
+import org.jahia.modules.formidable.quarantine.api.QuarantineRunStoppedException;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunner;
 import org.jahia.modules.formidable.quarantine.api.RunReport;
 import org.jahia.modules.formidable.quarantine.api.RunnerSettings;
@@ -163,6 +164,31 @@ class RunAndStubServletTest {
 
         assertEquals(HttpServletResponse.SC_CONFLICT, post.status());
         assertEquals("a run is in progress", new JSONObject(post.body()).getString("error"));
+    }
+
+    @Test
+    void aPassThatStoppedAnswersAConflictWithWhatItProcessed() throws Exception {
+        RunReport partial = new RunReport(SITE, null,
+                List.of(new RunReport.Processed(HELD_PATH, FORM_ID, "held", "completed", null)));
+        QuarantineRunStoppedException stopped = new QuarantineRunStoppedException("the lock is lost", partial, null);
+        when(run.runNow(anyString(), any(), anyBoolean())).thenThrow(stopped);
+
+        Call post = call(runServlet(true), "POST", null, Map.of("site", SITE));
+
+        assertEquals(HttpServletResponse.SC_CONFLICT, post.status());
+        JSONObject body = new JSONObject(post.body());
+        assertTrue(body.getBoolean("stopped"));
+        assertEquals(HELD_PATH, body.getJSONArray("processed").getJSONObject(0).getString("path"));
+    }
+
+    @Test
+    void anUnreadSchedulerIsNoPeriod() throws Exception {
+        RunServlet servlet = new RunServlet(() -> true, () -> ScheduledRun.UNREAD);
+        servlet.setRun(run);
+
+        JSONObject body = new JSONObject(call(servlet, "GET", null, Map.of()).body());
+
+        assertEquals(-1, body.getJSONObject("schedule").getLong("periodSeconds"));
     }
 
     @Test

@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.quarantine.api.CheckSettings;
 import org.jahia.modules.formidable.quarantine.api.Outcome;
 import org.jahia.modules.formidable.quarantine.api.Qualifier;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunInProgressException;
+import org.jahia.modules.formidable.quarantine.api.QuarantineRunStoppedException;
 import org.jahia.modules.formidable.quarantine.api.QuarantinedFile;
 import org.jahia.modules.formidable.quarantine.api.RunReport;
 import org.jahia.modules.formidable.quarantine.api.Scope;
@@ -296,7 +297,7 @@ class QuarantineRunLockTest {
         lock.lostAfter = 1;
         QuarantineRun run = newRun(240, Duration.ofSeconds(70));
 
-        RunReport report = run.tryRun(SITE, null, false).orElseThrow();
+        RunReport report = assertThrows(PassStoppedException.class, () -> run.tryRun(SITE, null, false)).report();
 
         assertEquals(2, report.processed().size());
         long untouched = stores.held.values().stream().filter(one -> HeldStates.HELD.equals(one.state)).count();
@@ -315,7 +316,7 @@ class QuarantineRunLockTest {
             return List.of();
         });
 
-        RunReport report = run.tryRun(SITE, null, false).orElseThrow();
+        RunReport report = assertThrows(PassStoppedException.class, () -> run.tryRun(SITE, null, false)).report();
 
         assertEquals(1, report.processed().size());
         assertEquals(1, read.size());
@@ -344,7 +345,7 @@ class QuarantineRunLockTest {
                 "remoteCheck")));
         run.addQualifier(new SlowPass(Duration.ofSeconds(200)));
 
-        RunReport report = run.tryRun(SITE, null, false).orElseThrow();
+        RunReport report = assertThrows(PassStoppedException.class, () -> run.tryRun(SITE, null, false)).report();
 
         // the actions never ran, and the submission is still checking: the next holder of the lock releases it
         assertEquals(List.of(), report.processed());
@@ -381,5 +382,18 @@ class QuarantineRunLockTest {
         assertEquals(QuarantineRun.MOVED, report.processed().get(0).error());
         assertFalse(lock.calls.contains("actions"), "the actions after release ran twice");
         assertEquals(HeldStates.RELEASING, held.state);
+    }
+
+    @Test
+    void runNowNamesAStoppedPassAndCarriesItsReport() {
+        holdSubmissions(4);
+        lock.lostAfter = 1;
+        QuarantineRun run = newRun(240, Duration.ofSeconds(70));
+
+        QuarantineRunStoppedException stopped = assertThrows(QuarantineRunStoppedException.class,
+                () -> run.runNow(SITE, null, false));
+
+        assertEquals(2, stopped.report().processed().size());
+        assertEquals(SITE, stopped.report().siteKey());
     }
 }

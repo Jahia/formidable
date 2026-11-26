@@ -22,7 +22,13 @@ final class ScheduledRun {
     private ScheduledRun() {
     }
 
-    /** @return the period of the scheduled run, in seconds; 0 when it is not scheduled on this server */
+    /** The answer when the scheduler cannot be read: no period, so a spec never takes it for "off". */
+    static final long UNREAD = -1;
+
+    /**
+     * @return the period of the scheduled run, in seconds; 0 when the scheduler holds no trigger of the job on this
+     *         server; {@link #UNREAD} when the scheduler cannot be read
+     */
     static long periodSeconds() {
         try {
             Trigger[] triggers = ServicesRegistry.getInstance().getSchedulerService().getRAMScheduler()
@@ -32,8 +38,9 @@ final class ScheduledRun {
                     return simple.getRepeatInterval() / 1000;
                 }
             }
-        } catch (SchedulerException e) {
-            log.warn("The schedule of the run of the quarantine cannot be read: {}", e.getMessage());
+        } catch (SchedulerException | RuntimeException e) {
+            log.warn("The schedule of the run of the quarantine cannot be read: {}", e.toString());
+            return UNREAD;
         }
         return 0;
     }

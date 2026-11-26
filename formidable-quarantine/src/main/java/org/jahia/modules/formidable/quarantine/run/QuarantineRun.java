@@ -4,6 +4,7 @@ import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.quarantine.api.Qualifier;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunException;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunInProgressException;
+import org.jahia.modules.formidable.quarantine.api.QuarantineRunStoppedException;
 import org.jahia.modules.formidable.quarantine.api.QuarantineRunner;
 import org.jahia.modules.formidable.quarantine.api.RunReport;
 import org.jahia.modules.formidable.quarantine.api.RunnerSettings;
@@ -140,6 +141,11 @@ public class QuarantineRun implements QuarantineRunner {
                 configured.allowInProcessFirst(), configured.backoff().maxAttempts(), lease.get());
     }
 
+    /** @return how long the lock of the run of a site is leased, from {@code lockLeaseSeconds} */
+    public Duration leaseLength() {
+        return lease.get();
+    }
+
     /** @return the settings the next run applies */
     public RunSettings settings() {
         return settings.get();
@@ -158,6 +164,8 @@ public class QuarantineRun implements QuarantineRunner {
             return run(siteKey, formId, ignoreSchedule);
         } catch (RunLockedException e) {
             throw new QuarantineRunInProgressException(e.getMessage(), e);
+        } catch (PassStoppedException e) {
+            throw new QuarantineRunStoppedException(e.getMessage(), e.report(), e);
         } catch (QuarantineStoreException e) {
             throw new QuarantineRunException(e.getMessage(), e);
         }
@@ -198,6 +206,8 @@ public class QuarantineRun implements QuarantineRunner {
      * @return the submissions processed, with the state of each after the run; empty when another run holds the lock
      *         of the site, in this JVM for longer than {@link SiteLocks#OPERATION_WAIT} or in the repository, and
      *         nothing was read
+     * @throws PassStoppedException when the pass lost the lock of the run of its site and stopped: it carries the
+     *                              report of the submissions processed before the stop
      */
     public Optional<RunReport> tryRun(String siteKey, String formId, boolean ignoreSchedule)
             throws QuarantineStoreException {
@@ -214,7 +224,8 @@ public class QuarantineRun implements QuarantineRunner {
                 return Optional.empty();
             }
             try {
-                return Optional.of(pass(siteKey, formId, ignoreSchedule, new HeldLease(taken.get(), leaseLength)));
+                return Optional.of(pass(siteKey, formId, ignoreSchedule,
+                        new LeaseKeeper(taken.get(), leaseLength, clock)));
             } finally {
                 taken.get().release();
             }
@@ -223,7 +234,7 @@ public class QuarantineRun implements QuarantineRunner {
         }
     }
 
-    private RunReport pass(String siteKey, String formId, boolean ignoreSchedule, HeldLease runLease)
+    private RunReport pass(String siteKey, String formId, boolean ignoreSchedule, LeaseKeeper runLease)
             throws QuarantineStoreException {
         Instant now = clock.instant();
         RunSettings current = settings.get();
@@ -243,56 +254,10 @@ public class QuarantineRun implements QuarantineRunner {
         } catch (RunStoppedException e) {
             log.warn("Run of the quarantine of site {} stopped after {} held submissions: {}", siteKey,
                     processed.size(), e.getMessage());
-            return new RunReport(siteKey, formId, processed);
+            throw new PassStoppedException(e.getMessage(), new RunReport(siteKey, formId, processed));
         }
         log.info("Run of the quarantine of site {}: {} held submissions processed", siteKey, processed.size());
         return new RunReport(siteKey, formId, processed);
-    }
-
-    /** The lease of one pass on the lock of the run of its site, extended once half of it has gone by. */
-    private final class HeldLease {
-        private final RunLock.Lease lease;
-        private final Duration length;
-        private Instant extendAt;
-
-        HeldLease(RunLock.Lease lease, Duration length) {
-            this.lease = lease;
-            this.length = length;
-            this.extendAt = clock.instant().plus(length.dividedBy(2));
-        }
-
-        /**
-         * Checks the lease before a submission or a call: still valid where it was granted, and extended once half of
-         * it has gone by.
-         *
-         * @return false when the lease is lost: released, its service stopped, its end came, another owner took the
-         *         lock, or the repository failed to extend it
-         */
-        boolean kept() {
-            if (!lease.valid()) {
-                return false;
-            }
-            Instant now = clock.instant();
-            if (now.isBefore(extendAt)) {
-                return true;
-            }
-            try {
-                if (!lease.extend(length)) {
-                    return false;
-                }
-            } catch (QuarantineStoreException e) {
-                log.warn("The lease of the run of site {} could not be extended: {}", lease.siteKey(), e.getMessage());
-                return false;
-            }
-            extendAt = now.plus(length.dividedBy(2));
-            return true;
-        }
-
-        void keptOrStop() throws RunStoppedException {
-            if (!kept()) {
-                throw new RunStoppedException("the lock of the run of site " + lease.siteKey() + " is lost");
-            }
-        }
     }
 
     static boolean isDue(HeldRecord held, Instant now, boolean ignoreSchedule) {

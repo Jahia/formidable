@@ -202,14 +202,14 @@ class QuarantineRetentionTest {
     }
 
     @Test
-    void aSiteThatCannotBeReadKeepsThePlatformRetentionAndReportsItAsThePlatformOne() throws Exception {
+    void aSiteThatCannotBeReadKeepsThePlatformRetentionAndReportsTheFailedRead() throws Exception {
         unreadableSites.add(InMemoryQuarantine.SITE);
         Held fortyDaysOld = held(HeldState.REJECTED, 40);
 
         QuarantineRetention.Report report = retention.purge(InMemoryQuarantine.SITE, null);
 
         assertEquals(30, report.retentionDays());
-        assertEquals(QuarantineRetention.Limit.PLATFORM, report.limit());
+        assertEquals(QuarantineRetention.Limit.PLATFORM_UNREAD, report.limit());
         assertEquals(List.of(fortyDaysOld.path), report.purged());
     }
 

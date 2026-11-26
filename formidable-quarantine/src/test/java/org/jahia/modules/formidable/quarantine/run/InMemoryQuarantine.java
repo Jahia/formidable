@@ -206,6 +206,18 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     }
 
     @Override
+    public void restartChecks(String path, String expected, String state) throws QuarantineStoreException {
+        Held one = get(path);
+        refuseUnlessStored(one, expected);
+        one.attempts = 0;
+        one.nextAttempt = null;
+        one.outcomes.values().removeIf(outcome -> !OutcomeRecord.PASS.equals(outcome.outcome()));
+        one.state = state;
+        one.states.add(state);
+        one.changedAt = changedAt;
+    }
+
+    @Override
     public void setAttempts(String path, int attempts, Instant nextAttempt) throws QuarantineStoreException {
         Held one = get(path);
         one.attempts = attempts;
