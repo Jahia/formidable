@@ -3,7 +3,9 @@ import type {QuarantineOperation, QuarantineState} from './quarantine.utils';
 
 /** The list of the screen: the counts, the forms of the filter and one page, in one request. */
 export const GET_QUARANTINE_LIST = gql`
-    query GetFormidableQuarantineList($siteKey: String!, $formId: String, $states: [FmdbqState!], $offset: Int!) {
+    query GetFormidableQuarantineList(
+        $siteKey: String!, $formId: String, $states: [FmdbqState!], $offset: Int!, $newestFirst: Boolean
+    ) {
         formidableQuarantine(siteKey: $siteKey) {
             siteKey
             counts {
@@ -15,7 +17,7 @@ export const GET_QUARANTINE_LIST = gql`
                 formTitle
                 count
             }
-            submissions(formId: $formId, states: $states, offset: $offset, limit: 25) {
+            submissions(formId: $formId, states: $states, offset: $offset, limit: 25, newestFirst: $newestFirst) {
                 totalCount
                 offset
                 items {

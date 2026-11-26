@@ -4,8 +4,9 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import type {HeldDetail, ListData} from './graphql';
 import {ActionButtons, SubmissionDetail} from './components/SubmissionDetail';
-import {Paging} from './components/SubmissionsTable';
-import {pageRange, type QuarantineOperation} from './quarantine.utils';
+import {SubmissionsTable} from './components/SubmissionsTable';
+import type {SubmissionRow} from './graphql';
+import type {QuarantineOperation} from './quarantine.utils';
 import {QuarantineApp} from './QuarantineApp';
 
 // The answer of the list query that each test sets; the screen reads it through useQuery. react-i18next with no
@@ -24,7 +25,7 @@ const markupOf = (element: React.ReactElement) => renderToStaticMarkup(element);
 const actionsOf = (markup: string) => [...markup.matchAll(/data-sel-role="quarantine-action-([a-z]+)"/g)].map(match => match[1]);
 
 const actions = (allowed: string[], running: QuarantineOperation | null = null) => markupOf(
-    <ActionButtons allowedOperations={allowed} running={running} actionButtonsRef={{current: new Map()}} onOperation={vi.fn()}/>
+    <ActionButtons allowedOperations={allowed} running={running} onOperation={vi.fn()}/>
 );
 
 describe('ActionButtons', () => {
@@ -50,18 +51,40 @@ describe('ActionButtons', () => {
     });
 });
 
-describe('Paging', () => {
-    it('marks Previous aria-disabled on the first page, and keeps it a button', () => {
-        const markup = markupOf(<Paging range={pageRange(0, 25, 63)} onPage={vi.fn()}/>);
-        expect(markup).toMatch(/aria-disabled="true"[^>]*data-sel-role="quarantine-page-previous"/);
-        expect(markup).toMatch(/aria-disabled="false"[^>]*data-sel-role="quarantine-page-next"/);
-        expect(markup).toContain('role="group"');
+const rowsOf = (count: number, from: number): SubmissionRow[] => Array.from({length: count}, (_, index) => ({
+    id: `f/2026/11/26/held-${from + index}`, formId: 'f', formTitle: 'Contact', createdAt: '2026-11-26T10:00:00Z',
+    state: 'NEEDS_REVIEW', attempts: 1, reason: null, files: [{item: 'item0', name: 'cv.pdf'}]
+}));
+
+const table = (offset: number, count: number, total: number, openId: string | null = null) => markupOf(
+    <SubmissionsTable rows={rowsOf(count, offset)} totalCount={total} offset={offset} sortDirection="ascending"
+                      openId={openId} busy={false} language="en" onOpen={vi.fn()} onPage={vi.fn()} onSort={vi.fn()}/>
+);
+
+describe('SubmissionsTable', () => {
+    it('pages by 25 on the server: the pager reads the range of the page, of the total', () => {
+        expect(table(25, 25, 63)).toContain('26-50 quarantine.paging.of 63');
+        expect(table(50, 13, 63)).toContain('51-63 quarantine.paging.of 63');
     });
 
-    it('marks Next aria-disabled on the last page', () => {
-        const markup = markupOf(<Paging range={pageRange(50, 13, 63)} onPage={vi.fn()}/>);
-        expect(markup).toMatch(/aria-disabled="false"[^>]*data-sel-role="quarantine-page-previous"/);
-        expect(markup).toMatch(/aria-disabled="true"[^>]*data-sel-role="quarantine-page-next"/);
+    it('disables the first and previous buttons on the first page, and next and last on the last', () => {
+        expect(table(0, 25, 63)).toMatch(/disabled=""[^>]*data-testid="pagination-button-previous-page"/);
+        expect(table(50, 13, 63)).toMatch(/disabled=""[^>]*data-testid="pagination-button-next-page"/);
+    });
+
+    it('opens a row through one named button, and takes the tab stop away from the row', () => {
+        const markup = table(0, 2, 2, 'f/2026/11/26/held-0');
+        expect(markup.match(/data-sel-role="quarantine-open"/g)).toHaveLength(2);
+        expect(markup).toMatch(/aria-controls="fmdbq-detail" aria-expanded="true"/);
+        expect(markup).not.toMatch(/<tr[^>]*data-sel-role="quarantine-row"[^>]*tabindex="0"/);
+        expect(markup).not.toMatch(/<tr[^>]*tabindex="0"[^>]*data-sel-role="quarantine-row"/);
+    });
+
+    it('sorts by Received through a named button, and the header cell carries aria-sort', () => {
+        const markup = table(0, 2, 2);
+        expect(markup).toMatch(/aria-sort="ascending"/);
+        expect(markup).toMatch(/<button[^>]*aria-label="quarantine.table.sort.ascending"[^>]*data-sel-role="quarantine-sort"/);
+        expect(markup).toContain('aria-labelledby="fmdbq-list-heading"');
     });
 });
 
@@ -90,7 +113,6 @@ const detail = (changed: boolean) => markupOf(
         actions={null}
         changed={changed}
         reloading={false}
-        reloadRef={{current: null}}
         onReload={vi.fn()}
     />
 );
@@ -161,8 +183,14 @@ describe('QuarantineApp', () => {
         const markup = markupOf(<QuarantineApp/>);
         expect(markup).toMatch(/<h1[^>]*>quarantine\.title<\/h1>/);
         expect(markup.match(/<button[^>]*aria-pressed="false"/g)).toHaveLength(6);
-        expect(markup).toMatch(/<label for="[^"]+">quarantine\.filter\.form<\/label><select id=/);
-        expect(markup).toMatch(/<th scope="row"[^>]*><button[^>]*aria-controls="fmdbq-detail" aria-expanded="false"/);
-        expect(markup).toContain('aria-sort="ascending"');
+        // the form filter: a chip that opens a dialog, named by its visible text
+        expect(markup).toMatch(/<button[^>]*aria-haspopup="dialog" aria-expanded="false"[^>]*data-sel-role="quarantine-form-filter"/);
+        // the list is a named region, and the DataTable is named by the same heading
+        expect(markup).toMatch(/<section[^>]*aria-labelledby="fmdbq-list-heading"/);
+        expect(markup).toMatch(/<h2 id="fmdbq-list-heading" class="fmdbq-sr-only">quarantine\.table\.heading<\/h2>/);
+        expect(markup).toMatch(/<button[^>]*aria-controls="fmdbq-detail" aria-expanded="false"/);
+        // the live regions sit outside LayoutContent, which swaps its children for a Loader
+        expect(markup).toMatch(/<\/div><div role="status"/);
+        expect(markup).toContain('moonstone-header');
     });
 });

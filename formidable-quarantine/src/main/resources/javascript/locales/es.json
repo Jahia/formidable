@@ -11,9 +11,17 @@
 		"noAccess": "Usted no gestiona la cuarentena de este sitio.",
 		"empty": "No hay ningún envío retenido.",
 		"failed": "La operación no se pudo completar. Vuelva a cargar el envío para ver su estado.",
-		"changed": "Conflicto: el envío ha cambiado. Vuelva a cargarlo.",
+		"changed": "El envío ha cambiado. Vuelva a cargarlo.",
 		"reload": "Volver a cargar el envío",
 		"reloaded": "Envío recargado. Estado: {{state}}.",
+		"changedTitle": "Conflicto",
+		"failedTitle": "No completado",
+		"noAccessTitle": "Sin acceso",
+		"emptyTitle": "Nada retenido",
+		"loadFailedTitle": "No cargado",
+		"noSiteTitle": "Ningún sitio",
+		"goneTitle": "Ya no está",
+		"refresh": "Actualizar",
 		"state": {
 			"HELD": "Retenido",
 			"CHECKING": "En verificación",
@@ -50,11 +58,11 @@
 			"noMatch": "Ningún envío coincide con estos filtros.",
 			"clear": "Borrar los filtros",
 			"stateWord": "estado {{state}}",
-			"formWord": "formulario {{form}}"
+			"formWord": "formulario {{form}}",
+			"clearForm": "Borrar el filtro de formulario",
+			"close": "Cerrar"
 		},
 		"table": {
-			"caption": "Envíos retenidos, los más antiguos primero",
-			"captionFiltered": "Envíos retenidos, los más antiguos primero: {{filters}}",
 			"form": "Formulario",
 			"received": "Recibido",
 			"state": "Estado",
@@ -63,13 +71,25 @@
 			"files": "Archivos",
 			"open": "{{form}}, recibido el {{date}}",
 			"noFiles": "Ninguno",
-			"moreFiles": "+{{count}} más"
+			"moreFiles": "+{{count}} más",
+			"sort": {
+				"ascending": "{{column}}, los más antiguos primero. Ordenar los más recientes primero",
+				"descending": "{{column}}, los más recientes primero. Ordenar los más antiguos primero"
+			},
+			"order": {
+				"ascending": "los más antiguos primero",
+				"descending": "los más recientes primero"
+			},
+			"heading": "Envíos retenidos, {{order}}",
+			"headingFiltered": "Envíos retenidos, {{order}}: {{filters}}"
 		},
 		"paging": {
-			"label": "Páginas de envíos retenidos",
 			"previous": "Página anterior",
 			"next": "Página siguiente",
-			"range": "{{from}} a {{to}} de {{total}}"
+			"first": "Primera página",
+			"last": "Última página",
+			"itemsPerPage": "Envíos por página",
+			"of": "de"
 		},
 		"announce": {
 			"list": "Envíos {{from}} a {{to}} de {{total}}"
@@ -89,7 +109,6 @@
 			"fileSize": "Tamaño",
 			"bytesDeleted": "El contenido de este archivo se eliminó.",
 			"noChecks": "Ningún control ha respondido aún para este archivo.",
-			"checksCaption": "{{name}}: controles",
 			"check": "Control",
 			"verdict": "Veredicto",
 			"reason": "Motivo",
@@ -99,7 +118,6 @@
 			"noDecision": "Todavía no hay decisión.",
 			"audit": "Auditoría",
 			"auditRegion": "Registro de auditoría",
-			"auditCaption": "Registro de auditoría, los más antiguos primero",
 			"audit_operation": "Operación",
 			"audit_user": "Usuario",
 			"audit_from": "De",

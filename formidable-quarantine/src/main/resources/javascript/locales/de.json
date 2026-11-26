@@ -11,9 +11,17 @@
 		"noAccess": "Sie verwalten die Quarantäne dieser Website nicht.",
 		"empty": "Keine Einsendung wird zurückgehalten.",
 		"failed": "Der Vorgang konnte nicht abgeschlossen werden. Laden Sie die Einsendung neu, um ihren Status zu sehen.",
-		"changed": "Konflikt: Die Einsendung hat sich geändert. Laden Sie sie neu.",
+		"changed": "Die Einsendung hat sich geändert. Laden Sie sie neu.",
 		"reload": "Einsendung neu laden",
 		"reloaded": "Einsendung neu geladen. Status: {{state}}.",
+		"changedTitle": "Konflikt",
+		"failedTitle": "Nicht abgeschlossen",
+		"noAccessTitle": "Kein Zugriff",
+		"emptyTitle": "Nichts zurückgehalten",
+		"loadFailedTitle": "Nicht geladen",
+		"noSiteTitle": "Keine Website",
+		"goneTitle": "Nicht mehr vorhanden",
+		"refresh": "Aktualisieren",
 		"state": {
 			"HELD": "Zurückgehalten",
 			"CHECKING": "In Prüfung",
@@ -50,11 +58,11 @@
 			"noMatch": "Keine Einsendung entspricht diesen Filtern.",
 			"clear": "Filter zurücksetzen",
 			"stateWord": "Status {{state}}",
-			"formWord": "Formular {{form}}"
+			"formWord": "Formular {{form}}",
+			"clearForm": "Formularfilter zurücksetzen",
+			"close": "Schließen"
 		},
 		"table": {
-			"caption": "Zurückgehaltene Einsendungen, älteste zuerst",
-			"captionFiltered": "Zurückgehaltene Einsendungen, älteste zuerst: {{filters}}",
 			"form": "Formular",
 			"received": "Eingegangen",
 			"state": "Status",
@@ -63,13 +71,25 @@
 			"files": "Dateien",
 			"open": "{{form}}, eingegangen am {{date}}",
 			"noFiles": "Keine",
-			"moreFiles": "+{{count}} weitere"
+			"moreFiles": "+{{count}} weitere",
+			"sort": {
+				"ascending": "{{column}}, älteste zuerst. Neueste zuerst sortieren",
+				"descending": "{{column}}, neueste zuerst. Älteste zuerst sortieren"
+			},
+			"order": {
+				"ascending": "älteste zuerst",
+				"descending": "neueste zuerst"
+			},
+			"heading": "Zurückgehaltene Einsendungen, {{order}}",
+			"headingFiltered": "Zurückgehaltene Einsendungen, {{order}}: {{filters}}"
 		},
 		"paging": {
-			"label": "Seiten der zurückgehaltenen Einsendungen",
 			"previous": "Vorherige Seite",
 			"next": "Nächste Seite",
-			"range": "{{from}} bis {{to}} von {{total}}"
+			"first": "Erste Seite",
+			"last": "Letzte Seite",
+			"itemsPerPage": "Einsendungen pro Seite",
+			"of": "von"
 		},
 		"announce": {
 			"list": "Einsendungen {{from}} bis {{to}} von {{total}}"
@@ -89,7 +109,6 @@
 			"fileSize": "Größe",
 			"bytesDeleted": "Der Inhalt dieser Datei wurde gelöscht.",
 			"noChecks": "Für diese Datei hat noch keine Prüfung geantwortet.",
-			"checksCaption": "{{name}}: Prüfungen",
 			"check": "Prüfung",
 			"verdict": "Ergebnis",
 			"reason": "Grund",
@@ -99,7 +118,6 @@
 			"noDecision": "Noch keine Entscheidung.",
 			"audit": "Protokoll",
 			"auditRegion": "Prüfprotokoll",
-			"auditCaption": "Prüfprotokoll, älteste zuerst",
 			"audit_operation": "Vorgang",
 			"audit_user": "Benutzer",
 			"audit_from": "Von",

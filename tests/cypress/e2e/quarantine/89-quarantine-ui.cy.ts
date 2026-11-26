@@ -81,10 +81,16 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 	it('Q35: a manager sees the list of the site, opens a submission and releases it after the confirmation', () => {
 		asUser(MANAGER);
 		openQuarantinePage();
-		cy.get('h1').should('contain.text', 'Quarantine');
+		// the h1 of the Moonstone Header of the screen: jContent may render one of its own elsewhere
+		byRole('quarantine-app').find('h1').should('contain.text', 'Quarantine');
 		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').should('contain.text', '3');
 		byRole('quarantine-row').should('have.length', 3);
-		byRole('quarantine-form-filter').find('option').should('contain.text', FORM_TITLE);
+		// the form filter: a chip that opens a dialog of radios, and Escape closes it on the chip
+		byRole('quarantine-form-filter').click();
+		byRole('quarantine-form-editor').should('contain.text', FORM_TITLE).find('input[type="radio"]').should('have.length', 2);
+		cy.realPress('Escape');
+		byRole('quarantine-form-editor').should('not.exist');
+		cy.focused().should('have.attr', 'data-sel-role', 'quarantine-form-filter');
 
 		// the state filter keeps the submissions in review, and the status region says how many
 		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').click();
@@ -107,7 +113,7 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		});
 
 		byRole('quarantine-action-release').click();
-		byRole('quarantine-confirm-release').should('have.attr', 'open');
+		byRole('quarantine-confirm-release').should('be.visible');
 		byRole('quarantine-confirm-ok').click();
 		byRole('quarantine-confirm-release').should('not.exist');
 		// the released submission leaves the filter on review: the detail closes and the status region says so
@@ -141,7 +147,7 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 
 		byRole('quarantine-action-reject').focus();
 		cy.realPress('Enter');
-		byRole('quarantine-confirm-reject').should('have.attr', 'open');
+		byRole('quarantine-confirm-reject').should('be.visible');
 		byRole('quarantine-confirm-reject').should('have.attr', 'role', 'alertdialog');
 		cy.focused().should('have.attr', 'data-sel-role', 'quarantine-confirm-cancel');
 
@@ -152,7 +158,8 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 
 		// Tab from Cancel reaches the confirm button, and Enter there rejects
 		cy.realPress('Enter');
-		byRole('quarantine-confirm-reject').should('have.attr', 'open');
+		byRole('quarantine-confirm-reject').should('be.visible');
+		cy.focused().should('have.attr', 'data-sel-role', 'quarantine-confirm-cancel');
 		cy.realPress('Tab');
 		cy.focused().should('have.attr', 'data-sel-role', 'quarantine-confirm-ok');
 		cy.realPress('Enter');

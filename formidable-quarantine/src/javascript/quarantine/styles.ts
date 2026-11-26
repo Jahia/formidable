@@ -1,125 +1,216 @@
 /**
- * The style of the screen, scoped to its root class. Each rule below that overrides Moonstone does it for contrast:
+ * The layout of the screen, scoped to its root class, on the spacing and colour tokens of Moonstone (the legacy names,
+ * which Moonstone 2.16 and 2.21 both define). The rules that override Moonstone do it for contrast or focus:
  * - a focus ring of 3:1 at least: the ring of Moonstone (accent_light) is too faint on a light page;
  * - secondary text in gray_dark, never gray (3.96:1);
  * - a pressed state filter shows a border, which forced colours keep, not only a tint;
  * - the Reject button on danger_dark: white on the danger colour of Moonstone is 3.68:1.
+ * The table rules follow module-management-community: a sticky head and pager in a scrolling Paper.
  */
 export const ROOT_CLASS = 'fmdbq-root';
 
+const R = `.${ROOT_CLASS}`;
+const MODAL = '.moonstone-modal';
+
 export const QUARANTINE_CSS = `
-.${ROOT_CLASS} :focus-visible {
-    outline: 2px solid var(--color-accent_dark_contrast, #004781);
+${R} {
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+}
+${R} .fmdbq-layout {
+    flex-wrap: nowrap;
+    width: 100%;
+}
+${R} :focus-visible,
+${MODAL} :focus-visible {
+    outline: 2px solid var(--color-accent_dark_contrast);
     outline-offset: 2px;
 }
-.${ROOT_CLASS} .fmdbq-secondary {
-    color: var(--color-gray_dark, #293136);
+${R} .fmdbq-secondary {
+    color: var(--color-gray_dark);
 }
-.${ROOT_CLASS} .fmdbq-sr-only {
+${R} .fmdbq-sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
-    padding: 0;
     margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
+    padding: 0;
     white-space: nowrap;
     border: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
 }
-.${ROOT_CLASS} .fmdbq-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 32px;
-    padding: 4px 12px;
-    border: 1px solid var(--color-gray_light, #c9cdd2);
-    border-bottom-width: 2px;
-    border-radius: 4px;
-    background: var(--color-light, #fdfdfd);
-    color: var(--color-gray_dark, #293136);
-    font: inherit;
-    cursor: pointer;
-}
-.${ROOT_CLASS} .fmdbq-toggle[aria-pressed="true"] {
-    border-color: var(--color-accent_dark_contrast, #004781);
-    border-bottom-width: 2px;
-    background: var(--color-accent_light20, #def4fd);
-    font-weight: 600;
-}
-.${ROOT_CLASS} .fmdbq-toggle .fmdbq-count {
-    font-variant-numeric: tabular-nums;
-}
-.${ROOT_CLASS} .fmdbq-reject.moonstone-button,
-.${ROOT_CLASS} .fmdbq-reject.moonstone-button:hover {
-    background-color: var(--color-danger_dark, #840d0f);
-    color: #fff;
-}
-.${ROOT_CLASS} table.fmdbq-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-.${ROOT_CLASS} table.fmdbq-table caption {
-    text-align: left;
-    padding: 8px 0;
-}
-.${ROOT_CLASS} table.fmdbq-table th,
-.${ROOT_CLASS} table.fmdbq-table td {
-    text-align: left;
-    vertical-align: top;
-    padding: 8px;
-    border-bottom: 1px solid var(--color-gray_light40, #e1e3e6);
-}
-.${ROOT_CLASS} table.fmdbq-table thead th {
-    background: var(--color-gray_light40, #e1e3e6);
-}
-.${ROOT_CLASS} tr.fmdbq-open {
-    background: var(--color-accent_light20, #def4fd);
-}
-.${ROOT_CLASS} .fmdbq-row-button {
-    border: 0;
-    padding: 0;
-    background: none;
-    color: var(--color-accent_dark_contrast, #004781);
-    font: inherit;
-    font-weight: 600;
-    text-align: left;
-    text-decoration: underline;
-    cursor: pointer;
-}
-.${ROOT_CLASS} ul.fmdbq-inline {
+${R} .fmdbq-filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px 8px;
+    align-items: flex-end;
+    gap: var(--spacing-large);
+    margin-bottom: var(--spacing-medium);
+}
+${R} .fmdbq-filter {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-nano);
+}
+${R} .fmdbq-state-filter .moonstone-button[aria-pressed="true"] {
+    border-bottom: 2px solid var(--color-accent_dark_contrast);
+    background-color: var(--color-accent_light20);
+    font-weight: 600;
+}
+${R} .fmdbq-chip .fmdbq-chip-empty {
+    border-style: dashed;
+}
+.fmdbq-filter-editor {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-small);
+    padding: var(--spacing-small) var(--spacing-medium);
+    max-height: 320px;
+    overflow-y: auto;
+}
+.fmdbq-filter-editor .fmdbq-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+}
+.fmdbq-filter-footer {
+    display: flex;
+    justify-content: flex-end;
+}
+${R} .fmdbq-main {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-medium);
+    min-height: 0;
+}
+${R} .fmdbq-list {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+${R} .fmdbq-table-wrapper {
+    min-height: 0;
+    max-height: calc(100vh - 260px);
+    scroll-padding-top: 48px;
+    scroll-padding-bottom: 64px;
+    overflow: auto;
+}
+${R} .fmdbq-table-wrapper tr {
+    flex-wrap: nowrap;
+}
+${R} .fmdbq-table-wrapper tr > :first-child {
+    min-width: 260px;
+}
+${R} .fmdbq-pager.fmdbq-pager {
+    position: sticky;
+    bottom: 0;
+    left: 0;
+    z-index: 5;
+    border-top: 1px solid var(--color-gray_light);
+    background-color: var(--color-white);
+}
+/* one page size: the rows-per-page dropdown would offer a choice of one */
+${R} .fmdbq-pager [data-testid="pagination-dropdown-items-per-page"],
+${R} .fmdbq-pager [data-testid="pagination-dropdown-items-per-page"] + *,
+${R} .fmdbq-pager div:has(> [data-testid="pagination-dropdown-items-per-page"]) {
+    display: none;
+}
+${R} .fmdbq-sort-button {
+    margin: 0;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    border: 0;
+    background: none;
+    cursor: pointer;
+}
+${R} .fmdbq-no-match {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-medium);
+    padding: var(--spacing-big) 0;
+}
+${R} .fmdbq-detail {
+    position: relative;
+    flex: 0 0 480px;
+    min-width: 0;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+}
+${R} .fmdbq-detail-close {
+    position: absolute;
+    top: var(--spacing-small);
+    right: var(--spacing-small);
+}
+${R} .fmdbq-detail h2 {
+    padding-right: var(--spacing-big);
+}
+${R} .fmdbq-block {
+    margin-top: var(--spacing-small);
+}
+${R} .fmdbq-section-title {
+    margin-bottom: var(--spacing-small);
+}
+${R} .fmdbq-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-small);
+    margin-top: var(--spacing-small);
+}
+${R} .fmdbq-actions .fmdbq-reject {
+    margin-left: auto;
+}
+${R} .fmdbq-reject.moonstone-button,
+${R} .fmdbq-reject.moonstone-button:hover,
+${MODAL} .fmdbq-reject.moonstone-button,
+${MODAL} .fmdbq-reject.moonstone-button:hover {
+    background-color: var(--color-danger_dark);
+    color: var(--color-white);
+}
+/* Cancel comes first in the DOM, as the first focus and the first Tab stop; it shows first, on the left, too */
+${MODAL} .fmdbq-modal-footer {
+    flex-direction: row;
+    justify-content: flex-end;
+    gap: var(--spacing-small);
+}
+${R} .fmdbq-scroll-x {
+    overflow-x: auto;
+}
+${R} .fmdbq-detail-table tr {
+    flex-wrap: nowrap;
+}
+${R} ul.fmdbq-inline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-nano) var(--spacing-small);
     margin: 0;
     padding: 0;
     list-style: none;
 }
-.${ROOT_CLASS} dl.fmdbq-pairs {
+${R} dl.fmdbq-pairs {
     display: grid;
     grid-template-columns: max-content minmax(0, 1fr);
-    gap: 4px 12px;
-    margin: 0;
+    gap: var(--spacing-nano) var(--spacing-medium);
+    margin: var(--spacing-small) 0;
 }
-.${ROOT_CLASS} dl.fmdbq-pairs dt {
+${R} dl.fmdbq-pairs dt {
     font-weight: 600;
 }
-.${ROOT_CLASS} dl.fmdbq-pairs dd {
+${R} dl.fmdbq-pairs dd {
     margin: 0;
     overflow-wrap: anywhere;
 }
-.${ROOT_CLASS} .fmdbq-alert {
-    color: var(--color-danger_dark, #840d0f);
-}
-.${ROOT_CLASS} code {
+${R} code {
     font-size: 0.85em;
-}
-dialog.fmdbq-dialog {
-    max-width: 480px;
-    border: 1px solid var(--color-gray_light, #c9cdd2);
-    border-radius: 4px;
-    padding: 24px;
-}
-dialog.fmdbq-dialog::backdrop {
-    background: rgba(19, 28, 33, 0.5);
 }
 `;

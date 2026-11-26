@@ -1,5 +1,5 @@
 import React, {useEffect, useId, useRef} from 'react';
-import {Button, Typography} from '@jahia/moonstone';
+import {Banner, Button, Modal, ModalBody, ModalFooter, ModalHeader, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 
 interface ConfirmDialogProps {
@@ -13,89 +13,89 @@ interface ConfirmDialogProps {
     onCancel: () => void;
 }
 
+/** Focuses the Cancel button of the footer: the Moonstone Button takes no ref, so it is found by its role attribute. */
+const focusCancel = (footer: HTMLElement | null) => {
+    requestAnimationFrame(() => footer?.querySelector<HTMLButtonElement>('[data-sel-role="quarantine-confirm-cancel"]')?.focus());
+};
+
 /**
- * The confirm dialog of Release and Reject: a native modal dialog, named by its heading and described by its text.
- * Cancel takes the first focus and comes first, so that Enter never releases or rejects by accident. Escape cancels,
- * except while the request runs: the confirm button then keeps the focus, says what runs, and ignores a second press.
+ * The confirm dialog of Release and Reject: a Moonstone Modal, an alert dialog named by its title and described by its
+ * text. Cancel comes first and takes the first focus, so that Enter never releases or rejects by accident. Escape and
+ * a press outside cancel, except while the request runs: the confirm button then says what runs and ignores a second
+ * press. The Modal returns the focus on close; the screen then moves it where the operation left the page.
  */
 export const ConfirmDialog = ({operation, subject, busy, failure, onConfirm, onCancel}: ConfirmDialogProps) => {
     const {t} = useTranslation('formidable-quarantine');
-    const dialogRef = useRef<HTMLDialogElement | null>(null);
-    const cancelRef = useRef<HTMLButtonElement | null>(null);
-    const titleId = useId();
+    const footerRef = useRef<HTMLDivElement | null>(null);
     const descriptionId = useId();
     const reject = operation === 'REJECT';
+    const title = t(`quarantine.confirm.${operation}.title`);
 
     useEffect(() => {
-        const dialog = dialogRef.current;
-        if (dialog && !dialog.open) {
-            dialog.showModal();
-        }
-
-        cancelRef.current?.focus();
-        return () => {
-            // close before the unmount: the screen then moves the focus where it belongs
-            if (dialog?.open) {
-                dialog.close();
-            }
-        };
+        focusCancel(footerRef.current);
     }, []);
 
     useEffect(() => {
-        // a failure hands the focus back to Cancel, whose button stays the safe choice
+        // a failure hands the focus back to Cancel, which stays the safe choice
         if (failure) {
-            cancelRef.current?.focus();
+            focusCancel(footerRef.current);
         }
     }, [failure]);
 
-    const handleCancel = (event: React.SyntheticEvent<HTMLDialogElement>) => {
-        event.preventDefault();
-        if (!busy) {
-            onCancel();
-        }
-    };
-
     return (
-        <dialog
-            ref={dialogRef}
-            className="fmdbq-dialog"
+        <Modal
+            isOpen
+            size="small"
             role="alertdialog"
-            aria-labelledby={titleId}
+            // the Modal names itself by its own id: the title names it instead
+            aria-labelledby={undefined}
+            aria-label={title}
             aria-describedby={descriptionId}
             data-sel-role={`quarantine-confirm-${operation.toLowerCase()}`}
-            onCancel={handleCancel}
+            onOpenChange={open => {
+                if (!open && !busy) {
+                    onCancel();
+                }
+            }}
         >
-            <Typography id={titleId} component="h2" variant="heading" weight="bold">
-                {t(`quarantine.confirm.${operation}.title`)}
-            </Typography>
-            <p id={descriptionId}>{t(`quarantine.confirm.${operation}.description`, {subject})}</p>
-            <div role="alert" className="fmdbq-alert" data-sel-role="quarantine-confirm-failure">{failure}</div>
-            <div style={{display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '16px'}}>
-                <Button
-                    ref={cancelRef}
-                    label={t('quarantine.confirm.cancel')}
-                    variant="outlined"
-                    aria-disabled={busy}
-                    data-sel-role="quarantine-confirm-cancel"
-                    onClick={() => {
-                        if (!busy) {
-                            onCancel();
-                        }
-                    }}
-                />
-                <Button
-                    label={busy ? t(`quarantine.action.busy.${operation}`) : t(`quarantine.action.${operation}`)}
-                    color={reject ? 'danger' : 'accent'}
-                    className={reject ? 'fmdbq-reject' : undefined}
-                    aria-disabled={busy}
-                    data-sel-role="quarantine-confirm-ok"
-                    onClick={() => {
-                        if (!busy) {
-                            onConfirm();
-                        }
-                    }}
-                />
-            </div>
-        </dialog>
+            <>
+                <ModalHeader title={title}/>
+                <ModalBody>
+                    <Typography id={descriptionId} variant="body">
+                        {t(`quarantine.confirm.${operation}.description`, {subject})}
+                    </Typography>
+                    <div role="alert" data-sel-role="quarantine-confirm-failure">
+                        {failure && <Banner role="note" variant="danger" title={t('quarantine.failedTitle')}>{failure}</Banner>}
+                    </div>
+                </ModalBody>
+                <ModalFooter ref={footerRef} className="fmdbq-modal-footer">
+                    <Button
+                        size="big"
+                        variant="outlined"
+                        label={t('quarantine.confirm.cancel')}
+                        aria-disabled={busy}
+                        data-sel-role="quarantine-confirm-cancel"
+                        onClick={() => {
+                            if (!busy) {
+                                onCancel();
+                            }
+                        }}
+                    />
+                    <Button
+                        size="big"
+                        color={reject ? 'danger' : 'accent'}
+                        className={reject ? 'fmdbq-reject' : undefined}
+                        label={busy ? t(`quarantine.action.busy.${operation}`) : t(`quarantine.action.${operation}`)}
+                        aria-disabled={busy}
+                        data-sel-role="quarantine-confirm-ok"
+                        onClick={() => {
+                            if (!busy) {
+                                onConfirm();
+                            }
+                        }}
+                    />
+                </ModalFooter>
+            </>
+        </Modal>
     );
 };

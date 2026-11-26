@@ -1,5 +1,5 @@
-import React, {useId} from 'react';
-import {Check} from '@jahia/moonstone';
+import React, {useEffect, useId, useRef} from 'react';
+import {Button, ButtonGroup, Check, ChevronDown, Close, Menu, RadioGroup, RadioItem, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import type {FormEntry, StateCount} from '../graphql';
 import {STATES, type QuarantineState} from '../quarantine.utils';
@@ -11,8 +11,9 @@ interface StateFilterProps {
 }
 
 /**
- * The counts per state, which filter the table: native toggle buttons, one state at a time. Pressing the pressed
- * state clears the filter. A count of 0 stays a button, so the six are always there, in the same place.
+ * The counts per state, which filter the table, one state at a time: pressing the pressed state clears the filter. A
+ * count of 0 stays a button, so the six are always there. Moonstone Buttons with aria-pressed in a labelled
+ * ButtonGroup: the ButtonToggle of Moonstone blurs itself on each click, which would drop the focus of a keyboard user.
  */
 export const StateFilter = ({counts, selected, onSelect}: StateFilterProps) => {
     const {t} = useTranslation('formidable-quarantine');
@@ -20,27 +21,23 @@ export const StateFilter = ({counts, selected, onSelect}: StateFilterProps) => {
     const countOf = (state: QuarantineState) => counts.find(count => count.state === state)?.count ?? 0;
 
     return (
-        <div role="group" aria-labelledby={labelId} data-sel-role="quarantine-state-filter">
-            <div id={labelId} className="fmdbq-secondary" style={{marginBottom: '4px'}}>{t('quarantine.filter.state')}</div>
-            <div style={{display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
+        <div className="fmdbq-filter" data-sel-role="quarantine-state-filter">
+            <Typography id={labelId} variant="caption" className="fmdbq-secondary">{t('quarantine.filter.state')}</Typography>
+            <ButtonGroup aria-labelledby={labelId} variant="outlined" className="fmdbq-state-filter">
                 {STATES.map(state => {
                     const pressed = selected === state;
                     return (
-                        <button
+                        <Button
                             key={state}
-                            type="button"
-                            className="fmdbq-toggle"
+                            label={`${t(`quarantine.state.${state}`)} ${countOf(state)}`}
+                            icon={pressed ? <Check aria-hidden="true"/> : undefined}
                             aria-pressed={pressed}
                             data-state={state}
                             onClick={() => onSelect(pressed ? null : state)}
-                        >
-                            {pressed && <Check aria-hidden="true" size="small"/>}
-                            <span>{t(`quarantine.state.${state}`)}</span>
-                            <span className="fmdbq-count">{countOf(state)}</span>
-                        </button>
+                        />
                     );
                 })}
-            </div>
+            </ButtonGroup>
         </div>
     );
 };
@@ -48,35 +45,128 @@ export const StateFilter = ({counts, selected, onSelect}: StateFilterProps) => {
 interface FormFilterProps {
     forms: FormEntry[];
     selected: string | null;
+    isOpen: boolean;
+    onOpen: () => void;
+    onClose: () => void;
     onSelect: (formId: string | null) => void;
 }
 
-/** The form filter: a native select with its label, "All forms" first. */
-export const FormFilter = ({forms, selected, onSelect}: FormFilterProps) => {
+const ALL_FORMS = '';
+
+/**
+ * The form filter as a filter chip, the pattern of module-management-community: a dashed chip while no form is
+ * chosen, a filled chip with a clear button once one is. The chip opens a Moonstone Menu used as a dialog, which holds
+ * a radio group of the forms: native radios, named by their text, with the arrow keys of a radio group. Escape and
+ * Close close it and give the focus back to the chip. The Dropdown of Moonstone is named by its value and takes no
+ * arrow key in its menu, so it is not used.
+ */
+export const FormFilter = ({forms, selected, isOpen, onOpen, onClose, onSelect}: FormFilterProps) => {
     const {t} = useTranslation('formidable-quarantine');
-    const selectId = useId();
-    // a selected form that left the list (its last submission purged) stays an option, so the select never lies
-    const options = selected && !forms.some(form => form.formId === selected)
-        ? [...forms, {formId: selected, formTitle: null, count: 0}]
-        : forms;
+    const anchorRef = useRef<HTMLSpanElement | null>(null);
+    const editorRef = useRef<HTMLDivElement | null>(null);
+    const groupLabelId = useId();
+    const radioId = useId();
+    const name = t('quarantine.filter.form');
+    const current = forms.find(form => form.formId === selected);
+    const value = selected ? current?.formTitle ?? selected : '';
+    // a selected form that left the list (its last submission purged) stays a choice, so the filter never lies
+    const options = selected && !current ? [...forms, {formId: selected, formTitle: null, count: 0}] : forms;
+
+    // Moonstone Button takes no ref, and a value swaps the Button for a ButtonGroup: the focus moves after the render
+    const focusChip = () => setTimeout(() => anchorRef.current?.querySelector('button')?.focus());
+
+    const close = () => {
+        onClose();
+        focusChip();
+    };
+
+    useEffect(() => {
+        if (!isOpen) {
+            return undefined;
+        }
+
+        const frame = requestAnimationFrame(() => {
+            editorRef.current?.querySelector<HTMLInputElement>('input:checked, input')?.focus({preventScroll: true});
+        });
+        // the Menu of Moonstone does not close on Escape
+        const listener = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                onClose();
+                focusChip();
+            }
+        };
+
+        document.addEventListener('keydown', listener);
+        return () => {
+            cancelAnimationFrame(frame);
+            document.removeEventListener('keydown', listener);
+        };
+    }, [isOpen, onClose]);
+
+    const editButton = (
+        <Button
+            variant="outlined"
+            className={value ? 'fmdbq-chip-filled' : 'fmdbq-chip-empty'}
+            label={value ? `${name}: ${value}` : name}
+            iconEnd={<ChevronDown aria-hidden="true"/>}
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
+            data-sel-role="quarantine-form-filter"
+            onClick={() => (isOpen ? close() : onOpen())}
+        />
+    );
 
     return (
-        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
-            <label htmlFor={selectId}>{t('quarantine.filter.form')}</label>
-            <select
-                id={selectId}
-                data-sel-role="quarantine-form-filter"
-                value={selected ?? ''}
-                style={{minHeight: '32px', minWidth: '240px', font: 'inherit'}}
-                onChange={event => onSelect(event.target.value || null)}
-            >
-                <option value="">{t('quarantine.filter.allForms')}</option>
-                {options.map(form => (
-                    <option key={form.formId} value={form.formId}>
-                        {t('quarantine.filter.formOption', {title: form.formTitle ?? form.formId, count: form.count})}
-                    </option>
-                ))}
-            </select>
+        <div className="fmdbq-filter">
+            <Typography variant="caption" className="fmdbq-secondary" aria-hidden="true">{name}</Typography>
+            <span ref={anchorRef} className="fmdbq-chip">
+                {value ? (
+                    <ButtonGroup variant="outlined" color="accent">
+                        {editButton}
+                        <Button
+                            icon={<Close aria-hidden="true"/>}
+                            aria-label={t('quarantine.filter.clearForm')}
+                            data-sel-role="quarantine-form-filter-clear"
+                            onClick={() => {
+                                onSelect(null);
+                                focusChip();
+                            }}
+                        />
+                    </ButtonGroup>
+                ) : editButton}
+            </span>
+            {isOpen && (
+                <Menu
+                    isDisplayed
+                    hasSearch={false}
+                    anchorEl={anchorRef as React.MutableRefObject<HTMLElement>}
+                    // the Menu gives the position and the outside click; its list role is replaced, the editor is a form
+                    {...{role: 'dialog', 'aria-label': name}}
+                    onClose={close}
+                >
+                    <div ref={editorRef} className="fmdbq-filter-editor" data-sel-role="quarantine-form-editor">
+                        <span id={groupLabelId} className="fmdbq-sr-only">{name}</span>
+                        <RadioGroup
+                            name={radioId}
+                            role="radiogroup"
+                            aria-labelledby={groupLabelId}
+                            value={selected ?? ALL_FORMS}
+                            onChange={(_event, formId) => onSelect(formId || null)}
+                        >
+                            {[{formId: ALL_FORMS, label: t('quarantine.filter.allForms')},
+                                ...options.map(form => ({
+                                    formId: form.formId,
+                                    label: t('quarantine.filter.formOption', {title: form.formTitle ?? form.formId, count: form.count})
+                                }))].map((option, index) => (
+                                <RadioItem key={option.formId || 'all'} id={`${radioId}-${index}`} label={option.label} value={option.formId}/>
+                            ))}
+                        </RadioGroup>
+                        <div className="fmdbq-filter-footer">
+                            <Button variant="ghost" label={t('quarantine.filter.close')} data-sel-role="quarantine-form-editor-close" onClick={close}/>
+                        </div>
+                    </div>
+                </Menu>
+            )}
         </div>
     );
 };

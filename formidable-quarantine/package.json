@@ -10,7 +10,7 @@
 	},
 	"dependencies": {
 		"@apollo/client": "^3.7.17",
-		"@jahia/moonstone": "2.16.2",
+		"@jahia/moonstone": "^2.21.0",
 		"@jahia/ui-extender": "^1.2.0",
 		"graphql": "^16.10.0",
 		"graphql-tag": "^2.12.6",

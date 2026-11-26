@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
-import {Button, Loader, Typography} from '@jahia/moonstone';
+import {Banner, Button, EmptyData, Header, LayoutContent, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {
     type DetailData,
@@ -16,7 +16,6 @@ import {
     CONFIRMED_OPERATIONS,
     currentSiteKey,
     isChangedUnderneath,
-    nextOffset,
     pageRange,
     type QuarantineOperation,
     type QuarantineState,
@@ -25,11 +24,14 @@ import {
 import {QUARANTINE_CSS, ROOT_CLASS} from './styles';
 import {type Announce, LiveRegions, useAnnouncer} from './components/Announcer';
 import {FormFilter, StateFilter} from './components/Filters';
-import {Paging, rowLabel, SubmissionsTable} from './components/SubmissionsTable';
+import {LIST_HEADING_ID, rowLabel, type SortDirection, SubmissionsTable} from './components/SubmissionsTable';
 import {ActionButtons, DetailFrame, SubmissionDetail} from './components/SubmissionDetail';
 import {ConfirmDialog} from './components/ConfirmDialog';
 
-/** Where the focus goes once the element exists: the screen sets it, the next render that shows the element applies it. */
+/**
+ * Where the focus goes once the element exists: the screen sets it, and the next render that shows the element applies
+ * it. Moonstone Buttons take no ref, so a target is found by its data attributes.
+ */
 type FocusRequest =
     | {kind: 'detailHeading'}
     | {kind: 'listHeading'}
@@ -43,11 +45,12 @@ interface Filters {
     state: QuarantineState | null;
     formId: string | null;
     offset: number;
+    sort: SortDirection;
 }
 
-const NO_FILTER: Filters = {state: null, formId: null, offset: 0};
+const NO_FILTER: Filters = {state: null, formId: null, offset: 0, sort: 'ascending'};
 
-/** The words that name the filters, for the caption of the table and the announcement of a page. */
+/** The words that name the filters, for the heading of the table and the announcement of a page. */
 function filterWords(filters: Filters, list: QuarantineList | null, t: Translate): string {
     const words: string[] = [];
     if (filters.state) {
@@ -79,50 +82,54 @@ function listSentence(list: QuarantineList | null, filters: Filters, t: Translat
     return t('quarantine.announce.list', {from: range.from, to: range.to, total: range.total}) + (words ? `, ${words}` : '');
 }
 
-/** Moves the focus to the element a request names, as soon as it is rendered; the request is then spent. */
-function useFocusRequests(elements: {
-    listHeadingRef: React.RefObject<HTMLHeadingElement>;
-    detailHeadingRef: React.RefObject<HTMLHeadingElement>;
-    reload: React.RefObject<HTMLButtonElement>;
-    rows: React.MutableRefObject<Map<string, HTMLButtonElement>>;
-    actions: React.MutableRefObject<Map<QuarantineOperation, HTMLButtonElement>>;
-}) {
+function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement | null {
+    const listHeading = () => {
+        const heading = root?.querySelector<HTMLElement>('h1') ?? null;
+        heading?.setAttribute('tabindex', '-1');
+        return heading;
+    };
+    const detailHeading = () => document.getElementById('fmdbq-detail-title');
+    switch (wanted.kind) {
+        case 'detailHeading':
+            return detailHeading();
+        case 'listHeading':
+            return listHeading();
+        case 'reload':
+            return root?.querySelector<HTMLElement>('[data-sel-role="quarantine-reload"]') ?? null;
+        case 'row':
+            return root?.querySelector<HTMLElement>(`[data-sel-role="quarantine-open"][data-id="${CSS.escape(wanted.id)}"]`) ?? listHeading();
+        default:
+            return root?.querySelector<HTMLElement>(`[data-sel-role="quarantine-action-${wanted.operation.toLowerCase()}"]`) ?? detailHeading();
+    }
+}
+
+/**
+ * Moves the focus to the element a request names, as soon as it is rendered; the request is then spent. The move waits
+ * one frame, so that it comes after the focus that a closing Modal gives back.
+ */
+function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
     const requestRef = useRef<FocusRequest | null>(null);
     useEffect(() => {
         const wanted = requestRef.current;
         if (!wanted) {
-            return;
+            return undefined;
         }
 
-        let target: HTMLElement | null | undefined;
-        switch (wanted.kind) {
-            case 'detailHeading':
-                target = elements.detailHeadingRef.current;
-                break;
-            case 'listHeading':
-                target = elements.listHeadingRef.current;
-                break;
-            case 'reload':
-                target = elements.reload.current;
-                break;
-            case 'row':
-                target = elements.rows.current.get(wanted.id) ?? elements.listHeadingRef.current;
-                break;
-            default:
-                target = elements.actions.current.get(wanted.operation) ?? elements.detailHeadingRef.current;
+        const target = targetOf(wanted, rootRef.current);
+        if (!target) {
+            return undefined;
         }
 
-        if (target) {
-            target.focus();
-            requestRef.current = null;
-        }
+        requestRef.current = null;
+        const frame = requestAnimationFrame(() => target.focus());
+        return () => cancelAnimationFrame(frame);
     });
     return useCallback((wanted: FocusRequest) => {
         requestRef.current = wanted;
     }, []);
 }
 
-/** Announces the list once per filter and page: an operation that refreshes the same page does not repeat it. */
+/** Announces the list once per filter, page and order: an operation that refreshes the same page does not repeat it. */
 function useListAnnouncement(data: ListData | undefined, loading: boolean, filters: Filters, announce: Announce, t: Translate) {
     const announcedRef = useRef<string | null>(null);
     useEffect(() => {
@@ -138,8 +145,6 @@ function useListAnnouncement(data: ListData | undefined, loading: boolean, filte
     }, [data, loading, filters, announce, t]);
 }
 
-const Message = ({children}: {children: React.ReactNode}) => <div style={{padding: '24px 0'}}>{children}</div>;
-
 export const QuarantineApp = () => {
     const {t} = useTranslation('formidable-quarantine');
     const siteKey = currentSiteKey();
@@ -147,6 +152,7 @@ export const QuarantineApp = () => {
     const {polite, assertive, announce} = useAnnouncer();
 
     const [filters, setFilters] = useState<Filters>(NO_FILTER);
+    const [formFilterOpen, setFormFilterOpen] = useState(false);
     const [openId, setOpenId] = useState<string | null>(null);
     const [confirm, setConfirm] = useState<'RELEASE' | 'REJECT' | null>(null);
     const [confirmFailure, setConfirmFailure] = useState<string | null>(null);
@@ -154,15 +160,18 @@ export const QuarantineApp = () => {
     const [changed, setChanged] = useState(false);
     const [reloading, setReloading] = useState(false);
 
-    const listHeadingRef = useRef<HTMLHeadingElement>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
     const detailHeadingRef = useRef<HTMLHeadingElement>(null);
-    const reloadButtonRef = useRef<HTMLButtonElement>(null);
-    const rowButtonsRef = useRef(new Map<string, HTMLButtonElement>());
-    const actionButtonsRef = useRef(new Map<QuarantineOperation, HTMLButtonElement>());
-    const focus = useFocusRequests({listHeadingRef, detailHeadingRef, reload: reloadButtonRef, rows: rowButtonsRef, actions: actionButtonsRef});
+    const focus = useFocusRequests(rootRef);
 
     const list = useQuery<ListData>(GET_QUARANTINE_LIST, {
-        variables: {siteKey, formId: filters.formId, states: filters.state ? [filters.state] : null, offset: filters.offset},
+        variables: {
+            siteKey,
+            formId: filters.formId,
+            states: filters.state ? [filters.state] : null,
+            offset: filters.offset,
+            newestFirst: filters.sort === 'descending'
+        },
         skip: !siteKey,
         fetchPolicy: 'network-only',
         notifyOnNetworkStatusChange: true
@@ -193,12 +202,13 @@ export const QuarantineApp = () => {
     }, [list.error, announce, t]);
 
     const changeFilters = (next: Partial<Filters>) => setFilters(current => ({...current, offset: 0, ...next}));
+    const closeFormFilter = useCallback(() => setFormFilterOpen(false), []);
 
-    const open = (id: string) => {
+    const open = useCallback((id: string) => {
         setOpenId(id);
         setChanged(false);
         focus({kind: 'detailHeading'});
-    };
+    }, [focus]);
 
     const close = () => {
         if (openId) {
@@ -235,8 +245,8 @@ export const QuarantineApp = () => {
             }
 
             setConfirm(null);
-            const leaves = filters.state !== null && after.state !== filters.state;
-            if (leaves) {
+            if (filters.state !== null && after.state !== filters.state) {
+                // the submission leaves the filtered list: the detail closes, the focus goes to a neighbour row
                 setOpenId(null);
                 focus(neighbour ? {kind: 'row', id: neighbour} : {kind: 'listHeading'});
                 await list.refetch();
@@ -274,123 +284,127 @@ export const QuarantineApp = () => {
         }
     };
 
-    const chrome = (body: React.ReactNode) => (
-        <div className={ROOT_CLASS} style={{height: '100%', overflow: 'auto', padding: '24px', backgroundColor: 'var(--color-light)'}} data-sel-role="quarantine-app">
-            <style>{QUARANTINE_CSS}</style>
-            <LiveRegions polite={polite} assertive={assertive}/>
-            <Typography ref={listHeadingRef} component="h1" variant="title" weight="bold" tabIndex={-1} style={{marginBottom: '16px'}}>
-                {t('quarantine.title')}
-            </Typography>
-            {body}
-        </div>
+    const refresh = async () => {
+        const [again] = await Promise.all([list.refetch(), openId ? detail.refetch() : Promise.resolve(null)]);
+        announce(listSentence(again.data?.formidableQuarantine ?? null, filters, t));
+    };
+
+    const banner = (role: string, variant: 'info' | 'warning' | 'danger', title: string, text: string, action?: React.ReactNode) => (
+        <Banner role="note" variant={variant} title={title} data-sel-role={role}>
+            <Typography>{text}</Typography>
+            {action}
+        </Banner>
     );
 
-    if (!siteKey) {
-        return chrome(<Message><p>{t('quarantine.noSite')}</p></Message>);
+    function body(): React.ReactNode {
+        if (!siteKey) {
+            return banner('quarantine-no-site', 'info', t('quarantine.noSiteTitle'), t('quarantine.noSite'));
+        }
+
+        if (!listData) {
+            return banner('quarantine-load-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.loadFailed'), (
+                <Button label={t('quarantine.tryAgain')} variant="outlined" className="fmdbq-block" onClick={() => list.refetch()}/>
+            ));
+        }
+
+        if (!quarantine) {
+            return banner('quarantine-no-access', 'warning', t('quarantine.noAccessTitle'), t('quarantine.noAccess'));
+        }
+
+        if (quarantine.counts.every(count => count.count === 0)) {
+            return <EmptyData message={t('quarantine.empty')} data-sel-role="quarantine-empty"/>;
+        }
+
+        return listBody(quarantine);
     }
 
-    if (!listData && list.loading) {
-        return chrome(<Message><Loader size="big"/><span className="fmdbq-sr-only">{t('quarantine.loading')}</span></Message>);
-    }
-
-    if (!listData) {
-        return chrome(
-            <Message>
-                <p data-sel-role="quarantine-load-failed">{t('quarantine.loadFailed')}</p>
-                <Button label={t('quarantine.tryAgain')} variant="outlined" onClick={() => list.refetch()}/>
-            </Message>
-        );
-    }
-
-    if (!quarantine) {
-        return chrome(<Message><p data-sel-role="quarantine-no-access">{t('quarantine.noAccess')}</p></Message>);
-    }
-
-    if (quarantine.counts.every(count => count.count === 0)) {
-        return chrome(<Message><p data-sel-role="quarantine-empty">{t('quarantine.empty')}</p></Message>);
-    }
-
-    const page = quarantine.submissions;
-    const range = pageRange(page.offset, page.items.length, page.totalCount);
-    const words = filterWords(filters, quarantine, t);
-    const caption = words ? t('quarantine.table.captionFiltered', {filters: words}) : t('quarantine.table.caption');
-    const subject = submission ? rowLabel(submission, language, t) : '';
-
-    return chrome(
-        <>
-            <div style={{display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '16px', marginBottom: '16px'}}>
-                <StateFilter counts={quarantine.counts} selected={filters.state} onSelect={state => changeFilters({state})}/>
-                <FormFilter forms={quarantine.forms} selected={filters.formId} onSelect={formId => changeFilters({formId})}/>
-            </div>
-            <div style={{display: 'flex', gap: '16px', alignItems: 'flex-start'}}>
-                <div style={{flex: '1 1 0', minWidth: 0}}>
-                    <SubmissionsTable
-                        rows={page.items}
-                        caption={caption}
-                        openId={openId}
-                        busy={list.loading}
-                        language={language}
-                        rowButtonsRef={rowButtonsRef}
-                        noMatch={(
-                            <span data-sel-role="quarantine-no-match">
-                                {t('quarantine.filter.noMatch')}{' '}
+    function listBody(site: QuarantineList): React.ReactNode {
+        const page = site.submissions;
+        const words = filterWords(filters, site, t);
+        const order = t(`quarantine.table.order.${filters.sort}`);
+        return (
+            <>
+                <div className="fmdbq-filters">
+                    <StateFilter counts={site.counts} selected={filters.state} onSelect={state => changeFilters({state})}/>
+                    <FormFilter
+                        forms={site.forms}
+                        selected={filters.formId}
+                        isOpen={formFilterOpen}
+                        onOpen={() => setFormFilterOpen(true)}
+                        onClose={closeFormFilter}
+                        onSelect={formId => changeFilters({formId})}
+                    />
+                </div>
+                <div className="fmdbq-main">
+                    {/* the admin shell holds the main landmark: the list is a named region inside it */}
+                    <section className="fmdbq-list" aria-labelledby={LIST_HEADING_ID}>
+                        <h2 id={LIST_HEADING_ID} className="fmdbq-sr-only">
+                            {words ? t('quarantine.table.headingFiltered', {order, filters: words}) : t('quarantine.table.heading', {order})}
+                        </h2>
+                        {page.items.length === 0 ? (
+                            <div className="fmdbq-no-match" data-sel-role="quarantine-no-match">
+                                <EmptyData message={t('quarantine.filter.noMatch')}/>
                                 <Button
                                     label={t('quarantine.filter.clear')}
-                                    variant="ghost"
+                                    variant="outlined"
                                     onClick={() => {
                                         setFilters(NO_FILTER);
                                         focus({kind: 'listHeading'});
                                     }}
                                 />
-                            </span>
+                            </div>
+                        ) : (
+                            <SubmissionsTable
+                                rows={page.items}
+                                totalCount={page.totalCount}
+                                offset={page.offset}
+                                sortDirection={filters.sort}
+                                openId={openId}
+                                busy={list.loading}
+                                language={language}
+                                onOpen={open}
+                                onPage={offset => setFilters(current => ({...current, offset}))}
+                                onSort={sort => changeFilters({sort})}
+                            />
                         )}
-                        onOpen={open}
-                    />
-                    {page.totalCount > 0 && (
-                        <div style={{marginTop: '12px'}}>
-                            <Paging range={range} onPage={direction => setFilters(current => ({...current, offset: nextOffset(current.offset, direction, page.totalCount)}))}/>
-                        </div>
+                    </section>
+                    {openId && (
+                        <DetailFrame onClose={close}>
+                            {renderDetail()}
+                        </DetailFrame>
                     )}
                 </div>
-                {openId && (
-                    <DetailFrame onClose={close}>
-                        {renderDetail()}
-                    </DetailFrame>
+                {confirm && submission && (
+                    <ConfirmDialog
+                        operation={confirm}
+                        subject={rowLabel(submission, language, t)}
+                        busy={running === confirm}
+                        failure={confirmFailure}
+                        onConfirm={() => run(confirm)}
+                        onCancel={() => {
+                            setConfirm(null);
+                            setConfirmFailure(null);
+                            focus({kind: 'action', operation: confirm});
+                        }}
+                    />
                 )}
-            </div>
-            {confirm && submission && (
-                <ConfirmDialog
-                    operation={confirm}
-                    subject={subject}
-                    busy={running === confirm}
-                    failure={confirmFailure}
-                    onConfirm={() => run(confirm)}
-                    onCancel={() => {
-                        setConfirm(null);
-                        setConfirmFailure(null);
-                        focus({kind: 'action', operation: confirm});
-                    }}
-                />
-            )}
-        </>
-    );
+            </>
+        );
+    }
 
-    function renderDetail() {
+    function renderDetail(): React.ReactNode {
         if (!submission && detail.loading) {
-            return <><Loader/><span className="fmdbq-sr-only">{t('quarantine.detail.loading')}</span></>;
+            return <Typography className="fmdbq-secondary">{t('quarantine.detail.loading')}</Typography>;
         }
 
         if (detail.error && !detail.data) {
-            return (
-                <>
-                    <p className="fmdbq-alert">{t('quarantine.detail.loadFailed')}</p>
-                    <Button label={t('quarantine.tryAgain')} variant="outlined" onClick={() => detail.refetch()}/>
-                </>
-            );
+            return banner('quarantine-detail-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.detail.loadFailed'), (
+                <Button label={t('quarantine.tryAgain')} variant="outlined" className="fmdbq-block" onClick={() => detail.refetch()}/>
+            ));
         }
 
         if (!submission) {
-            return <p data-sel-role="quarantine-gone">{t('quarantine.detail.gone')}</p>;
+            return banner('quarantine-gone', 'info', t('quarantine.goneTitle'), t('quarantine.detail.gone'));
         }
 
         return (
@@ -400,12 +414,10 @@ export const QuarantineApp = () => {
                 headingRef={detailHeadingRef}
                 changed={changed}
                 reloading={reloading}
-                reloadRef={reloadButtonRef}
                 actions={(
                     <ActionButtons
                         allowedOperations={submission.allowedOperations}
                         running={running}
-                        actionButtonsRef={actionButtonsRef}
                         onOperation={operation => {
                             if (CONFIRMED_OPERATIONS.has(operation)) {
                                 setConfirmFailure(null);
@@ -420,4 +432,37 @@ export const QuarantineApp = () => {
             />
         );
     }
+
+    return (
+        // isolation keeps the z-indexes of the sticky head and pager of the DataTable inside the page, so a Modal,
+        // portalled to the body with an overlay of no z-index, covers them (the note of module-management-community)
+        <div ref={rootRef} className={ROOT_CLASS} data-sel-role="quarantine-app">
+            <style>{QUARANTINE_CSS}</style>
+            <LayoutContent
+                hasPadding
+                className="fmdbq-layout"
+                isLoading={Boolean(siteKey) && !listData && list.loading}
+                header={(
+                    <Header
+                        title={t('quarantine.title')}
+                        mainActions={quarantine && (
+                            <Button
+                                size="big"
+                                variant="ghost"
+                                label={t('quarantine.refresh')}
+                                icon={<Reload aria-hidden="true"/>}
+                                isLoading={list.loading}
+                                data-sel-role="quarantine-refresh"
+                                onClick={refresh}
+                            />
+                        )}
+                    />
+                )}
+            >
+                {body()}
+            </LayoutContent>
+            {/* outside LayoutContent, which swaps its children for a Loader: the regions exist from the first render */}
+            <LiveRegions polite={polite} assertive={assertive}/>
+        </div>
+    );
 };

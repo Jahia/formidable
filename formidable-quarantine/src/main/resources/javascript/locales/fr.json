@@ -11,9 +11,17 @@
 		"noAccess": "Vous ne gérez pas la quarantaine de ce site.",
 		"empty": "Aucune soumission n’est retenue.",
 		"failed": "L’opération n’a pas pu aboutir. Rechargez la soumission pour voir son état.",
-		"changed": "Conflit : la soumission a changé. Rechargez-la.",
+		"changed": "La soumission a changé. Rechargez-la.",
 		"reload": "Recharger la soumission",
 		"reloaded": "Soumission rechargée. État : {{state}}.",
+		"changedTitle": "Conflit",
+		"failedTitle": "Non abouti",
+		"noAccessTitle": "Accès refusé",
+		"emptyTitle": "Rien de retenu",
+		"loadFailedTitle": "Non chargé",
+		"noSiteTitle": "Aucun site",
+		"goneTitle": "Disparue",
+		"refresh": "Actualiser",
 		"state": {
 			"HELD": "Retenue",
 			"CHECKING": "En vérification",
@@ -50,11 +58,11 @@
 			"noMatch": "Aucune soumission ne correspond à ces filtres.",
 			"clear": "Effacer les filtres",
 			"stateWord": "état {{state}}",
-			"formWord": "formulaire {{form}}"
+			"formWord": "formulaire {{form}}",
+			"clearForm": "Effacer le filtre de formulaire",
+			"close": "Fermer"
 		},
 		"table": {
-			"caption": "Soumissions retenues, les plus anciennes d’abord",
-			"captionFiltered": "Soumissions retenues, les plus anciennes d’abord : {{filters}}",
 			"form": "Formulaire",
 			"received": "Reçue le",
 			"state": "État",
@@ -63,13 +71,25 @@
 			"files": "Fichiers",
 			"open": "{{form}}, reçue le {{date}}",
 			"noFiles": "Aucun",
-			"moreFiles": "+{{count}} autre(s)"
+			"moreFiles": "+{{count}} autre(s)",
+			"sort": {
+				"ascending": "{{column}}, les plus anciennes d’abord. Trier les plus récentes d’abord",
+				"descending": "{{column}}, les plus récentes d’abord. Trier les plus anciennes d’abord"
+			},
+			"order": {
+				"ascending": "les plus anciennes d’abord",
+				"descending": "les plus récentes d’abord"
+			},
+			"heading": "Soumissions retenues, {{order}}",
+			"headingFiltered": "Soumissions retenues, {{order}} : {{filters}}"
 		},
 		"paging": {
-			"label": "Pages des soumissions retenues",
 			"previous": "Page précédente",
 			"next": "Page suivante",
-			"range": "{{from}} à {{to}} sur {{total}}"
+			"first": "Première page",
+			"last": "Dernière page",
+			"itemsPerPage": "Soumissions par page",
+			"of": "sur"
 		},
 		"announce": {
 			"list": "Soumissions {{from}} à {{to}} sur {{total}}"
@@ -89,7 +109,6 @@
 			"fileSize": "Taille",
 			"bytesDeleted": "Le contenu de ce fichier a été supprimé.",
 			"noChecks": "Aucun contrôle n’a encore répondu pour ce fichier.",
-			"checksCaption": "{{name}} : contrôles",
 			"check": "Contrôle",
 			"verdict": "Verdict",
 			"reason": "Raison",
@@ -99,7 +118,6 @@
 			"noDecision": "Pas encore de décision.",
 			"audit": "Journal",
 			"auditRegion": "Journal d’audit",
-			"auditCaption": "Journal d’audit, les plus anciens d’abord",
 			"audit_operation": "Opération",
 			"audit_user": "Utilisateur",
 			"audit_from": "De",
