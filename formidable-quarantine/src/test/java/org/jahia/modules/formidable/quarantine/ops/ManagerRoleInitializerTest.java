@@ -124,9 +124,11 @@ class ManagerRoleInitializerTest {
         ManagerRoleInitializer.ensureRole(session);
 
         verify(session).checkout(roles);
-        // the jContent shell admits privileged users alone, and jContent shows its entry to jContentAccess
+        // the jContent shell admits privileged users alone, jContent shows its entry to jContentAccess, and the
+        // accordion that lists the screen to additionalAccordionAccess
         verify(role).setProperty(ManagerRoleInitializer.PERMISSION_NAMES,
-                new String[]{Managers.PERMISSION, ManagerRoleInitializer.JCONTENT_ACCESS});
+                new String[]{Managers.PERMISSION, ManagerRoleInitializer.JCONTENT_ACCESS,
+                        ManagerRoleInitializer.ADDITIONAL_ACCORDION});
         verify(role).setProperty(ManagerRoleInitializer.ROLE_GROUP, ManagerRoleInitializer.SITE_ROLE);
         verify(role).setProperty(ManagerRoleInitializer.NODE_TYPES, new String[]{ManagerRoleInitializer.SITE_TYPE});
         verify(role).setProperty(ManagerRoleInitializer.PRIVILEGED_ACCESS, true);

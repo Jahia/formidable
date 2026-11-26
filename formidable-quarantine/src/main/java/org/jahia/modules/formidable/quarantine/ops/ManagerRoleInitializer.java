@@ -22,9 +22,11 @@ import java.util.Map;
  * role to a user or a group on the site, and publishes the site: the GraphQL API and the operations check the
  * permission on the live site node, so a grant and a revocation both apply once the site is published.
  *
- * <p>The role gives privileged access and the permission {@value #JCONTENT_ACCESS}: the jContent shell admits only a
- * member of the group {@code privileged}, which the holder of a privileged role joins through the group
- * {@code site-privileged} of the site, and jContent shows its entry to a holder of {@value #JCONTENT_ACCESS}. The
+ * <p>The role gives privileged access and the permissions {@value #JCONTENT_ACCESS} and {@value #ADDITIONAL_ACCORDION}:
+ * the jContent shell admits only a member of the group {@code privileged}, which the holder of a privileged role joins
+ * through the group {@code site-privileged} of the site, jContent shows its entry to a holder of
+ * {@value #JCONTENT_ACCESS}, and its accordion "Additional", which lists the manager screen, to a holder of
+ * {@value #ADDITIONAL_ACCORDION}. The
  * privileged access reads the drafts of the site, as an editor does; it reaches no node of the quarantine tree, whose
  * root breaks the inheritance of the access control and grants nothing.</p>
  *
@@ -48,6 +50,8 @@ public class ManagerRoleInitializer {
     static final String SITE_TYPE = "jnt:virtualsite";
     /** The permission of jContent that shows its entry in the navigation of the Jahia interface. */
     static final String JCONTENT_ACCESS = "jContentAccess";
+    /** The permission of jContent that shows its accordion "Additional", where the admin routes of a site sit. */
+    static final String ADDITIONAL_ACCORDION = "additionalAccordionAccess";
     /** The title of the role in each language of the labels of the module. */
     static final Map<Locale, String> TITLES = Map.of(
             Locale.ENGLISH, "Quarantine manager",
@@ -91,7 +95,7 @@ public class ManagerRoleInitializer {
         session.checkout(roles);
         JCRNodeWrapper role = roles.addNode(Managers.ROLE, "jnt:role");
         makeSiteRole(role, true);
-        role.setProperty(PERMISSION_NAMES, new String[]{Managers.PERMISSION, JCONTENT_ACCESS});
+        role.setProperty(PERMISSION_NAMES, new String[]{Managers.PERMISSION, JCONTENT_ACCESS, ADDITIONAL_ACCORDION});
         role.addMixin("mix:title");
         // through the i18n accessor, as the engine does: raw j:translation_* nodes stay invisible to a locale session
         for (Map.Entry<Locale, String> title : TITLES.entrySet()) {

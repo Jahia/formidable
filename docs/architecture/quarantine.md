@@ -303,16 +303,17 @@ named `formidableQuarantine(siteKey)`:
 | `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms of the site where it is granted. |
 | `formidableQuarantineFileAccess` | The download of a held file, when the file access allows it. |
 
-- The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`, `jContentAccess` and privileged
-  access. The manager screen is a route of jContent, and the jContent shell admits only a member of the group
-  `privileged`; a holder of a privileged site role joins it through the group `site-privileged` of the site, and
-  `jContentAccess` shows the entry of jContent. The privileged access gives the read of the drafts of the site, as an
+- The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`, `jContentAccess`,
+  `additionalAccordionAccess` and privileged access. The manager screen is a route of jContent, and the jContent shell
+  admits only a member of the group `privileged`; a holder of a privileged site role joins it through the group
+  `site-privileged` of the site. `jContentAccess` and `additionalAccordionAccess` show jContent and its accordion
+  "Additional", which lists the screen. The privileged access gives the read of the drafts of the site, as an
   editor has: the access control of the site grants the role `privileged` to `site-privileged`. The role gives no
   write and no publication. It reads no node of the quarantine tree, whose root breaks the inheritance of the access
   control.
 - The module creates the role with that access when the role is missing. It never changes the access of a role that
   exists: an installation that has the role keeps the access that the role had, and an administrator adds
-  `jContentAccess` and privileged access to it.
+  `jContentAccess`, `additionalAccordionAccess` and privileged access to it.
 - Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the live workspace, under the
   session of the user, before it reads anything. A grant of the role applies once the site is published, and a site
   with no live node has no manager. A revocation applies the same way: a role removed in the edit workspace stops

@@ -113,8 +113,8 @@ Specs:
 - **Manager**: a user that holds the site role `formidable-quarantine-manager`
   on the site, published. The role grants the permission
   `formidableQuarantineManage` of the quarantine module, which the API checks
-  on the live site node, `jContentAccess` and privileged access, so that it
-  opens jContent and the manager screen. A server administrator is a manager of
+  on the live site node, `jContentAccess`, `additionalAccordionAccess` and
+  privileged access, so that it opens jContent and the manager screen. A server administrator is a manager of
   every site that exists.
 - **Operation**: the mutation `formidableQuarantine(siteKey) { operate(id,
   operation) }`, where the operation is `RETRY`, `RELEASE`, `RESUME` or
