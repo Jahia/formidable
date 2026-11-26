@@ -13,8 +13,8 @@ import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The entry of the GraphQL API into the module, an OSGi service: the resolvers of graphql-core are not DS components,
@@ -75,25 +75,22 @@ public class ManagerApi {
      * {@code formidableQuarantine} on the same site shares the instance, so its counts, totals, forms and records are
      * read once.
      *
+     * <p>The context of graphql-java 21 has no atomic put-if-absent: two fields resolved at once on two threads could
+     * each create the map, and one map would be lost. The data fetchers of a request run on one thread, and a lost map
+     * costs a second reading of the site, never a wrong answer. The map itself is concurrent, and a {@code null}, the
+     * answer for a site the user does not manage, stores nothing.</p>
+     *
      * @param request the context of the GraphQL request, which keeps the quarantines it opened
      * @return as {@link #open(String)}
      */
     SiteQuarantine open(String siteKey, GraphQLContext request) {
-        synchronized (request) {
-            Map<String, SiteQuarantine> opened = request.get(OPENED);
-            if (opened == null) {
-                opened = new HashMap<>();
-                request.put(OPENED, opened);
-            }
-            SiteQuarantine site = opened.get(siteKey);
-            if (site == null) {
-                site = open(siteKey);
-                if (site != null) {
-                    opened.put(siteKey, site);
-                }
-            }
-            return site;
+        Map<String, SiteQuarantine> opened = request.get(OPENED);
+        if (opened == null) {
+            opened = new ConcurrentHashMap<>();
+            request.put(OPENED, opened);
         }
+        // open(siteKey) never reads this map; a key that is not a site key opens nothing and is not looked up
+        return HeldIds.isSiteKey(siteKey) ? opened.computeIfAbsent(siteKey, this::open) : null;
     }
 
     /**
