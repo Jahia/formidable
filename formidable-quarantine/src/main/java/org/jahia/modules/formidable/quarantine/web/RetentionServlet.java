@@ -20,9 +20,9 @@ import java.util.regex.Pattern;
 /**
  * The retention, for the test suite: {@code POST /modules/formidable-quarantine/retention?site=<siteKey>
  * [&olderThanDays=<n>]} purges the completed and rejected held submissions of the site older than the limit, and
- * answers {@code {"site", "retentionDays", "limit", "purged": [<path>], "failed": [<path>]}}, where {@code limit} says whose
- * limit applied: {@code platform}, {@code site} or {@code call}. {@code olderThanDays} replaces the setting
- * {@code retentionDays} for this call only.
+ * answers {@code {"site", "retentionDays", "limit", "purged": [<path>], "failed": [<path>]}}, where {@code limit} is
+ * the name of the {@link QuarantineRetention.Limit} that applied, in lower case. {@code olderThanDays} replaces the
+ * limit of the site for this call only.
  *
  * <p>Server administrators only: any other caller gets 403, and nothing is purged. A POST also needs the header
  * {@code X-Requested-With}, else 403, and a {@code Content-Type} of {@code application/json}, else 415: nothing is

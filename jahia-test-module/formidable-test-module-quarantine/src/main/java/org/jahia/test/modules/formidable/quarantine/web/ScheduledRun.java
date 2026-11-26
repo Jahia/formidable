@@ -1,11 +1,14 @@
 package org.jahia.test.modules.formidable.quarantine.web;
 
 import org.jahia.registries.ServicesRegistry;
+import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleTrigger;
 import org.quartz.Trigger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.function.Supplier;
 
 /**
  * The scheduled run of formidable-quarantine as Jahia's RAM scheduler holds it on this server, so that a spec that
@@ -30,9 +33,13 @@ final class ScheduledRun {
      *         server; {@link #UNREAD} when the scheduler cannot be read
      */
     static long periodSeconds() {
+        return periodSeconds(() -> ServicesRegistry.getInstance().getSchedulerService().getRAMScheduler());
+    }
+
+    /** The period of the scheduled run as this scheduler holds it, as {@link #periodSeconds()} answers it. */
+    static long periodSeconds(Supplier<Scheduler> scheduler) {
         try {
-            Trigger[] triggers = ServicesRegistry.getInstance().getSchedulerService().getRAMScheduler()
-                    .getTriggersOfJob(JOB_NAME, JOB_GROUP);
+            Trigger[] triggers = scheduler.get().getTriggersOfJob(JOB_NAME, JOB_GROUP);
             for (Trigger trigger : triggers) {
                 if (trigger instanceof SimpleTrigger simple) {
                     return simple.getRepeatInterval() / 1000;

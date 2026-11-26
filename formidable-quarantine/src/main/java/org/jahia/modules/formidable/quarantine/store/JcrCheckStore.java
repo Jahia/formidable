@@ -161,12 +161,12 @@ public class JcrCheckStore implements CheckStore {
         });
     }
 
-    @Override
-    public void keepPassedOutcomesOnly(String path) throws QuarantineStoreException {
-        change(path, "drop the outcomes that are not a PASS", JcrCheckStore::dropUnpassedOutcomes);
-    }
-
-    /** Removes every outcome of the held submission that is not a {@code PASS}, in the session of the caller. */
+    /**
+     * Removes every outcome of the held submission that is not a {@code PASS}, in the session of the caller, so that
+     * the next run calls those checks again with no failure counted: the retry of a manager
+     * ({@link JcrQuarantineStore#restartChecks}) calls it in its one save. A {@code PASS} stays, for the bytes it was
+     * given for.
+     */
     static void dropUnpassedOutcomes(JCRNodeWrapper held) throws RepositoryException {
         JCRNodeWrapper checks = checksOrNull(held);
         if (checks == null) {

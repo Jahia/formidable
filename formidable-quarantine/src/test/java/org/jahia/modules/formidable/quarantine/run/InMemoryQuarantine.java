@@ -279,11 +279,6 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     }
 
     @Override
-    public void keepPassedOutcomesOnly(String path) throws QuarantineStoreException {
-        get(path).outcomes.values().removeIf(outcome -> !OutcomeRecord.PASS.equals(outcome.outcome()));
-    }
-
-    @Override
     public List<AuditRecord> audit(String path) throws QuarantineStoreException {
         return List.copyOf(get(path).audit);
     }
