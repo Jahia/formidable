@@ -274,7 +274,8 @@ interface DetailFrameProps {
 
 /**
  * The frame of the detail: a Moonstone Paper, which renders a section, named by the heading of the detail, closed by
- * its button or by Escape from inside it. It is not modal: the focus moves freely between the list and the detail.
+ * its button or by Escape from inside it. It sits in the card of the list, beside the table, as the detail panel of
+ * Form Results does. It is not modal: the focus moves freely between the list and the detail.
  */
 export const DetailFrame = ({onClose, children}: DetailFrameProps) => {
     const {t} = useTranslation('formidable-quarantine');

@@ -1,6 +1,6 @@
 import React, {useCallback, useEffect, useRef, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
-import {Banner, Button, EmptyData, Header, LayoutContent, Reload, Typography} from '@jahia/moonstone';
+import {Banner, Button, EmptyData, Header, LayoutContent, Paper, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
 import {
     type DetailData,
@@ -311,10 +311,6 @@ export const QuarantineApp = () => {
             return banner('quarantine-no-access', 'warning', t('quarantine.noAccessTitle'), t('quarantine.noAccess'));
         }
 
-        if (quarantine.counts.every(count => count.count === 0)) {
-            return <EmptyData message={t('quarantine.empty')} data-sel-role="quarantine-empty"/>;
-        }
-
         return listBody(quarantine);
     }
 
@@ -322,58 +318,77 @@ export const QuarantineApp = () => {
         const page = site.submissions;
         const words = filterWords(filters, site, t);
         const order = t(`quarantine.table.order.${filters.sort}`);
+        const filtered = filters.state !== null || filters.formId !== null;
         return (
             <>
-                <div className="fmdbq-filters">
-                    <StateFilter counts={site.counts} selected={filters.state} onSelect={state => changeFilters({state})}/>
-                    <FormFilter
-                        forms={site.forms}
-                        selected={filters.formId}
-                        isOpen={formFilterOpen}
-                        onOpen={() => setFormFilterOpen(true)}
-                        onClose={closeFormFilter}
-                        onSelect={formId => changeFilters({formId})}
-                    />
-                </div>
-                <div className="fmdbq-main">
-                    {/* the admin shell holds the main landmark: the list is a named region inside it */}
-                    <section className="fmdbq-list" aria-labelledby={LIST_HEADING_ID}>
-                        <h2 id={LIST_HEADING_ID} className="fmdbq-sr-only">
-                            {words ? t('quarantine.table.headingFiltered', {order, filters: words}) : t('quarantine.table.heading', {order})}
-                        </h2>
-                        {page.items.length === 0 ? (
-                            <div className="fmdbq-no-match" data-sel-role="quarantine-no-match">
-                                <EmptyData message={t('quarantine.filter.noMatch')}/>
-                                <Button
-                                    label={t('quarantine.filter.clear')}
-                                    variant="outlined"
-                                    onClick={() => {
-                                        setFilters(NO_FILTER);
-                                        focus({kind: 'listHeading'});
-                                    }}
-                                />
-                            </div>
-                        ) : (
-                            <SubmissionsTable
-                                rows={page.items}
-                                totalCount={page.totalCount}
-                                offset={page.offset}
-                                sortDirection={filters.sort}
-                                openId={openId}
-                                busy={list.loading}
-                                language={language}
-                                onOpen={open}
-                                onPage={offset => setFilters(current => ({...current, offset}))}
-                                onSort={sort => changeFilters({sort})}
+                {/* One card, as Form Results and module-management-community: the toolbar on top, the table under it,
+                    the detail beside the table. */}
+                <Paper hasPadding={false} className="fmdbq-card" data-sel-role="quarantine-card">
+                    <div className="fmdbq-toolbar" data-sel-role="quarantine-toolbar">
+                        <StateFilter counts={site.counts} selected={filters.state} onSelect={state => changeFilters({state})}/>
+                        <FormFilter
+                            forms={site.forms}
+                            selected={filters.formId}
+                            isOpen={formFilterOpen}
+                            onOpen={() => setFormFilterOpen(true)}
+                            onClose={closeFormFilter}
+                            onSelect={formId => changeFilters({formId})}
+                        />
+                        <div className="fmdbq-toolbar-end">
+                            <Button
+                                variant="ghost"
+                                label={t('quarantine.refresh')}
+                                icon={<Reload aria-hidden="true"/>}
+                                isLoading={list.loading}
+                                data-sel-role="quarantine-refresh"
+                                onClick={refresh}
                             />
+                        </div>
+                    </div>
+                    <div className="fmdbq-card-body">
+                        {/* the admin shell holds the main landmark: the list is a named region inside it */}
+                        <section className="fmdbq-list" aria-labelledby={LIST_HEADING_ID}>
+                            <h2 id={LIST_HEADING_ID} className="fmdbq-sr-only">
+                                {words ? t('quarantine.table.headingFiltered', {order, filters: words}) : t('quarantine.table.heading', {order})}
+                            </h2>
+                            {page.items.length === 0 && !filtered && (
+                                <EmptyData message={t('quarantine.empty')} data-sel-role="quarantine-empty"/>
+                            )}
+                            {page.items.length === 0 && filtered && (
+                                <div className="fmdbq-no-match" data-sel-role="quarantine-no-match">
+                                    <EmptyData message={t('quarantine.filter.noMatch')}/>
+                                    <Button
+                                        label={t('quarantine.filter.clear')}
+                                        variant="outlined"
+                                        onClick={() => {
+                                            setFilters(NO_FILTER);
+                                            focus({kind: 'listHeading'});
+                                        }}
+                                    />
+                                </div>
+                            )}
+                            {page.items.length > 0 && (
+                                <SubmissionsTable
+                                    rows={page.items}
+                                    totalCount={page.totalCount}
+                                    offset={page.offset}
+                                    sortDirection={filters.sort}
+                                    openId={openId}
+                                    busy={list.loading}
+                                    language={language}
+                                    onOpen={open}
+                                    onPage={offset => setFilters(current => ({...current, offset}))}
+                                    onSort={sort => changeFilters({sort})}
+                                />
+                            )}
+                        </section>
+                        {openId && (
+                            <DetailFrame onClose={close}>
+                                {renderDetail()}
+                            </DetailFrame>
                         )}
-                    </section>
-                    {openId && (
-                        <DetailFrame onClose={close}>
-                            {renderDetail()}
-                        </DetailFrame>
-                    )}
-                </div>
+                    </div>
+                </Paper>
                 {confirm && submission && (
                     <ConfirmDialog
                         operation={confirm}
@@ -442,22 +457,7 @@ export const QuarantineApp = () => {
                 hasPadding
                 className="fmdbq-layout"
                 isLoading={Boolean(siteKey) && !listData && list.loading}
-                header={(
-                    <Header
-                        title={t('quarantine.title')}
-                        mainActions={quarantine && (
-                            <Button
-                                size="big"
-                                variant="ghost"
-                                label={t('quarantine.refresh')}
-                                icon={<Reload aria-hidden="true"/>}
-                                isLoading={list.loading}
-                                data-sel-role="quarantine-refresh"
-                                onClick={refresh}
-                            />
-                        )}
-                    />
-                )}
+                header={<Header title={t('quarantine.title')}/>}
             >
                 {body()}
             </LayoutContent>

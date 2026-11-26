@@ -189,6 +189,8 @@ describe('QuarantineApp', () => {
         expect(markup).toMatch(/<section[^>]*aria-labelledby="fmdbq-list-heading"/);
         expect(markup).toMatch(/<h2 id="fmdbq-list-heading" class="fmdbq-sr-only">quarantine\.table\.heading<\/h2>/);
         expect(markup).toMatch(/<button[^>]*aria-controls="fmdbq-detail" aria-expanded="false"/);
+        // one card, as Form Results: the toolbar with the filters and Refresh on top, the table under it
+        expect(markup).toMatch(/data-sel-role="quarantine-card".*data-sel-role="quarantine-toolbar".*quarantine-form-filter.*quarantine-refresh.*data-sel-role="quarantine-table"/s);
         // the live regions sit outside LayoutContent, which swaps its children for a Loader
         expect(markup).toMatch(/<\/div><div role="status"/);
         expect(markup).toContain('moonstone-header');

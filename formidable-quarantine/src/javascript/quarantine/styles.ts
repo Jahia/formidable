@@ -44,17 +44,38 @@ ${R} .fmdbq-sr-only {
     overflow: hidden;
     clip: rect(0, 0, 0, 0);
 }
-${R} .fmdbq-filters {
+/* The card of the list, as Form Results and module-management-community: one Paper, the toolbar on top, the table
+   under it and the detail beside the table. */
+${R} .fmdbq-card {
     display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+/* The toolbar band of the card: the strip of Form Results (12px 24px, a light rule under it). */
+${R} .fmdbq-toolbar {
+    display: flex;
+    flex: none;
     flex-wrap: wrap;
-    align-items: flex-end;
-    gap: var(--spacing-large);
-    margin-bottom: var(--spacing-medium);
+    align-items: center;
+    gap: var(--spacing-small) var(--spacing-large);
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--color-gray_light40);
+    background-color: var(--color-white);
+}
+${R} .fmdbq-toolbar-end {
+    display: flex;
+    margin-left: auto;
 }
 ${R} .fmdbq-filter {
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-nano);
+    align-items: center;
+    gap: var(--spacing-small);
+}
+${R} .fmdbq-card-body {
+    display: flex;
+    min-height: 0;
 }
 ${R} .fmdbq-state-filter .moonstone-button[aria-pressed="true"] {
     border-bottom: 2px solid var(--color-accent_dark_contrast);
@@ -82,26 +103,6 @@ ${R} .fmdbq-chip .fmdbq-chip-empty {
 .fmdbq-filter-footer {
     display: flex;
     justify-content: flex-end;
-}
-${R} .fmdbq-main {
-    display: flex;
-    align-items: flex-start;
-    gap: var(--spacing-medium);
-    min-height: 0;
-}
-${R} .fmdbq-list {
-    display: flex;
-    flex: 1 1 0;
-    flex-direction: column;
-    min-width: 0;
-    min-height: 0;
-}
-${R} .fmdbq-table-wrapper {
-    min-height: 0;
-    max-height: calc(100vh - 260px);
-    scroll-padding-top: 48px;
-    scroll-padding-bottom: 64px;
-    overflow: auto;
 }
 ${R} .fmdbq-table-wrapper tr {
     flex-wrap: nowrap;
@@ -140,12 +141,30 @@ ${R} .fmdbq-no-match {
     gap: var(--spacing-medium);
     padding: var(--spacing-big) 0;
 }
-${R} .fmdbq-detail {
-    position: relative;
-    flex: 0 0 480px;
+${R} .fmdbq-list {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
     min-width: 0;
-    max-height: calc(100vh - 200px);
+    min-height: 0;
+}
+${R} .fmdbq-table-wrapper {
+    min-height: 0;
+    max-height: calc(100vh - 230px);
+    scroll-padding-top: 48px;
+    scroll-padding-bottom: 64px;
+    overflow: auto;
+}
+/* The detail panel of the card: a Paper with no card of its own, set apart from the table by a rule. */
+${R} .fmdbq-detail.fmdbq-detail {
+    position: relative;
+    flex: 0 0 440px;
+    min-width: 0;
+    max-height: calc(100vh - 230px);
     overflow-y: auto;
+    border-left: 1px solid var(--color-gray_light40);
+    border-radius: 0;
+    box-shadow: none;
 }
 ${R} .fmdbq-detail-close {
     position: absolute;

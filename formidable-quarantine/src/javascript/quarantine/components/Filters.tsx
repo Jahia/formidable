@@ -22,7 +22,7 @@ export const StateFilter = ({counts, selected, onSelect}: StateFilterProps) => {
 
     return (
         <div className="fmdbq-filter" data-sel-role="quarantine-state-filter">
-            <Typography id={labelId} variant="caption" className="fmdbq-secondary">{t('quarantine.filter.state')}</Typography>
+            <Typography id={labelId} variant="body" className="fmdbq-secondary">{t('quarantine.filter.state')}</Typography>
             <ButtonGroup aria-labelledby={labelId} variant="outlined" className="fmdbq-state-filter">
                 {STATES.map(state => {
                     const pressed = selected === state;
@@ -118,7 +118,6 @@ export const FormFilter = ({forms, selected, isOpen, onOpen, onClose, onSelect}:
 
     return (
         <div className="fmdbq-filter">
-            <Typography variant="caption" className="fmdbq-secondary" aria-hidden="true">{name}</Typography>
             <span ref={anchorRef} className="fmdbq-chip">
                 {value ? (
                     <ButtonGroup variant="outlined" color="accent">

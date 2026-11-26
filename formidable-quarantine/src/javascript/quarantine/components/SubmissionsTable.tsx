@@ -1,5 +1,5 @@
 import React, {useEffect, useMemo, useRef} from 'react';
-import {Button, DataTable, Paper} from '@jahia/moonstone';
+import {Button, DataTable} from '@jahia/moonstone';
 import type {DataTableColumn} from '@jahia/moonstone/DataTable';
 import {useTranslation} from 'react-i18next';
 import type {SubmissionRow} from '../graphql';
@@ -163,7 +163,9 @@ export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openI
     const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
     return (
-        <Paper ref={containerRef} hasPadding={false} className="fmdbq-table-wrapper" aria-busy={busy} data-sel-role="quarantine-table">
+        // the scrolling area of the table inside the card of the list: the card is the Paper, this area scrolls under
+        // the sticky head and pager
+        <div ref={containerRef as React.RefObject<HTMLDivElement>} className="fmdbq-table-wrapper" aria-busy={busy} data-sel-role="quarantine-table">
             <DataTable
                 enableSorting
                 enablePagination
@@ -198,6 +200,6 @@ export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openI
                     onPage((page - 1) * PAGE_SIZE);
                 }}
             />
-        </Paper>
+        </div>
     );
 };
