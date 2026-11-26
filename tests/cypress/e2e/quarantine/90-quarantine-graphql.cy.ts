@@ -15,6 +15,7 @@ import {
 	GraphqlAnswer,
 	GraphqlHeldState,
 	STUB_FILE,
+	errorCodes,
 	fields,
 	heldIdOf,
 	operateHeldSubmission,
@@ -191,6 +192,7 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 			).then(response => {
 				expect(response.body.data?.formidableQuarantine ?? null, 'operation on an identifier of site B').to.eq(null);
 				expect(JSON.stringify(response.body.errors ?? []), 'answer of the operation').to.contain('No held submission');
+				expect(errorCodes(response.body), 'code of the refusal').to.deep.equal(['NOT_FOUND']);
 			});
 			asRoot();
 			readHeldSubmissions(formIdB, SITE_B).then(([after]) => {
@@ -232,7 +234,15 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 			expect(response.body.from, 'state before the reject').to.eq('needsReview');
 		});
 		readSubmission(SITE_A, id).its('body.data.formidableQuarantine.submission.allowedOperations').should('deep.equal', []);
-		operateHeldSubmission(pathsA[0], 'release', false).its('status').should('eq', 409);
+		quarantineGraphql<{formidableQuarantine: {operate: unknown} | null}>(
+			`mutation($siteKey: String!, $id: String!) {
+				formidableQuarantine(siteKey: $siteKey) { operate(id: $id, operation: RELEASE) { id } }
+			}`,
+			{siteKey: SITE_A, id}
+		).then(response => {
+			// the manager screen reads the code, never the message
+			expect(errorCodes(response.body), 'code of a release of a rejected submission').to.deep.equal(['CONFLICT']);
+		});
 		runQuarantineRetention(0, false).its('status').should('eq', 403);
 
 		asRoot();

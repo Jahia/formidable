@@ -484,28 +484,46 @@ class SiteQuarantineTest {
     @Test
     void anOperationOnAnIdentifierThatIsNotOneRunsNothing() {
         SiteQuarantine site = site();
-        DataFetchingException error = assertThrows(DataFetchingException.class,
+        RefusedException error = assertThrows(RefusedException.class,
                 () -> site.operate("../../otherSite/x", GqlOperation.REJECT));
 
         assertTrue(error.getMessage().contains("No held submission"), error.getMessage());
+        assertEquals(Map.of(RefusedException.CODE, "NOT_FOUND"), error.getExtensions());
         assertTrue(operated.isEmpty());
     }
 
     @Test
-    void aRefusedOperationAnswersNotFoundOrTheConflict() {
+    void aRefusedOperationAnswersNotFoundOrTheConflictWithItsCode() {
         String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
         SiteQuarantine site = site();
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.NOT_FOUND, "secret path detail");
-        DataFetchingException notFound = assertThrows(DataFetchingException.class,
+        RefusedException notFound = assertThrows(RefusedException.class,
                 () -> site.operate(id, GqlOperation.RELEASE));
         assertEquals(String.format(SiteQuarantine.NOT_FOUND, id), notFound.getMessage());
+        assertEquals(Map.of(RefusedException.CODE, "NOT_FOUND"), notFound.getExtensions());
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                 "The operation release is not allowed in state completed");
-        DataFetchingException conflict = assertThrows(DataFetchingException.class,
+        RefusedException conflict = assertThrows(RefusedException.class,
                 () -> site.operate(id, GqlOperation.RELEASE));
         assertTrue(conflict.getMessage().contains("is not allowed in state"), conflict.getMessage());
+        assertEquals(Map.of(RefusedException.CODE, "CONFLICT"), conflict.getExtensions());
+        assertEquals(RefusedException.Code.CONFLICT, conflict.code());
+    }
+
+    /** A failure that is not a refusal carries no code: the client cannot read it as a refusal. */
+    @Test
+    void aFailedOperationCarriesNoCode() {
+        String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
+        refusal = new QuarantineStoreException("The store is down");
+        SiteQuarantine site = site();
+
+        DataFetchingException error = assertThrows(DataFetchingException.class,
+                () -> site.operate(id, GqlOperation.RELEASE));
+
+        assertEquals(SiteQuarantine.OPERATION_FAILED, error.getMessage());
+        assertNull(error.getExtensions());
     }
 
     /** f1: neither the error nor the log line quotes the message of the failure, which may hold a value. */
@@ -607,8 +625,9 @@ class SiteQuarantineTest {
         inState(FORM, HeldState.COMPLETED);
 
         SiteQuarantine site = site();
-        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.purge(0));
+        RefusedException error = assertThrows(RefusedException.class, () -> site.purge(0));
         assertEquals(SiteQuarantine.ADMINISTRATORS_ONLY, error.getMessage());
+        assertEquals(Map.of(RefusedException.CODE, "FORBIDDEN"), error.getExtensions());
         assertEquals(2, stores.held.size(), "nothing purged");
 
         managers.administrator = true;

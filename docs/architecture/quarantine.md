@@ -261,6 +261,15 @@ named `formidableQuarantine(siteKey)`:
   totals, forms and records are read once per request. The API adds no limit of its own beyond the page of 100.
 - Any failure answers an error with a fixed message. The log line names the site, the path or the class of the
   failure, never a value. An operation that ran, and whose submission cannot be read again, answers that it ran.
+- A request that did not run answers an error whose `extensions.code` says why. A client reads the code, never the
+  message. An error with no code is a failure, and the operation may or may not have run:
+
+| Code | The request did not run because |
+|---|---|
+| `CONFLICT` | The state of the submission, or its decision, does not allow the operation any more. |
+| `NOT_FOUND` | The site has no held submission with this identifier, or the user does not manage the site. |
+| `FORBIDDEN` | The request needs a right that a manager does not have: the purge is for server administrators. |
+
 - The API has no field for the file access yet (`fileAccess`, `canAccessFiles`): the download comes with the file
   access.
 

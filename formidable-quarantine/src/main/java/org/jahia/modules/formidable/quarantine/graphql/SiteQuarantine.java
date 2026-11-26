@@ -12,6 +12,7 @@ import org.jahia.modules.formidable.quarantine.store.HeldQueries;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.jahia.modules.graphql.provider.dxm.BaseGqlClientException;
 import org.jahia.modules.graphql.provider.dxm.DataFetchingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -205,20 +206,22 @@ final class SiteQuarantine {
      * Runs the operation as the user of the request, then answers the held submission as the operation left it. The
      * operations check the permission on the site again, and write the audit record with the name of the user.
      *
-     * @throws DataFetchingException when the site has no such held submission, when the state does not allow the
-     *                               operation, when the operation failed, or, with its own message, when it ran
-     *                               but the submission could not be read again
+     * @throws RefusedException      with the code NOT_FOUND when the site has no such held submission, or CONFLICT when
+     *                               the state does not allow the operation: nothing ran
+     * @throws DataFetchingException when the operation failed, or, with its own message, when it ran but the
+     *                               submission could not be read again
      */
     GqlHeldSubmission operate(String id, GqlOperation operation) {
         String path = HeldIds.pathOf(siteKey, id);
         if (path == null || operation == null) {
-            throw new DataFetchingException(String.format(NOT_FOUND, id));
+            throw new RefusedException(String.format(NOT_FOUND, id), RefusedException.Code.NOT_FOUND);
         }
         try {
             services.operator().apply(path, operation.operation());
         } catch (OperationRefusedException e) {
-            throw new DataFetchingException(e.reason() == OperationRefusedException.Reason.CONFLICT
-                    ? e.getMessage() : String.format(NOT_FOUND, id));
+            throw e.reason() == OperationRefusedException.Reason.CONFLICT
+                    ? new RefusedException(e.getMessage(), RefusedException.Code.CONFLICT)
+                    : new RefusedException(String.format(NOT_FOUND, id), RefusedException.Code.NOT_FOUND);
         } catch (QuarantineStoreException e) {
             if (log.isWarnEnabled()) {
                 log.warn("The operation {} on {} failed: {}", operation, path, e.getMessage());
@@ -259,7 +262,7 @@ final class SiteQuarantine {
      */
     GqlPurgeReport purge(Integer olderThanDays) {
         if (!services.managers().isServerAdministrator()) {
-            throw new DataFetchingException(ADMINISTRATORS_ONLY);
+            throw new RefusedException(ADMINISTRATORS_ONLY, RefusedException.Code.FORBIDDEN);
         }
         if (olderThanDays != null && olderThanDays < 0) {
             throw new DataFetchingException("olderThanDays is a number of days");
@@ -319,7 +322,7 @@ final class SiteQuarantine {
     <T> T guarded(String what, Supplier<T> call) {
         try {
             return call.get();
-        } catch (DataFetchingException e) {
+        } catch (BaseGqlClientException e) {
             throw e;
         } catch (RuntimeException e) {
             // the class alone: a message may name a property or quote a value

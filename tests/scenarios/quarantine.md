@@ -729,6 +729,7 @@ hold no such role.
 
 **Expected:**
 - Each read answers no submission, and the reject answers "No held submission"
+  with the error code `NOT_FOUND`
 - The submission of site B is still `held`, with its values and no audit record
 
 ### Q31 — A user without the permission sees and changes nothing — control
@@ -756,8 +757,8 @@ hold no such role.
   are `RETRY`, `RELEASE` and `REJECT`, and the public values are `null`: the
   form does not show them
 - After the reject, the state is `REJECTED` and no operation is allowed
-- The release is refused as a conflict, and the retention as for a user who is
-  not a server administrator
+- The release is refused with the error code `CONFLICT`, and the retention as
+  for a user who is not a server administrator
 - The last audit record is `reject` by the manager, from `needsReview` to
   `rejected`, and no answer holds a value
 
