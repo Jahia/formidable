@@ -44,7 +44,8 @@ type FocusRequest =
     | {kind: 'refresh'}
     | {kind: 'empty'}
     | {kind: 'row'; id: string}
-    | {kind: 'action'; operation: QuarantineOperation};
+    | {kind: 'action'; operation: QuarantineOperation}
+    | {kind: 'tryAgain'; where: 'list' | 'detail'};
 
 type Translate = (key: string, options?: Record<string, unknown>) => string;
 
@@ -86,6 +87,12 @@ function listSentence(page: SubmissionPage, filters: Filters, forms: FormEntry[]
 
 const bySelRole = (root: HTMLElement | null, role: string) => root?.querySelector<HTMLElement>(`[data-sel-role="${role}"]`) ?? null;
 
+/** The Try again button of the failure banner of the list (or of the whole screen), and of the detail. */
+const TRY_AGAIN = {
+    list: '[data-sel-role="quarantine-list-failed"] [data-sel-role="quarantine-try-again"], [data-sel-role="quarantine-load-failed"] [data-sel-role="quarantine-try-again"]',
+    detail: '[data-sel-role="quarantine-detail-failed"] [data-sel-role="quarantine-try-again"]'
+};
+
 function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement | null {
     const listHeading = () => {
         const heading = root?.querySelector<HTMLElement>('h1') ?? null;
@@ -94,13 +101,17 @@ function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement |
     };
     // the row asked for, else the first row of the page, else the heading of the screen
     const firstRow = () => bySelRole(root, 'quarantine-open') ?? listHeading();
+    // a failed reading of the detail replaces it with its banner: the focus asked for the detail goes to Try again
+    const detailTryAgain = () => root?.querySelector<HTMLElement>(TRY_AGAIN.detail) ?? null;
     switch (wanted.kind) {
         case 'detailHeading':
-            return document.getElementById('fmdbq-detail-title');
+            return document.getElementById('fmdbq-detail-title') ?? detailTryAgain();
         case 'listHeading':
             return listHeading();
         case 'reload':
-            return bySelRole(root, 'quarantine-reload');
+            return bySelRole(root, 'quarantine-reload') ?? detailTryAgain();
+        case 'tryAgain':
+            return root?.querySelector<HTMLElement>(TRY_AGAIN[wanted.where]) ?? null;
         case 'refresh':
             return bySelRole(root, 'quarantine-refresh');
         case 'empty':
@@ -108,7 +119,8 @@ function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement |
         case 'row':
             return root?.querySelector<HTMLElement>(`[data-sel-role="quarantine-open"][data-id="${CSS.escape(wanted.id)}"]`) ?? firstRow();
         default:
-            return bySelRole(root, `quarantine-action-${wanted.operation.toLowerCase()}`) ?? document.getElementById('fmdbq-detail-title');
+            return bySelRole(root, `quarantine-action-${wanted.operation.toLowerCase()}`) ?? document.getElementById('fmdbq-detail-title')
+                ?? detailTryAgain();
     }
 }
 
@@ -261,12 +273,18 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
             }
         }
     });
-    // the previous answer stays on screen while the next one loads, so the focused control never unmounts; a request
-    // that failed shows its failure, never the answer of other filters, nor the earlier answer that Apollo keeps
-    // beside the error of a failed refetch
+    // the previous answer stays on screen while the next one loads, so the focused control never unmounts. A failed
+    // page or summary shows the failure of the list in place of its rows, never the answer of other filters nor the
+    // earlier answer that Apollo keeps beside the error of a failed refetch; the filters keep the earlier counts and
+    // forms. The failure holds until an answer arrives, so a Try again that runs keeps its banner and its button.
     const summaryData = summary.data ?? (summary.loading ? summary.previousData : undefined);
     const site = summaryData?.formidableQuarantine ?? null;
-    const listFailed = Boolean(list.error || summary.error) && !list.loading && !summary.loading;
+    const listFailedRef = useRef(false);
+    if (!list.loading && !summary.loading) {
+        listFailedRef.current = Boolean(list.error || summary.error);
+    }
+
+    const listFailed = listFailedRef.current;
     const page = listFailed ? undefined
         : (list.data ?? (list.loading ? list.previousData : undefined))?.formidableQuarantine?.submissions;
     // the Loader of LayoutContent replaces the whole screen: for the first answer alone, never for a retry
@@ -281,6 +299,9 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     // a failed reading of the detail shows its failure, never the earlier answer that Apollo keeps beside the error
     const detailFailed = Boolean(detail.error) && !detail.loading;
     const submission: HeldDetail | null = openId && !detailFailed ? detail.data?.formidableQuarantine?.submission ?? null : null;
+    // the page or the detail answers null to a user who no longer manages the site, while the summary read on open
+    // still names it: the screen then says that the user has no access
+    const accessLost = list.data?.formidableQuarantine === null || (openId !== null && detail.data?.formidableQuarantine === null);
     const [operate] = useMutation<OperateData>(OPERATE_QUARANTINE_SUBMISSION, {fetchPolicy: 'no-cache'});
 
     useEffect(() => {
@@ -410,7 +431,8 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
 
     const reload = async () => {
         setReloading(true);
-        // the Reload button is busy while the request runs, and takes the focus back if it fails
+        // the Reload button is busy while the request runs, and takes the focus back if it fails; when the detail
+        // could not be read, its banner replaces Reload, and the focus goes to its Try again
         focus({kind: 'reload'});
         try {
             const [, again] = await Promise.all([refetchList(), detail.refetch()]);
@@ -445,12 +467,16 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
         }
     };
 
-    /** Try again after a failed load: the focus goes to the heading of what came back. */
-    const retry = async (load: () => Promise<unknown>, after: FocusRequest) => {
+    /**
+     * Try again after a failed load: the focus goes to the heading of what came back, or back to Try again, whose
+     * banner stays, when the load fails again.
+     */
+    const retry = async (load: () => Promise<unknown>, after: FocusRequest, where: 'list' | 'detail') => {
         try {
             await load();
             focus(after);
         } catch {
+            focus({kind: 'tryAgain', where});
             announce(t('quarantine.loadFailed'), true);
         }
     };
@@ -463,7 +489,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     );
 
     const tryAgain = (onClick: () => void) => (
-        <Button label={t('quarantine.tryAgain')} variant="outlined" className="fmdbq-block" onClick={onClick}/>
+        <Button label={t('quarantine.tryAgain')} variant="outlined" className="fmdbq-block" data-sel-role="quarantine-try-again" onClick={onClick}/>
     );
 
     function body(): React.ReactNode {
@@ -474,10 +500,10 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
         if (!summaryData) {
             // before the first answer the Loader stands in; after a failure the banner stays while Try again runs
             return answeredRef.current ? banner('quarantine-load-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.loadFailed'),
-                tryAgain(() => retry(refetchList, {kind: 'listHeading'}))) : null;
+                tryAgain(() => retry(refetchList, {kind: 'listHeading'}, 'list'))) : null;
         }
 
-        if (!site) {
+        if (!site || accessLost) {
             return banner('quarantine-no-access', 'warning', t('quarantine.noAccessTitle'), t('quarantine.noAccess'));
         }
 
@@ -486,10 +512,10 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
 
     function listContent(): React.ReactNode {
         if (!page) {
-            // the counts and the forms read again with the page: a failed summary leaves stale counts on the filters
+            // Try again reads the counts and the forms with the page
             return listFailed
                 ? banner('quarantine-list-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.loadFailed'),
-                    tryAgain(() => retry(refetchList, {kind: 'listHeading'})))
+                    tryAgain(() => retry(refetchList, {kind: 'listHeading'}, 'list')))
                 : <Typography className="fmdbq-secondary">{t('quarantine.loading')}</Typography>;
         }
 
@@ -605,7 +631,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
 
         if (detailFailed) {
             return banner('quarantine-detail-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.detail.loadFailed'),
-                tryAgain(() => retry(() => detail.refetch(), {kind: 'detailHeading'})));
+                tryAgain(() => retry(() => detail.refetch(), {kind: 'detailHeading'}, 'detail')));
         }
 
         if (!submission) {

@@ -1,10 +1,7 @@
 import {gql} from '@apollo/client';
 import type {QuarantineOperation, QuarantineState} from './quarantine.utils';
 
-/**
- * The counts per state and the forms of the filter: read when the screen opens, after an operation and on Refresh,
- * never on a change of page, filter or order, which reads the page alone.
- */
+/** The counts per state and the forms of the filter, never read again on a change of page, filter or order. */
 export const GET_QUARANTINE_SUMMARY = gql`
     query GetFormidableQuarantineSummary($siteKey: String!) {
         formidableQuarantine(siteKey: $siteKey) {

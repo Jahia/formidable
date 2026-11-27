@@ -64,7 +64,7 @@ interface SubmissionsTableProps {
 }
 
 /**
- * The held submissions of a page in a Moonstone DataTable, paged on the server by 25 and sorted by time of intake. A
+ * The held submissions of a page in a Moonstone DataTable, paged on the server and sorted by time of intake. A
  * row opens through the one button of its Form cell; a click on the rest of the row does the same, for the mouse
  * alone, so the row is no tab stop. The table is named by the heading of the list (LIST_HEADING_ID).
  */

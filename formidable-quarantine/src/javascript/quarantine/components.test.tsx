@@ -402,7 +402,7 @@ describe('QuarantineApp', () => {
             .find(radio => radio.value === 'g');
         await press(claims);
         expect(lastListVariables()).toMatchObject({states: ['NEEDS_REVIEW'], formId: 'g'});
-        // the chip names the chosen form through a translated key, which sets the punctuation of each language
+        // the chip names the chosen form: Filters.test.tsx reads the options of its key
         expect(container.querySelector('[data-sel-role="quarantine-form-filter"]')?.textContent).toBe('quarantine.filter.formChip');
 
         await press(container.querySelector('[data-sel-role="quarantine-sort"]'));
@@ -439,7 +439,58 @@ describe('QuarantineApp', () => {
         expect(lastListVariables()).toMatchObject({states: null, formId: null, offset: 0, newestFirst: true});
     });
 
-    it('shows the failure of a refetch that failed with the same filters, never the earlier answer kept beside it', () => {
+    it('says that the user has no access when the page or the detail answers null while the summary names the site', async () => {
+        apollo.list = {loading: false, data: {formidableQuarantine: null}};
+        expect(markupOf(<QuarantineApp/>)).toContain('quarantine-no-access');
+
+        apollo.list = {loading: false, data: listOf([ROW])};
+        apollo.detail = {loading: false, data: {formidableQuarantine: null}};
+        const {container} = await mount(<QuarantineApp/>);
+        await press(container.querySelector('[data-sel-role="quarantine-open"]'));
+        expect(container.querySelector('[data-sel-role="quarantine-no-access"]')).not.toBeNull();
+        expect(container.querySelector('[data-sel-role="quarantine-gone"]')).toBeNull();
+    });
+
+    it('keeps the failure of the list and its Try again while the retry runs, and gives the focus back when it fails', async () => {
+        apollo.list = {loading: false, error: new Error('Network error'), data: listOf([ROW])};
+        const {container, root} = await mount(<QuarantineApp/>);
+        expect(container.querySelector('[data-sel-role="quarantine-list-failed"]')).not.toBeNull();
+
+        // the retry runs: Apollo shows the earlier answer as loading
+        apollo.list = {loading: true, data: listOf([ROW])};
+        await act(async () => root.render(<QuarantineApp/>));
+        expect(container.querySelector('[data-sel-role="quarantine-list-failed"]')).not.toBeNull();
+        expect(container.querySelector('[data-sel-role="quarantine-row"]')).toBeNull();
+
+        apollo.list = {loading: false, error: new Error('Network error'), data: listOf([ROW])};
+        apollo.refetch.list.mockRejectedValue(new Error('Network error'));
+        const again = container.querySelector<HTMLElement>('[data-sel-role="quarantine-list-failed"] [data-sel-role="quarantine-try-again"]');
+        again?.focus();
+        await press(again);
+        await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
+        expect(document.activeElement?.getAttribute('data-sel-role')).toBe('quarantine-try-again');
+    });
+
+    it('moves the focus to the Try again of the detail when a reload finds the detail unreadable', async () => {
+        apollo.detail = {loading: false, data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
+        apollo.operate.mockRejectedValue({graphQLErrors: [{message: 'any text', extensions: {code: 'CONFLICT'}}]});
+        const {container} = await mount(<QuarantineApp/>);
+        await press(container.querySelector('[data-sel-role="quarantine-open"]'));
+        await press(container.querySelector('[data-sel-role="quarantine-action-retry"]'));
+        expect(container.querySelector('[data-sel-role="quarantine-reload"]')).not.toBeNull();
+
+        apollo.refetch.detail.mockImplementation(() => {
+            apollo.detail = {loading: false, error: new Error('Network error'),
+                data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
+            return Promise.reject(new Error('Network error'));
+        });
+        await press(container.querySelector('[data-sel-role="quarantine-reload"]'));
+        await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
+        expect(container.querySelector('[data-sel-role="quarantine-detail-failed"]')).not.toBeNull();
+        expect(document.activeElement?.closest('[data-sel-role="quarantine-detail-failed"]')).not.toBeNull();
+    });
+
+    it('shows the failure of the list over the earlier rows of a failed refetch, the filters keeping their earlier counts', () => {
         // Apollo keeps the last answer in data beside the error of a failed refetch
         apollo.list = {loading: false, error: new Error('Network error'), data: listOf([ROW])};
         const pageFailed = markupOf(<QuarantineApp/>);

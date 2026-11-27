@@ -11,7 +11,7 @@
     <artifactId>formidable-quarantine</artifactId>
     <name>Formidable Quarantine</name>
     <packaging>bundle</packaging>
-    <description>The quarantine of the uploads of a form: the hold, the quarantine tree, the run of the checks, the release and the operations of a manager, and the check API a check module implements (docs/architecture/quarantine.md)</description>
+    <description>The quarantine of the uploads of a form: the hold, the quarantine tree, the run of the checks, the release and the operations of a manager, the manager screen in jContent, and the check API a check module implements (docs/architecture/quarantine.md)</description>
 
     <properties>
         <!-- The engine: the hold contract (SubmissionHold) and the service that runs the actions after release

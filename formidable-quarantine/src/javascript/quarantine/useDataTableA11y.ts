@@ -18,12 +18,9 @@ export interface DataTableA11yOptions {
 
 /**
  * Patches what the Moonstone DataTable renders and takes no prop for, inside the scrolling container of the table:
- * the pager buttons get a name, the header row loses the
- * tab stop that TableRow always sets, and the scroll padding matches the sticky head and pager, so a focused control
- * never sits under them. A port of the hook of module-management-community.
- *
- * One addition: the pager disables its buttons at an end of the list, and a disabled button drops the focus, so the
- * focus that fell to the body moves to the enabled pager button of the other direction (pagerFallback).
+ * the pager buttons get a name, the header row loses the tab stop that TableRow always sets, and the scroll padding
+ * matches the sticky head and pager, so a focused control never sits under them. A port of the hook of
+ * module-management-community. It moves no focus: see pagerFallback.
  *
  * React leaves an attribute it does not own in place, so the patch only has to run again after each render.
  */
@@ -48,8 +45,10 @@ export function useDataTableA11y(containerRef: RefObject<HTMLElement>, {labels, 
 }
 
 /**
- * The pager button that takes the focus after a page change that disabled the focused one: Next or Last disabled at
- * the last page hand the focus to Previous, First or Previous at the first page to Next.
+ * The pager button that takes the focus after a page change that disabled the focused one: the pager disables its
+ * buttons at an end of the list, and a disabled button drops the focus to the body. Next or Last disabled at the last
+ * page hand the focus to Previous, First or Previous at the first page to Next. The caller records the direction of
+ * the change and calls it once the new page is on screen.
  */
 export function pagerFallback(container: HTMLElement | null, direction: 'backward' | 'forward'): HTMLElement | null {
     if (!container) {

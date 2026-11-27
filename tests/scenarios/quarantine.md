@@ -838,8 +838,8 @@ test site.
 ### Q37 — The confirm dialog works with the keyboard
 
 **Steps:**
-1. As the manager, open the screen, focus the button of the first row, and
-   press Enter.
+1. As the manager, open the screen, press the state filter "Needs review",
+   focus the button of the first row, and press Enter.
 2. Focus Reject, and press Enter.
 3. Press Escape.
 4. Press Enter on Reject again, then Tab, then Enter.
