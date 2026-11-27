@@ -68,7 +68,7 @@ class ManagerRoleInitializerTest {
         verify(session).checkout(role);
         verify(role).setProperty(ManagerRoleInitializer.PERMISSION_NAMES,
                 new String[]{"jcr:read_live", Managers.PERMISSION});
-        // a site role that exists keeps its access, privileged or not: the module adds no access to it
+        // an existing site role keeps its privileged access or its lack of it: only the permission is added back
         verify(role, never()).setProperty(eq(ManagerRoleInitializer.PRIVILEGED_ACCESS), anyBoolean());
         verify(session).save();
     }

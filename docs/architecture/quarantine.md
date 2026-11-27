@@ -313,9 +313,10 @@ named `formidableQuarantine(siteKey)`:
   editor has: the access control of the site grants the role `privileged` to `site-privileged`. The role gives no
   write and no publication. It reads no node of the quarantine tree, whose root breaks the inheritance of the access
   control.
-- The module creates the role with that access when the role is missing. A site role that exists keeps the access
-  that it had, and an administrator adds `jContentAccess`, `additionalAccordionAccess` and privileged access to it. A
-  role of an earlier version, granted on a form, becomes a site role once, and loses its privileged access then.
+- The module creates the role with that access when the role is missing. To a site role that exists, it adds back
+  `formidableQuarantineManage` when the role lacks it, and nothing else: an administrator adds `jContentAccess`,
+  `additionalAccordionAccess` and privileged access to it. A role of an earlier version, granted on a form, becomes a
+  site role once, and loses its privileged access then.
 - Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the live workspace, under the
   session of the user, before it reads anything. A grant of the role applies once the site is published, and a site
   with no live node has no manager. A revocation applies the same way: a role removed in the edit workspace stops

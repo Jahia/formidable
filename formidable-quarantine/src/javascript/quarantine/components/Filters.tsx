@@ -110,7 +110,7 @@ export const FormFilter = ({forms, selected, isOpen, onOpen, onClose, onSelect}:
         <Button
             variant="outlined"
             className={value ? 'fmdbq-chip-filled' : 'fmdbq-chip-empty'}
-            label={value ? `${name}: ${value}` : name}
+            label={value ? t('quarantine.filter.formChip', {name, value}) : name}
             iconEnd={<ChevronDown aria-hidden="true"/>}
             aria-haspopup="dialog"
             aria-expanded={isOpen}

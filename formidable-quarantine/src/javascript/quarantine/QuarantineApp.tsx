@@ -253,7 +253,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
         fetchPolicy: 'no-cache',
         notifyOnNetworkStatusChange: true,
         onCompleted: data => {
-            // an operation or another manager emptied the last page: the page before it holds the submissions left
+            // an operation or another manager emptied the page: the screen asks the start of the last page of the list now
             const served = data?.formidableQuarantine?.submissions;
             const inside = served ? offsetInsideList(served.offset, served.items.length, served.totalCount) : null;
             if (inside !== null) {
@@ -262,10 +262,13 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
         }
     });
     // the previous answer stays on screen while the next one loads, so the focused control never unmounts; a request
-    // that failed shows its failure, never the answer of other filters
+    // that failed shows its failure, never the answer of other filters, nor the earlier answer that Apollo keeps
+    // beside the error of a failed refetch
     const summaryData = summary.data ?? (summary.loading ? summary.previousData : undefined);
     const site = summaryData?.formidableQuarantine ?? null;
-    const page = (list.data ?? (list.loading ? list.previousData : undefined))?.formidableQuarantine?.submissions;
+    const listFailed = Boolean(list.error || summary.error) && !list.loading && !summary.loading;
+    const page = listFailed ? undefined
+        : (list.data ?? (list.loading ? list.previousData : undefined))?.formidableQuarantine?.submissions;
     // the Loader of LayoutContent replaces the whole screen: for the first answer alone, never for a retry
     const answeredRef = useRef(false);
     answeredRef.current = answeredRef.current || Boolean(summary.data || summary.error);
@@ -275,7 +278,9 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
         skip: !siteKey || !openId,
         fetchPolicy: 'no-cache'
     });
-    const submission: HeldDetail | null = openId ? detail.data?.formidableQuarantine?.submission ?? null : null;
+    // a failed reading of the detail shows its failure, never the earlier answer that Apollo keeps beside the error
+    const detailFailed = Boolean(detail.error) && !detail.loading;
+    const submission: HeldDetail | null = openId && !detailFailed ? detail.data?.formidableQuarantine?.submission ?? null : null;
     const [operate] = useMutation<OperateData>(OPERATE_QUARANTINE_SUBMISSION, {fetchPolicy: 'no-cache'});
 
     useEffect(() => {
@@ -481,9 +486,10 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
 
     function listContent(): React.ReactNode {
         if (!page) {
-            return list.error && !list.loading
+            // the counts and the forms read again with the page: a failed summary leaves stale counts on the filters
+            return listFailed
                 ? banner('quarantine-list-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.loadFailed'),
-                    tryAgain(() => retry(() => list.refetch(), {kind: 'listHeading'})))
+                    tryAgain(() => retry(refetchList, {kind: 'listHeading'})))
                 : <Typography className="fmdbq-secondary">{t('quarantine.loading')}</Typography>;
         }
 
@@ -597,7 +603,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
             return <Typography className="fmdbq-secondary">{t('quarantine.detail.loading')}</Typography>;
         }
 
-        if (detail.error && !detail.data) {
+        if (detailFailed) {
             return banner('quarantine-detail-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.detail.loadFailed'),
                 tryAgain(() => retry(() => detail.refetch(), {kind: 'detailHeading'})));
         }

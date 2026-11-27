@@ -402,6 +402,8 @@ describe('QuarantineApp', () => {
             .find(radio => radio.value === 'g');
         await press(claims);
         expect(lastListVariables()).toMatchObject({states: ['NEEDS_REVIEW'], formId: 'g'});
+        // the chip names the chosen form through a translated key, which sets the punctuation of each language
+        expect(container.querySelector('[data-sel-role="quarantine-form-filter"]')?.textContent).toBe('quarantine.filter.formChip');
 
         await press(container.querySelector('[data-sel-role="quarantine-sort"]'));
         expect(lastListVariables()).toMatchObject({formId: 'g', newestFirst: true});
@@ -437,15 +439,48 @@ describe('QuarantineApp', () => {
         expect(lastListVariables()).toMatchObject({states: null, formId: null, offset: 0, newestFirst: true});
     });
 
+    it('shows the failure of a refetch that failed with the same filters, never the earlier answer kept beside it', () => {
+        // Apollo keeps the last answer in data beside the error of a failed refetch
+        apollo.list = {loading: false, error: new Error('Network error'), data: listOf([ROW])};
+        const pageFailed = markupOf(<QuarantineApp/>);
+        expect(pageFailed).toContain('quarantine-list-failed');
+        expect(pageFailed).not.toContain('quarantine-row');
+
+        apollo.list = {loading: false, data: listOf([ROW])};
+        apollo.summary = {loading: false, error: new Error('Network error'), data: SUMMARY};
+        const countsFailed = markupOf(<QuarantineApp/>);
+        expect(countsFailed).toContain('quarantine-list-failed');
+        expect(countsFailed).not.toContain('quarantine-row');
+    });
+
+    it('shows the failure of the detail, never its earlier answer, when its refetch fails', async () => {
+        apollo.detail = {loading: false, data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
+        const {container, root} = await mount(<QuarantineApp/>);
+        await press(container.querySelector('[data-sel-role="quarantine-open"]'));
+        expect(container.querySelector('[data-sel-role="quarantine-action-retry"]')).not.toBeNull();
+
+        apollo.detail = {loading: false, error: new Error('Network error'),
+            data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
+        await act(async () => root.render(<QuarantineApp/>));
+        expect(container.querySelector('[data-sel-role="quarantine-detail-failed"]')).not.toBeNull();
+        expect(container.querySelector('[data-sel-role="quarantine-action-retry"]')).toBeNull();
+        expect(container.querySelector('[data-sel-role="quarantine-detail"]')?.getAttribute('aria-label')).toBe('quarantine.detail.region');
+    });
+
     it('starts again, with no filter and no open submission, on a switch to another site', async () => {
+        apollo.detail = {loading: false, data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
         const {container, root} = await mount(<QuarantineApp/>);
         await press(container.querySelector('button[data-state="NEEDS_REVIEW"]'));
+        await press(container.querySelector('[data-sel-role="quarantine-open"]'));
+        expect(container.querySelector('[data-sel-role="quarantine-detail"]')).not.toBeNull();
         expect(container.querySelector('button[data-state="NEEDS_REVIEW"]')?.getAttribute('aria-pressed')).toBe('true');
 
         vi.stubGlobal('location', {pathname: '/jahia/jcontent/othersite/en/apps/formidableQuarantine'});
         await act(async () => root.render(<QuarantineApp/>));
         expect(container.querySelector('button[data-state="NEEDS_REVIEW"]')?.getAttribute('aria-pressed')).toBe('false');
+        expect(container.querySelector('[data-sel-role="quarantine-detail"]')).toBeNull();
         expect(lastListVariables()).toMatchObject({siteKey: 'othersite', states: null});
+        expect(apollo.calls.filter(call => call.name.endsWith('Submission')).at(-1)?.variables).toMatchObject({siteKey: 'othersite', id: null});
     });
 
     describe('an operation', () => {

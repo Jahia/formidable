@@ -59,6 +59,7 @@
 			"stateWord": "state {{state}}",
 			"formWord": "form {{form}}",
 			"clearForm": "Clear the form filter",
+			"formChip": "{{name}}: {{value}}",
 			"close": "Close"
 		},
 		"table": {

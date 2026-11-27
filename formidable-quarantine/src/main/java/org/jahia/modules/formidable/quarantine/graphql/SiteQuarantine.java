@@ -88,7 +88,7 @@ final class SiteQuarantine {
      * a purge forgets them.
      */
     private final Map<String, Long> totals = new HashMap<>();
-    /** The forms of the folders below the root, listed once per request; a purge forgets them. */
+    /** The forms of the folders below the root, listed once per request; an operation or a purge forgets them. */
     private List<String> formIds;
 
     SiteQuarantine(String siteKey, Services services) {
