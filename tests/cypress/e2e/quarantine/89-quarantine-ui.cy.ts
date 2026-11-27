@@ -4,17 +4,30 @@ import {
 	QUARANTINE_MANAGER_ROLE,
 	QUARANTINE_MODULE_ID,
 	createPublishedLiveFormPage,
+	getPasswordNode,
 	getRemoteStubCheckNode,
 	getSaveToJcrActionNode
 } from '../../support/fixtures';
 import {expectSuccessResponse, postDirectMultipartSubmission, withSameOriginHeaders} from '../security/support';
 import {useFormidableSite} from '../support/useFormidableSite';
-import {STUB_FILE, fields, readHeldSubmissions, runQuarantine, setUploadsRequireQuarantine, submissionWithText} from './support';
+import {
+	STUB_FILE,
+	fields,
+	readHeldSubmissions,
+	runQuarantine,
+	setUploadsRequireQuarantine,
+	submissionWithText,
+	submissionWithValues
+} from './support';
 
 const SITE = FORMIDABLE_TEST_SITE.key;
 const SITE_PATH = `/sites/${SITE}`;
 const QUARANTINE_PAGE = `/jahia/jcontent/${SITE}/en/apps/formidableQuarantine`;
 const FORM_TITLE = 'Quarantine UI form';
+/** A form that shows its public values to a manager, with one sensitive field, whose value never reaches the screen. */
+const VALUES_FORM_TITLE = 'Quarantine UI values form';
+const SENSITIVE_FIELD = 'accessCode';
+const SENSITIVE_VALUE = 'never-on-screen-89';
 
 /** The users of the spec: the manager holds the site role of the quarantine alone; the editor does not hold it. */
 const PASSWORD = 'quarUi-Passw0rd!';
@@ -40,6 +53,12 @@ const openQuarantinePage = (): void => {
 };
 
 const byRole = (role: string) => cy.get(`[data-sel-role="${role}"]`);
+
+/** Leaves jContent before root logs in again: a switch of user under an open Jahia UI can keep its cookie. */
+const backToRoot = (): void => {
+	cy.visit('/cms/logout', {failOnStatusCode: false});
+	cy.login();
+};
 
 /**
  * The manager screen of the quarantine, a jContent route of the site (tests/scenarios/quarantine.md, Q35 to Q37). It
@@ -95,7 +114,8 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		// the state filter keeps the submissions in review, and the status region says how many
 		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').click();
 		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').should('have.attr', 'aria-pressed', 'true');
-		byRole('quarantine-status').should('contain.text', '1 to 3 of 3');
+		// the sentence of the filtered page: the one of the first load has no state
+		byRole('quarantine-status').should('contain.text', '1 to 3 of 3 submissions, state Needs review');
 
 		byRole('quarantine-open').first().click();
 		byRole('quarantine-detail').should('exist');
@@ -108,8 +128,8 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 				expect([...$buttons].map(button => button.dataset.selRole)).to.deep.equal(
 					['quarantine-action-retry', 'quarantine-action-release', 'quarantine-action-reject']);
 			});
-			// the names of the sensitive fields only, never a value: the form shows none
-			cy.root().should('not.contain.text', 'Ada');
+			// a form that does not show its values: no value section (Q38 covers a form that shows them)
+			byRole('quarantine-values').should('not.exist');
 		});
 
 		byRole('quarantine-action-release').click();
@@ -120,7 +140,7 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		byRole('quarantine-status').should('contain.text', 'Submission released');
 		byRole('quarantine-row').should('have.length', 2);
 
-		cy.login();
+		backToRoot();
 		readHeldSubmissions(formId).then(held => {
 			const released = held.find(one => one.audit.some(record => record.operation === 'release'));
 			expect(released, 'the released submission').to.not.equal(undefined);
@@ -135,15 +155,15 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		byRole('quarantine-no-access').should('be.visible');
 		byRole('quarantine-table').should('not.exist');
 		byRole('quarantine-row').should('not.exist');
-		cy.login();
 	});
 
 	it('Q37: the confirm dialog is reached and left with the keyboard, with the focus on Cancel first', () => {
 		asUser(MANAGER);
 		openQuarantinePage();
-		// Q35 released the oldest submission: the filter keeps those that a manager can still reject
+		// the filter keeps the submissions that a manager can still reject, however many an earlier test left
 		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').click();
-		byRole('quarantine-row').should('have.length', 2);
+		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').should('have.attr', 'aria-pressed', 'true');
+		byRole('quarantine-row').should('have.length.at.least', 1);
 		byRole('quarantine-open').first().focus();
 		cy.realPress('Enter');
 		cy.focused().should('have.attr', 'id', 'fmdbq-detail-title');
@@ -169,9 +189,43 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		byRole('quarantine-confirm-reject').should('not.exist');
 		byRole('quarantine-status').should('contain.text', 'Submission rejected');
 
-		cy.login();
+		backToRoot();
 		readHeldSubmissions(formId).then(held => {
 			expect(held.filter(one => one.state === 'rejected'), 'rejected submissions').to.have.length(1);
 		});
+	});
+
+	it('Q38: the detail shows the public values of a form that shows them, and the names of its sensitive fields only', () => {
+		cy.login();
+		createPublishedLiveFormPage('quarantine-ui-values-form', VALUES_FORM_TITLE,
+			[...fields(), getPasswordNode({name: SENSITIVE_FIELD, title: 'Access code'})], undefined, undefined, {
+				mixins: ['fmdbqmix:quarantinePolicy'],
+				properties: [{name: 'showValues', value: 'true', type: 'BOOLEAN'}],
+				qualifiers: [getRemoteStubCheckNode()],
+				deferredActions: [getSaveToJcrActionNode()]
+			}).then(({formId: id}) => {
+			cy.logout();
+			postDirectMultipartSubmission({
+				formId: id,
+				body: submissionWithValues({fullName: 'Ada', [SENSITIVE_FIELD]: SENSITIVE_VALUE}, `${STUB_FILE.inconclusive}\nUI values.`),
+				headers: withSameOriginHeaders()
+			}).then(expectSuccessResponse);
+			cy.login();
+			runQuarantine(id).its('processed').should('have.length', 1);
+		});
+
+		asUser(MANAGER);
+		openQuarantinePage();
+		// the form filter keeps the submission of the values form alone
+		byRole('quarantine-form-filter').click();
+		cy.contains('[data-sel-role="quarantine-form-editor"] label', VALUES_FORM_TITLE).click();
+		byRole('quarantine-row').should('have.length', 1);
+		byRole('quarantine-open').first().click();
+		byRole('quarantine-detail').within(() => {
+			byRole('quarantine-values').should('contain.text', 'fullName').and('contain.text', 'Ada');
+			byRole('quarantine-sensitive').should('contain.text', SENSITIVE_FIELD);
+			cy.root().should('not.contain.text', SENSITIVE_VALUE);
+		});
+		backToRoot();
 	});
 });

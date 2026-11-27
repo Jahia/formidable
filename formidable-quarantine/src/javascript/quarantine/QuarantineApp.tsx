@@ -4,18 +4,23 @@ import {Banner, Button, EmptyData, Header, LayoutContent, Paper, Reload, Typogra
 import {useTranslation} from 'react-i18next';
 import {
     type DetailData,
+    type FormEntry,
     GET_QUARANTINE_LIST,
     GET_QUARANTINE_SUBMISSION,
+    GET_QUARANTINE_SUMMARY,
     type HeldDetail,
     type ListData,
     OPERATE_QUARANTINE_SUBMISSION,
     type OperateData,
-    type QuarantineList
+    type QuarantineSummary,
+    type SubmissionPage,
+    type SummaryData
 } from './graphql';
 import {
     CONFIRMED_OPERATIONS,
     currentSiteKey,
     isChangedUnderneath,
+    offsetInsideList,
     pageRange,
     type QuarantineOperation,
     type QuarantineState,
@@ -36,6 +41,8 @@ type FocusRequest =
     | {kind: 'detailHeading'}
     | {kind: 'listHeading'}
     | {kind: 'reload'}
+    | {kind: 'refresh'}
+    | {kind: 'empty'}
     | {kind: 'row'; id: string}
     | {kind: 'action'; operation: QuarantineOperation};
 
@@ -51,14 +58,14 @@ interface Filters {
 const NO_FILTER: Filters = {state: null, formId: null, offset: 0, sort: 'ascending'};
 
 /** The words that name the filters, for the heading of the table and the announcement of a page. */
-function filterWords(filters: Filters, list: QuarantineList | null, t: Translate): string {
+function filterWords(filters: Filters, forms: FormEntry[], t: Translate): string {
     const words: string[] = [];
     if (filters.state) {
         words.push(t('quarantine.filter.stateWord', {state: t(`quarantine.state.${filters.state}`)}));
     }
 
     if (filters.formId) {
-        const form = list?.forms.find(one => one.formId === filters.formId);
+        const form = forms.find(one => one.formId === filters.formId);
         words.push(t('quarantine.filter.formWord', {form: form?.formTitle ?? filters.formId}));
     }
 
@@ -66,21 +73,18 @@ function filterWords(filters: Filters, list: QuarantineList | null, t: Translate
 }
 
 /** What the status region says once a page has arrived. */
-function listSentence(list: QuarantineList | null, filters: Filters, t: Translate): string {
-    if (!list) {
-        return t('quarantine.noAccess');
-    }
-
+function listSentence(page: SubmissionPage, filters: Filters, forms: FormEntry[], t: Translate): string {
     const filtered = filters.state !== null || filters.formId !== null;
-    const page = list.submissions;
     if (page.totalCount === 0) {
         return filtered ? t('quarantine.filter.noMatch') : t('quarantine.empty');
     }
 
     const range = pageRange(page.offset, page.items.length, page.totalCount);
-    const words = filterWords(filters, list, t);
+    const words = filterWords(filters, forms, t);
     return t('quarantine.announce.list', {from: range.from, to: range.to, total: range.total}) + (words ? `, ${words}` : '');
 }
+
+const bySelRole = (root: HTMLElement | null, role: string) => root?.querySelector<HTMLElement>(`[data-sel-role="${role}"]`) ?? null;
 
 function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement | null {
     const listHeading = () => {
@@ -88,18 +92,23 @@ function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement |
         heading?.setAttribute('tabindex', '-1');
         return heading;
     };
-    const detailHeading = () => document.getElementById('fmdbq-detail-title');
+    // the row asked for, else the first row of the page, else the heading of the screen
+    const firstRow = () => bySelRole(root, 'quarantine-open') ?? listHeading();
     switch (wanted.kind) {
         case 'detailHeading':
-            return detailHeading();
+            return document.getElementById('fmdbq-detail-title');
         case 'listHeading':
             return listHeading();
         case 'reload':
-            return root?.querySelector<HTMLElement>('[data-sel-role="quarantine-reload"]') ?? null;
+            return bySelRole(root, 'quarantine-reload');
+        case 'refresh':
+            return bySelRole(root, 'quarantine-refresh');
+        case 'empty':
+            return bySelRole(root, 'quarantine-no-match') ?? bySelRole(root, 'quarantine-empty') ?? firstRow();
         case 'row':
-            return root?.querySelector<HTMLElement>(`[data-sel-role="quarantine-open"][data-id="${CSS.escape(wanted.id)}"]`) ?? listHeading();
+            return root?.querySelector<HTMLElement>(`[data-sel-role="quarantine-open"][data-id="${CSS.escape(wanted.id)}"]`) ?? firstRow();
         default:
-            return root?.querySelector<HTMLElement>(`[data-sel-role="quarantine-action-${wanted.operation.toLowerCase()}"]`) ?? detailHeading();
+            return bySelRole(root, `quarantine-action-${wanted.operation.toLowerCase()}`) ?? document.getElementById('fmdbq-detail-title');
     }
 }
 
@@ -111,13 +120,15 @@ const FOCUS_GRACE = 300;
  * takes it: the request stays after each render, because a later render can re-mount the element (the data of the
  * detail arriving), and a closing Modal gives the focus back to its opener after the render. A key or pointer press,
  * or the focus moving to another element, such as a screen reader moving it, spends the request. Only a request made
- * as a dialog closes lets a move pass during the grace time: the Modal giving the focus back to its opener.
+ * as a dialog closes lets a move pass during the grace time: the Modal giving the focus back to its opener. A request
+ * renders the screen again, so that one made after a request to the server applies at once.
  */
 function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
     const requestRef = useRef<FocusRequest | null>(null);
     const targetRef = useRef<HTMLElement | null>(null);
     const placedAtRef = useRef(0);
     const afterDialogRef = useRef(false);
+    const [, setRequests] = useState(0);
 
     useEffect(() => {
         const spend = () => {
@@ -163,28 +174,44 @@ function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
         afterDialogRef.current = afterDialog;
         // a new request: its grace starts when it is made, and again when its element takes the focus
         placedAtRef.current = Date.now();
+        setRequests(count => count + 1);
     }, []);
 }
 
-/** Announces the list once per filter, page and order: an operation that refreshes the same page does not repeat it. */
-function useListAnnouncement(data: ListData | undefined, loading: boolean, filters: Filters, announce: Announce, t: Translate) {
+/**
+ * Announces the list once per filter, page and order: an operation that refreshes the same page does not repeat it.
+ * A user who does not manage the site hears the no-access text once.
+ */
+function useListAnnouncement(summary: SummaryData | undefined, page: SubmissionPage | undefined, filters: Filters,
+                             announce: Announce, t: Translate) {
     const announcedRef = useRef<string | null>(null);
+    const site = summary?.formidableQuarantine;
     useEffect(() => {
-        if (!data || loading) {
+        if (summary && !site && announcedRef.current !== 'noAccess') {
+            announcedRef.current = 'noAccess';
+            announce(t('quarantine.noAccess'));
             return;
         }
 
         const key = JSON.stringify(filters);
-        if (announcedRef.current !== key) {
+        if (site && page && announcedRef.current !== key) {
             announcedRef.current = key;
-            announce(listSentence(data.formidableQuarantine, filters, t));
+            announce(listSentence(page, filters, site.forms, t));
         }
-    }, [data, loading, filters, announce, t]);
+    }, [summary, site, page, filters, announce, t]);
 }
 
+/**
+ * The manager screen of the quarantine of the site of the route. A switch to another site starts it again: the filters
+ * and the open submission of a site mean nothing on another one.
+ */
 export const QuarantineApp = () => {
-    const {t} = useTranslation('formidable-quarantine');
     const siteKey = currentSiteKey();
+    return <QuarantineScreen key={siteKey ?? ''} siteKey={siteKey}/>;
+};
+
+const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
+    const {t} = useTranslation('formidable-quarantine');
     const language = uiContext().uilang || 'en';
     const {polite, assertive, announce} = useAnnouncer();
 
@@ -193,6 +220,7 @@ export const QuarantineApp = () => {
     const [openId, setOpenId] = useState<string | null>(null);
     const [confirm, setConfirm] = useState<'RELEASE' | 'REJECT' | null>(null);
     const [confirmFailure, setConfirmFailure] = useState<string | null>(null);
+    const [failure, setFailure] = useState<string | null>(null);
     const [running, setRunning] = useState<QuarantineOperation | null>(null);
     const [changed, setChanged] = useState(false);
     const [reloading, setReloading] = useState(false);
@@ -201,6 +229,12 @@ export const QuarantineApp = () => {
     const detailHeadingRef = useRef<HTMLHeadingElement>(null);
     const focus = useFocusRequests(rootRef);
 
+    const summary = useQuery<SummaryData>(GET_QUARANTINE_SUMMARY, {
+        variables: {siteKey},
+        skip: !siteKey,
+        fetchPolicy: 'network-only',
+        notifyOnNetworkStatusChange: true
+    });
     const list = useQuery<ListData>(GET_QUARANTINE_LIST, {
         variables: {
             siteKey,
@@ -211,11 +245,24 @@ export const QuarantineApp = () => {
         },
         skip: !siteKey,
         fetchPolicy: 'network-only',
-        notifyOnNetworkStatusChange: true
+        notifyOnNetworkStatusChange: true,
+        onCompleted: data => {
+            // an operation or another manager emptied the last page: the page before it holds the submissions left
+            const served = data?.formidableQuarantine?.submissions;
+            const inside = served ? offsetInsideList(served.offset, served.items.length, served.totalCount) : null;
+            if (inside !== null) {
+                setFilters(current => (current.offset === inside ? current : {...current, offset: inside}));
+            }
+        }
     });
-    // the previous page stays on screen while the next one loads: the focused control never unmounts
-    const listData = list.data ?? list.previousData;
-    const quarantine = listData?.formidableQuarantine ?? null;
+    // the previous answer stays on screen while the next one loads, so the focused control never unmounts; a request
+    // that failed shows its failure, never the answer of other filters
+    const summaryData = summary.data ?? (summary.loading ? summary.previousData : undefined);
+    const site = summaryData?.formidableQuarantine ?? null;
+    const page = (list.data ?? (list.loading ? list.previousData : undefined))?.formidableQuarantine?.submissions;
+    // the Loader of LayoutContent replaces the whole screen: for the first answer alone, never for a retry
+    const answeredRef = useRef(false);
+    answeredRef.current = answeredRef.current || Boolean(summary.data || summary.error);
 
     const detail = useQuery<DetailData>(GET_QUARANTINE_SUBMISSION, {
         variables: {siteKey, id: openId},
@@ -231,19 +278,22 @@ export const QuarantineApp = () => {
             announce(t('quarantine.loading'));
         }
     }, [siteKey, announce, t]);
-    useListAnnouncement(list.data, list.loading, filters, announce, t);
+    useListAnnouncement(summaryData, list.data?.formidableQuarantine?.submissions, filters, announce, t);
     useEffect(() => {
-        if (list.error) {
+        if (summary.error || list.error) {
             announce(t('quarantine.loadFailed'), true);
         }
-    }, [list.error, announce, t]);
+    }, [summary.error, list.error, announce, t]);
 
-    const changeFilters = (next: Partial<Filters>) => setFilters(current => ({...current, offset: 0, ...next}));
+    const changeFilters = useCallback((next: Partial<Filters>) => setFilters(current => ({...current, offset: 0, ...next})), []);
+    const changePage = useCallback((offset: number) => setFilters(current => ({...current, offset})), []);
+    const changeSort = useCallback((sort: SortDirection) => changeFilters({sort}), [changeFilters]);
     const closeFormFilter = useCallback(() => setFormFilterOpen(false), []);
 
     const open = useCallback((id: string) => {
         setOpenId(id);
         setChanged(false);
+        setFailure(null);
         focus({kind: 'detailHeading'});
     }, [focus]);
 
@@ -254,6 +304,7 @@ export const QuarantineApp = () => {
 
         setOpenId(null);
         setChanged(false);
+        setFailure(null);
     };
 
     const showChanged = () => {
@@ -262,44 +313,67 @@ export const QuarantineApp = () => {
         focus({kind: 'reload'}, true);
     };
 
+    /** The counts, the forms and the page again, after an operation or on Refresh. */
+    const refetchList = () => Promise.all([summary.refetch(), list.refetch()]);
+
+    const operationFailed = (operation: QuarantineOperation, error: unknown) => {
+        if (isChangedUnderneath(error)) {
+            showChanged();
+        } else if (CONFIRMED_OPERATIONS.has(operation)) {
+            setConfirmFailure(t('quarantine.failed'));
+        } else {
+            setFailure(t('quarantine.failed'));
+            announce(t('quarantine.failed'), true);
+        }
+    };
+
+    /** Where the focus goes after an operation that worked, and the list and the detail as the operation left them. */
+    const afterOperation = async (operation: QuarantineOperation, after: HeldDetail, neighbour: string | null) => {
+        setConfirm(null);
+        const leaves = filters.state !== null && after.state !== filters.state;
+        if (leaves) {
+            // the submission leaves the filtered list: the detail closes, the focus goes to a neighbour row
+            setOpenId(null);
+            focus(neighbour ? {kind: 'row', id: neighbour} : {kind: 'empty'}, true);
+        } else {
+            focus({kind: 'detailHeading'}, true);
+        }
+
+        announce(t(`quarantine.done.${operation}`, {state: t(`quarantine.state.${after.state}`)}));
+        try {
+            await (leaves ? refetchList() : Promise.all([refetchList(), detail.refetch()]));
+        } catch {
+            // the operation ran: only the reading of the list failed
+            announce(t('quarantine.loadFailed'), true);
+        }
+    };
+
     const run = async (operation: QuarantineOperation) => {
         if (!openId) {
             return;
         }
 
-        const rows = quarantine?.submissions.items ?? [];
+        const rows = page?.items ?? [];
         const index = rows.findIndex(row => row.id === openId);
         const neighbour = rows[index + 1]?.id ?? rows[index - 1]?.id ?? null;
         setRunning(operation);
         setConfirmFailure(null);
+        setFailure(null);
         try {
-            const result = await operate({variables: {siteKey, id: openId, operation}});
-            const after = result.data?.formidableQuarantine?.operate;
-            if (!after) {
-                // the user no longer manages the site: what the screen shows is out of date
-                showChanged();
+            let after: HeldDetail | null;
+            try {
+                const result = await operate({variables: {siteKey, id: openId, operation}});
+                after = result.data?.formidableQuarantine?.operate ?? null;
+            } catch (error) {
+                operationFailed(operation, error);
                 return;
             }
 
-            setConfirm(null);
-            if (filters.state !== null && after.state !== filters.state) {
-                // the submission leaves the filtered list: the detail closes, the focus goes to a neighbour row
-                setOpenId(null);
-                focus(neighbour ? {kind: 'row', id: neighbour} : {kind: 'listHeading'}, true);
-                await list.refetch();
+            if (after) {
+                await afterOperation(operation, after, neighbour);
             } else {
-                focus({kind: 'detailHeading'}, true);
-                await Promise.all([list.refetch(), detail.refetch()]);
-            }
-
-            announce(t(`quarantine.done.${operation}`, {state: t(`quarantine.state.${after.state}`)}));
-        } catch (error) {
-            if (isChangedUnderneath(error)) {
+                // the user no longer manages the site: what the screen shows is out of date
                 showChanged();
-            } else if (CONFIRMED_OPERATIONS.has(operation)) {
-                setConfirmFailure(t('quarantine.failed'));
-            } else {
-                announce(t('quarantine.failed'), true);
             }
         } finally {
             setRunning(null);
@@ -308,12 +382,20 @@ export const QuarantineApp = () => {
 
     const reload = async () => {
         setReloading(true);
+        // the Reload button is busy while the request runs, and takes the focus back if it fails
+        focus({kind: 'reload'});
         try {
-            const [, again] = await Promise.all([list.refetch(), detail.refetch()]);
+            const [, again] = await Promise.all([refetchList(), detail.refetch()]);
             setChanged(false);
             const now = again.data?.formidableQuarantine?.submission;
-            announce(now ? t('quarantine.reloaded', {state: t(`quarantine.state.${now.state}`)}) : t('quarantine.detail.gone'));
-            focus({kind: 'detailHeading'});
+            if (now) {
+                announce(t('quarantine.reloaded', {state: t(`quarantine.state.${now.state}`)}));
+                focus({kind: 'detailHeading'});
+            } else {
+                // the submission left the quarantine of the site: the detail closes on its row, or on the list
+                announce(t('quarantine.detail.gone'));
+                close();
+            }
         } catch {
             announce(t('quarantine.loadFailed'), true);
         } finally {
@@ -322,8 +404,27 @@ export const QuarantineApp = () => {
     };
 
     const refresh = async () => {
-        const [again] = await Promise.all([list.refetch(), openId ? detail.refetch() : Promise.resolve(null)]);
-        announce(listSentence(again.data?.formidableQuarantine ?? null, filters, t));
+        // the Refresh button is busy while the request runs: the focus comes back to it after
+        focus({kind: 'refresh'});
+        try {
+            const [[, again]] = await Promise.all([refetchList(), openId ? detail.refetch() : Promise.resolve(null)]);
+            const served = again.data?.formidableQuarantine?.submissions;
+            if (site && served) {
+                announce(listSentence(served, filters, site.forms, t));
+            }
+        } catch {
+            announce(t('quarantine.loadFailed'), true);
+        }
+    };
+
+    /** Try again after a failed load: the focus goes to the heading of what came back. */
+    const retry = async (load: () => Promise<unknown>, after: FocusRequest) => {
+        try {
+            await load();
+            focus(after);
+        } catch {
+            announce(t('quarantine.loadFailed'), true);
+        }
     };
 
     const banner = (role: string, variant: 'info' | 'warning' | 'danger', title: string, text: string, action?: React.ReactNode) => (
@@ -333,38 +434,90 @@ export const QuarantineApp = () => {
         </Banner>
     );
 
+    const tryAgain = (onClick: () => void) => (
+        <Button label={t('quarantine.tryAgain')} variant="outlined" className="fmdbq-block" onClick={onClick}/>
+    );
+
     function body(): React.ReactNode {
         if (!siteKey) {
             return banner('quarantine-no-site', 'info', t('quarantine.noSiteTitle'), t('quarantine.noSite'));
         }
 
-        if (!listData) {
-            return banner('quarantine-load-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.loadFailed'), (
-                <Button label={t('quarantine.tryAgain')} variant="outlined" className="fmdbq-block" onClick={() => list.refetch()}/>
-            ));
+        if (!summaryData) {
+            // before the first answer the Loader stands in; after a failure the banner stays while Try again runs
+            return answeredRef.current ? banner('quarantine-load-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.loadFailed'),
+                tryAgain(() => retry(refetchList, {kind: 'listHeading'}))) : null;
         }
 
-        if (!quarantine) {
+        if (!site) {
             return banner('quarantine-no-access', 'warning', t('quarantine.noAccessTitle'), t('quarantine.noAccess'));
         }
 
-        return listBody(quarantine);
+        return listBody(site);
     }
 
-    function listBody(site: QuarantineList): React.ReactNode {
-        const page = site.submissions;
-        const words = filterWords(filters, site, t);
-        const order = t(`quarantine.table.order.${filters.sort}`);
+    function listContent(): React.ReactNode {
+        if (!page) {
+            return list.error && !list.loading
+                ? banner('quarantine-list-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.loadFailed'),
+                    tryAgain(() => retry(() => list.refetch(), {kind: 'listHeading'})))
+                : <Typography className="fmdbq-secondary">{t('quarantine.loading')}</Typography>;
+        }
+
         const filtered = filters.state !== null || filters.formId !== null;
+        if (page.items.length === 0 && !filtered) {
+            // focusable from the code alone, for the focus after an operation that emptied the list
+            return (
+                <div tabIndex={-1} data-sel-role="quarantine-empty">
+                    <EmptyData message={t('quarantine.empty')}/>
+                </div>
+            );
+        }
+
+        if (page.items.length === 0) {
+            return (
+                <div tabIndex={-1} className="fmdbq-no-match" data-sel-role="quarantine-no-match">
+                    <EmptyData message={t('quarantine.filter.noMatch')}/>
+                    <Button
+                        label={t('quarantine.filter.clear')}
+                        variant="outlined"
+                        onClick={() => {
+                            setFilters(NO_FILTER);
+                            focus({kind: 'listHeading'});
+                        }}
+                    />
+                </div>
+            );
+        }
+
+        return (
+            <SubmissionsTable
+                rows={page.items}
+                totalCount={page.totalCount}
+                offset={page.offset}
+                sortDirection={filters.sort}
+                openId={openId}
+                busy={list.loading}
+                language={language}
+                onOpen={open}
+                onPage={changePage}
+                onSort={changeSort}
+            />
+        );
+    }
+
+    function listBody(quarantine: QuarantineSummary): React.ReactNode {
+        const words = filterWords(filters, quarantine.forms, t);
+        const order = t(`quarantine.table.order.${filters.sort}`);
         return (
             <>
                 {/* One card, as Form Results and module-management-community: the toolbar on top, the table under it,
                     the detail beside the table. */}
                 <Paper hasPadding={false} className="fmdbq-card" data-sel-role="quarantine-card">
                     <div className="fmdbq-toolbar" data-sel-role="quarantine-toolbar">
-                        <StateFilter counts={site.counts} selected={filters.state} onSelect={state => changeFilters({state})}/>
+                        <StateFilter counts={quarantine.counts} selected={filters.state} onSelect={state => changeFilters({state})}/>
                         <FormFilter
-                            forms={site.forms}
+                            forms={quarantine.forms}
                             selected={filters.formId}
                             isOpen={formFilterOpen}
                             onOpen={() => setFormFilterOpen(true)}
@@ -376,7 +529,7 @@ export const QuarantineApp = () => {
                                 variant="ghost"
                                 label={t('quarantine.refresh')}
                                 icon={<Reload aria-hidden="true"/>}
-                                isLoading={list.loading}
+                                isLoading={list.loading || summary.loading}
                                 data-sel-role="quarantine-refresh"
                                 onClick={refresh}
                             />
@@ -388,39 +541,10 @@ export const QuarantineApp = () => {
                             <h2 id={LIST_HEADING_ID} className="fmdbq-sr-only">
                                 {words ? t('quarantine.table.headingFiltered', {order, filters: words}) : t('quarantine.table.heading', {order})}
                             </h2>
-                            {page.items.length === 0 && !filtered && (
-                                <EmptyData message={t('quarantine.empty')} data-sel-role="quarantine-empty"/>
-                            )}
-                            {page.items.length === 0 && filtered && (
-                                <div className="fmdbq-no-match" data-sel-role="quarantine-no-match">
-                                    <EmptyData message={t('quarantine.filter.noMatch')}/>
-                                    <Button
-                                        label={t('quarantine.filter.clear')}
-                                        variant="outlined"
-                                        onClick={() => {
-                                            setFilters(NO_FILTER);
-                                            focus({kind: 'listHeading'});
-                                        }}
-                                    />
-                                </div>
-                            )}
-                            {page.items.length > 0 && (
-                                <SubmissionsTable
-                                    rows={page.items}
-                                    totalCount={page.totalCount}
-                                    offset={page.offset}
-                                    sortDirection={filters.sort}
-                                    openId={openId}
-                                    busy={list.loading}
-                                    language={language}
-                                    onOpen={open}
-                                    onPage={offset => setFilters(current => ({...current, offset}))}
-                                    onSort={sort => changeFilters({sort})}
-                                />
-                            )}
+                            {listContent()}
                         </section>
                         {openId && (
-                            <DetailFrame onClose={close}>
+                            <DetailFrame hasHeading={Boolean(submission)} onClose={close}>
                                 {renderDetail()}
                             </DetailFrame>
                         )}
@@ -450,9 +574,8 @@ export const QuarantineApp = () => {
         }
 
         if (detail.error && !detail.data) {
-            return banner('quarantine-detail-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.detail.loadFailed'), (
-                <Button label={t('quarantine.tryAgain')} variant="outlined" className="fmdbq-block" onClick={() => detail.refetch()}/>
-            ));
+            return banner('quarantine-detail-failed', 'danger', t('quarantine.loadFailedTitle'), t('quarantine.detail.loadFailed'),
+                tryAgain(() => retry(() => detail.refetch(), {kind: 'detailHeading'})));
         }
 
         if (!submission) {
@@ -465,6 +588,7 @@ export const QuarantineApp = () => {
                 language={language}
                 headingRef={detailHeadingRef}
                 changed={changed}
+                failure={failure}
                 reloading={reloading}
                 actions={(
                     <ActionButtons
@@ -493,7 +617,7 @@ export const QuarantineApp = () => {
             <LayoutContent
                 hasPadding
                 className="fmdbq-layout"
-                isLoading={Boolean(siteKey) && !listData && list.loading}
+                isLoading={Boolean(siteKey) && !answeredRef.current}
                 header={<Header title={t('quarantine.title')}/>}
             >
                 {body()}

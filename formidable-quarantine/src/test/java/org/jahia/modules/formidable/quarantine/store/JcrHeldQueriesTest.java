@@ -142,6 +142,19 @@ class JcrHeldQueriesTest {
     }
 
     @Test
+    void aPageAskedNewestFirstRunsTheStatementInDescendingOrder() throws Exception {
+        RecordingRunner runner = new RecordingRunner();
+        JcrHeldQueries queries = new JcrHeldQueries(runner);
+        String descending = " ORDER BY held.[" + QuarantineTree.CREATED_AT + "] DESC";
+
+        queries.page("siteA", null, Set.of(), 0, 25, true);
+        queries.page("siteA", null, Set.of(), 0, 25, false);
+
+        assertTrue(runner.statements.get(0).endsWith(descending), runner.statements.get(0));
+        assertFalse(runner.statements.get(1).endsWith(descending), runner.statements.get(1));
+    }
+
+    @Test
     void aCountBindsTheState() throws Exception {
         RecordingRunner runner = new RecordingRunner();
 

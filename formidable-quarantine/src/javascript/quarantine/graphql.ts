@@ -1,11 +1,12 @@
 import {gql} from '@apollo/client';
 import type {QuarantineOperation, QuarantineState} from './quarantine.utils';
 
-/** The list of the screen: the counts, the forms of the filter and one page, in one request. */
-export const GET_QUARANTINE_LIST = gql`
-    query GetFormidableQuarantineList(
-        $siteKey: String!, $formId: String, $states: [FmdbqState!], $offset: Int!, $newestFirst: Boolean
-    ) {
+/**
+ * The counts per state and the forms of the filter: read when the screen opens, after an operation and on Refresh,
+ * never on a change of page, filter or order, which reads the page alone.
+ */
+export const GET_QUARANTINE_SUMMARY = gql`
+    query GetFormidableQuarantineSummary($siteKey: String!) {
         formidableQuarantine(siteKey: $siteKey) {
             siteKey
             counts {
@@ -17,6 +18,17 @@ export const GET_QUARANTINE_LIST = gql`
                 formTitle
                 count
             }
+        }
+    }
+`;
+
+/** One page of the list. */
+export const GET_QUARANTINE_LIST = gql`
+    query GetFormidableQuarantineList(
+        $siteKey: String!, $formId: String, $states: [FmdbqState!], $offset: Int!, $newestFirst: Boolean
+    ) {
+        formidableQuarantine(siteKey: $siteKey) {
+            siteKey
             submissions(formId: $formId, states: $states, offset: $offset, limit: 25, newestFirst: $newestFirst) {
                 totalCount
                 offset
@@ -128,19 +140,24 @@ export interface SubmissionRow {
     files: Array<{item: string; name: string | null}>;
 }
 
-export interface QuarantineList {
+export interface QuarantineSummary {
     siteKey: string;
     counts: StateCount[];
     forms: FormEntry[];
-    submissions: {
-        totalCount: number;
-        offset: number;
-        items: SubmissionRow[];
-    };
+}
+
+export interface SummaryData {
+    formidableQuarantine: QuarantineSummary | null;
+}
+
+export interface SubmissionPage {
+    totalCount: number;
+    offset: number;
+    items: SubmissionRow[];
 }
 
 export interface ListData {
-    formidableQuarantine: QuarantineList | null;
+    formidableQuarantine: {siteKey: string; submissions: SubmissionPage} | null;
 }
 
 export interface CheckOutcome {

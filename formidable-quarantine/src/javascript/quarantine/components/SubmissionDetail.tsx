@@ -64,9 +64,8 @@ export const ActionButtons = ({allowedOperations, running, onOperation}: ActionB
 
 type CheckRow = HeldFile['checks'][number];
 
-const FileChecks = ({file}: {file: HeldFile}) => {
+const FileChecks = ({file, language}: {file: HeldFile; language: string}) => {
     const {t} = useTranslation('formidable-quarantine');
-    const titleId = useId();
     const name = file.name ?? file.item;
     const columns: DataTableColumn<CheckRow>[] = [
         {key: 'name', label: t('quarantine.detail.check'), width: '34%'},
@@ -75,12 +74,12 @@ const FileChecks = ({file}: {file: HeldFile}) => {
     ];
     return (
         <div className="fmdbq-block" data-sel-role="quarantine-file">
-            <Typography id={titleId} component="h4" variant="body" weight="bold">{name}</Typography>
+            <Typography component="h4" variant="body" weight="bold">{name}</Typography>
             <dl className="fmdbq-pairs">
                 <dt>{t('quarantine.detail.fileType')}</dt>
                 <dd>{file.mimeType ?? ''}</dd>
                 <dt>{t('quarantine.detail.fileSize')}</dt>
-                <dd>{formatSize(file.size)}</dd>
+                <dd>{formatSize(file.size, language)}</dd>
             </dl>
             {!file.bytesPresent && <Typography className="fmdbq-secondary">{t('quarantine.detail.bytesDeleted')}</Typography>}
             {file.checks.length === 0 ? <Typography className="fmdbq-secondary">{t('quarantine.detail.noChecks')}</Typography> : (
@@ -90,7 +89,7 @@ const FileChecks = ({file}: {file: HeldFile}) => {
                     primaryKey="name"
                     data={file.checks}
                     columns={columns}
-                    aria-labelledby={titleId}
+                    aria-label={t('quarantine.detail.checksTable', {name})}
                     rowProps={{tabIndex: undefined}}
                     className="fmdbq-detail-table"
                 />
@@ -187,12 +186,14 @@ interface SubmissionDetailProps {
     actions: React.ReactNode;
     /** Whether the last operation found the submission changed: the message and its Reload button show. */
     changed: boolean;
+    /** The message of an operation with no dialog, Retry or Resume, that failed; null when there is none. */
+    failure?: string | null;
     reloading: boolean;
     onReload: () => void;
 }
 
 /** The body of the detail: the heading, the state, the changed message, the actions, then the records. */
-export const SubmissionDetail = ({submission, language, headingRef, actions, changed, reloading, onReload}: SubmissionDetailProps) => {
+export const SubmissionDetail = ({submission, language, headingRef, actions, changed, failure = null, reloading, onReload}: SubmissionDetailProps) => {
     const {t} = useTranslation('formidable-quarantine');
     const auditTitleId = useId();
     const form = submission.formTitle ?? submission.formId;
@@ -219,13 +220,18 @@ export const SubmissionDetail = ({submission, language, headingRef, actions, cha
                         />
                     </Banner>
                 )}
+                {failure && !changed && (
+                    <Banner role="note" variant="danger" title={t('quarantine.failedTitle')} className="fmdbq-block" data-sel-role="quarantine-failed">
+                        <Typography>{failure}</Typography>
+                    </Banner>
+                )}
             </div>
             {actions}
             <Separator spacing="medium"/>
             <div tabIndex={0} role="region" aria-label={t('quarantine.detail.region')}>
                 <SectionTitle>{t('quarantine.detail.files')}</SectionTitle>
                 {submission.files.length === 0 && <Typography className="fmdbq-secondary">{t('quarantine.detail.noFiles')}</Typography>}
-                {submission.files.map(file => <FileChecks key={file.item} file={file}/>)}
+                {submission.files.map(file => <FileChecks key={file.item} file={file} language={language}/>)}
 
                 <Separator spacing="medium"/>
                 <SectionTitle>{t('quarantine.detail.decision')}</SectionTitle>
@@ -268,6 +274,8 @@ export const SubmissionDetail = ({submission, language, headingRef, actions, cha
 };
 
 interface DetailFrameProps {
+    /** Whether the children render the heading of the detail, which names the frame; else the frame names itself. */
+    hasHeading: boolean;
     onClose: () => void;
     children: React.ReactNode;
 }
@@ -277,7 +285,7 @@ interface DetailFrameProps {
  * its button or by Escape from inside it. It sits in the card of the list, beside the table, as the detail panel of
  * Form Results does. It is not modal: the focus moves freely between the list and the detail.
  */
-export const DetailFrame = ({onClose, children}: DetailFrameProps) => {
+export const DetailFrame = ({hasHeading, onClose, children}: DetailFrameProps) => {
     const {t} = useTranslation('formidable-quarantine');
     useEffect(() => {
         // the head row of a DataTable is a tab stop that does nothing (TableRow sets tabIndex 0): the tables of the
@@ -289,7 +297,8 @@ export const DetailFrame = ({onClose, children}: DetailFrameProps) => {
     return (
         <Paper
             id={DETAIL_ID}
-            aria-labelledby={`${DETAIL_ID}-title`}
+            aria-labelledby={hasHeading ? `${DETAIL_ID}-title` : undefined}
+            aria-label={hasHeading ? undefined : t('quarantine.detail.region')}
             data-sel-role="quarantine-detail"
             className="fmdbq-detail"
             onKeyDown={event => {

@@ -43,7 +43,7 @@ public class GqlQuarantine {
 
     @GraphQLField
     @GraphQLNonNull
-    @GraphQLDescription("A page of the held submissions of the site, or of one form, oldest first. limit is at most 100")
+    @GraphQLDescription("A page of the held submissions of the site, or of one form, by time of intake. limit is at most 100")
     public GqlSubmissionPage submissions(
             @GraphQLName("formId") @GraphQLDescription("The identifier of a form of the site") String formId,
             @GraphQLName("states") @GraphQLDescription("The states to keep; every state when absent")

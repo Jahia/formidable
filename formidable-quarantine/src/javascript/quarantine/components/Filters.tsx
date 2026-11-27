@@ -86,7 +86,10 @@ export const FormFilter = ({forms, selected, isOpen, onOpen, onClose, onSelect}:
         }
 
         const frame = requestAnimationFrame(() => {
-            editorRef.current?.querySelector<HTMLInputElement>('input:checked, input')?.focus({preventScroll: true});
+            // the checked radio, as a radio group gives it the focus; a selector list would answer the first radio
+            const editor = editorRef.current;
+            const radio = editor?.querySelector<HTMLInputElement>('input:checked') ?? editor?.querySelector<HTMLInputElement>('input');
+            radio?.focus({preventScroll: true});
         });
         // the Menu of Moonstone does not close on Escape
         const listener = (event: KeyboardEvent) => {

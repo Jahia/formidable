@@ -1,8 +1,9 @@
 import {describe, expect, it} from 'vitest';
 import {
     buttonsFor,
+    formatSize,
     isChangedUnderneath,
-    nextOffset,
+    offsetInsideList,
     PAGE_SIZE,
     pageRange,
     refusalCodeOf,
@@ -24,23 +25,44 @@ describe('buttonsFor', () => {
     });
 });
 
-describe('pageRange and nextOffset', () => {
+describe('pageRange and offsetInsideList', () => {
     it('reads the first, the middle and the last page of 63 submissions', () => {
-        expect(pageRange(0, 25, 63)).toEqual({from: 1, to: 25, total: 63, hasPrevious: false, hasNext: true});
-        expect(pageRange(25, 25, 63)).toEqual({from: 26, to: 50, total: 63, hasPrevious: true, hasNext: true});
-        expect(pageRange(50, 13, 63)).toEqual({from: 51, to: 63, total: 63, hasPrevious: true, hasNext: false});
+        expect(pageRange(0, 25, 63)).toEqual({from: 1, to: 25, total: 63});
+        expect(pageRange(25, 25, 63)).toEqual({from: 26, to: 50, total: 63});
+        expect(pageRange(50, 13, 63)).toEqual({from: 51, to: 63, total: 63});
     });
 
-    it('reads an empty list as 0 to 0, with no next page', () => {
-        expect(pageRange(0, 0, 0)).toEqual({from: 0, to: 0, total: 0, hasPrevious: false, hasNext: false});
+    it('reads an empty list as 0 to 0', () => {
+        expect(pageRange(0, 0, 0)).toEqual({from: 0, to: 0, total: 0});
     });
 
-    it('pages by 25 and stays inside the list', () => {
+    it('brings an empty page past the end back to the start of the last page', () => {
         expect(PAGE_SIZE).toBe(25);
-        expect(nextOffset(0, 'next', 63)).toBe(25);
-        expect(nextOffset(50, 'next', 63)).toBe(50);
-        expect(nextOffset(25, 'previous', 63)).toBe(0);
-        expect(nextOffset(0, 'previous', 63)).toBe(0);
+        // the last row of page 2 left a filtered list of 25: page 1 holds them
+        expect(offsetInsideList(25, 0, 25)).toBe(0);
+        expect(offsetInsideList(50, 0, 26)).toBe(25);
+        expect(offsetInsideList(75, 0, 63)).toBe(50);
+    });
+
+    it('leaves a page with rows, an empty list and the first page as they are', () => {
+        expect(offsetInsideList(25, 3, 28)).toBeNull();
+        expect(offsetInsideList(25, 0, 0)).toBeNull();
+        expect(offsetInsideList(0, 0, 0)).toBeNull();
+    });
+});
+
+describe('formatSize', () => {
+    it('writes the size with the unit and the number of the language', () => {
+        expect(formatSize(500, 'en')).toBe('500 byte');
+        expect(formatSize(2048, 'en')).toBe('2 kB');
+        expect(formatSize(1.5 * 1024 * 1024, 'en')).toBe('1.5 MB');
+        // French writes a narrow no-break space before the unit
+        expect(formatSize(1.5 * 1024 * 1024, 'fr')).toBe('1,5 Mo');
+    });
+
+    it('writes nothing for a size the API does not know', () => {
+        expect(formatSize(null, 'en')).toBe('');
+        expect(formatSize(-1, 'en')).toBe('');
     });
 });
 

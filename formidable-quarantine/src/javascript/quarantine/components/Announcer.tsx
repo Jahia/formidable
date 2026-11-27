@@ -10,23 +10,28 @@ export type Announce = (message: string, assertive?: boolean) => void;
 export function useAnnouncer(): {polite: string; assertive: string; announce: Announce} {
     const [polite, setPolite] = useState('');
     const [assertive, setAssertive] = useState('');
-    const frameRef = useRef<number | null>(null);
+    // one pending frame per region: a message of one region never cancels a message of the other
+    const framesRef = useRef<{polite: number | null; assertive: number | null}>({polite: null, assertive: null});
 
     useEffect(() => () => {
-        if (frameRef.current !== null) {
-            cancelAnimationFrame(frameRef.current);
-        }
+        Object.values(framesRef.current).forEach(frame => {
+            if (frame !== null) {
+                cancelAnimationFrame(frame);
+            }
+        });
     }, []);
 
     const announce = useCallback<Announce>((message, isAssertive = false) => {
+        const region = isAssertive ? 'assertive' : 'polite';
         const set = isAssertive ? setAssertive : setPolite;
         set('');
-        if (frameRef.current !== null) {
-            cancelAnimationFrame(frameRef.current);
+        const pending = framesRef.current[region];
+        if (pending !== null) {
+            cancelAnimationFrame(pending);
         }
 
-        frameRef.current = requestAnimationFrame(() => {
-            frameRef.current = null;
+        framesRef.current[region] = requestAnimationFrame(() => {
+            framesRef.current[region] = null;
             set(message);
         });
     }, []);

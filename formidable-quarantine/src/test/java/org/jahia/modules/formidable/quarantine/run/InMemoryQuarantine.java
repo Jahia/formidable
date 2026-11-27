@@ -88,7 +88,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     /** Holds a submission of the form with one file per text, each a text file. */
     public Held hold(String formId, String... texts) {
         // the name of a held node as the JCR store writes it: held-<uuid>
-        Held one = new Held("/sites/" + SITE + "/formidable-quarantine/" + formId + "/2026/11/19/held-"
+        Held one = new Held(rootOf(SITE) + formId + "/2026/11/19/held-"
                 + String.format("00000000-0000-4000-8000-%012d", count),
                 formId, Instant.parse("2026-11-19T10:00:00Z").plusSeconds(count));
         count++;
@@ -321,7 +321,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     public List<String> formIds(String siteKey) {
         Set<String> formIds = new LinkedHashSet<>(emptyForms);
         for (Held one : held.values()) {
-            if (one.path.startsWith("/sites/" + siteKey + "/formidable-quarantine/")) {
+            if (one.path.startsWith(rootOf(siteKey))) {
                 formIds.add(one.formId);
             }
         }
@@ -331,10 +331,15 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     /** The folders of forms that hold no submission, such as a form whose submissions the retention purged. */
     public final Set<String> emptyForms = new LinkedHashSet<>();
 
+    /** The quarantine root of a site, with its trailing slash, as the JCR store writes it. */
+    private static String rootOf(String siteKey) {
+        return "/sites/" + siteKey + "/formidable-quarantine/";
+    }
+
     private List<HeldRecord> matching(String siteKey, String formId, Set<String> states) {
         List<HeldRecord> matching = new ArrayList<>();
         for (Held one : held.values()) {
-            boolean inSite = one.path.startsWith("/sites/" + siteKey + "/formidable-quarantine/");
+            boolean inSite = one.path.startsWith(rootOf(siteKey));
             boolean ofForm = formId == null || formId.equals(one.formId);
             if (inSite && ofForm && (states.isEmpty() || states.contains(one.state))) {
                 matching.add(recordOf(one));

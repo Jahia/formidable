@@ -262,8 +262,10 @@ named `formidableQuarantine(siteKey)`:
   totals, forms and records are read once per request. The API adds no limit of its own beyond the page of 100.
 - Any failure answers an error with a fixed message. The log line names the site, the path or the class of the
   failure, never a value. An operation that ran, and whose submission cannot be read again, answers that it ran.
-- A request that did not run answers an error whose `extensions.code` says why. A client reads the code, never the
-  message. An error with no code is a failure, and the operation may or may not have run:
+- An operation or a purge refused for its submission, its state or a right answers an error whose `extensions.code`
+  says why, and nothing ran. A client reads the code, never the message. An argument that the API refuses, a negative
+  `olderThanDays` or a `states` list longer than the six states, answers an error with no code before anything runs. Any other error with no
+  code is a failure, and the operation may or may not have run:
 
 | Code | The request did not run because |
 |---|---|
@@ -311,9 +313,9 @@ named `formidableQuarantine(siteKey)`:
   editor has: the access control of the site grants the role `privileged` to `site-privileged`. The role gives no
   write and no publication. It reads no node of the quarantine tree, whose root breaks the inheritance of the access
   control.
-- The module creates the role with that access when the role is missing. It never changes the access of a role that
-  exists: an installation that has the role keeps the access that the role had, and an administrator adds
-  `jContentAccess`, `additionalAccordionAccess` and privileged access to it.
+- The module creates the role with that access when the role is missing. A site role that exists keeps the access
+  that it had, and an administrator adds `jContentAccess`, `additionalAccordionAccess` and privileged access to it. A
+  role of an earlier version, granted on a form, becomes a site role once, and loses its privileged access then.
 - Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the live workspace, under the
   session of the user, before it reads anything. A grant of the role applies once the site is published, and a site
   with no live node has no manager. A revocation applies the same way: a role removed in the edit workspace stops

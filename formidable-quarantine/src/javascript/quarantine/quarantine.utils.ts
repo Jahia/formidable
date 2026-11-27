@@ -84,31 +84,26 @@ export interface PageRange {
     from: number;
     to: number;
     total: number;
-    hasPrevious: boolean;
-    hasNext: boolean;
 }
 
 export function pageRange(offset: number, itemCount: number, total: number): PageRange {
     if (total <= 0 || itemCount <= 0) {
-        return {from: 0, to: 0, total: Math.max(total, 0), hasPrevious: offset > 0, hasNext: false};
+        return {from: 0, to: 0, total: Math.max(total, 0)};
     }
 
-    return {
-        from: offset + 1,
-        to: offset + itemCount,
-        total,
-        hasPrevious: offset > 0,
-        hasNext: offset + itemCount < total
-    };
+    return {from: offset + 1, to: offset + itemCount, total};
 }
 
-/** The offset of the previous or the next page, kept inside the list. */
-export function nextOffset(offset: number, direction: 'previous' | 'next', total: number): number {
-    if (direction === 'previous') {
-        return Math.max(0, offset - PAGE_SIZE);
+/**
+ * The offset to ask again when a page came back empty although the list still holds submissions, as after an
+ * operation took the last row of the last page: the start of the last page. null when the page is right as it is.
+ */
+export function offsetInsideList(offset: number, itemCount: number, total: number): number | null {
+    if (itemCount > 0 || total <= 0 || offset < total) {
+        return null;
     }
 
-    return offset + PAGE_SIZE < total ? offset + PAGE_SIZE : offset;
+    return Math.floor((total - 1) / PAGE_SIZE) * PAGE_SIZE;
 }
 
 /** The codes that the API puts in the extensions of a refused request. */
@@ -193,21 +188,23 @@ export function formatDate(iso: string | null | undefined, language?: string): s
     return new Intl.DateTimeFormat(language || undefined, {dateStyle: 'medium', timeStyle: 'short'}).format(date);
 }
 
-/** A size in bytes for a reader. */
-export function formatSize(bytes: number | null | undefined): string {
+/** A size in bytes for a reader, with the unit and the number of the language of the interface. */
+export function formatSize(bytes: number | null | undefined, language?: string): string {
     if (bytes === null || bytes === undefined || bytes < 0) {
         return '';
     }
 
+    const format = (value: number, unit: string, digits: number) => new Intl.NumberFormat(language || undefined,
+        {style: 'unit', unit, unitDisplay: 'short', maximumFractionDigits: digits}).format(value);
     if (bytes < 1024) {
-        return `${bytes} B`;
+        return format(bytes, 'byte', 0);
     }
 
     if (bytes < 1024 * 1024) {
-        return `${Math.round(bytes / 1024)} KB`;
+        return format(bytes / 1024, 'kilobyte', 0);
     }
 
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return format(bytes / (1024 * 1024), 'megabyte', 1);
 }
 
 /** The files a row names: the first two, and how many more. */

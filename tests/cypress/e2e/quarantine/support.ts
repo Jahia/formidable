@@ -29,8 +29,19 @@ export const submissionWithText = (fullName: string, text: string): string =>
 	+ `${text}\r\n`
 	+ `--${BOUNDARY}--\r\n`;
 
+/** A submission of named text values and one small text file of that text, as a browser posts it. */
+export const submissionWithValues = (values: Record<string, string>, text: string): string =>
+	Object.entries(values).map(([name, value]) => `--${BOUNDARY}\r\n`
+		+ `Content-Disposition: form-data; name="${name}"\r\n\r\n`
+		+ `${value}\r\n`).join('')
+	+ `--${BOUNDARY}\r\n`
+	+ `Content-Disposition: form-data; name="${FILE_FIELD}"; filename="${FILE_NAME}"\r\n`
+	+ 'Content-Type: text/plain\r\n\r\n'
+	+ `${text}\r\n`
+	+ `--${BOUNDARY}--\r\n`;
+
 /** A submission of the text field and one small text file, as a browser posts it. */
-export const submissionWithAFile = (fullName: string): string => submissionWithText(fullName, FILE_TEXT);
+export const submissionWithAFile =(fullName: string): string => submissionWithText(fullName, FILE_TEXT);
 
 /**
  * The texts of the files the stub checks read: the first marker line decides what a stub answers. The second line

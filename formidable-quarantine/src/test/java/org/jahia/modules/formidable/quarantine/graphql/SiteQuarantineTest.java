@@ -56,6 +56,9 @@ class SiteQuarantineTest {
     private static final String OTHER_FORM = "6a1f0c3e-0000-4000-8000-000000000002";
     private static final String SHA = "0".repeat(64);
     private static final Instant NOW = Instant.parse("2026-11-19T12:00:00Z");
+    /** The message of a failure that quotes a value, which no log line and no answer may repeat. */
+    private static final String VALUE_MESSAGE = "the property fullName of Ada";
+    private static final String FORM_IDS = "formIds";
 
     /** A double of {@link Managers}: who the user is, and the sites the user manages. */
     private static class FakeManagers implements Managers {
@@ -278,7 +281,7 @@ class SiteQuarantineTest {
         assertEquals(List.of(OTHER_FORM, FORM), forms.stream().map(GqlForm::getFormId).toList(), "by title");
         assertEquals(List.of(1, 2), forms.stream().map(GqlForm::getCount).toList());
         assertEquals("alpha contact", forms.get(0).getFormTitle());
-        assertEquals(1, callsOf("formIds").size());
+        assertEquals(1, callsOf(FORM_IDS).size());
         assertFalse(callsOf("count").toString().contains("not-a-form"), "no query for a folder that is not a form");
     }
 
@@ -290,12 +293,12 @@ class SiteQuarantineTest {
 
         site.forms();
         site.forms();
-        assertEquals(1, callsOf("formIds").size(), "aliases");
+        assertEquals(1, callsOf(FORM_IDS).size(), "aliases");
         assertEquals(1, callsOf("count").size(), "one count per form");
 
         site.operate(id, GqlOperation.REJECT);
         assertEquals(1, site.forms().get(0).getCount());
-        assertEquals(2, callsOf("formIds").size(), "listed again after the operation");
+        assertEquals(2, callsOf(FORM_IDS).size(), "listed again after the operation");
     }
 
     @Test
@@ -607,17 +610,17 @@ class SiteQuarantineTest {
                     @Override
                     public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset,
                                                  int limit, boolean newestFirst) {
-                        throw new NullPointerException("the property fullName of Ada");
+                        throw new NullPointerException(VALUE_MESSAGE);
                     }
 
                     @Override
                     public long count(String siteKey, String formId, Set<String> states) {
-                        throw new NullPointerException("the property fullName of Ada");
+                        throw new NullPointerException(VALUE_MESSAGE);
                     }
 
                     @Override
                     public List<String> formIds(String siteKey) {
-                        throw new NullPointerException("the property fullName of Ada");
+                        throw new NullPointerException(VALUE_MESSAGE);
                     }
                 }, this::operate, this::purge, managers, (siteKey, formId) -> facts), log);
 

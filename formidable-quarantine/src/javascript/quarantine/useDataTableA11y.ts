@@ -25,7 +25,7 @@ export interface DataTableA11yOptions {
  * never sits under them. A port of the hook of module-management-community.
  *
  * One addition: the pager disables its buttons at an end of the list, and a disabled button drops the focus, so the
- * focus that fell to the body moves to the pager button still enabled on the same side.
+ * focus that fell to the body moves to the enabled pager button of the other direction (pagerFallback).
  *
  * React leaves an attribute it does not own in place, so the patch only has to run again after each render.
  */
