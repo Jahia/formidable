@@ -43,16 +43,15 @@ export const ZEROBOUNCE_STUB_PATH = '/modules/formidable-samples/zerobounce-stub
 export const FORWARD_SINK_PATH = '/modules/formidable-samples/forward-sink'
 /** The samples module's record of what its upload observer and its sample hold saw since the last reset. */
 export const UPLOAD_OBSERVATIONS_PATH = '/modules/formidable-samples/upload-observations'
-/** The inspection of the quarantine tree of formidable-quarantine: server administrators only, names and hashes, never a value. */
-export const QUARANTINE_INSPECTION_PATH = '/modules/formidable-quarantine/inspection'
+/**
+ * The GraphQL endpoint of the platform: formidable-quarantine reads and operates its quarantine there
+ * (formidableQuarantine(siteKey)), for the managers of a site alone. Names, hashes and states, never a value.
+ */
+export const GRAPHQL_PATH = '/modules/graphql'
 /** The quarantine test module's "run now": one pass of the checks over the due held submissions. Server administrators only. */
 export const QUARANTINE_RUN_PATH = '/modules/formidable-quarantine/run'
 /** The quarantine test module's control of its stub checks: their call log and their outage. Server administrators only. */
 export const QUARANTINE_STUB_PATH = '/modules/formidable-quarantine/stub'
-/** The operations of a manager of formidable-quarantine: retry, release, resume, reject. Managers of the form only. */
-export const QUARANTINE_OPERATIONS_PATH = '/modules/formidable-quarantine/operations'
-/** The retention of formidable-quarantine: purges the old rejected held submissions. Server administrators only. */
-export const QUARANTINE_RETENTION_PATH = '/modules/formidable-quarantine/retention'
 export const LOGIC_STATE_HEADER = 'X-Formidable-Logic-State'
 
 /**

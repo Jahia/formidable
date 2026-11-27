@@ -10,9 +10,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
 /**
- * What the endpoints of the module share: a JSON answer that no cache keeps, and the operation past the alias. The
- * helper of {@code formidable-quarantine} is private to that module. This one checks only {@code X-Requested-With} on
- * a POST, and adds {@link #operationOf}.
+ * What the endpoints of the module share: a JSON answer that no cache keeps, and the operation past the alias. It
+ * checks only {@code X-Requested-With} on a POST, and adds {@link #operationOf}.
  */
 final class JsonAnswers {
 

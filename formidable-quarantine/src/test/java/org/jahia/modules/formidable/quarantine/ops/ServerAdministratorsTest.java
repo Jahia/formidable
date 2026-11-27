@@ -1,4 +1,4 @@
-package org.jahia.modules.formidable.quarantine.web;
+package org.jahia.modules.formidable.quarantine.ops;
 
 import org.jahia.services.usermanager.JahiaGroupManagerService;
 import org.jahia.services.usermanager.JahiaUser;

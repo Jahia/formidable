@@ -1,0 +1,15 @@
+# The door of the GraphQL API of the quarantine, for its managers. The scope graphql of the platform admits privileged
+# users only, and the site role formidable-quarantine-manager gives no privileged access: this scope opens the fields
+# of the quarantine alone, from a page of this server. The lock is the module's own check: formidableQuarantine
+# answers null unless the user holds formidableQuarantineManage on the live node of that site. The filter can require a
+# permission on one fixed path only, so it cannot express "on the site of the request": the scope has no constraint.
+# Keep the list in step with the types of the package graphql (QuarantineApiScopeTest checks it).
+formidable-quarantine:
+  description: Can call the GraphQL API of the quarantine of Formidable; the module checks the manager permission on the site
+  metadata:
+    visible: false
+  auto_apply:
+    - origin: hosted
+  grants:
+    - api: graphql.Query.formidableQuarantine, graphql.Mutation.formidableQuarantine, graphql.FmdbqQuarantine, graphql.FmdbqQuarantineMutation, graphql.FmdbqSubmissionPage, graphql.FmdbqStateCount, graphql.FmdbqHeldSubmission, graphql.FmdbqFile, graphql.FmdbqCheckOutcome, graphql.FmdbqDecision, graphql.FmdbqValue, graphql.FmdbqAuditRecord, graphql.FmdbqPurgeReport
+      node: none

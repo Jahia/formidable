@@ -13,10 +13,10 @@ The design rests on two decisions:
 
 The module `formidable-quarantine` holds the hold, the quarantine tree, the run of the checks, the release and the
 operations of a manager. Its code came from the test module `formidable-test-module-quarantine`, which keeps no hold
-and writes no quarantine tree. The endpoints of the test suite are split in two:
+and writes no quarantine tree. The test suite reaches the module in two ways:
 
-- The inspection, the operations and the retention endpoints are in the module, under the paths they had in the
-  test module.
+- It reads the quarantine, runs the operations and the retention through the GraphQL API of the module
+  ([The GraphQL API](#the-graphql-api)), as the manager screen does.
 - The test module keeps its stub checks, the control of the stubs, and a run-now endpoint. The exported package of
   the module offers a runner next to the check API. The run-now endpoint starts a run through the runner, and writes
   nothing under the tree itself.
@@ -241,7 +241,8 @@ compare-and-set of every state move:
 - **The operations in a cluster.** An operation on another server does not take the lock of the site of this
   server. A release, a resume and a reject that releases the values alone, which run the actions after release, and
   a reject of a submission in `releasing`, take the lock of the run of the site in the repository for their duration, with the lease of
-  `lockLeaseSeconds`, which a release checks before its actions and extends as a pass does. So a resume of a
+  `lockLeaseSeconds`, which a release checks before its actions and extends as a pass does. A release whose lease
+  is lost stops before its actions, which do not run, and answers a conflict. So a resume of a
   release that stopped never runs beside a release under way, on any server. A retry resets the attempts, drops
   the outcomes that are not a `PASS` and moves to `checking` in one compare-and-set save, so a stale retry changes
   nothing. Any other operation relies on the compare-and-set.
@@ -260,7 +261,10 @@ tree does not grow without bound.
 - The limit of the platform is `retentionDays`, 30 days by default. A site can lower it with `retentionDays` of its
   site settings, the mixin `fmdbqmix:quarantineSite`. A value of a site above the limit of the platform is
   ignored, and so is a negative value. A site whose settings cannot be read keeps the limit of the platform, and
-  the report of the purge says that the settings were not read.
+  the report of the purge says that the settings were not read: the failure is logged, and the mutation `purge` of
+  the GraphQL API answers the limit `PLATFORM_UNREAD`.
+- A server administrator can also start the purge of one site through the mutation `purge` of the GraphQL API
+  ([The GraphQL API](#the-graphql-api)), with the limit of the site, or with `olderThanDays` for that call.
 
 ### The states of a held submission
 
@@ -321,6 +325,49 @@ sequenceDiagram
 
 A user without the permission gets the same answer as for a submission that does not exist.
 
+### The GraphQL API
+
+The module extends the GraphQL schema of the platform (`/modules/graphql`) with one query and one mutation, both
+named `formidableQuarantine(siteKey)`:
+
+| Field | Answers |
+|---|---|
+| `counts` | The number of held submissions of the site in each state. |
+| `submissions(formId, states, offset, limit)` | A page of the held submissions of the site, or of one form, oldest first. `limit` is 25 by default and 100 at most: a larger value reads as 100. `states` names each state once at most. |
+| `submission(id)` | One held submission, or `null` when the site has none with this identifier. |
+| `operate(id, operation)` | The mutation of a manager: `RETRY`, `RELEASE`, `RESUME` or `REJECT`. It answers the submission as the operation left it. |
+| `purge(olderThanDays)` | The mutation of the retention, for server administrators only. It answers the limit in days, whose limit applied (`limit`: `PLATFORM`, `PLATFORM_UNREAD` when the settings of the site could not be read, `SITE` or `CALL`), and the identifiers purged and failed. |
+
+- The identifier of a held submission is its path below the quarantine root of its site:
+  `<formId>/YYYY/MM/DD/held-<uuid>`. The API reads it below the root of the site of the request only, so an
+  identifier of another site names nothing.
+- A held submission answers its state, the names of its fields, its files with the outcome of each check, its
+  decision, its audit and `allowedOperations`. `allowedOperations` applies the rules of the operations: the state
+  machine, then the decision for a release or a resume in `needsReview`.
+- `publicValues` is `null` unless the form sets `showValues`. The sensitive values never appear, only the names of
+  their fields.
+- A page and the counts come from queries of the repository on the held submissions below the quarantine root of
+  the site. The form and the states enter each query as bound values. The page reads at most 100 records. The
+  `totalCount` of a page and each of the `counts` run one count query over every held record of the site that
+  matches: their cost follows the number of records that the site keeps, which the retention purge bounds in
+  practice. A request runs each count query once, however many aliases ask for it, and an operation or a purge
+  counts again. A page leaves out a record that names another site, as the reading by identifier does; only a
+  damaged tree holds one, and the counts still count it.
+- The records of the submissions of a request, their outcomes, decision, audit and values, are read in one session,
+  on the first field that needs them. An operation reads the records and the form of its submission before it
+  answers, so that a failure of that read says that the operation ran.
+- The query depth and complexity limits of the GraphQL provider of the platform bound the number of aliased
+  selections of a request. Aliases of `formidableQuarantine` on one site share one reading of the site: its counts,
+  totals, forms and records are read once per request. The API adds no limit of its own beyond the page of 100.
+- Any failure answers an error with a fixed message. The log line names the site, the path or the class of the
+  failure, never a value. An operation that ran, and whose submission cannot be read again, answers that it ran.
+- An operation that the run holds back answers a conflict, as a state that does not allow it does, and never the
+  error of a failure: a pass of the run that holds the site, the lock of the run of the site held by another server,
+  a submission that a run moved first, and a release whose lease is lost before its actions after release
+  ([The lock of the run](#the-lock-of-the-run)). The manager reloads the submission.
+- The API has no field for the file access yet (`fileAccess`, `canAccessFiles`): the download comes with the file
+  access.
+
 ## Security
 
 - The quarantine tree is under `/sites/<site>/formidable-quarantine/`, in the live workspace. Its root breaks the
@@ -334,19 +381,45 @@ A user without the permission gets the same answer as for a submission that does
   - A mismatch before a download refuses the download and writes an audit record. The submission stays in
     `needsReview`.
 - The module reads the tree with a system session, and only after the permission check on the site node.
+- The mutations of the API have no request check of their own, and no token of `jahia-csrf-guard` protects
+  `/modules/graphql`. Three controls of the platform stand against a forged request:
+  - The scope `formidable-quarantine` of the API security filter applies only to a request whose `Origin` or
+    `Referer` is this server. A request from another site, or with neither header, gets no access to the fields.
+  - The mutation is sent as a JSON POST: a page of another site cannot send that media type without a CORS
+    preflight.
+  - The fetch-metadata policy of `jahia-csrf-guard` refuses a write whose `Sec-Fetch-Site` is `cross-site`.
+- Spec 90 sends the mutation `operate` in the shapes that a cross-site page can forge, checks each refusal and that
+  nothing changes, and sends the same mutation from a page of this server as the control.
 - No value of a submission appears in a log line or in an error message.
 
 ### Permissions
 
 | Permission | Grants |
 |---|---|
-| `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms where it is granted. |
+| `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms of the site where it is granted. |
 | `formidableQuarantineFileAccess` | The download of a held file, when the file access allows it. |
 
-In this phase, the module declares `formidableQuarantineManage` and checks it on the live form. The role
-`formidable-quarantine-manager`, granted on a form, gives it. The per-site role and `formidableQuarantineFileAccess`
-come in a later phase. The second permission is separate, because releasing a submission and opening its file are
-two different rights.
+- The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`. The module creates the role when
+  it starts. The role gives no privileged access, so its holder reads no draft of the site.
+- Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the live workspace, under the
+  session of the user, before it reads anything. A grant of the role applies once the site is published, and a site
+  with no live node has no manager. A revocation applies the same way: a role removed in the edit workspace stops
+  granting the list and the operations only once the site is published, because the check reads the live ACL.
+- A failure of the repository during the check answers an error, never the answer of a user who does not manage the
+  site.
+- The API security filter of the platform admits only privileged users to `/modules/graphql`, and the role gives no
+  privileged access. The module therefore ships the scope `formidable-quarantine`, which opens the two fields
+  `formidableQuarantine` and the types of the module that they reach, from a page of this server, and nothing else of
+  the platform. The scope is the door, and the check of the module on the site is the lock. The filter can require a
+  permission on one fixed path only, so the scope cannot require the permission on the site of the request: any user
+  of a page of this server passes the door, and the module answers `null` to a user who does not manage the site. A user without the permission gets `null`, which is also the answer for a site
+  that does not exist. A server administrator is a manager of every site that exists.
+- The operations check the permission again on the site of the held submission, and check that the submission lies
+  under the quarantine root of that site.
+- The retention through the API is for server administrators only, because the retention is a setting of the
+  platform.
+- The module does not declare `formidableQuarantineFileAccess` yet: it comes with the download. It is separate,
+  because releasing a submission and opening its file are two different rights.
 
 ### File access by a reviewer
 

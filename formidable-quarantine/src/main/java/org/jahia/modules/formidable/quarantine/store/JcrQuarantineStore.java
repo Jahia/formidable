@@ -396,6 +396,11 @@ public class JcrQuarantineStore implements QuarantineStore {
         log.info("Purged the held submission at {}", path);
     }
 
+    /** The public values under the held submission, in the order of the fields: never the sensitive ones. */
+    static Map<String, List<String>> publicValuesOf(JCRNodeWrapper held) throws RepositoryException {
+        return valuesOf(held, QuarantineTree.VALUES, strings(held, QuarantineTree.VALUE_FIELDS));
+    }
+
     /** A change of one held submission, saved at once. */
     @FunctionalInterface
     private interface Change {
@@ -444,7 +449,7 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     /** The held submission at the path, or null when the path names no node, or a node of another type. */
-    private static JCRNodeWrapper heldOrNull(JCRSessionWrapper session, String path) throws RepositoryException {
+    static JCRNodeWrapper heldOrNull(JCRSessionWrapper session, String path) throws RepositoryException {
         if (path == null || !path.startsWith("/sites/") || !session.nodeExists(path)) {
             return null;
         }

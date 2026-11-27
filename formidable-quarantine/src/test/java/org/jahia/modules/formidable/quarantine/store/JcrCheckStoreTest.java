@@ -5,6 +5,7 @@ import org.jahia.services.content.JCRNodeIteratorWrapper;
 import org.jahia.services.content.JCRNodeWrapper;
 import org.jahia.services.content.JCRPropertyWrapper;
 import org.jahia.services.content.JCRSessionWrapper;
+import org.jahia.services.content.JCRValueWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,8 @@ import java.time.ZoneOffset;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -101,6 +104,64 @@ class JcrCheckStoreTest {
         verify(after).setProperty(JcrCheckStore.REASON, DecisionRecord.INTEGRITY_FAILED);
         verify(after).setProperty(JcrCheckStore.ITEM_NAME, "item0");
         verify(session).save();
+    }
+
+    @Test
+    void theRecordsOfSeveralSubmissionsAreReadInOneSessionAndTheValuesOnlyWhenAsked() throws Exception {
+        JCRNodeIteratorWrapper none = mock(JCRNodeIteratorWrapper.class);
+        when(none.iterator()).thenReturn(List.<JCRNodeWrapper>of().iterator());
+        when(checks.getNodes()).thenReturn(none);
+        JCRNodeWrapper decision = mock(JCRNodeWrapper.class);
+        JCRPropertyWrapper reason = mock(JCRPropertyWrapper.class);
+        when(reason.getString()).thenReturn(DecisionRecord.ACTION_FAILED);
+        when(decision.hasProperty(JcrCheckStore.REASON)).thenReturn(true);
+        when(decision.getProperty(JcrCheckStore.REASON)).thenReturn(reason);
+        when(checks.hasNode(CheckStore.DECISION_NODE)).thenReturn(true);
+        when(checks.getNode(CheckStore.DECISION_NODE)).thenReturn(decision);
+        // the held submission has public and sensitive values: a read that is not asked for would find them
+        strings(held, QuarantineTree.VALUE_FIELDS, "fullName");
+        JCRNodeWrapper values = mock(JCRNodeWrapper.class);
+        strings(values, "fullName", "Ada");
+        when(held.hasNode(QuarantineTree.VALUES)).thenReturn(true);
+        when(held.getNode(QuarantineTree.VALUES)).thenReturn(values);
+        JCRNodeWrapper sensitive = mock(JCRNodeWrapper.class);
+        strings(sensitive, "password", "a-secret");
+        when(held.hasNode(QuarantineTree.SENSITIVE)).thenReturn(true);
+        when(held.getNode(QuarantineTree.SENSITIVE)).thenReturn(sensitive);
+        String missing = HELD_PATH.replace("held-1", "held-2");
+        int[] sessions = {0};
+        JcrCheckStore counting = new JcrCheckStore() {
+            @Override
+            <T> T inLiveSystemSession(JCRCallback<T> callback) throws RepositoryException {
+                sessions[0]++;
+                return callback.doInJCR(session);
+            }
+        };
+
+        Map<String, HeldDetails> details = counting.details(List.of(HELD_PATH, missing), Set.of());
+
+        assertEquals(1, sessions[0], "sessions");
+        assertEquals(Set.of(HELD_PATH), details.keySet(), "a missing path is left out");
+        assertEquals(DecisionRecord.ACTION_FAILED, details.get(HELD_PATH).decision().reason());
+        assertEquals(Map.of(), details.get(HELD_PATH).publicValues(), "values not asked for");
+        verify(held, never()).getNode(QuarantineTree.VALUES);
+
+        Map<String, HeldDetails> asked = counting.details(List.of(HELD_PATH), Set.of(HELD_PATH));
+
+        assertEquals(Map.of("fullName", List.of("Ada")), asked.get(HELD_PATH).publicValues(), "values asked for");
+        verify(held, never()).getNode(QuarantineTree.SENSITIVE);
+    }
+
+    private static void strings(JCRNodeWrapper node, String name, String... strings) throws RepositoryException {
+        JCRValueWrapper[] values = new JCRValueWrapper[strings.length];
+        for (int index = 0; index < strings.length; index++) {
+            values[index] = mock(JCRValueWrapper.class);
+            when(values[index].getString()).thenReturn(strings[index]);
+        }
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(property.getValues()).thenReturn(values);
+        when(node.hasProperty(name)).thenReturn(true);
+        when(node.getProperty(name)).thenReturn(property);
     }
 
     @Test

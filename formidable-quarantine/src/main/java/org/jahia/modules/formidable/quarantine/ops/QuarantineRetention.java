@@ -26,7 +26,8 @@ import java.util.OptionalLong;
  * {@code completed} or {@code rejected}, whose last change ({@link HeldRecord#changedAt()}) is older than the limit,
  * with its items, its values, its outcomes, its decision and its audit. A submission in any other state is never
  * purged, whatever its age: it still waits for the run or for a manager. It runs on its own schedule on the
- * processing server ({@code schedule.PurgeSchedule}), and a spec starts it through its endpoint.
+ * processing server ({@code schedule.PurgeSchedule}), and a server administrator, or a spec, starts it through the
+ * mutation {@code formidableQuarantine(siteKey) { purge }} of the GraphQL API.
  *
  * <p>The limit of a site is the platform setting {@code retentionDays}, or the setting of the site when it is lower: a
  * site can shorten the retention of its finished submissions, and never lengthen it.</p>

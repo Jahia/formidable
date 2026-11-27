@@ -13,9 +13,13 @@ import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.GregorianCalendar;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
 /**
@@ -82,19 +86,22 @@ public class JcrCheckStore implements CheckStore {
 
     @Override
     public List<OutcomeRecord> outcomes(String path) throws QuarantineStoreException {
-        return inSession("read the outcomes of the held submission at " + path, session -> {
-            JCRNodeWrapper checks = checksOrNull(held(session, path));
-            List<OutcomeRecord> outcomes = new ArrayList<>();
-            if (checks == null) {
-                return outcomes;
-            }
-            for (JCRNodeWrapper item : checks.getNodes()) {
-                if (item.isNodeType(ITEM_OUTCOMES_TYPE)) {
-                    collect(item, outcomes);
-                }
-            }
+        return inSession("read the outcomes of the held submission at " + path,
+                session -> outcomesOf(held(session, path)));
+    }
+
+    private static List<OutcomeRecord> outcomesOf(JCRNodeWrapper held) throws RepositoryException {
+        JCRNodeWrapper checks = checksOrNull(held);
+        List<OutcomeRecord> outcomes = new ArrayList<>();
+        if (checks == null) {
             return outcomes;
-        });
+        }
+        for (JCRNodeWrapper item : checks.getNodes()) {
+            if (item.isNodeType(ITEM_OUTCOMES_TYPE)) {
+                collect(item, outcomes);
+            }
+        }
+        return outcomes;
     }
 
     private static void collect(JCRNodeWrapper item, List<OutcomeRecord> outcomes) throws RepositoryException {
@@ -128,16 +135,20 @@ public class JcrCheckStore implements CheckStore {
 
     @Override
     public Optional<DecisionRecord> decision(String path) throws QuarantineStoreException {
-        return inSession("read the decision of the held submission at " + path, session -> {
-            JCRNodeWrapper checks = checksOrNull(held(session, path));
-            if (checks == null || !checks.hasNode(DECISION_NODE)) {
-                return Optional.empty();
-            }
-            JCRNodeWrapper node = checks.getNode(DECISION_NODE);
-            Integer failedAction = node.hasProperty(FAILED_ACTION) ? (int) node.getProperty(FAILED_ACTION).getLong() : null;
-            return Optional.of(new DecisionRecord(string(node, REASON), string(node, ITEM_NAME), string(node, CHECK_NAME),
-                    string(node, QuarantineTree.SHA256), failedAction, instant(node, AT)));
-        });
+        return inSession("read the decision of the held submission at " + path,
+                session -> Optional.ofNullable(decisionOf(held(session, path))));
+    }
+
+    /** The decision under the held submission, or {@code null}. */
+    private static DecisionRecord decisionOf(JCRNodeWrapper held) throws RepositoryException {
+        JCRNodeWrapper checks = checksOrNull(held);
+        if (checks == null || !checks.hasNode(DECISION_NODE)) {
+            return null;
+        }
+        JCRNodeWrapper node = checks.getNode(DECISION_NODE);
+        Integer failedAction = node.hasProperty(FAILED_ACTION) ? (int) node.getProperty(FAILED_ACTION).getLong() : null;
+        return new DecisionRecord(string(node, REASON), string(node, ITEM_NAME), string(node, CHECK_NAME),
+                string(node, QuarantineTree.SHA256), failedAction, instant(node, AT));
     }
 
     @Override
@@ -192,19 +203,36 @@ public class JcrCheckStore implements CheckStore {
 
     @Override
     public List<AuditRecord> audit(String path) throws QuarantineStoreException {
-        return inSession("read the audit of the held submission at " + path, session -> {
-            JCRNodeWrapper held = held(session, path);
-            List<AuditRecord> records = new ArrayList<>();
-            if (!held.hasNode(QuarantineTree.AUDIT)) {
-                return records;
+        return inSession("read the audit of the held submission at " + path, session -> auditOf(held(session, path)));
+    }
+
+    private static List<AuditRecord> auditOf(JCRNodeWrapper held) throws RepositoryException {
+        List<AuditRecord> records = new ArrayList<>();
+        if (!held.hasNode(QuarantineTree.AUDIT)) {
+            return records;
+        }
+        for (JCRNodeWrapper node : held.getNode(QuarantineTree.AUDIT).getNodes()) {
+            if (node.isNodeType(AUDIT_TYPE)) {
+                records.add(new AuditRecord(string(node, OPERATION), string(node, USER_NAME),
+                        string(node, FROM_STATE), string(node, TO_STATE), instant(node, AT)));
             }
-            for (JCRNodeWrapper node : held.getNode(QuarantineTree.AUDIT).getNodes()) {
-                if (node.isNodeType(AUDIT_TYPE)) {
-                    records.add(new AuditRecord(string(node, OPERATION), string(node, USER_NAME),
-                            string(node, FROM_STATE), string(node, TO_STATE), instant(node, AT)));
+        }
+        return records;
+    }
+
+    @Override
+    public Map<String, HeldDetails> details(Collection<String> paths, Set<String> withValues)
+            throws QuarantineStoreException {
+        return inSession("read the records of " + paths.size() + " held submissions", session -> {
+            Map<String, HeldDetails> details = new LinkedHashMap<>();
+            for (String path : paths) {
+                JCRNodeWrapper held = JcrQuarantineStore.heldOrNull(session, path);
+                if (held != null) {
+                    details.put(path, new HeldDetails(outcomesOf(held), decisionOf(held), auditOf(held),
+                            withValues.contains(path) ? JcrQuarantineStore.publicValuesOf(held) : Map.of()));
                 }
             }
-            return records;
+            return details;
         });
     }
 

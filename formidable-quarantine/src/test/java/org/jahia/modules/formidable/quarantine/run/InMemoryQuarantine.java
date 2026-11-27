@@ -6,6 +6,8 @@ import org.jahia.modules.formidable.engine.api.SubmittedFile;
 import org.jahia.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
+import org.jahia.modules.formidable.quarantine.store.HeldDetails;
+import org.jahia.modules.formidable.quarantine.store.HeldQueries;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldStates;
 import org.jahia.modules.formidable.quarantine.store.ItemRecord;
@@ -24,6 +26,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -37,7 +41,7 @@ import java.util.Set;
  * values, the bytes, the outcomes and the decision of each held submission. A path listed in {@link #broken} refuses
  * every call, as a repository that cannot read the node.
  */
-public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
+public final class InMemoryQuarantine implements QuarantineStore, CheckStore, HeldQueries {
 
     public static final String SITE = "site";
     public static final String SECRET = "sensitive-value-of-the-test";
@@ -53,6 +57,8 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         public Instant nextAttempt;
         public int completedActions;
         public boolean valuesPresent = true;
+        /** The site the record names: the site of its path, unless a test makes them differ. */
+        public String siteKey = SITE;
         /** The public values the visitor sent. */
         public Map<String, List<String>> values = Map.of("fullName", List.of("Ada"));
         /** True once the bytes were dropped so that the values go out alone. */
@@ -91,7 +97,9 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
 
     /** Holds a submission of the form with one file per text, each a text file. */
     public Held hold(String formId, String... texts) {
-        Held one = new Held("/sites/" + SITE + "/formidable-quarantine/" + formId + "/2026/11/19/held-" + count,
+        // the name of a held node as the JCR store writes it: held-<uuid>
+        Held one = new Held("/sites/" + SITE + "/formidable-quarantine/" + formId + "/2026/11/19/held-"
+                + String.format("00000000-0000-4000-8000-%012d", count),
                 formId, Instant.parse("2026-11-19T10:00:00Z").plusSeconds(count));
         count++;
         for (String text : texts) {
@@ -170,7 +178,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
             items.add(new ItemRecord(one.itemNames.get(i), "document", one.fileNames.get(i),
                     one.mimeTypes.get(i), 10, one.sha256s.get(i), one.bytes.get(i) != null));
         }
-        return Optional.of(new HeldRecord(one.path, one.formId, SITE, one.state, one.createdAt, one.attempts,
+        return Optional.of(new HeldRecord(one.path, one.formId, one.siteKey, one.state, one.createdAt, one.attempts,
                 one.nextAttempt, one.completedActions, List.of("fullName"), List.of("password"), one.valuesPresent,
                 items, one.changedAt != null ? one.changedAt : one.createdAt));
     }
@@ -276,6 +284,11 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         }
     }
 
+    private Map<String, List<String>> publicValues(String path) {
+        Held one = held.get(path);
+        return one != null && one.valuesPresent ? Map.of("fullName", List.of("Ada")) : Map.of();
+    }
+
     @Override
     public void startValuesRelease(String path, String expectedState, String state) throws QuarantineStoreException {
         Held one = get(path);
@@ -341,6 +354,60 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
             throw new QuarantineStoreException("Could not write the audit record at " + path);
         }
         get(path).audit.add(audit);
+    }
+
+    @Override
+    public Map<String, HeldDetails> details(Collection<String> paths, Set<String> withValues)
+            throws QuarantineStoreException {
+        detailReads++;
+        Map<String, HeldDetails> details = new LinkedHashMap<>();
+        for (String path : paths) {
+            if (held.containsKey(path) || broken.contains(path)) {
+                Held one = get(path);
+                details.put(path, new HeldDetails(List.copyOf(one.outcomes.values()), one.decision,
+                        List.copyOf(one.audit), withValues.contains(path) ? publicValues(path) : Map.of()));
+            }
+        }
+        return details;
+    }
+
+    /** The number of calls of {@link #details}: one per page, not one per submission. */
+    public int detailReads;
+
+    /**
+     * The raw result of the query of the held submissions: below the root of the site, of the form, in the states, oldest
+     * first. The filter on the site that each record names is the one of {@code JcrHeldQueries}, which its own test
+     * covers: this double does not repeat it.
+     */
+    @Override
+    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit) {
+        return matching(siteKey, formId, states).stream().skip(offset).limit(limit).toList();
+    }
+
+    @Override
+    public long count(String siteKey, String formId, Set<String> states) {
+        return matching(siteKey, formId, states).size();
+    }
+
+    private List<HeldRecord> matching(String siteKey, String formId, Set<String> states) {
+        List<HeldRecord> matching = new ArrayList<>();
+        for (Held one : held.values()) {
+            boolean inSite = one.path.startsWith("/sites/" + siteKey + "/formidable-quarantine/");
+            boolean ofForm = formId == null || formId.equals(one.formId);
+            if (inSite && ofForm && (states.isEmpty() || states.contains(one.state))) {
+                matching.add(recordOf(one));
+            }
+        }
+        matching.sort(Comparator.comparing(HeldRecord::createdAt));
+        return matching;
+    }
+
+    private HeldRecord recordOf(Held one) {
+        try {
+            return recordEvenIfBroken(one);
+        } catch (QuarantineStoreException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     /** How many times a work ran in {@link #withItems}, and whether one runs now. */
