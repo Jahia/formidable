@@ -5,7 +5,8 @@
  * - secondary text in gray_dark, never gray (3.96:1);
  * - a pressed state filter shows a border, which forced colours keep, not only a tint;
  * - the Reject button on danger_dark: white on the danger colour of Moonstone is 3.68:1.
- * The table rules follow module-management-community: a sticky head and pager in a scrolling Paper.
+ * The table rules follow module-management-community: a sticky head and pager in the scrolling wrapper of the table,
+ * inside the card.
  */
 export const ROOT_CLASS = 'fmdbq-root';
 
@@ -54,7 +55,7 @@ ${R} .fmdbq-card {
     padding: 0;
     overflow: hidden;
 }
-/* The toolbar band of the card: the strip of Form Results (12px 24px, a light rule under it). */
+/* The toolbar band of the card: the strip of Form Results. */
 ${R} .fmdbq-toolbar {
     display: flex;
     flex: none;

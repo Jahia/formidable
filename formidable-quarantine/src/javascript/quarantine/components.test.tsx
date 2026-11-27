@@ -26,7 +26,8 @@ const apollo = vi.hoisted(() => ({
     summary: {loading: true} as Answer<SummaryData>,
     list: {loading: true} as Answer<ListData>,
     detail: {loading: false} as Answer<DetailData>,
-    calls: [] as Array<{name: string; variables: Record<string, unknown>}>,
+    calls: [] as Array<{name: string; variables: Record<string, unknown>; fetchPolicy?: string}>,
+    mutationPolicies: [] as Array<string | undefined>,
     operate: vi.fn(),
     // one refetch per query, so a test tells the counts and the forms from the page and the detail
     refetch: {summary: vi.fn(), list: vi.fn(), detail: vi.fn()}
@@ -36,10 +37,11 @@ const allRefetches = () => Object.values(apollo.refetch);
 
 vi.mock('@apollo/client', async importOriginal => ({
     ...await importOriginal<typeof import('@apollo/client')>(),
-    useQuery: (query: {definitions: Array<{name?: {value: string}}>},
-               options: {variables: Record<string, unknown>; onCompleted?: (data: unknown) => void}) => {
-        const name = query.definitions[0].name?.value ?? '';
-        apollo.calls.push({name, variables: options.variables});
+    useQuery: (query: {definitions: Array<{kind: string; name?: {value: string}}>},
+               options: {variables: Record<string, unknown>; fetchPolicy?: string; onCompleted?: (data: unknown) => void}) => {
+        // the operation, not the fragment that a query may define before it
+        const name = query.definitions.find(definition => definition.kind === 'OperationDefinition')?.name?.value ?? '';
+        apollo.calls.push({name, variables: options.variables, fetchPolicy: options.fetchPolicy});
         const kind = name.endsWith('Summary') ? 'summary' : name.endsWith('List') ? 'list' : 'detail';
         const answer = apollo[kind];
         if (answer.data && options.onCompleted) {
@@ -51,7 +53,10 @@ vi.mock('@apollo/client', async importOriginal => ({
 
         return {...answer, refetch: apollo.refetch[kind]};
     },
-    useMutation: () => [apollo.operate]
+    useMutation: (_mutation: unknown, options?: {fetchPolicy?: string}) => {
+        apollo.mutationPolicies.push(options?.fetchPolicy);
+        return [apollo.operate];
+    }
 }));
 
 const markupOf = (element: React.ReactElement) => renderToStaticMarkup(element);
@@ -340,8 +345,18 @@ describe('QuarantineApp', () => {
     it('shows the load failure with Try again when the request fails', () => {
         apollo.summary = {loading: false, error: new Error('Network error')};
         const markup = markupOf(<QuarantineApp/>);
-        expect(markup).toContain('quarantine-load-failed');
+        expect(markup).toMatch(/data-sel-role="quarantine-load-failed".*<button[^>]*>.*quarantine\.tryAgain/s);
         expect(markup).not.toContain('Network error');
+    });
+
+    it('keeps each query and the operation out of the cache, whose shared root field would mix their answers', () => {
+        apollo.mutationPolicies = [];
+        markupOf(<QuarantineApp/>);
+        expect(new Set(apollo.calls.map(call => call.name))).toEqual(new Set([
+            'GetFormidableQuarantineSummary', 'GetFormidableQuarantineList', 'GetFormidableQuarantineSubmission']));
+        apollo.calls.forEach(call => expect(call.fetchPolicy, call.name).toBe('no-cache'));
+        expect(apollo.mutationPolicies.length).toBeGreaterThan(0);
+        apollo.mutationPolicies.forEach(policy => expect(policy).toBe('no-cache'));
     });
 
     it('shows the empty text when no submission is held', () => {

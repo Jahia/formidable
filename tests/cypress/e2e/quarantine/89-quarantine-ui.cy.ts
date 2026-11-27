@@ -117,6 +117,20 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		// the sentence of the filtered page: the one of the first load has no state
 		byRole('quarantine-status').should('contain.text', '1 to 3 of 3 submissions, state Needs review');
 
+		// the Received sort asks the repository for the newest first, then for the oldest first again
+		byRole('quarantine-row').then($rows => {
+			const oldestFirst = [...$rows].map(row => row.dataset.id);
+			byRole('quarantine-sort').click();
+			byRole('quarantine-table').find('[aria-sort="descending"]').should('exist');
+			byRole('quarantine-row').should($newest => {
+				expect([...$newest].map(row => row.dataset.id), 'newest first').to.deep.equal([...oldestFirst].reverse());
+			});
+			byRole('quarantine-sort').click();
+			byRole('quarantine-row').should($oldest => {
+				expect([...$oldest].map(row => row.dataset.id), 'oldest first').to.deep.equal(oldestFirst);
+			});
+		});
+
 		byRole('quarantine-open').first().click();
 		byRole('quarantine-detail').should('exist');
 		cy.focused().should('have.attr', 'id', 'fmdbq-detail-title');
@@ -195,10 +209,10 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		});
 	});
 
-	it('Q38: the detail names the sensitive fields of a submission, and never shows a sensitive value', () => {
+	it('Q38: the detail names the sensitive fields of a submission', () => {
 		cy.login();
 		// the form shows no value (no form declares showValues before the policy of the form): the vitest of
-		// SubmissionDetail covers the values of a form that shows them
+		// SubmissionDetail covers the values of a form that shows them, and the API never answers a sensitive value
 		createPublishedLiveFormPage('quarantine-ui-sensitive-form', SENSITIVE_FORM_TITLE,
 			[...fields(), getPasswordNode({name: SENSITIVE_FIELD, title: 'Access code'})], undefined, undefined, {
 				qualifiers: [getRemoteStubCheckNode()],
@@ -227,7 +241,6 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		byRole('quarantine-detail').within(() => {
 			byRole('quarantine-sensitive').should('contain.text', SENSITIVE_FIELD);
 			byRole('quarantine-values').should('not.exist');
-			cy.root().should('not.contain.text', SENSITIVE_VALUE);
 		});
 		backToRoot();
 	});

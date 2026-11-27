@@ -288,7 +288,6 @@ export const DetailFrame = ({hasHeading, onClose, children}: DetailFrameProps) =
     useEffect(() => {
         // the head row of a DataTable is a tab stop that does nothing (TableRow sets tabIndex 0): the tables of the
         // detail take no other patch of useDataTableA11y, as they have no pager
-        // the Paper takes no ref: the frame is found by its id
         document.getElementById(DETAIL_ID)?.querySelectorAll('thead tr[tabindex]').forEach(row => row.removeAttribute('tabindex'));
     });
 

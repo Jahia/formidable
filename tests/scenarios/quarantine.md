@@ -805,7 +805,8 @@ test site.
 ### Q35 — A manager lists, opens and releases a submission
 
 **Steps:**
-1. As the manager, open the screen, and press the state filter "Needs review".
+1. As the manager, open the screen, and press the state filter "Needs review",
+   then the sort of the column Received twice.
 2. Open the first submission.
 3. Press Release, then confirm.
 4. As root, read the held submissions of the form.
@@ -815,6 +816,8 @@ test site.
   the form filter offers the form
 - The pressed filter has `aria-pressed="true"`, and the status region says
   "1 to 3 of 3 submissions, state Needs review"
+- The first press of the sort lists the rows newest first, with `aria-sort`
+  descending on the column, and the second lists them oldest first again
 - The detail takes the focus on its heading, names the file, and offers Retry,
   Release and Reject, in that order; the form does not show its values, so the
   detail has no value section
@@ -850,7 +853,7 @@ test site.
   region says "Submission rejected"
 - One submission of the form is `rejected`
 
-### Q38 — The detail names the sensitive fields, never their values
+### Q38 — The detail names the sensitive fields
 
 **Steps:**
 1. As root, create a form with a text field, a password field and a file
@@ -861,8 +864,7 @@ test site.
 
 **Expected:**
 - The list holds the one submission of that form
-- The sensitive fields name the password field, and the password value is
-  nowhere on the screen
+- The sensitive fields name the password field
 - The form does not show its values, so the detail has no value section
 
 ---
@@ -901,4 +903,4 @@ test site.
 | Q35 | a manager runs an operation from the screen, and the audit names the manager |
 | Q36 | a user who does not manage the site sees no submission on the screen |
 | Q37 | a release or a reject never runs by accident from the keyboard |
-| Q38 | the screen never shows a manager a sensitive value |
+| Q38 | a manager sees which fields of a submission are sensitive |

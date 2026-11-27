@@ -75,7 +75,7 @@ The current release includes the ability to:
   - **formidable-extended-inputs** — provides the optional extra field types, as a separate module so a site can stay on the core set
   - **formidable-jexperience-engine** — integrates the forms with jExperience when it is installed: fields mapped to the visitor's profile from a **jExperience** section of the editor, the form's identity in jCustomer (Java/OSGi, depends on `formidable-engine` and `jexperience`; the mapping rule, the submission event and the prefill follow — see [`docs/architecture/jexperience-integration.md`](docs/architecture/jexperience-integration.md))
   - **formidable-forms-import** — imports the forms and results of Jahia Forms into a site, from an **Import** button of the Results page: installed next to the engine when a site migrates, left out otherwise
-  - **formidable-quarantine** — optional: holds the uploads of a form with the switch "Hold uploads in quarantine" on, runs the checks on them, then releases or rejects each submission; exports the check API a check module implements (see [`docs/architecture/quarantine.md`](docs/architecture/quarantine.md))
+  - **formidable-quarantine** — optional: holds the uploads of a form with the switch "Hold uploads in quarantine" on, runs the checks on them, then releases or rejects each submission; adds the manager screen of the quarantine to jContent; exports the check API a check module implements (see [`docs/architecture/quarantine.md`](docs/architecture/quarantine.md))
 - 1 npm package, [`@jahia/formidable-library`](packages/formidable/README.md) — the markup contract and input-mask behaviour a module of your own builds on to render form fields, published with each release
 
 ### Current known limitations

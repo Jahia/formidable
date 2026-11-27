@@ -19,8 +19,9 @@ public class GqlQuarantineMutation {
     @GraphQLField
     @GraphQLNonNull
     @GraphQLDescription("Runs an operation on a held submission of the site, writes the audit record with the name of"
-            + " the user, and answers the submission as the operation left it. An unknown identifier, a state that"
-            + " does not allow the operation, or a failure answers an error")
+            + " the user, and answers the submission as the operation left it. An unknown identifier or a state that"
+            + " does not allow the operation answers an error whose extensions.code is NOT_FOUND or CONFLICT, and"
+            + " nothing ran; an error with no code is a failure")
     public GqlHeldSubmission operate(
             @GraphQLName("id") @GraphQLNonNull @GraphQLDescription("The identifier of the held submission in the site")
             String id,
@@ -32,7 +33,8 @@ public class GqlQuarantineMutation {
     @GraphQLField
     @GraphQLNonNull
     @GraphQLDescription("Purges the rejected held submissions of the site whose last change is older than the limit:"
-            + " the configured retention, or olderThanDays for this call. Server administrators only")
+            + " the configured retention, or olderThanDays for this call. Server administrators only: any other user"
+            + " gets an error whose extensions.code is FORBIDDEN")
     public GqlPurgeReport purge(@GraphQLName("olderThanDays")
                                 @GraphQLDescription("The limit for this call, in days; the configured one when absent")
                                 Integer olderThanDays) {

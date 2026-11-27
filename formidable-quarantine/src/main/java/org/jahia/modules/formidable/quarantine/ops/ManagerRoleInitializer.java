@@ -33,8 +33,9 @@ import java.util.Map;
  * <p>The role is written with that access when it is created. A role that exists keeps its other permissions, and gets
  * the permission of the module when it lacks it. A role whose group is not {@code site-role}, the role of an earlier
  * version granted on a form, becomes a site role, and loses its privileged access then, once. A site role is
- * otherwise left as it is, its node types and its access included: the module never adds access to a role that exists,
- * and never undoes what an administrator set on a site role.</p>
+ * otherwise left as it is, its node types included: the module adds back the permission of the module when the role
+ * lacks it, and never adds {@value #JCONTENT_ACCESS}, {@value #ADDITIONAL_ACCORDION} or privileged access to a role
+ * that exists.</p>
  */
 @Component(immediate = true)
 public class ManagerRoleInitializer {

@@ -233,10 +233,12 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     openIdRef.current = openId;
     const focus = useFocusRequests(rootRef);
 
+    // The three queries read formidableQuarantine(siteKey), which has no identifier: in the cache, the answer of one
+    // would replace the fields of the others and make Apollo fetch them again. Each keeps its answer to itself.
     const summary = useQuery<SummaryData>(GET_QUARANTINE_SUMMARY, {
         variables: {siteKey},
         skip: !siteKey,
-        fetchPolicy: 'network-only',
+        fetchPolicy: 'no-cache',
         notifyOnNetworkStatusChange: true
     });
     const list = useQuery<ListData>(GET_QUARANTINE_LIST, {
@@ -248,7 +250,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
             newestFirst: filters.sort === 'descending'
         },
         skip: !siteKey,
-        fetchPolicy: 'network-only',
+        fetchPolicy: 'no-cache',
         notifyOnNetworkStatusChange: true,
         onCompleted: data => {
             // an operation or another manager emptied the last page: the page before it holds the submissions left
@@ -271,10 +273,10 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     const detail = useQuery<DetailData>(GET_QUARANTINE_SUBMISSION, {
         variables: {siteKey, id: openId},
         skip: !siteKey || !openId,
-        fetchPolicy: 'network-only'
+        fetchPolicy: 'no-cache'
     });
     const submission: HeldDetail | null = openId ? detail.data?.formidableQuarantine?.submission ?? null : null;
-    const [operate] = useMutation<OperateData>(OPERATE_QUARANTINE_SUBMISSION);
+    const [operate] = useMutation<OperateData>(OPERATE_QUARANTINE_SUBMISSION, {fetchPolicy: 'no-cache'});
 
     useEffect(() => {
         // the first load: the sentence of the list replaces it once the page has arrived
@@ -358,7 +360,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
         try {
             await (stillOpen && !leaves ? Promise.all([refetchList(), detail.refetch()]) : refetchList());
         } catch {
-            // the operation ran: only the reading of the list failed
+            // the operation ran: only the reading of the list or of the detail failed
             announce(t('quarantine.loadFailed'), true);
         }
     };
