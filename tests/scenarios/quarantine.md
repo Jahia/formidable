@@ -826,14 +826,15 @@ test site.
 - The released submission is `releasing` or `completed`, and its audit names the
   manager for the release
 
-### Q36 — An editor without the role gets the no-access text
+### Q36 — An editor without the role sees no Quarantine entry
 
 **Steps:**
-1. As the editor, open the screen.
+1. As the editor, open the URL of the screen.
 
 **Expected:**
-- The screen shows the text "You do not manage the quarantine of this site.",
-  and no table and no row
+- The Additional accordion shows Form Results, and no Quarantine entry: the
+  route requires `formidableQuarantineManage` on the site
+- jContent mounts no screen at the URL: no table and no row
 
 ### Q37 — The confirm dialog works with the keyboard
 

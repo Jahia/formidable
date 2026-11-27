@@ -53,6 +53,8 @@ const openQuarantinePage = (): void => {
 };
 
 const byRole = (role: string) => cy.get(`[data-sel-role="${role}"]`);
+/** The entry of an admin route in the Additional accordion of jContent. */
+const navEntry = (key: string) => `[data-registry-key="adminRoute:${key}"]`;
 
 /** Leaves jContent before root logs in again: a switch of user under an open Jahia UI can keep its cookie. */
 const backToRoot = (): void => {
@@ -102,6 +104,8 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		openQuarantinePage();
 		// the h1 of the Moonstone Header of the screen: jContent may render one of its own elsewhere
 		byRole('quarantine-app').find('h1').should('contain.text', 'Quarantine');
+		// the entry of the screen under Additional: a manager of the site holds its permission
+		cy.get(navEntry('formidableQuarantine')).should('be.visible');
 		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').should('contain.text', '3');
 		byRole('quarantine-row').should('have.length', 3);
 		// the form filter: a chip that opens a dialog of radios, and Escape closes it on the chip
@@ -163,10 +167,14 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		});
 	});
 
-	it('Q36: an editor who does not hold the role gets the no-access text, and no list', () => {
+	it('Q36: an editor who does not hold the role sees no Quarantine entry, and its URL shows no list', () => {
 		asUser(EDITOR);
-		openQuarantinePage();
-		byRole('quarantine-no-access').should('be.visible');
+		cy.visit(QUARANTINE_PAGE);
+		// the Additional accordion is there, with the Form Results entry: the Quarantine entry alone is missing
+		cy.get(navEntry('formidableResults'), {timeout: 60000}).should('be.visible');
+		cy.get(navEntry('formidableQuarantine')).should('not.exist');
+		// jContent mounts no route that the user may not see: the URL answers its own "not found" text
+		byRole('quarantine-app').should('not.exist');
 		byRole('quarantine-table').should('not.exist');
 		byRole('quarantine-row').should('not.exist');
 	});

@@ -62,7 +62,7 @@ flowchart LR
 | Run and chain | The scheduled run. It finds the due submissions, asks the checks, and concludes: release, review or reject. |
 | Manager operations | Retry, release, resume and reject, each allowed by the state machine and written to the audit. |
 | GraphQL API and download | The API of the manager screen. A resolver checks the permission of the user on the site before every read and every operation. |
-| Manager screen | A jContent route of a site that has the module: the held submissions with their counts per state and their filters by state and by form, the detail of a submission, and the operations that the API allows, Release and Reject after a confirmation. It reads and changes the quarantine through the GraphQL API alone, so a user who does not manage the site sees no submission. |
+| Manager screen | A jContent route of a site that has the module, for a user who holds `formidableQuarantineManage` on the site: the held submissions with their counts per state and their filters by state and by form, the detail of a submission, and the operations that the API allows, Release and Reject after a confirmation. It reads and changes the quarantine through the GraphQL API alone, so a user who does not manage the site sees no submission. |
 | Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `FAIL` for a type outside its list, and `PASS` for a type on it. |
 
 ## The check API
@@ -309,7 +309,8 @@ named `formidableQuarantine(siteKey)`:
   `additionalAccordionAccess` and privileged access. The manager screen is a route of jContent, and the jContent shell
   admits only a member of the group `privileged`; a holder of a privileged site role joins it through the group
   `site-privileged` of the site. `jContentAccess` and `additionalAccordionAccess` show jContent and its accordion
-  "Additional", which lists the screen. The privileged access gives the read of the drafts of the site, as an
+  "Additional". The accordion lists the screen, and jContent mounts its route, only for a user who holds
+  `formidableQuarantineManage` on the site node of the workspace of jContent. The privileged access gives the read of the drafts of the site, as an
   editor has: the access control of the site grants the role `privileged` to `site-privileged`. The role gives no
   write and no publication. It reads no node of the quarantine tree, whose root breaks the inheritance of the access
   control.

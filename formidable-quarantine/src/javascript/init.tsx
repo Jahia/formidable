@@ -12,12 +12,14 @@ export default function formidableQuarantine() {
             i18next.loadNamespaces('formidable-quarantine');
 
             // The manager screen of the quarantine (docs/architecture/quarantine.md, "Manager screen"), on a site that
-            // has the module only. A user who does not manage the site gets the "no access" text of the screen.
+            // has the module only. jContent checks the permission on the node of the site, in its own workspace: the
+            // entry and the route exist for a manager of the site alone, and the API checks the live site again.
             registry.add('adminRoute', 'formidableQuarantine', {
                 targets: ['jcontent:51'],
                 icon: <Security/>,
                 label: 'formidable-quarantine:quarantine.nav.title',
                 isSelectable: true,
+                requiredPermission: 'formidableQuarantineManage',
                 requireModuleInstalledOnSite: 'formidable-quarantine',
                 render: () => <QuarantineApp/>
             });

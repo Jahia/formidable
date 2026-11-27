@@ -12,7 +12,7 @@ vi.mock('i18next', () => ({default: {loadNamespaces: (namespace: string) => name
 vi.mock('./quarantine', () => ({QuarantineApp: () => null}));
 
 describe('the registration of the module', () => {
-    it('adds the manager screen to jContent, next to Form Results, on a site that has the module only', async () => {
+    it('adds the manager screen to jContent, next to Form Results, for a manager of a site that has the module', async () => {
         const {default: register} = await import('./init');
         register();
         const callback = registered.find(entry => entry.type === 'callback' && entry.key === 'FormidableQuarantine');
@@ -25,6 +25,7 @@ describe('the registration of the module', () => {
             targets: ['jcontent:51'],
             label: 'formidable-quarantine:quarantine.nav.title',
             isSelectable: true,
+            requiredPermission: 'formidableQuarantineManage',
             requireModuleInstalledOnSite: 'formidable-quarantine'
         });
         expect(typeof route?.options.render).toBe('function');
