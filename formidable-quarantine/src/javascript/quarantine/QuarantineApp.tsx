@@ -583,6 +583,8 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
                 sortDirection={filters.sort}
                 openId={openId}
                 busy={list.loading}
+                // the rows of the previous answer, while the answer of the new variables loads
+                stale={list.loading && !list.data && Boolean(list.previousData)}
                 language={language}
                 onOpen={open}
                 onPage={changePage}

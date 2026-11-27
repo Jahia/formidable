@@ -454,6 +454,40 @@ describe('QuarantineApp', () => {
         expect(lastListVariables()).toMatchObject({offset: 0});
     });
 
+    it('dims the rows of the previous answer while a filter loads, opens none of them, and keeps the focus on the filter', async () => {
+        const {container, root} = await mount(<QuarantineApp/>);
+        const filter = container.querySelector<HTMLButtonElement>('button[data-state="NEEDS_REVIEW"]');
+        filter?.focus();
+        await press(filter);
+        // Apollo answers the new variables with no data yet, and the earlier answer beside it
+        apollo.list = {loading: true, previousData: listOf([ROW])};
+        await act(async () => root.render(<QuarantineApp/>));
+
+        const wrapper = container.querySelector('[data-sel-role="quarantine-table"]');
+        expect(wrapper?.getAttribute('aria-busy')).toBe('true');
+        expect(wrapper?.classList.contains('fmdbq-stale')).toBe(true);
+        const stale = container.querySelector<HTMLButtonElement>('[data-sel-role="quarantine-open"]');
+        expect(stale?.getAttribute('aria-disabled')).toBe('true');
+        expect(stale?.tabIndex).toBe(-1);
+        const detailCalls = () => apollo.calls.filter(call => call.name.endsWith('Detail') && call.variables.id).length;
+        const before = detailCalls();
+        await press(stale);
+        await press(container.querySelector('[data-sel-role="quarantine-row"] td:nth-child(2)'));
+        expect(container.querySelector('[data-sel-role="quarantine-detail"]')).toBeNull();
+        expect(detailCalls()).toBe(before);
+        expect(document.activeElement).toBe(filter);
+
+        // the new rows arrive: they open again
+        apollo.list = {loading: false, data: listOf([ROW])};
+        await act(async () => root.render(<QuarantineApp/>));
+        const fresh = container.querySelector<HTMLButtonElement>('[data-sel-role="quarantine-open"]');
+        expect(container.querySelector('[data-sel-role="quarantine-table"]')?.classList.contains('fmdbq-stale')).toBe(false);
+        expect(fresh?.hasAttribute('aria-disabled')).toBe(false);
+        expect(fresh?.hasAttribute('tabindex')).toBe(false);
+        await press(fresh);
+        expect(container.querySelector('[data-sel-role="quarantine-detail"]')).not.toBeNull();
+    });
+
     it('clears the state and the form on Clear filters, and keeps the order', async () => {
         const {container, root} = await mount(<QuarantineApp/>);
         await press(container.querySelector('[data-sel-role="quarantine-sort"]'));

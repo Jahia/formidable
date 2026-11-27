@@ -71,6 +71,8 @@ interface SubmissionsTableProps {
     sortDirection: SortDirection;
     openId: string | null;
     busy: boolean;
+    /** The rows are those of the previous answer, shown while the answer of new filters, a new page or order loads. */
+    stale?: boolean;
     language: string;
     onOpen: (id: string) => void;
     onPage: (offset: number) => void;
@@ -80,9 +82,10 @@ interface SubmissionsTableProps {
 /**
  * The held submissions of a page in a Moonstone DataTable, paged on the server and sorted by time of intake. A
  * row opens through the one button of its Form cell; a click on the rest of the row does the same, for the mouse
- * alone, so the row is no tab stop. The table is named by the heading of the list (LIST_HEADING_ID).
+ * alone, so the row is no tab stop. The table is named by the heading of the list (LIST_HEADING_ID). While the answer
+ * of new filters, a new page or order loads, the previous rows stay dimmed and open nothing (stale).
  */
-export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openId, busy, language, onOpen, onPage, onSort}: SubmissionsTableProps) => {
+export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openId, busy, stale = false, language, onOpen, onPage, onSort}: SubmissionsTableProps) => {
     const {t} = useTranslation('formidable-quarantine');
     const containerRef = useRef<HTMLElement>(null);
     // the direction of the last page change, until the new page is on screen
@@ -124,9 +127,17 @@ export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openI
                     label={<RowButtonLabel row={data} language={language}/>}
                     aria-controls={DETAIL_ID}
                     aria-expanded={data.id === openId}
+                    // a stale row opens nothing: aria-disabled and no tab stop, but not disabled, so that a focus on
+                    // the button stays where it is instead of falling to the page
+                    aria-disabled={stale || undefined}
+                    tabIndex={stale ? -1 : undefined}
                     data-sel-role="quarantine-open"
                     data-id={data.id}
-                    onClick={() => onOpen(data.id)}
+                    onClick={() => {
+                        if (!stale) {
+                            onOpen(data.id);
+                        }
+                    }}
                 />
             )
         },
@@ -171,14 +182,19 @@ export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openI
                 );
             }
         }
-    ], [t, language, openId, sortDirection, onOpen, onSort]);
+    ], [t, language, openId, sortDirection, stale, onOpen, onSort]);
 
     const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
     return (
         // the scrolling area of the table inside the card of the list: the card is the Paper, this area scrolls under
         // the sticky head and pager
-        <div ref={containerRef as React.RefObject<HTMLDivElement>} className="fmdbq-table-wrapper" aria-busy={busy} data-sel-role="quarantine-table">
+        <div
+            ref={containerRef as React.RefObject<HTMLDivElement>}
+            className={stale ? 'fmdbq-table-wrapper fmdbq-stale' : 'fmdbq-table-wrapper'}
+            aria-busy={busy}
+            data-sel-role="quarantine-table"
+        >
             <DataTable
                 enableSorting
                 enablePagination
@@ -198,9 +214,9 @@ export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openI
                     isHighlighted: data.id === openId,
                     'data-sel-role': 'quarantine-row',
                     'data-id': data.id,
-                    style: {cursor: 'pointer'},
+                    style: {cursor: stale ? 'default' : 'pointer'},
                     onClick: (event: React.MouseEvent) => {
-                        if (!(event.target as HTMLElement).closest('button')) {
+                        if (!stale && !(event.target as HTMLElement).closest('button')) {
                             onOpen(data.id);
                         }
                     }

@@ -114,6 +114,10 @@ ${R} .fmdbq-table-wrapper td {
 ${R} .fmdbq-table-wrapper tr > :first-child {
     min-width: 340px;
 }
+/* The rows of the previous answer while the next one loads: dimmed, and they open nothing */
+${R} .fmdbq-stale tbody {
+    opacity: 0.5;
+}
 ${R} .fmdbq-pager.fmdbq-pager {
     position: sticky;
     bottom: 0;
