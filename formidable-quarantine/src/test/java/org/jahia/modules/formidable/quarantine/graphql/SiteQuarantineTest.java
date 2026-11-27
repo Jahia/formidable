@@ -250,8 +250,8 @@ class SiteQuarantineTest {
 
         api.open(SITE, request).counts();
         api.open(SITE, request).counts();
-        api.open(SITE, request).page(FORM, null, 0, 25);
-        api.open(SITE, request).page(FORM, null, 0, 25);
+        api.open(SITE, request).page(FORM, null, 0, 25, null);
+        api.open(SITE, request).page(FORM, null, 0, 25, null);
 
         assertEquals(GqlState.values().length + 1, callsOf("count").size(), callsOf("count").toString());
         assertEquals(2, callsOf("page").size(), "the page itself is read for each alias");
@@ -322,12 +322,12 @@ class SiteQuarantineTest {
         inState(FORM, HeldState.COMPLETED);
         Held third = inState(OTHER_FORM, HeldState.NEEDS_REVIEW);
 
-        GqlSubmissionPage page = site().page(null, List.of(GqlState.NEEDS_REVIEW, GqlState.NEEDS_REVIEW), 0, 25);
+        GqlSubmissionPage page = site().page(null, List.of(GqlState.NEEDS_REVIEW, GqlState.NEEDS_REVIEW), 0, 25, null);
 
         assertEquals(2, page.getTotalCount());
         assertEquals(List.of(idOf(first), idOf(third)), page.getItems().stream().map(GqlHeldSubmission::getId).toList());
         assertEquals(List.of(idOf(first)),
-                site().page(FORM, List.of(GqlState.NEEDS_REVIEW), null, null).getItems().stream()
+                site().page(FORM, List.of(GqlState.NEEDS_REVIEW), null, null, null).getItems().stream()
                         .map(GqlHeldSubmission::getId).toList(), "one form");
     }
 
@@ -349,15 +349,15 @@ class SiteQuarantineTest {
             inState(FORM, HeldState.NEEDS_REVIEW);
         }
 
-        GqlSubmissionPage page = site().page(FORM, null, -3, 1000);
+        GqlSubmissionPage page = site().page(FORM, null, -3, 1000, null);
 
         assertEquals(105, page.getTotalCount());
         assertEquals(SiteQuarantine.MAX_LIMIT, page.getLimit());
         assertEquals(SiteQuarantine.MAX_LIMIT, page.getItems().size());
         assertEquals(0, page.getOffset());
         assertTrue(callsOf("page").get(0).endsWith(", 0, 100, false]"), callsOf("page").toString());
-        assertEquals(5, site().page(FORM, List.of(), 100, 100).getItems().size(), "the last page");
-        assertEquals(SiteQuarantine.DEFAULT_LIMIT, site().page(FORM, null, null, null).getItems().size());
+        assertEquals(5, site().page(FORM, List.of(), 100, 100, null).getItems().size(), "the last page");
+        assertEquals(SiteQuarantine.DEFAULT_LIMIT, site().page(FORM, null, null, null, null).getItems().size());
     }
 
     @Test
@@ -366,7 +366,7 @@ class SiteQuarantineTest {
         states.add(GqlState.HELD);
 
         SiteQuarantine site = site();
-        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.page(null, states, 0, 25));
+        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.page(null, states, 0, 25, null));
 
         assertEquals(SiteQuarantine.TOO_MANY_STATES, error.getMessage());
         assertTrue(calls.isEmpty(), "no query");
@@ -377,7 +377,7 @@ class SiteQuarantineTest {
     void aFormIdentifierThatIsNotOneQueriesNothing() {
         inState(FORM, HeldState.NEEDS_REVIEW);
 
-        GqlSubmissionPage page = site().page("../" + FORM, null, 0, 25);
+        GqlSubmissionPage page = site().page("../" + FORM, null, 0, 25, null);
 
         assertEquals(0, page.getTotalCount());
         assertTrue(page.getItems().isEmpty());
@@ -459,7 +459,7 @@ class SiteQuarantineTest {
         facts = new FormFacts("Claims", true, Map.of());
         SiteQuarantine site = site();
 
-        for (GqlHeldSubmission submission : site.page(FORM, null, 0, 25).getItems()) {
+        for (GqlHeldSubmission submission : site.page(FORM, null, 0, 25, null).getItems()) {
             submission.getFiles();
             submission.getAudit();
             submission.getDecision();
@@ -626,7 +626,7 @@ class SiteQuarantineTest {
                 }, this::operate, this::purge, managers, (siteKey, formId) -> facts), log);
 
         assertEquals(SiteQuarantine.READ_FAILED,
-                assertThrows(DataFetchingException.class, () -> site.page(null, null, 0, 25)).getMessage());
+                assertThrows(DataFetchingException.class, () -> site.page(null, null, 0, 25, null)).getMessage());
         assertEquals(SiteQuarantine.READ_FAILED, assertThrows(DataFetchingException.class, site::counts).getMessage());
         assertEquals(SiteQuarantine.READ_FAILED, assertThrows(DataFetchingException.class, site::forms).getMessage());
         List<Object> logged = loggedArguments();

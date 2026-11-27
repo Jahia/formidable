@@ -155,20 +155,13 @@ final class SiteQuarantine {
     }
 
     /**
-     * A page of the held submissions of the site, or of one of its forms, oldest first, by a query of the repository.
+     * A page of the held submissions of the site, or of one of its forms, by time of intake, by a query of the
+     * repository.
      *
      * @param formId the form, or {@code null} for every form; a value that is not a form identifier matches nothing
      * @param states the states to keep, each once at most, or {@code null} or empty for every state
      * @param offset the index of the first item; a negative or missing value is 0
      * @param limit  the size of the page, {@value #DEFAULT_LIMIT} when missing, at most {@value #MAX_LIMIT}
-     */
-    GqlSubmissionPage page(String formId, List<GqlState> states, Integer offset, Integer limit) {
-        return page(formId, states, offset, limit, false);
-    }
-
-    /**
-     * The page of {@link #page(String, List, Integer, Integer)}, the newest first when asked.
-     *
      * @param newestFirst {@code true} for the newest first; {@code null} or {@code false} for the oldest first
      */
     GqlSubmissionPage page(String formId, List<GqlState> states, Integer offset, Integer limit, Boolean newestFirst) {

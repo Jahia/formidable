@@ -93,7 +93,7 @@ class JcrHeldQueriesTest {
         RecordingRunner runner = new RecordingRunner();
         runner.found = List.of(heldOf("siteB"), ofTheSite, heldOf(null));
 
-        List<HeldRecord> page = new JcrHeldQueries(runner).page("siteA", null, Set.of(), 0, 25);
+        List<HeldRecord> page = new JcrHeldQueries(runner).page("siteA", null, Set.of(), 0, 25, false);
 
         assertEquals(List.of(ofTheSite), page);
     }
@@ -117,7 +117,7 @@ class JcrHeldQueriesTest {
 
         JcrHeldQueries queries = new JcrHeldQueries(runner);
         queries.count("siteA", form, Set.of("rejected", "needsReview"));
-        queries.page("siteA", form, Set.of("rejected", "needsReview"), 0, 25);
+        queries.page("siteA", form, Set.of("rejected", "needsReview"), 0, 25, false);
 
         Map<String, String> bound = Map.of("form", form, "state0", "needsReview", "state1", "rejected");
         assertEquals(List.of(bound, bound), runner.values);
@@ -133,11 +133,11 @@ class JcrHeldQueriesTest {
         RecordingRunner runner = new RecordingRunner();
         JcrHeldQueries queries = new JcrHeldQueries(runner);
 
-        queries.page("siteA", null, Set.of(), 1, 2);
+        queries.page("siteA", null, Set.of(), 1, 2, false);
         assertEquals(List.of(1, 2), List.of(runner.pages.get(0)[0], runner.pages.get(0)[1]));
 
         runner.pages.clear();
-        assertTrue(queries.page("siteA", null, Set.of(), 0, 0).isEmpty());
+        assertTrue(queries.page("siteA", null, Set.of(), 0, 0, false).isEmpty());
         assertTrue(runner.pages.isEmpty(), "no page query for a limit of 0");
     }
 
