@@ -177,12 +177,17 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		// the filter keeps the submissions that a manager can still reject, however many an earlier test left
 		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').click();
 		byRole('quarantine-state-filter').find('button[data-state="NEEDS_REVIEW"]').should('have.attr', 'aria-pressed', 'true');
+		// the list keeps the rows of the previous answer while the filtered one loads: the status region speaks once
+		// the filtered rows are there
+		byRole('quarantine-status').should('contain.text', 'state Needs review');
 		byRole('quarantine-row').should('have.length.at.least', 1);
 		byRole('quarantine-open').first().focus();
 		cy.realPress('Enter');
+		// the detail reads its submission first: the focus moves to its title once the title is there
+		cy.get('#fmdbq-detail-title').should('be.visible');
 		cy.focused().should('have.attr', 'id', 'fmdbq-detail-title');
 
-		byRole('quarantine-action-reject').focus();
+		byRole('quarantine-action-reject').should('be.visible').focus();
 		cy.realPress('Enter');
 		byRole('quarantine-confirm-reject').should('be.visible');
 		byRole('quarantine-confirm-reject').should('have.attr', 'role', 'alertdialog');

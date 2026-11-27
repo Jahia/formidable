@@ -1,4 +1,4 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useReducer, useRef, useState} from 'react';
 import {useMutation, useQuery} from '@apollo/client';
 import {Banner, Button, EmptyData, Header, LayoutContent, Paper, Reload, Typography} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
@@ -142,15 +142,20 @@ function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
     const targetRef = useRef<HTMLElement | null>(null);
     const placedAtRef = useRef(0);
     const afterDialogRef = useRef(false);
-    const [, setRequests] = useState(0);
+    // a request renders the screen again: the count itself is never read
+    const [, renderAgain] = useReducer((count: number) => count + 1, 0);
 
     useEffect(() => {
         const spend = () => {
             requestRef.current = null;
         };
         const moved = (event: FocusEvent) => {
+            // a move counts only once the target took the focus: before, while the target is not rendered yet (the
+            // data of the detail on a slow server), a focus event of the page, such as the control that made the
+            // request re-rendering, is no move of the user away from it
+            const placed = targetRef.current !== null;
             const inGrace = afterDialogRef.current && Date.now() - placedAtRef.current <= FOCUS_GRACE;
-            if (requestRef.current && event.target !== targetRef.current && !inGrace) {
+            if (requestRef.current && placed && event.target !== targetRef.current && !inGrace) {
                 spend();
             }
         };
@@ -188,7 +193,7 @@ function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
         afterDialogRef.current = afterDialog;
         // a new request: its grace starts when it is made, and again when its element takes the focus
         placedAtRef.current = Date.now();
-        setRequests(count => count + 1);
+        renderAgain();
     }, []);
 }
 
@@ -217,6 +222,18 @@ function useListAnnouncement(summary: SummaryData | undefined, page: SubmissionP
             announce(listSentence(page, filters, site.forms, t));
         }
     }, [summary, site, page, filters, accessLost, announce, t]);
+}
+
+/**
+ * The answer of the list to show: the answer itself, or, while the next page loads, the previous one, so that the
+ * control that asked for it never unmounts.
+ */
+function shownPage(list: {data?: ListData; previousData?: ListData; loading: boolean}): ListData | undefined {
+    if (list.data) {
+        return list.data;
+    }
+
+    return list.loading ? list.previousData : undefined;
 }
 
 /**
@@ -293,8 +310,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     }
 
     const listFailed = listFailedRef.current;
-    const page = listFailed ? undefined
-        : (list.data ?? (list.loading ? list.previousData : undefined))?.formidableQuarantine?.submissions;
+    const page = listFailed ? undefined : shownPage(list)?.formidableQuarantine?.submissions;
     // the Loader of LayoutContent replaces the whole screen: for the first answer alone, never for a retry
     const answeredRef = useRef(false);
     answeredRef.current = answeredRef.current || Boolean(summary.data || summary.error);
