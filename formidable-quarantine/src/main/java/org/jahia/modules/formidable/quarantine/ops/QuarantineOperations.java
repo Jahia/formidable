@@ -1,8 +1,10 @@
 package org.jahia.modules.formidable.quarantine.ops;
 
 import org.jahia.modules.formidable.quarantine.run.FormPolicy;
+import org.jahia.modules.formidable.quarantine.run.LeaseKeeper;
 import org.jahia.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.modules.formidable.quarantine.run.Release;
+import org.jahia.modules.formidable.quarantine.run.SiteLocks;
 import org.jahia.modules.formidable.quarantine.run.Transitions;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
 import org.jahia.modules.formidable.quarantine.state.StateMachine;
@@ -12,12 +14,16 @@ import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.jahia.modules.formidable.quarantine.store.QuarantineTree;
+import org.jahia.modules.formidable.quarantine.store.RunLock;
+import org.jahia.modules.formidable.quarantine.store.StaleStateException;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -50,19 +56,34 @@ import java.util.function.Supplier;
  *
  * <p>A release and a resume are refused with {@code CONFLICT} when a field of the form has the name of the scan status
  * of its policy: neither writes the status over the value of a field.</p>
+ *
+ * <p>Concurrency. An operation takes the lock of the site of the submission in this JVM ({@link SiteLocks}), which
+ * a pass of the run holds for the whole pass: it waits {@link SiteLocks#OPERATION_WAIT} at most, then answers a
+ * conflict, "a run is in progress, retry". On another server of the cluster, the scheduled run may work on the same
+ * site: every state move is a compare-and-set ({@link Transitions}), so an operation on a submission that the run
+ * moved first answers a conflict, and a submission enters {@code releasing} once. A release and a resume, which run
+ * the actions after release, a reject that releases the values alone, and a reject of a submission in
+ * {@code releasing}, also take the lock of the run of the site in the repository ({@link RunLock}) for their
+ * duration: so a resume of a release that stopped never runs beside a release under way on another server. A
+ * submission in {@code releasing} is then a release that stopped, not one under way.</p>
  */
 @Component(service = QuarantineOperations.class, immediate = true)
 public class QuarantineOperations {
 
     private static final Logger log = LoggerFactory.getLogger(QuarantineOperations.class);
+    /** The lease of a release when no run is bound, as in a test: the default of {@code lockLeaseSeconds}. */
+    private static final Duration DEFAULT_LEASE = Duration.ofMinutes(10);
 
     private final Managers managers;
     private final Clock clock;
     private QuarantineStore store;
     private CheckStore checkStore;
     private Supplier<Release> release;
-    /** The lock of the run: an operation never runs while the run checks or releases a submission. */
-    private Object lock = this;
+    private RunLock runLock;
+    /** The locks per site, shared with the run; a test that sets none gets locks of its own. */
+    private SiteLocks siteLocks = new SiteLocks();
+    /** How long a release or a resume leases the lock of the run of the site: {@code lockLeaseSeconds} of the run. */
+    private Supplier<Duration> leaseLength = () -> DEFAULT_LEASE;
 
     public QuarantineOperations() {
         this(Managers.ofThePlatform(), Clock.systemUTC());
@@ -86,8 +107,19 @@ public class QuarantineOperations {
     @Reference
     public void setRun(QuarantineRun run) {
         this.release = run::release;
-        this.lock = run;
+        this.leaseLength = run::leaseLength;
     }
+
+    @Reference
+    public void setRunLock(RunLock runLock) {
+        this.runLock = runLock;
+    }
+
+    @Reference
+    public void setSiteLocks(SiteLocks siteLocks) {
+        this.siteLocks = siteLocks;
+    }
+
 
     /** The release the operations call, for a test that builds it from the stores in memory. */
     void setRelease(Supplier<Release> release) {
@@ -95,21 +127,44 @@ public class QuarantineOperations {
     }
 
     /**
-     * Runs the operation on the held submission, for the user of the current request. One operation at a time, and
-     * never while the run checks or releases submissions: the operation takes the lock of the run, so a submission in
-     * {@code releasing} is a release that stopped, not one under way.
+     * Runs the operation on the held submission, for the user of the current request, under the lock of its site in
+     * this JVM.
      *
      * @throws OperationRefusedException when the user is not a manager of the form ({@code FORBIDDEN}), when no held
      *                                   submission is at the path ({@code NOT_FOUND} for a server administrator,
      *                                   {@code FORBIDDEN} for anyone else), or ({@code CONFLICT}) when the state or the
-     *                                   decision does not allow the operation, or a release or a resume would write
-     *                                   the scan status over a field of the form: nothing changed
+     *                                   decision does not allow the operation, a release or a resume would write the
+     *                                   scan status over a field of the form, or a run holds the site or moved the
+     *                                   submission first: nothing changed
      */
     public OperationResult apply(String path, Operation operation)
             throws OperationRefusedException, QuarantineStoreException {
-        synchronized (lock) {
+        String siteKey = siteKeyOf(path);
+        if (siteKey == null) {
+            // no site: no held submission either, and applyLocked refuses it as such
             return applyLocked(path, operation);
         }
+        if (!siteLocks.tryLock(siteKey, SiteLocks.OPERATION_WAIT)) {
+            throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT, RUN_IN_PROGRESS);
+        }
+        try {
+            return applyLocked(path, operation);
+        } finally {
+            siteLocks.of(siteKey).unlock();
+        }
+    }
+
+    /** The answer of an operation that a run of the site holds back. */
+    static final String RUN_IN_PROGRESS = "A run of the quarantine of the site is in progress: retry";
+
+    /** The key of the site of a path under {@code /sites/<key>/}, or null. */
+    static String siteKeyOf(String path) {
+        String prefix = QuarantineTree.sitePath("");
+        if (path == null || !path.startsWith(prefix)) {
+            return null;
+        }
+        int end = path.indexOf('/', prefix.length());
+        return end <= prefix.length() ? null : path.substring(prefix.length(), end);
     }
 
     private OperationResult applyLocked(String path, Operation operation)
@@ -139,7 +194,11 @@ public class QuarantineOperations {
         String user = managers.currentUserName();
         HeldState to;
         try {
-            to = run(path, operation, from, plan);
+            to = run(held, operation, from, plan);
+        } catch (StaleStateException e) {
+            // a run or an operation moved it first, and audits its own move
+            throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
+                    "The held submission was moved by a run or another operation: reload it");
         } catch (QuarantineStoreException | RuntimeException e) {
             auditStopped(path, operation, user, from);
             throw e;
@@ -246,25 +305,59 @@ public class QuarantineOperations {
         return new Plan(policy, false);
     }
 
-    private HeldState run(String path, Operation operation, HeldState from, Plan plan)
-            throws QuarantineStoreException {
+    private HeldState run(HeldRecord held, Operation operation, HeldState from, Plan plan)
+            throws QuarantineStoreException, OperationRefusedException {
+        String path = held.path();
         Transitions transitions = new Transitions(store);
         switch (operation) {
             case RETRY:
-                store.setAttempts(path, 0, null);
-                checkStore.keepPassedOutcomesOnly(path);
-                return transitions.move(path, from, operation.event());
+                // the attempts, the outcomes and the state in one compare-and-set save: a stale retry changes nothing
+                return transitions.retry(path, from);
             case REJECT:
                 if (plan.valuesAlone()) {
                     // policy releaseValues: the bytes go first, then the actions after release run with the values
                     // alone and the failed scan status, so the people the actions reach learn of the reject
-                    return release.get().releaseValues(path, from, plan.policy());
+                    return underTheLock(held, lease -> release.get().releaseValues(path, from, plan.policy(),
+                            lease::kept));
+                }
+                if (from == HeldState.RELEASING) {
+                    return underTheLock(held, lease -> transitions.finish(path, from, operation.event()));
                 }
                 // one save: a failure keeps the state and the data, and the manager rejects again
                 return transitions.finish(path, from, operation.event());
             default:
-                HeldState releasing = transitions.move(path, from, operation.event());
-                return release.get().release(path, releasing, plan.policy());
+                return underTheLock(held, lease -> release.get().release(path,
+                        transitions.move(path, from, operation.event()), plan.policy(), lease::kept));
         }
+    }
+
+    /** What an operation does while it holds the lock of the run of the site. */
+    @FunctionalInterface
+    private interface UnderTheLock {
+        HeldState apply(LeaseKeeper lease) throws QuarantineStoreException;
+    }
+
+    /**
+     * Runs a release, a resume, or a reject of a submission in {@code releasing}, under a lease of the lock of the run
+     * of the site, of the length of the run's {@code lockLeaseSeconds}: so none of them runs beside a release under way
+     * on another server. The release checks the lease before its actions, and extends it as a pass does.
+     */
+    private HeldState underTheLock(HeldRecord held, UnderTheLock operation)
+            throws QuarantineStoreException, OperationRefusedException {
+        Duration length = leaseLength.get();
+        Optional<RunLock.Lease> taken = runLock.take(siteOf(held), length);
+        if (taken.isEmpty()) {
+            throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT, RUN_IN_PROGRESS);
+        }
+        try {
+            return operation.apply(new LeaseKeeper(taken.get(), length, clock));
+        } finally {
+            taken.get().release();
+        }
+    }
+
+    private static String siteOf(HeldRecord held) {
+        String fromPath = siteKeyOf(held.path());
+        return fromPath != null ? fromPath : held.siteKey();
     }
 }

@@ -135,7 +135,7 @@ class JcrCheckStoreTest {
     }
 
     @Test
-    void aRetryKeepsThePassOutcomesAloneAndRemovesTheOthersAfterTheWalk() throws Exception {
+    void theDropOfARetryKeepsThePassOutcomesAloneAndRemovesTheOthersAfterTheWalk() throws Exception {
         JCRNodeWrapper pass = outcome(OutcomeRecord.PASS);
         JCRNodeWrapper failed = outcome(OutcomeRecord.FAILED);
         JCRNodeWrapper inconclusive = outcome(OutcomeRecord.INCONCLUSIVE);
@@ -147,13 +147,12 @@ class JcrCheckStoreTest {
         JCRNodeIteratorWrapper items = children(item, decision);
         when(checks.getNodes()).thenReturn(items);
 
-        store.keepPassedOutcomesOnly(HELD_PATH);
+        JcrCheckStore.dropUnpassedOutcomes(held);
 
         verify(pass, never()).remove();
         verify(failed).remove();
         verify(inconclusive).remove();
         verify(decision, never()).remove();
-        verify(session).save();
     }
 
     @Test

@@ -3,12 +3,14 @@ package org.jahia.modules.formidable.quarantine.ops;
 import org.jahia.modules.formidable.engine.api.DeferredActionException;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
+import org.jahia.modules.formidable.quarantine.run.FakeRunLock;
 import org.jahia.modules.formidable.quarantine.run.FormPolicy;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine;
 import org.jahia.modules.formidable.quarantine.run.OnFail;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
 import org.jahia.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.modules.formidable.quarantine.run.Release;
+import org.jahia.modules.formidable.quarantine.run.SiteLocks;
 import org.jahia.modules.formidable.quarantine.run.Transitions;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
 import org.jahia.modules.formidable.quarantine.store.AuditRecord;
@@ -22,16 +24,18 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.Future;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,6 +44,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  * The operations of a manager, with the two stores in memory and the release of the module over a recording double of
@@ -79,6 +84,8 @@ class QuarantineOperationsTest {
     private InMemoryQuarantine stores;
     private FakeManagers managers;
     private QuarantineOperations operations;
+    private final FakeRunLock runLock = new FakeRunLock();
+    private final SiteLocks siteLocks = new SiteLocks();
     private final List<Integer> releasedFrom = new ArrayList<>();
     /** What the actions after release received. */
     private final List<HeldSubmission> released = new ArrayList<>();
@@ -96,6 +103,8 @@ class QuarantineOperationsTest {
         operations.setCheckStore(stores);
         operations.setRelease(() -> new Release(stores, stores, twoActions(), new Transitions(stores), clock,
                 formId -> policy));
+        operations.setRunLock(runLock);
+        operations.setSiteLocks(siteLocks);
     }
 
     /** Two actions after release, each checkpointed; the one at {@link #failingAction} fails. */
@@ -281,27 +290,133 @@ class QuarantineOperationsTest {
         assertEquals(List.of(new AuditRecord("reject", MANAGER, "releasing", "rejected", NOW)), held.audit);
     }
 
-    /** A run that releases a submission holds the lock of the run: a resume of that submission waits for it. */
+    /**
+     * Holds the lock of the site of the in-memory store in another thread, as a pass of the run does, until the latch
+     * is counted down.
+     */
+    private Thread holdTheSite(CountDownLatch end) throws InterruptedException {
+        CountDownLatch held = new CountDownLatch(1);
+        Thread pass = new Thread(() -> {
+            ReentrantLock site = siteLocks.of(InMemoryQuarantine.SITE);
+            site.lock();
+            try {
+                held.countDown();
+                end.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                site.unlock();
+            }
+        });
+        pass.start();
+        held.await();
+        return pass;
+    }
+
     @Test
-    void anOperationWaitsForTheRunThatHoldsItsLock() throws Exception {
-        QuarantineRun run = mock(QuarantineRun.class);
-        operations.setRun(run);
-        operations.setRelease(() -> new Release(stores, stores, twoActions(), new Transitions(stores), clock));
+    void anOperationAnswersAConflictWhileAPassOfTheRunHoldsItsSite() throws Exception {
         Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
         held.state = HeldState.RELEASING.value();
+        CountDownLatch end = new CountDownLatch(1);
+        Thread pass = holdTheSite(end);
+        try {
+            OperationRefusedException refused = assertThrows(OperationRefusedException.class,
+                    () -> operations.apply(held.path, Operation.RESUME));
+
+            assertEquals(OperationRefusedException.Reason.CONFLICT, refused.reason());
+            assertEquals(QuarantineOperations.RUN_IN_PROGRESS, refused.getMessage());
+            assertTrue(releasedFrom.isEmpty(), "no action after release ran while the pass held the site");
+            assertEquals("releasing", held.state);
+        } finally {
+            end.countDown();
+            pass.join();
+        }
+    }
+
+    @Test
+    void anOperationWaitsForAPassThatEndsWithinTheWait() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        CountDownLatch end = new CountDownLatch(1);
+        Thread pass = holdTheSite(end);
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            Future<OperationResult> resumed;
-            synchronized (run) {
-                resumed = executor.submit(() -> operations.apply(held.path, Operation.RESUME));
-                assertThrows(TimeoutException.class, () -> resumed.get(300, TimeUnit.MILLISECONDS),
-                        "the resume ran while the run held its lock");
-                assertTrue(releasedFrom.isEmpty(), "no action after release ran while the run held its lock");
+            Future<OperationResult> resumed = executor.submit(() -> operations.apply(held.path, Operation.RESUME));
+            // the operation waits for the site: the pass ends while it waits
+            ReentrantLock site = siteLocks.of(InMemoryQuarantine.SITE);
+            long deadline = System.nanoTime() + SiteLocks.OPERATION_WAIT.toNanos();
+            while (!site.hasQueuedThreads() && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
             }
+            assertTrue(site.hasQueuedThreads(), "the operation waits for the pass");
+            end.countDown();
+
             assertEquals(HeldState.COMPLETED, resumed.get(5, TimeUnit.SECONDS).to());
         } finally {
             executor.shutdownNow();
+            pass.join();
         }
+    }
+
+    @Test
+    void aReleaseHoldsTheLockOfTheRunOfTheSiteAndReleasesIt() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+
+        assertDoesNotThrow(() -> operations.apply(held.path, Operation.RESUME));
+
+        assertEquals(List.of("take " + InMemoryQuarantine.SITE, "release " + InMemoryQuarantine.SITE), runLock.calls);
+    }
+
+    @Test
+    void aResumeIsRefusedWhileARunOfAnotherServerHoldsTheSite() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        runLock.heldElsewhere.add(InMemoryQuarantine.SITE);
+
+        OperationRefusedException refused = assertThrows(OperationRefusedException.class,
+                () -> operations.apply(held.path, Operation.RESUME));
+
+        assertEquals(OperationRefusedException.Reason.CONFLICT, refused.reason());
+        assertEquals("releasing", held.state);
+        assertTrue(releasedFrom.isEmpty(), "no action after release ran beside the run");
+    }
+
+    @Test
+    void aRejectOfAReleaseIsRefusedWhileARunOfAnotherServerHoldsTheSite() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        runLock.heldElsewhere.add(InMemoryQuarantine.SITE);
+
+        OperationRefusedException refused = assertThrows(OperationRefusedException.class,
+                () -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals(OperationRefusedException.Reason.CONFLICT, refused.reason());
+        assertEquals("releasing", held.state);
+        assertTrue(held.valuesPresent, "values kept");
+    }
+
+    @Test
+    void anOperationOnASubmissionThatARunJustMovedAnswersAConflict() {
+        Held held = inReview("INCONCLUSIVE");
+        // a run on another server moved it back to checking between the read of the operation and its move
+        stores.beforeStateWrite = () -> held.state = HeldState.CHECKING.value();
+
+        OperationRefusedException refused = assertThrows(OperationRefusedException.class,
+                () -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals(OperationRefusedException.Reason.CONFLICT, refused.reason());
+        assertEquals("checking", held.state);
+        assertTrue(held.valuesPresent, "values kept");
+        assertEquals(List.of(), held.audit);
+    }
+
+    @Test
+    void theSiteOfAPathIsItsSecondSegment() {
+        assertEquals("site", QuarantineOperations.siteKeyOf("/sites/site/formidable-quarantine/f/2026/11/19/held-1"));
+        assertNull(QuarantineOperations.siteKeyOf("/users/root"));
+        assertNull(QuarantineOperations.siteKeyOf("/sites/"));
+        assertNull(QuarantineOperations.siteKeyOf(null));
     }
 
     @Test
@@ -516,6 +631,71 @@ class QuarantineOperationsTest {
         assertFalse(text.contains("INCONCLUSIVE"), "the content of the file in the audit record");
     }
 
+    @Test
+    void aStaleRetryLeavesTheAttemptsAndTheOutcomesAndAnswersAConflict() {
+        Held held = inReview("ATTEMPTS_EXHAUSTED");
+        held.attempts = 2;
+        held.outcomes.put("item0/remoteCheck", new OutcomeRecord("item0", "remoteCheck", SHA, OutcomeRecord.FAILED,
+                "stub.down", true, null, 2, NOW));
+        // another operation, on another server, rejected it between the read of the retry and its save
+        stores.beforeStateWrite = () -> held.state = HeldState.REJECTED.value();
+
+        assertEquals(OperationRefusedException.Reason.CONFLICT, refusal(() -> operations.apply(held.path,
+                Operation.RETRY)));
+
+        assertEquals(2, held.attempts, "attempts untouched");
+        assertEquals(List.of("item0/remoteCheck"), List.copyOf(held.outcomes.keySet()), "outcomes untouched");
+        assertEquals("rejected", held.state);
+        assertEquals(List.of(), held.audit);
+    }
+
+    @Test
+    void aRejectOfAReleaseHoldsTheLockOfTheRunOfTheSiteAndReleasesIt() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+
+        OperationResult result = assertDoesNotThrow(() -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals(HeldState.REJECTED, result.to());
+        assertEquals(List.of("take " + InMemoryQuarantine.SITE, "release " + InMemoryQuarantine.SITE), runLock.calls);
+    }
+
+    @Test
+    void aRejectFromReviewTakesNoLockOfTheRun() {
+        Held held = inReview("INCONCLUSIVE");
+
+        assertDoesNotThrow(() -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals(List.of(), runLock.calls);
+    }
+
+    @Test
+    void theLeaseOfAReleaseIsTheLeaseOfTheConfigurationOfTheRun() {
+        QuarantineRun run = mock(QuarantineRun.class);
+        when(run.leaseLength()).thenReturn(Duration.ofMinutes(2));
+        operations.setRun(run);
+        operations.setRelease(() -> new Release(stores, stores, twoActions(), new Transitions(stores), clock));
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+
+        assertDoesNotThrow(() -> operations.apply(held.path, Operation.RESUME));
+
+        assertEquals(List.of(Duration.ofMinutes(2)), runLock.leases);
+    }
+
+    @Test
+    void aReleaseWhoseLeaseIsLostBeforeItsActionsRunsNone() {
+        Held held = stores.hold(FORM, "VERDICT:PASS\nA note");
+        held.state = HeldState.RELEASING.value();
+        // the lease is no longer valid where it was granted, as when the module stops
+        runLock.valid = false;
+
+        assertThrows(QuarantineStoreException.class, () -> operations.apply(held.path, Operation.RESUME));
+
+        assertTrue(releasedFrom.isEmpty(), "no action after release ran on a lost lease");
+        assertEquals("releasing", held.state);
+    }
+
     // --- the policy of the form: a reject that releases the values alone ---
 
     private static final String SCAN_STATUS = "documentScanStatus";
@@ -696,5 +876,29 @@ class QuarantineOperationsTest {
         Held held = inReview("INCONCLUSIVE");
 
         assertEquals(HeldState.REJECTED, operations.apply(held.path, Operation.REJECT).to());
+    }
+
+    @Test
+    void aRejectThatReleasesTheValuesHoldsTheLockOfTheRunOfTheSite() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = inReview("INCONCLUSIVE");
+
+        operations.apply(held.path, Operation.REJECT);
+
+        assertEquals(List.of("take " + InMemoryQuarantine.SITE, "release " + InMemoryQuarantine.SITE), runLock.calls);
+    }
+
+    @Test
+    void aRejectThatReleasesTheValuesOnALostLeaseChangesNothing() {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = inReview("INCONCLUSIVE");
+        runLock.valid = false;
+
+        assertThrows(QuarantineStoreException.class, () -> operations.apply(held.path, Operation.REJECT));
+
+        assertEquals("needsReview", held.state);
+        assertTrue(held.anyBytes(), "bytes deleted on a lost lease");
+        assertFalse(held.valuesOnly);
+        assertTrue(released.isEmpty());
     }
 }

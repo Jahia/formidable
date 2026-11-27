@@ -13,14 +13,16 @@ import javax.servlet.Servlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+import java.util.Locale;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 
 /**
  * The retention, for the test suite: {@code POST /modules/formidable-quarantine/retention?site=<siteKey>
- * [&olderThanDays=<n>]} purges the rejected held submissions of the site older than the limit, and answers
- * {@code {"site", "retentionDays", "purged": [<path>], "failed": [<path>]}}. {@code olderThanDays} replaces the setting
- * {@code retentionDays} for this call only.
+ * [&olderThanDays=<n>]} purges the completed and rejected held submissions of the site older than the limit, and
+ * answers {@code {"site", "retentionDays", "limit", "purged": [<path>], "failed": [<path>]}}, where {@code limit} is
+ * the name of the {@link QuarantineRetention.Limit} that applied, in lower case. {@code olderThanDays} replaces the
+ * limit of the site for this call only.
  *
  * <p>Server administrators only: any other caller gets 403, and nothing is purged. A POST also needs the header
  * {@code X-Requested-With}, else 403, and a {@code Content-Type} of {@code application/json}, else 415: nothing is
@@ -79,6 +81,7 @@ public class RetentionServlet extends HttpServlet {
             JsonAnswers.answer(resp, HttpServletResponse.SC_OK, new JSONObject()
                     .put(SITE_PARAMETER, site)
                     .put("retentionDays", report.retentionDays())
+                    .put("limit", report.limit().name().toLowerCase(Locale.ROOT))
                     .put("purged", new JSONArray(report.purged()))
                     .put("failed", new JSONArray(report.failed())));
         } catch (QuarantineStoreException | RuntimeException e) {

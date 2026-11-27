@@ -291,12 +291,29 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     @Override
-    public void setState(String path, String state) throws QuarantineStoreException {
+    public void setState(String path, String expected, String state) throws QuarantineStoreException {
         if (!HeldStates.isState(state)) {
             throw new QuarantineStoreException("Not a state of a held submission: " + state);
         }
         Instant at = clock.instant();
         change(path, "set the state " + state, held -> {
+            refuseUnlessStored(held, expected);
+            held.setProperty(QuarantineTree.STATE, state);
+            held.setProperty(QuarantineTree.CHANGED_AT, calendar(at));
+        });
+    }
+
+    @Override
+    public void restartChecks(String path, String expected, String state) throws QuarantineStoreException {
+        if (!HeldStates.isState(state)) {
+            throw new QuarantineStoreException("Not a state of a held submission: " + state);
+        }
+        Instant at = clock.instant();
+        change(path, "start the checks again", held -> {
+            refuseUnlessStored(held, expected);
+            held.setProperty(QuarantineTree.ATTEMPTS, 0);
+            removeIfPresent(held, QuarantineTree.NEXT_ATTEMPT);
+            JcrCheckStore.dropUnpassedOutcomes(held);
             held.setProperty(QuarantineTree.STATE, state);
             held.setProperty(QuarantineTree.CHANGED_AT, calendar(at));
         });
@@ -321,12 +338,13 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     @Override
-    public void finish(String path, String state) throws QuarantineStoreException {
+    public void finish(String path, String expected, String state) throws QuarantineStoreException {
         if (!HeldStates.COMPLETED.equals(state) && !HeldStates.REJECTED.equals(state)) {
             throw new QuarantineStoreException("Not a final state of a held submission: " + state);
         }
         Instant at = clock.instant();
         change(path, "set the state " + state + " and delete the values and the bytes", held -> {
+            refuseUnlessStored(held, expected);
             removeChildIfPresent(held, QuarantineTree.VALUES);
             removeChildIfPresent(held, QuarantineTree.SENSITIVE);
             for (JCRNodeWrapper item : items(held)) {
@@ -399,8 +417,29 @@ public class JcrQuarantineStore implements QuarantineStore {
     private <T> T inSession(String what, JCRCallback<T> callback) throws QuarantineStoreException {
         try {
             return inLiveSystemSession(callback);
+        } catch (StaleStateRepositoryException | InvalidItemStateException e) {
+            // another session moved the held submission first, or saved it at the same moment
+            throw new StaleStateException("Could not " + what + ": the held submission changed", e);
         } catch (RepositoryException e) {
             throw new QuarantineStoreException("Could not " + what, e);
+        }
+    }
+
+    /** The compare of a compare-and-set: the stored state is the state the mover read. */
+    private static void refuseUnlessStored(JCRNodeWrapper held, String expected) throws RepositoryException {
+        String stored = string(held, QuarantineTree.STATE);
+        if (!expected.equals(stored)) {
+            throw new StaleStateRepositoryException(held.getPath() + " is " + stored + ", not " + expected);
+        }
+    }
+
+    /** The stored state is not the expected one, inside the session: {@link #inSession} turns it into a stale state. */
+    private static final class StaleStateRepositoryException extends RepositoryException {
+
+        private static final long serialVersionUID = 1L;
+
+        StaleStateRepositoryException(String message) {
+            super(message);
         }
     }
 

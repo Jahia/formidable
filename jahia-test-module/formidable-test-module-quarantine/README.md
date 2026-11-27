@@ -31,6 +31,7 @@ The store writes the tree in live, with a system session:
 
 ```text
 /sites/<site>/formidable-quarantine              fmdbq:quarantineRoot   ACL inheritance cut, no ACE
+  ├─ runLock                                     fmdbq:runLock          owner, until: the lock of the run of the site
   └─ <formId>                                    fmdbq:formQuarantine
        └─ YYYY/MM/DD                             fmdbq:dateFolder (UTC date of intake)
             └─ held-<uuid>                       fmdbq:heldSubmission
@@ -49,6 +50,7 @@ The store writes the tree in live, with a system session:
                       └─ record1, record2, ...   fmdbq:auditRecord      operation, userName, fromState, toState, at
 ```
 
+- `JcrRunLock` writes `runLock` under the root the first time a run or a release of a manager takes the lock of the run of the site: `owner` names the server, the start of the module and the holder, `until` the end of its lease. The store and the inspection read only the form folders of the root.
 - The store creates the root on first use and cuts its ACL inheritance. It uses a node that already exists at `/sites/<site>/formidable-quarantine` only when the node is a `fmdbq:quarantineRoot`, its `j:acl` has `j:inherit=false`, and its `j:acl` holds no access control entry. It uses a form folder or a date folder that already exists only when the folder is of the type of the store and has no `j:acl` of its own. Any other node refuses the hold: the message of the refusal names its path, the engine logs it, and the visitor gets FMDB-018. A node that someone else created there could give its readers the held values and bytes.
 - `changedAt` records the last change of the state; the retention reads it.
 - No node of the tree is a file. An item holds its bytes in its own binary property, never in `jcr:data` on a `jnt:resource`. No core listener, no `/files` servlet and no text extraction reads it.
@@ -105,7 +107,7 @@ The two stubs apply to `text/plain` files alone, and answer the first marker lin
 
 ## The run
 
-`QuarantineRun` makes one pass over the due held submissions of a site, or of one form. It has no thread and no scheduler: a spec starts it through "run now". A submission is due in state `held`, or in state `checking` when it has no next attempt or its next attempt is reached.
+`QuarantineRun` makes one pass over the due held submissions of a site, or of one form. The scheduled run of the module (`RunSchedule`) starts it every `periodSeconds` on the processing server; the test lab turns it off (`periodSeconds=0`), so a spec starts it through "run now". A pass holds the lock of its site in the JVM and the lock of the run of the site in the repository ([The lock of the run](../../docs/architecture/quarantine.md#the-lock-of-the-run)), and each state move is a compare-and-set: a submission that another run or an operation moved first is skipped, with the error `moved by another run or operation`. A submission is due in state `held`, or in state `checking` when it has no next attempt or its next attempt is reached.
 
 For each due submission:
 
@@ -141,7 +143,7 @@ We chose the simplest model that a Jahia module ships and that a spec grants wit
 
 ## The operations
 
-An operation runs on a held submission in state `needsReview`, and a resume or a reject also on a release that stopped half way in `releasing`. It checks, in this order, that a held submission is at the path, that the user is a manager of its form, and that the state and the decision allow the operation. A refused operation changes nothing. An operation takes the lock of the run: it never runs while the run checks or releases submissions, so a submission in `releasing` is a release that stopped, not one under way.
+An operation runs on a held submission in state `needsReview`, and a resume or a reject also on a release that stopped half way in `releasing`. It checks, in this order, that a held submission is at the path, that the user is a manager of its form, and that the state and the decision allow the operation. A refused operation changes nothing. An operation takes the lock of the site in the JVM, which a pass of the run holds for the whole pass: it waits 2 seconds at most, then answers 409, "a run is in progress". A release, a resume, and a reject of a submission in `releasing` also take the lock of the run of the site in the repository for their duration, with the lease of `lockLeaseSeconds`, so a submission in `releasing` is a release that stopped, not one under way, on any server. An operation on a submission that a run moved first answers 409 too.
 
 | Operation | Allowed when | What it does |
 |---|---|---|
@@ -152,7 +154,7 @@ An operation runs on a held submission in state `needsReview`, and a resume or a
 
 A release after a failed action is refused: a failed action takes a resume. The release starts at `completedActions` in any case, so this is a rule of the module, not of the release.
 
-A submission whose form is gone (`FORM_GONE`) cannot be released: its actions after release cannot run. The permission of a manager is checked on the form, so only a server administrator manages such a submission, and a reject ends it. Until then it keeps its data, because the retention purges `rejected` submissions only.
+A submission whose form is gone (`FORM_GONE`) cannot be released: its actions after release cannot run. The permission of a manager is checked on the form, so only a server administrator manages such a submission, and a reject ends it. Until then it keeps its data, because the retention purges `completed` and `rejected` submissions only.
 
 An operation that ran answers its result even when its audit record cannot be written: the failure is logged. A log line of a failed operation names the class of an unexpected failure, never its message, which can quote a held value.
 
@@ -162,7 +164,7 @@ Each operation that ran writes one audit record under `audit`: the operation, th
 
 ## The retention
 
-The retention purges each `rejected` held submission of a site whose last change (`changedAt`) is older than `retentionDays`: the whole node, with its items, its values, the outcomes, the decision and the audit. It keeps every other state. A `completed` submission holds no value and no byte any more, so the retention keeps its record. It has no scheduler: a spec starts it through its endpoint.
+The retention purges each `completed` or `rejected` held submission of a site whose last change (`changedAt`) is older than the limit of the site: the whole node, with its items, its values, the outcomes, the decision and the audit. It never purges a submission in `held`, `checking`, `releasing` or `needsReview`. The limit is `retentionDays` of the platform, or `retentionDays` of the site settings (`fmdbqmix:quarantineSite`) when it is lower. The scheduled purge of the module (`PurgeSchedule`) runs it every `periodSeconds` of the retention on the processing server, and a spec starts it through its endpoint.
 
 The repository frees the bytes of a purged item only when the garbage collection of its datastore runs.
 
@@ -172,12 +174,12 @@ Each endpoint answers server administrators alone, as the inspection does: any o
 
 | Endpoint | Answer |
 |---|---|
-| `POST /modules/formidable-quarantine/run?site=<siteKey>[&form=<formId>][&ignoreSchedule=true]` | One pass of the run over the due submissions of the site, or of the form. `ignoreSchedule=true` also takes a `checking` submission whose next attempt is ahead. `{"site", "form", "settings", "processed": [{"path", "form", "from", "state", "error"}]}`: the state of each submission after the run, and why the run of a submission failed, or `null` |
-| `GET /modules/formidable-quarantine/run` | `{"settings": {"allowInProcessFirst", "maxAttempts", "backoffInitialSeconds", "backoffCapSeconds"}}`: the settings the next run applies |
+| `POST /modules/formidable-quarantine/run?site=<siteKey>[&form=<formId>][&ignoreSchedule=true]` | One pass of the run over the due submissions of the site, or of the form. `ignoreSchedule=true` also takes a `checking` submission whose next attempt is ahead. `{"site", "form", "settings", "processed": [{"path", "form", "from", "state", "error"}]}`: the state of each submission after the run, and why the run of a submission failed, or `null`. 409 when another run holds the lock of the site: nothing ran. 409 too, with `"stopped": true` and the same report of the submissions processed so far, when the pass lost the lock and stopped before its end |
+| `GET /modules/formidable-quarantine/run` | `{"settings": {"allowInProcessFirst", "maxAttempts", "backoffInitialSeconds", "backoffCapSeconds"}, "schedule": {"periodSeconds"}}`: the settings the next run applies, and the period of the scheduled run as the scheduler of this server holds it, 0 when it is off, -1 when the scheduler cannot be read |
 | `GET /modules/formidable-quarantine/stub/calls[?check=<name>]` | `{"outage", "calls": [{"nodeType", "checkName", "sha256", "kind"}]}`: the calls of the stubs, oldest first, all or those of one check node; `kind` is `SUBMIT` or `POLL` |
 | `POST /modules/formidable-quarantine/stub/calls/clear` | Forgets the calls |
 | `POST /modules/formidable-quarantine/stub/outage/lift`, `.../outage/set` | Lifts or sets the outage of the stubs. It is on when the module starts |
-| `POST /modules/formidable-quarantine/retention?site=<siteKey>[&olderThanDays=<n>]` | Purges the rejected held submissions of the site older than the limit. `olderThanDays` replaces `retentionDays` for this call. `{"site", "retentionDays", "purged": [<path>], "failed": [<path>]}` |
+| `POST /modules/formidable-quarantine/retention?site=<siteKey>[&olderThanDays=<n>]` | Purges the completed and rejected held submissions of the site older than the limit. `olderThanDays` replaces the limit of the site for this call. `{"site", "retentionDays", "limit", "purged": [<path>], "failed": [<path>]}`, where `limit` is `platform`, `platform_unread` (the settings of the site could not be read), `site` or `call` |
 
 The operations answer managers too, not server administrators alone:
 
@@ -192,15 +194,19 @@ The operations answer managers too, not server administrators alone:
 | Key | Default | Meaning |
 |---|---|---|
 | `allowInProcessFirst` | `false` | Lifts the refusal of a list where an in-process check reads a file before a remote check passed it |
-| `backoffInitialSeconds` | `60` | The delay after the first attempt; it doubles at each attempt |
+| `backoffInitialSeconds` | `60` | The delay after the first attempt; it grows by `backoffFactor` at each attempt |
+| `backoffFactor` | `2` | What the delay is multiplied by at each attempt; at least 1 |
 | `backoffCapSeconds` | `3600` | The longest delay |
 | `maxAttempts` | `10` | The count after which the submission goes to `needsReview`: the retryable failures of a check on a file until it answers a result, or the passes in a row that bring no new `PASS` |
+| `periodSeconds` | `60` | The period of the scheduled run on the processing server; `0` turns it off. The test lab sets `0` |
+| `lockLeaseSeconds` | `600` | How long the lock of the run of a site stays held after a server stopped without releasing it |
 
 `org.jahia.modules.formidable.quarantine.retention.cfg`, deployed the same way:
 
 | Key | Default | Meaning |
 |---|---|---|
-| `retentionDays` | `30` | The number of days a rejected held submission is kept after its last change. A negative value falls back to 30 |
+| `retentionDays` | `30` | The number of days a completed or rejected held submission is kept after its last change. A site lowers it with `retentionDays` of its settings. A negative value falls back to 30 |
+| `periodSeconds` | `86400` | The period of the scheduled purge on the processing server; `0` turns it off |
 
 A setting the back-off cannot use, such as a cap below the initial delay, falls back to the defaults with a warning. A spec that needs few attempts edits `maxAttempts` through the provisioning API (`editConfiguration`), then waits until `GET /modules/formidable-quarantine/run` answers the new value, and sets the default back when it ends. No request parameter changes a limit: the run reads its limits from the configuration only.
 

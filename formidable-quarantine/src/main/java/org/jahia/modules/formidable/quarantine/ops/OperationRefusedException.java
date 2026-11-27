@@ -11,7 +11,11 @@ public class OperationRefusedException extends Exception {
         FORBIDDEN,
         /** No held submission is at the path. Only a server administrator learns it. */
         NOT_FOUND,
-        /** The state of the submission, or its decision, does not allow the operation. */
+        /**
+         * The operation cannot run now: the state of the submission or its decision does not allow it, a run holds
+         * the site (the lock of the site in this JVM, or the lock of the run of the site in the repository), or another
+         * run or operation moved the state first.
+         */
         CONFLICT
     }
 
