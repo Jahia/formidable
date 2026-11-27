@@ -221,7 +221,9 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     const [confirm, setConfirm] = useState<'RELEASE' | 'REJECT' | null>(null);
     const [confirmFailure, setConfirmFailure] = useState<string | null>(null);
     const [failure, setFailure] = useState<string | null>(null);
-    const [running, setRunning] = useState<QuarantineOperation | null>(null);
+    // the operation that runs, with its submission: only the detail of that submission shows it as busy
+    const [running, setRunning] = useState<{operation: QuarantineOperation; id: string} | null>(null);
+    const runningHere = running && running.id === openId ? running.operation : null;
     const [changed, setChanged] = useState(false);
     const [reloading, setReloading] = useState(false);
 
@@ -320,8 +322,10 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     const refetchList = () => Promise.all([summary.refetch(), list.refetch()]);
 
     /**
-     * A refused or failed operation. The detail of the submission shows it in its alert container, which announces it;
-     * when the manager opened another submission meanwhile, the alert region of the screen says it instead.
+     * A refused or failed operation. A conflict shows in the alert container of the detail; another failure of Release or
+     * Reject shows in the alert container of the confirm dialog, and one of Retry or Resume in the one of the detail.
+     * Each container announces it. When the manager opened another submission meanwhile, the alert region of the screen
+     * says it instead.
      */
     const operationFailed = (operation: QuarantineOperation, error: unknown, stillOpen: boolean) => {
         const changedUnderneath = isChangedUnderneath(error);
@@ -382,7 +386,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
         const neighbour = rows[index + 1]?.id ?? rows[index - 1]?.id ?? null;
         // the rows stay open to a click while the request runs: the answer reads which submission is open then
         const stillOpen = () => openIdRef.current === id;
-        setRunning(operation);
+        setRunning({operation, id});
         setConfirmFailure(null);
         setFailure(null);
         try {
@@ -404,7 +408,8 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
                 announce(t('quarantine.changed'), true);
             }
         } finally {
-            setRunning(null);
+            // an operation started meanwhile on another submission keeps its own busy state
+            setRunning(current => (current?.id === id ? null : current));
         }
     };
 
@@ -583,7 +588,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
                     <ConfirmDialog
                         operation={confirm}
                         subject={rowLabel(submission, language, t)}
-                        busy={running === confirm}
+                        busy={runningHere === confirm}
                         failure={confirmFailure}
                         onConfirm={() => run(confirm)}
                         onCancel={() => {
@@ -622,7 +627,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
                 actions={(
                     <ActionButtons
                         allowedOperations={submission.allowedOperations}
-                        running={running}
+                        running={runningHere}
                         onOperation={operation => {
                             if (CONFIRMED_OPERATIONS.has(operation)) {
                                 setConfirmFailure(null);

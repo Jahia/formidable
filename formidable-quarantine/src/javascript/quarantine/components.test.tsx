@@ -5,7 +5,7 @@ import {createRoot, type Root} from 'react-dom/client';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import type {DetailData, HeldDetail, ListData, SubmissionRow, SummaryData} from './graphql';
 import {ActionButtons, DetailFrame, SubmissionDetail} from './components/SubmissionDetail';
-import {SubmissionsTable} from './components/SubmissionsTable';
+import {rowLabel, SubmissionsTable} from './components/SubmissionsTable';
 import type {QuarantineOperation} from './quarantine.utils';
 import {QuarantineApp} from './QuarantineApp';
 import en from '../../main/resources/javascript/locales/en.json';
@@ -138,6 +138,14 @@ describe('SubmissionsTable', () => {
         expect(row).toMatch(/style="width:100px">4<\/td>/);
         expect(row).toContain('quarantine.reason.CHECK_FAILED <code>CHECK_FAILED</code>');
         expect(row).toMatch(/<li>cv\.pdf<\/li><li>id\.png<\/li><li>quarantine\.table\.moreFiles<\/li>/);
+    });
+
+    it('names the button of a row by its form and its date, and by the identifier of a form with no title', () => {
+        const echo = (key: string, options?: Record<string, unknown>) => `${key} ${JSON.stringify(options)}`;
+        const row = rowsOf(1, 0)[0];
+        expect(rowLabel(row, 'en', echo)).toBe(`quarantine.table.open {"form":"Contact","date":"Nov 26, 2026, ${new Intl.DateTimeFormat('en',
+            {timeStyle: 'short'}).format(new Date(row.createdAt))}"}`);
+        expect(rowLabel({...row, formTitle: null}, 'en', echo)).toContain('"form":"f"');
     });
 
     it('pages by 25 on the server: the pager reads the range of the page, of the total', () => {
@@ -403,6 +411,18 @@ describe('QuarantineApp', () => {
         expect(lastListVariables()).toMatchObject({offset: 0});
     });
 
+    it('clears the state and the form on Clear filters, and keeps the order', async () => {
+        const {container, root} = await mount(<QuarantineApp/>);
+        await press(container.querySelector('[data-sel-role="quarantine-sort"]'));
+        await press(container.querySelector('button[data-state="REJECTED"]'));
+        apollo.list = {loading: false, data: listOf([])};
+        await act(async () => root.render(<QuarantineApp/>));
+        const clear = container.querySelector('[data-sel-role="quarantine-no-match"] button');
+        expect(clear?.textContent).toBe('quarantine.filter.clear');
+        await press(clear);
+        expect(lastListVariables()).toMatchObject({states: null, formId: null, offset: 0, newestFirst: true});
+    });
+
     it('starts again, with no filter and no open submission, on a switch to another site', async () => {
         const {container, root} = await mount(<QuarantineApp/>);
         await press(container.querySelector('button[data-state="NEEDS_REVIEW"]'));
@@ -489,6 +509,50 @@ describe('QuarantineApp', () => {
             await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
 
             expect(container.querySelector('[data-sel-role="quarantine-detail"]')).not.toBeNull();
+            expect(container.querySelector('[data-sel-role="quarantine-changed"]')?.textContent).toBe('');
+            expect(container.querySelector('[data-sel-role="quarantine-alert"]')?.textContent).toContain('quarantine.changed');
+        });
+
+        /** Opens the first row, starts its Retry with an answer the test gives later, then opens the second row. */
+        const retryThenOpenOther = async () => {
+            const other: SubmissionRow = {...ROW, id: 'f/2026/11/26/held-2'};
+            apollo.list = {loading: false, data: listOf([ROW, other])};
+            apollo.detail = {loading: false, data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
+            const answer: {resolve: (value: unknown) => void; reject: (reason: unknown) => void} = {resolve: () => undefined, reject: () => undefined};
+            apollo.operate.mockReturnValue(new Promise((resolve, reject) => {
+                answer.resolve = resolve;
+                answer.reject = reject;
+            }));
+            const {container} = await mount(<QuarantineApp/>);
+            await press(container.querySelector(`[data-sel-role="quarantine-open"][data-id="${ROW.id}"]`));
+            await press(container.querySelector('[data-sel-role="quarantine-action-retry"]'));
+            await press(container.querySelector(`[data-sel-role="quarantine-open"][data-id="${other.id}"]`));
+            return {container, answer};
+        };
+
+        const settle = async () => act(async () => new Promise(resolve => setTimeout(resolve, 50)));
+
+        it('that runs shows no busy button on the submission opened meanwhile', async () => {
+            const {container, answer} = await retryThenOpenOther();
+            const retry = container.querySelector('[data-sel-role="quarantine-action-retry"]');
+            expect(retry?.textContent).toBe('quarantine.action.RETRY');
+            expect(retry?.getAttribute('aria-disabled')).toBe('false');
+            await act(async () => answer.resolve({data: {formidableQuarantine: {operate: SUBMISSION}}}));
+        });
+
+        it('that failed with no code after another submission was opened says so in the alert region alone', async () => {
+            const {container, answer} = await retryThenOpenOther();
+            await act(async () => answer.reject(new Error('Network error')));
+            await settle();
+            expect(container.querySelector('[data-sel-role="quarantine-failed"]')).toBeNull();
+            expect(container.querySelector('[data-sel-role="quarantine-changed"]')?.textContent).toBe('');
+            expect(container.querySelector('[data-sel-role="quarantine-alert"]')?.textContent).toContain('quarantine.failed');
+        });
+
+        it('answered null after another submission was opened says so in the alert region alone', async () => {
+            const {container, answer} = await retryThenOpenOther();
+            await act(async () => answer.resolve({data: {formidableQuarantine: null}}));
+            await settle();
             expect(container.querySelector('[data-sel-role="quarantine-changed"]')?.textContent).toBe('');
             expect(container.querySelector('[data-sel-role="quarantine-alert"]')?.textContent).toContain('quarantine.changed');
         });
