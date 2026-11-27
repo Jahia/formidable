@@ -162,7 +162,8 @@ ${R} .fmdbq-table-wrapper {
 /* The detail panel of the card: a Paper with no card of its own, set apart from the table by a rule. */
 ${R} .fmdbq-detail.fmdbq-detail {
     position: relative;
-    flex: 0 0 440px;
+    /* about 40% of the card, so that the checks and the audit fit without a sideways scroll from 1440px wide */
+    flex: 0 0 clamp(560px, 40%, 760px);
     min-width: 0;
     max-height: calc(100vh - 230px);
     overflow-y: auto;
@@ -215,14 +216,46 @@ ${R} .fmdbq-scroll-x {
 }
 ${R} .fmdbq-detail-table tr {
     flex-wrap: nowrap;
+    height: auto;
+    min-height: 48px;
 }
-/* The audit keeps the width of its columns, and its region scrolls sideways (D6) */
+/* The cells of the detail tables wrap instead of clipping: a date breaks onto two lines, a long user name wraps. A
+   cell is never cut, so it needs no tooltip. */
+${R} .fmdbq-detail-table th,
+${R} .fmdbq-detail-table td {
+    min-width: 0;
+    padding: var(--spacing-small);
+    overflow: visible;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+${R} .fmdbq-detail-table td *,
+${R} .fmdbq-detail-table th * {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+}
+/* The audit shares its width among its columns; below 400px, its region scrolls sideways (D6) */
 ${R} .fmdbq-scroll-x .fmdbq-detail-table {
-    min-width: 560px;
+    min-width: 400px;
 }
 ${R} .fmdbq-scroll-x .fmdbq-detail-table th,
 ${R} .fmdbq-scroll-x .fmdbq-detail-table td {
-    flex: 1 0 112px;
+    flex: 1 1 0;
+}
+/* Operation, User and Time hold the longest words: they get more of the width than From and To */
+${R} .fmdbq-scroll-x .fmdbq-detail-table tr > :nth-child(1) {
+    flex-grow: 1.2;
+}
+${R} .fmdbq-scroll-x .fmdbq-detail-table tr > :nth-child(2) {
+    flex-grow: 1.7;
+}
+${R} .fmdbq-scroll-x .fmdbq-detail-table tr > :nth-child(3),
+${R} .fmdbq-scroll-x .fmdbq-detail-table tr > :nth-child(4) {
+    flex-grow: 0.9;
+}
+${R} .fmdbq-scroll-x .fmdbq-detail-table tr > :nth-child(5) {
+    flex-grow: 1.5;
 }
 ${R} ul.fmdbq-inline {
     display: flex;
