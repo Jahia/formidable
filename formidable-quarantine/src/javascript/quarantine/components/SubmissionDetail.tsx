@@ -7,7 +7,6 @@ import {
     buttonsFor,
     formatDate,
     formatSize,
-    KNOWN_REASONS,
     type QuarantineOperation,
     stateOfStored
 } from '../quarantine.utils';
@@ -156,7 +155,7 @@ const Decision = ({submission, language}: {submission: HeldDetail; language: str
     return (
         <dl className="fmdbq-pairs" data-sel-role="quarantine-decision">
             <dt>{t('quarantine.detail.reason')}</dt>
-            <dd><Reason code={decision.reason} known={KNOWN_REASONS.has(decision.reason)}/></dd>
+            <dd><Reason code={decision.reason}/></dd>
             {decision.item && (
                 <>
                     <dt>{t('quarantine.detail.decisionFile')}</dt>
@@ -182,7 +181,6 @@ const Decision = ({submission, language}: {submission: HeldDetail; language: str
 interface SubmissionDetailProps {
     submission: HeldDetail;
     language: string;
-    headingRef: React.RefObject<HTMLHeadingElement>;
     actions: React.ReactNode;
     /** Whether the last operation found the submission changed: the message and its Reload button show. */
     changed: boolean;
@@ -193,14 +191,14 @@ interface SubmissionDetailProps {
 }
 
 /** The body of the detail: the heading, the state, the changed message, the actions, then the records. */
-export const SubmissionDetail = ({submission, language, headingRef, actions, changed, failure = null, reloading, onReload}: SubmissionDetailProps) => {
+export const SubmissionDetail = ({submission, language, actions, changed, failure = null, reloading, onReload}: SubmissionDetailProps) => {
     const {t} = useTranslation('formidable-quarantine');
     const auditTitleId = useId();
     const form = submission.formTitle ?? submission.formId;
 
     return (
         <>
-            <Typography ref={headingRef} component="h2" variant="heading" weight="bold" tabIndex={-1} id={`${DETAIL_ID}-title`}>
+            <Typography component="h2" variant="heading" weight="bold" tabIndex={-1} id={`${DETAIL_ID}-title`}>
                 {t('quarantine.detail.title', {form, date: formatDate(submission.createdAt, language)})}
             </Typography>
             <div className="fmdbq-block"><StateChip state={submission.state}/></div>

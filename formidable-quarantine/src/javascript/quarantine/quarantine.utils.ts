@@ -106,41 +106,18 @@ export function offsetInsideList(offset: number, itemCount: number, total: numbe
     return Math.floor((total - 1) / PAGE_SIZE) * PAGE_SIZE;
 }
 
-/** The codes that the API puts in the extensions of a refused request. */
-export type RefusalCode = 'CONFLICT' | 'NOT_FOUND' | 'FORBIDDEN';
-
-interface ErrorWithExtensions {
-    extensions?: Record<string, unknown> | null;
-}
-
 interface ErrorWithGraphQLErrors {
-    graphQLErrors?: readonly ErrorWithExtensions[];
+    graphQLErrors?: ReadonlyArray<{extensions?: Record<string, unknown> | null}>;
 }
 
 /**
- * The code of a refused request, read from extensions.code of its GraphQL errors, never from a message: CONFLICT,
- * NOT_FOUND or FORBIDDEN, or undefined for a failure that carries no code.
- */
-export function refusalCodeOf(error: unknown): RefusalCode | undefined {
-    const errors = (error as ErrorWithGraphQLErrors | null | undefined)?.graphQLErrors ?? [];
-    for (const one of errors) {
-        const code = one.extensions?.code;
-        if (code === 'CONFLICT' || code === 'NOT_FOUND' || code === 'FORBIDDEN') {
-            return code;
-        }
-    }
-
-    return undefined;
-}
-
-/**
- * Whether a refused operation means that the submission changed under the manager: its state no longer allows the
- * operation (CONFLICT), or it is gone from the quarantine of the site (NOT_FOUND). Either way, a reload shows what
- * it is now.
+ * Whether a refused operation means that the submission changed under the manager, read from extensions.code of its
+ * GraphQL errors, never from a message: its state no longer allows the operation (CONFLICT), or it is gone from the
+ * quarantine of the site (NOT_FOUND). Either way, a reload shows what it is now.
  */
 export function isChangedUnderneath(error: unknown): boolean {
-    const code = refusalCodeOf(error);
-    return code === 'CONFLICT' || code === 'NOT_FOUND';
+    const errors = (error as ErrorWithGraphQLErrors | null | undefined)?.graphQLErrors ?? [];
+    return errors.some(one => one.extensions?.code === 'CONFLICT' || one.extensions?.code === 'NOT_FOUND');
 }
 
 interface UiContext {
@@ -208,6 +185,6 @@ export function formatSize(bytes: number | null | undefined, language?: string):
 }
 
 /** The files a row names: the first two, and how many more. */
-export function visibleFileNames<T>(files: readonly T[], shown = 2): {names: T[]; more: number} {
-    return {names: files.slice(0, shown), more: Math.max(0, files.length - shown)};
+export function visibleFileNames<T>(files: readonly T[]): {names: T[]; more: number} {
+    return {names: files.slice(0, 2), more: Math.max(0, files.length - 2)};
 }

@@ -33,7 +33,8 @@ ${MODAL} :focus-visible {
 ${R} .fmdbq-secondary {
     color: var(--color-gray_dark);
 }
-${R} .fmdbq-sr-only {
+${R} .fmdbq-sr-only,
+.fmdbq-filter-editor .fmdbq-sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -92,13 +93,6 @@ ${R} .fmdbq-chip .fmdbq-chip-empty {
     padding: var(--spacing-small) var(--spacing-medium);
     max-height: 320px;
     overflow-y: auto;
-}
-.fmdbq-filter-editor .fmdbq-sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
 }
 .fmdbq-filter-footer {
     display: flex;

@@ -3,7 +3,7 @@ import {Button, DataTable} from '@jahia/moonstone';
 import type {DataTableColumn} from '@jahia/moonstone/DataTable';
 import {useTranslation} from 'react-i18next';
 import type {SubmissionRow} from '../graphql';
-import {formatDate, KNOWN_REASONS, PAGE_SIZE, visibleFileNames} from '../quarantine.utils';
+import {formatDate, PAGE_SIZE, visibleFileNames} from '../quarantine.utils';
 import {pagerFallback, useDataTableA11y} from '../useDataTableA11y';
 import {Reason, StateChip} from './Chips';
 
@@ -89,7 +89,6 @@ export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openI
     }, [rows, busy]);
 
     useDataTableA11y(containerRef, {
-        rowsPerPageId: 'fmdbq-rows-per-page',
         pagerClassName: PAGER_CLASS,
         labels: {
             first: t('quarantine.paging.first'),
@@ -141,7 +140,7 @@ export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openI
             key: 'reason',
             label: t('quarantine.table.reason'),
             width: '220px',
-            render: ({value}) => <Reason code={value as string | null} known={KNOWN_REASONS.has((value as string | null) ?? '')}/>
+            render: ({value}) => <Reason code={value as string | null}/>
         },
         {
             key: 'files',

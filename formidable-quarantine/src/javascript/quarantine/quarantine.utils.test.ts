@@ -6,7 +6,6 @@ import {
     offsetInsideList,
     PAGE_SIZE,
     pageRange,
-    refusalCodeOf,
     siteKeyFromRoute,
     stateOfStored,
     visibleFileNames
@@ -66,15 +65,14 @@ describe('formatSize', () => {
     });
 });
 
-describe('refusalCodeOf', () => {
+describe('isChangedUnderneath', () => {
     const refused = (code: unknown) => ({graphQLErrors: [{message: 'any text', extensions: {code}}]});
 
     it('reads the code of the extensions, never the message', () => {
-        expect(refusalCodeOf(refused('CONFLICT'))).toBe('CONFLICT');
-        expect(refusalCodeOf(refused('NOT_FOUND'))).toBe('NOT_FOUND');
-        expect(refusalCodeOf(refused('FORBIDDEN'))).toBe('FORBIDDEN');
-        expect(refusalCodeOf({graphQLErrors: [{message: 'The operation release is not allowed in state completed'}]}))
-            .toBeUndefined();
+        expect(isChangedUnderneath({graphQLErrors: [{message: 'The operation release is not allowed in state completed'}]}))
+            .toBe(false);
+        expect(isChangedUnderneath({graphQLErrors: [{message: 'other', extensions: null}, {message: 'any text', extensions: {code: 'CONFLICT'}}]}))
+            .toBe(true);
     });
 
     it('reads a conflict or a submission gone as changed underneath, and a failure with no code as not', () => {

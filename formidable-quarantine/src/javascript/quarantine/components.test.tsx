@@ -214,7 +214,6 @@ const detail = (changed: boolean, submission: HeldDetail = SUBMISSION, failure: 
     <SubmissionDetail
         submission={submission}
         language="en"
-        headingRef={{current: null}}
         actions={null}
         changed={changed}
         failure={failure}

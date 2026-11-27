@@ -1,7 +1,7 @@
 import React from 'react';
 import {Check, Chip, Clock, Close, Warning} from '@jahia/moonstone';
 import {useTranslation} from 'react-i18next';
-import {isState, isVerdict, STATE_COLORS, VERDICT_COLORS} from '../quarantine.utils';
+import {isState, isVerdict, KNOWN_REASONS, STATE_COLORS, VERDICT_COLORS} from '../quarantine.utils';
 
 /** The state of a held submission: always its text, the colour only adds to it. */
 export const StateChip = ({state}: {state: string}) => {
@@ -43,7 +43,7 @@ export const VerdictChip = ({verdict}: {verdict: string}) => {
 };
 
 /** A reason of the run: a phrase when the screen knows the code, then the code itself. */
-export const Reason = ({code, known}: {code: string | null | undefined; known: boolean}) => {
+export const Reason = ({code}: {code: string | null | undefined}) => {
     const {t} = useTranslation('formidable-quarantine');
     if (!code) {
         return null;
@@ -51,7 +51,7 @@ export const Reason = ({code, known}: {code: string | null | undefined; known: b
 
     return (
         <span>
-            {known && <>{t(`quarantine.reason.${code}`)} </>}
+            {KNOWN_REASONS.has(code) && <>{t(`quarantine.reason.${code}`)} </>}
             <code>{code}</code>
         </span>
     );

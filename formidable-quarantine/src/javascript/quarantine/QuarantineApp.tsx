@@ -228,7 +228,6 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     const [reloading, setReloading] = useState(false);
 
     const rootRef = useRef<HTMLDivElement>(null);
-    const detailHeadingRef = useRef<HTMLHeadingElement>(null);
     // the open submission as the last render left it, for an answer that arrives after the manager opened another one
     const openIdRef = useRef<string | null>(openId);
     openIdRef.current = openId;
@@ -347,28 +346,17 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     const afterOperation = async (operation: QuarantineOperation, after: HeldDetail, neighbour: string | null, stillOpen: boolean) => {
         setConfirm(null);
         const leaves = filters.state !== null && after.state !== filters.state;
-        if (!stillOpen) {
-            announce(t(`quarantine.done.${operation}`, {state: t(`quarantine.state.${after.state}`)}));
-            try {
-                await refetchList();
-            } catch {
-                announce(t('quarantine.loadFailed'), true);
-            }
-
-            return;
-        }
-
-        if (leaves) {
+        if (stillOpen && leaves) {
             // the submission leaves the filtered list: the detail closes, the focus goes to a neighbour row
             setOpenId(null);
             focus(neighbour ? {kind: 'row', id: neighbour} : {kind: 'empty'}, true);
-        } else {
+        } else if (stillOpen) {
             focus({kind: 'detailHeading'}, true);
         }
 
         announce(t(`quarantine.done.${operation}`, {state: t(`quarantine.state.${after.state}`)}));
         try {
-            await (leaves ? refetchList() : Promise.all([refetchList(), detail.refetch()]));
+            await (stillOpen && !leaves ? Promise.all([refetchList(), detail.refetch()]) : refetchList());
         } catch {
             // the operation ran: only the reading of the list failed
             announce(t('quarantine.loadFailed'), true);
@@ -620,7 +608,6 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
             <SubmissionDetail
                 submission={submission}
                 language={language}
-                headingRef={detailHeadingRef}
                 changed={changed}
                 failure={failure}
                 reloading={reloading}
