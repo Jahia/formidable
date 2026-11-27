@@ -17,7 +17,11 @@ public enum Operation {
     /** Runs the actions after release again, from the one that failed or from the first one that did not run. */
     RESUME("resume", HeldEvent.MANAGER_RESUME),
 
-    /** Rejects the submission: its values and its bytes are deleted. */
+    /**
+     * Rejects the submission: its values and its bytes are deleted. Under the policy {@code onFail=releaseValues} of
+     * the form, a reject in {@code needsReview} before any action after release ran deletes the bytes and releases the
+     * values alone instead, to {@code completed}.
+     */
     REJECT("reject", HeldEvent.MANAGER_REJECT);
 
     private final String value;

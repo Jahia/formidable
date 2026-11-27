@@ -25,14 +25,14 @@ const SHORT_PERIOD_SECONDS = 2;
 const SCHEDULED_RUN_TIMEOUT = 60000;
 
 /**
- * The scheduled run of formidable-quarantine (tests/scenarios/quarantine.md, Q29; docs/architecture/quarantine.md,
+ * The scheduled run of formidable-quarantine (tests/scenarios/quarantine.md, Q49; docs/architecture/quarantine.md,
  * "The scheduled run"). The test lab turns the scheduled run off, so that the other specs move a held submission with
  * "run now" alone. This spec sets a short period through the configuration of the run, holds a submission, and waits,
  * within a bound, for the scheduled run to release it, with no call of "run now". It turns the scheduled run off again
  * at the end.
  *
  * Control scenario: build formidable-quarantine with `RunSchedule.configure` scheduling nothing (replace its body
- * with `job.unschedule();`), deploy it in place of the module, run this spec: Q29 fails on the bound of the wait, the
+ * with `job.unschedule();`), deploy it in place of the module, run this spec: Q49 fails on the bound of the wait, the
  * submission still `held`.
  */
 describe('Quarantine - 91 The scheduled run moves a held submission with no "run now"', () => {
@@ -41,7 +41,7 @@ describe('Quarantine - 91 The scheduled run moves a held submission with no "run
 	before(() => {
 		enableModule(QUARANTINE_MODULE_ID, FORMIDABLE_TEST_SITE.key);
 		setUploadsRequireQuarantine(false);
-		// no wait for the scheduler here: the control build schedules nothing, and Q29 must fail on its assertion
+		// no wait for the scheduler here: the control build schedules nothing, and Q49 must fail on its assertion
 		setQuarantineRunPeriod(SHORT_PERIOD_SECONDS, false);
 	});
 
@@ -52,7 +52,7 @@ describe('Quarantine - 91 The scheduled run moves a held submission with no "run
 		setQuarantineRunPeriod(0);
 	});
 
-	it('Q29: a held submission whose checks pass is released by the scheduled run', () => {
+	it('Q49: a held submission whose checks pass is released by the scheduled run', () => {
 		createPublishedLiveFormPage('quarantine-scheduled-form', 'Quarantine scheduled form', fields(), undefined, undefined, {
 			qualifiers: [getRemoteStubCheckNode()],
 			deferredActions: [getSaveToJcrActionNode()]

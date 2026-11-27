@@ -11,8 +11,8 @@ import java.util.Optional;
  * live, with a system session, as the store does. A held submission is named
  * by its path; every method refuses a path that names no held submission.
  *
- * <p>No record holds a byte or a value. {@link #openItem} reads the bytes of an item for a check, and for nothing
- * else.</p>
+ * <p>No record holds a byte or a value. {@link #withItems} reads the bytes of the items for the checks, and for nothing
+ * else: the release reads the files through {@link QuarantineStore#read}.</p>
  */
 public interface CheckStore {
 
@@ -41,11 +41,29 @@ public interface CheckStore {
     void writeAudit(String path, AuditRecord audit) throws QuarantineStoreException;
 
     /**
-     * The bytes of one item, for a check. The whole item is read into memory inside the system session, once per
-     * call, and handed back as a stream over that copy, which the caller closes: the session is closed when this
-     * method returns. Nothing is streamed from the repository.
+     * Runs the work with the bytes of the items of the held submission open to read, in one system session. A stream
+     * that {@link ItemStreams#open} hands reads the binary of the repository as the caller reads it, with no copy in
+     * memory, and only until the work returns: the session closes then, and a later read of the stream throws.
      *
-     * @throws QuarantineStoreException when the item does not exist, or holds no bytes any more
+     * @return what the work returns
+     * @throws QuarantineStoreException when the held submission cannot be read, or the work threw it
      */
-    InputStream openItem(String path, String itemName) throws QuarantineStoreException;
+    <T> T withItems(String path, ItemWork<T> work) throws QuarantineStoreException;
+
+    /** What reads the bytes of the items while {@link #withItems} holds the session. */
+    @FunctionalInterface
+    interface ItemWork<T> {
+        T run(ItemStreams items) throws QuarantineStoreException;
+    }
+
+    /** The bytes of the items of one held submission, during {@link #withItems}. */
+    @FunctionalInterface
+    interface ItemStreams {
+
+        /**
+         * @return a new stream over the bytes of the item, which the caller closes
+         * @throws QuarantineStoreException when the item does not exist, or holds no bytes any more
+         */
+        InputStream open(String itemName) throws QuarantineStoreException;
+    }
 }

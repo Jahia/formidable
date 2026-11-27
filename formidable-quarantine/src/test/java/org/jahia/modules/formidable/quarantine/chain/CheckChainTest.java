@@ -190,6 +190,75 @@ class CheckChainTest {
                 chain.decide(List.of(imageScan, parser, first), List.of(picture, file), recorded));
     }
 
+    // --- metadata checks
+
+    @Test
+    void aMetadataCheckFirstIsNoRefusal() {
+        ChainCheck allowList = metadata("allowList");
+        assertEquals(proceed(new Step.Submit(file, allowList)), decide(allowList, first));
+    }
+
+    @Test
+    void aMetadataCheckAloneRuns() {
+        ChainCheck allowList = metadata("allowList");
+        assertEquals(proceed(new Step.Submit(file, allowList)), decide(allowList));
+        recorded.put(key(file, allowList), passed());
+        assertEquals(ChainDecision.RELEASE, decide(allowList));
+    }
+
+    @Test
+    void aMetadataCheckBetweenARemoteAndAnInProcessCheckRuns() {
+        ChainCheck allowList = metadata("allowList");
+        ChainCheck parser = inProcess("parser");
+        recorded.put(key(file, first), passed());
+        assertEquals(proceed(new Step.Submit(file, allowList)), decide(first, allowList, parser));
+        recorded.put(key(file, allowList), passed());
+        assertEquals(proceed(new Step.Submit(file, parser)), decide(first, allowList, parser));
+    }
+
+    @Test
+    void aMetadataCheckNeverCountsAsTheRemoteCheckBeforeAnInProcessCheck() {
+        ChainCheck allowList = metadata("allowList");
+        ChainCheck parser = inProcess("parser");
+        assertEquals(new ChainDecision.Review(ChainReason.IN_PROCESS_FIRST, "aaa", "parser"),
+                decide(allowList, parser, first));
+    }
+
+    @Test
+    void aFailOfAMetadataCheckRejectsBeforeAnyLaterCheck() {
+        ChainCheck allowList = metadata("allowList");
+        recorded.put(key(file, allowList), failed());
+        assertEquals(new ChainDecision.Reject(ChainReason.CHECK_FAILED, "aaa", "allowList"),
+                decide(allowList, first));
+    }
+
+    @Test
+    void aMetadataVerdictNeverCountsForAFileOfTheSameBytesAndAnotherType() {
+        ChainCheck allowList = metadata("allowList");
+        // the same bytes, declared as two types: the outcome of one is no outcome of the other
+        ChainFixtures.TestFile asText = text("aaa");
+        ChainFixtures.TestFile asImage = image("aaa");
+        recorded.put(key(asText, allowList), passed());
+
+        assertEquals(proceed(new Step.Submit(asImage, allowList)),
+                chain.decide(List.of(allowList), List.of(asText, asImage), recorded));
+        assertEquals(new OutcomeKey("aaa", "allowList", "aaa.bin", TEXT), key(asText, allowList));
+    }
+
+    @Test
+    void aVerdictOnTheBytesCountsForEveryFileOfTheSameBytes() {
+        ChainFixtures.TestFile asText = text("aaa");
+        ChainFixtures.TestFile alsoText = text("aaa");
+        recorded.put(key(asText, first), passed());
+
+        assertEquals(ChainDecision.RELEASE, chain.decide(List.of(first), List.of(asText, alsoText), recorded));
+        assertEquals(new OutcomeKey("aaa", "first"), key(asText, first));
+    }
+
+    private static ChainCheck metadata(String name) {
+        return check(name, Scope.METADATA, null, OnInconclusive.REVIEW, OnUnavailable.RETRY);
+    }
+
     // --- withheld file
 
     @Test

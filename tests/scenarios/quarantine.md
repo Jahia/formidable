@@ -15,8 +15,13 @@ order.
 
 Specs:
 
-- `tests/cypress/e2e/quarantine/91-quarantine-scheduled-run.cy.ts` covers Q29:
+- `tests/cypress/e2e/quarantine/91-quarantine-scheduled-run.cy.ts` covers Q49:
   the scheduled run.
+- `tests/cypress/e2e/quarantine/92-quarantine-release-values.cy.ts` covers Q40,
+  Q41, Q42, Q43 and Q44: the policy of a form, which releases the values alone
+  on a fail, and its switch in the editor.
+- `tests/cypress/e2e/quarantine/93-quarantine-allow-list.cy.ts` covers Q29, Q30
+  and Q31: the allow-list check of the module.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -53,13 +58,16 @@ Specs:
   in a test module. A refused forward is not counted as received.
 - **Quarantine module**: `formidable-quarantine`. It ships the module hold,
   the quarantine tree, the run of the checks, the operations of a manager and
-  an inspection of the tree.
+  an inspection of the tree. The module also ships one check, the allow-list
+  check `fmdbq:allowListCheck`.
 - **Quarantine test module**: `formidable-test-module-quarantine`. It ships the
   stub checks, the stub control and "run now". It keeps no hold. It depends on
   the quarantine module, so a site that enables it has the quarantine module
   too. Never for production: its checks are stubs.
-- **Check of the module**: a node of `fmdbquar:remoteStubCheck` or
-  `fmdbquar:inProcessStubCheck` in the list "Checks" (`qualifiers`) of a form.
+- **Check of the module**: a node in the list "Checks" (`qualifiers`) of a
+  form. The node is a stub check, `fmdbquar:remoteStubCheck` or
+  `fmdbquar:inProcessStubCheck`, or the allow-list check
+  `fmdbq:allowListCheck`.
 - **Module hold**: the hold of the quarantine module. It ranks 100. It owns
   every held form of a site that has the quarantine module, whatever the list
   "Checks" of the form holds. It stores the submissions of that form in the
@@ -164,7 +172,7 @@ the scenario proves:
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
 | Q20 | runs an operation for any user: in `QuarantineOperations.applyLocked`, `!managers.mayManage(held.formId())` replaced by `false` |
-| Q29 | schedules no run: `RunSchedule.configure` with its body replaced by `job.unschedule();`. Q29 fails on the bound of its wait, the submission still `held` |
+| Q49 | schedules no run: `RunSchedule.configure` with its body replaced by `job.unschedule();`. Q49 fails on the bound of its wait, the submission still `held` |
 
 ---
 
@@ -697,7 +705,7 @@ Spec `91-quarantine-scheduled-run.cy.ts`. The test lab turns the scheduled run o
 (`periodSeconds=0` in `tests/provisioning-manifest-*.yml`), so the other specs
 move a held submission with "run now" alone.
 
-### Q29 — The scheduled run releases a held submission — control
+### Q49 — The scheduled run releases a held submission — control
 
 **Steps:**
 1. Enable the quarantine test module on the site.
@@ -713,8 +721,133 @@ move a held submission with "run now" alone.
 - The outcome `PASS` of the check is recorded, and the audit holds one record
   of the run, with no user
 
-**Control:** `RunSchedule.configure` schedules nothing. Q29 fails on the bound
+**Control:** `RunSchedule.configure` schedules nothing. Q49 fails on the bound
 of the wait, the submission still `held`.
+
+---
+
+## The policy of a form
+
+The scenarios of this section use the module hold and start the run through
+"run now", as the section on the checks does. The form carries the mixin
+`fmdbqmix:quarantinePolicy` with the scan status `documentScanStatus`, the
+clean value `clean` and the failed value
+`Uploaded Document failed our security scan`. It has no field of that name. Its
+"Actions after release" list holds Save to JCR and the observer action. Each
+submission also posts a forged value named `documentScanStatus`.
+
+### Q40 — A fail releases the values alone
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with a `VERDICT:FAIL` file and the forged value `clean`.
+3. Run the checks.
+
+**Expected:**
+- The held submission names no field `documentScanStatus`: the engine skipped
+  the forged value
+- The state is `completed`, and the decision stays `CHECK_FAILED`
+- The item holds no bytes, and the held submission holds no values
+- The stored submission holds the name and the failed scan status, and no file
+- The observer action reports one call with no file
+
+### Q41 — A pass gets the clean scan status
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with a `VERDICT:PASS` file and the forged failed value.
+3. Run the checks.
+
+**Expected:**
+- The state is `completed`, with no decision
+- The stored submission holds the file and the scan status `clean`
+- The observer action reports one call with one file
+
+### Q42 — The default policy rejects a fail
+
+**Steps:**
+1. Set `onFail` to `reject`.
+2. Submit the form with a `VERDICT:FAIL` file.
+3. Run the checks.
+
+**Expected:**
+- The state is `rejected`, the decision is `CHECK_FAILED`, and no action ran
+- The item holds no bytes, and the held submission holds no values
+- The observer action reports no call
+
+### Q43 — A reject by a manager releases the values alone
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with an `INCONCLUSIVE` file, and run the checks: the
+   submission goes to review.
+3. Reject it, as root.
+
+**Expected:**
+- The reject answers `completed`, and the decision keeps `INCONCLUSIVE`, the
+  reason of the review
+- The audit holds the run to `needsReview`, then the reject by `root` to
+  `completed`
+- The stored submission holds the name and the failed scan status, and no file
+- The observer action reports one call with no file
+
+### Q44 — The editor offers the policy
+
+**Steps:**
+1. Create a form with the quarantine switch on and no policy, and a form with
+   the switch on and the policy.
+2. Read the edit form of each through `forms.editForm`, as root.
+
+**Expected:**
+- In the section of the quarantine switch, the fieldset
+  `fmdbqmix:quarantinePolicy` "Quarantine policy" is a switch: off on the first
+  form, on on the second
+- The section starts with the fieldset of the form, then the quarantine switch,
+  then the policy
+
+---
+
+## The allow-list check
+
+The scenarios of this section use the module hold. Each scenario starts the
+run of the checks through "run now", restricted to the form of the scenario. The only check
+of the form is the allow-list check `fmdbq:allowListCheck`, and "Actions after
+release" holds Save to JCR. Each scenario submits a text file `claim-note.txt`,
+of the type `text/plain`, as a guest, and reads the result as root.
+
+### Q29 — The allow-list allows the type of the file
+
+**Steps:**
+1. Set the lists of the check to the extension `txt` and the type `text/plain`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `completed`, and one action after release ran
+- The outcome of the check is `PASS`, with the reason `allowList.allowed`
+
+### Q30 — The extension of the file is not on the list
+
+**Steps:**
+1. Set the lists of the check to the extension `pdf` and the type `text/plain`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`, for the check
+- The outcome of the check is `FAIL`, with the reason
+  `allowList.extensionRefused`
+- No action after release ran, and the item holds no bytes
+
+### Q31 — The type of the file is not on the list
+
+**Steps:**
+1. Set the lists of the check to the extension `txt` and the type
+   `application/pdf`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`
+- The outcome of the check is `FAIL`, with the reason
+  `allowList.mimeTypeRefused`
 
 ---
 
@@ -744,4 +877,10 @@ of the wait, the submission still `held`.
 | Q26 | no action that cannot run after release enters that list |
 | Q27 | a site without the quarantine module never stores a held submission |
 | Q28 | a form with no check is held and goes to review, never released unchecked |
-| Q29 | a held submission is checked on schedule, with no request of a user |
+| Q29 | the allow-list check releases a file of an allowed type |
+| Q30, Q31 | the allow-list check rejects a file unless both its extension and its type are allowed |
+| Q40, Q43 | a file that failed a check, or that a manager rejected, never leaves with the values |
+| Q40, Q41 | the visitor cannot set the scan status |
+| Q42 | the default policy still rejects a fail |
+| Q44 | an author can set the policy of a form |
+| Q49 | a held submission is checked on schedule, with no request of a user |

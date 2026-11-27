@@ -3,6 +3,11 @@ package org.jahia.modules.formidable.quarantine.run;
 import org.jahia.modules.formidable.engine.api.DeferredActionException;
 import org.jahia.modules.formidable.engine.api.DeferredActions;
 import org.jahia.modules.formidable.engine.api.HeldSubmission;
+import org.jahia.modules.formidable.engine.api.SubmissionOrigin;
+import org.jahia.modules.formidable.engine.api.SubmittedFile;
+import org.jahia.modules.formidable.quarantine.check.AllowListQualifier;
+import org.jahia.modules.formidable.quarantine.chain.ChainCheck;
+import org.jahia.modules.formidable.quarantine.chain.OutcomeKey;
 import org.jahia.modules.formidable.quarantine.chain.RecordedOutcome;
 import org.jahia.modules.formidable.quarantine.api.CheckSettings;
 import org.jahia.modules.formidable.quarantine.api.OnInconclusive;
@@ -21,12 +26,17 @@ import org.jahia.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldStates;
+import org.jahia.modules.formidable.quarantine.store.ItemRecord;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
+import org.jahia.modules.formidable.quarantine.store.Sha256;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.RepositoryException;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -38,6 +48,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,6 +83,8 @@ class QuarantineRunTest {
     private DeferredActions actions;
     private final FakeRunLock runLock = new FakeRunLock();
     private QuarantineRun run;
+    /** The policy of every form, as the run reads it when it concludes. */
+    private FormPolicy policy = FormPolicy.DEFAULT;
 
     @BeforeEach
     void setUp() {
@@ -92,7 +105,7 @@ class QuarantineRunTest {
                 throw new ItemNotFoundException(formId);
             }
             return lists.getOrDefault(formId, List.of());
-        }, Clock.fixed(NOW, ZoneOffset.UTC));
+        }, formId -> policy, Clock.fixed(NOW, ZoneOffset.UTC));
         created.setStore(stores);
         created.setCheckStore(stores);
         created.setActions((submission, from, completed) -> actions.run(submission, from, completed));
@@ -401,6 +414,189 @@ class QuarantineRunTest {
     }
 
     @Test
+    void aMetadataCheckReadsTheMetadataAndNoByte() throws Exception {
+        MetadataProbe probe = new MetadataProbe();
+        run.addQualifier(probe);
+        // the remote check applies to the text file alone: its submit of the text shares a batch, and so the open
+        // session of the bytes, with the submit of the metadata check for the image
+        lists.put(FORM, List.of(remote("remoteCheck"),
+                CheckSettings.withDefaults(MetadataProbe.NODE_TYPE, "metadataCheck")));
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        stores.addItem(held, "scan.png", "image/png", new byte[]{(byte) 0x89, 'P', 'N', 'G'});
+
+        runNow();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertEquals(List.of("scan.png image/png 10", "item0.txt text/plain 10"), probe.seen);
+        assertEquals(2, probe.refusedOpens, "a metadata check read a byte while the session of the batch was open");
+        assertEquals(OutcomeRecord.PASS, held.outcomes.get("item0/metadataCheck").outcome());
+        assertEquals(OutcomeRecord.PASS, held.outcomes.get("item1/metadataCheck").outcome());
+    }
+
+    @Test
+    void aListOfMetadataChecksOpensNoSessionOfTheBytes() throws Exception {
+        MetadataProbe probe = new MetadataProbe();
+        run.addQualifier(probe);
+        lists.put(FORM, List.of(CheckSettings.withDefaults(MetadataProbe.NODE_TYPE, "metadataCheck")));
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertEquals(0, stores.itemSessions, "a session opened for a metadata check");
+    }
+
+    @Test
+    void aLargeFileStreamsToTheCheck() throws Exception {
+        StreamingQualifier streaming = new StreamingQualifier();
+        run.addQualifier(streaming);
+        lists.put(FORM, List.of(CheckSettings.withDefaults(StreamingQualifier.NODE_TYPE, "streamingCheck")));
+        // its stream refuses readAllBytes, through the scope of the store too: a check or a store that reads the
+        // stream whole fails the test. The release reads the item into memory for the engine, which this does not
+        // cover: the hash of the release is computed over the bytes it releases.
+        Held held = stores.holdLarge(FORM, new InMemoryQuarantine.LargeBytes(8L * 1024 * 1024, (byte) 'x'));
+
+        runNow();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertEquals(List.of(held.sha256s.get(0)), streaming.hashes);
+        assertEquals(1, stores.itemSessions, "one session for the check, none for the release");
+    }
+
+    @Test
+    void aStreamOrAFileKeptByACheckCannotBeReadOnceTheBatchOfCallsEnded() throws Exception {
+        StreamingQualifier streaming = new StreamingQualifier();
+        streaming.keepStream = true;
+        run.addQualifier(streaming);
+        lists.put(FORM, List.of(CheckSettings.withDefaults(StreamingQualifier.NODE_TYPE, "streamingCheck")));
+        stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertFalse(stores.itemSessionOpen);
+        InputStream kept = streaming.kept;
+        assertNotNull(kept);
+        assertThrows(IOException.class, kept::read);
+        QuarantinedFile file = streaming.file;
+        assertThrows(IOException.class, file::open);
+    }
+
+    @Test
+    void aMetadataCheckIsHandedNoStreamEvenWhileTheBytesAreOpen() throws Exception {
+        ItemAccess access = new ItemAccess();
+        access.begin(itemName -> new ByteArrayInputStream("VERDICT:PASS".getBytes(StandardCharsets.UTF_8)));
+        ItemFile file = new ItemFile("/sites/site/held-0",
+                new ItemRecord("item0", "document", "item0.txt", "text/plain", 12, "aaa", true), access);
+
+        try (InputStream in = SubmissionRun.fileFor(MarkerQualifier.remote(calls, outage), file).open()) {
+            assertEquals('V', in.read());
+        }
+        QuarantinedFile metadataOnly = SubmissionRun.fileFor(new MetadataProbe(), file);
+        assertEquals("item0.txt", metadataOnly.fileName());
+        assertThrows(IOException.class, metadataOnly::open);
+    }
+
+    @Test
+    void anAllowListJudgesEachFileOfTheSameBytesByItsOwnNameAndType() throws Exception {
+        run.addQualifier(new AllowListQualifier());
+        Map<String, List<String>> allowed = Map.of("extensions", List.of("pdf"), "mimeTypes", List.of("application/pdf"));
+        lists.put(FORM, List.of(new CheckSettings(AllowListQualifier.NODE_TYPE, "allowList", OnInconclusive.REVIEW,
+                OnUnavailable.RETRY, allowed)));
+        Held held = stores.hold(FORM);
+        byte[] same = "%PDF-1.7 the same bytes".getBytes(StandardCharsets.UTF_8);
+        stores.addItem(held, "doc.pdf", "application/pdf", same);
+        stores.addItem(held, "doc.exe", "application/x-msdownload", same);
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state);
+        assertEquals("CHECK_FAILED", held.decision.reason());
+        assertEquals("item1", held.decision.itemName());
+        assertEquals(OutcomeRecord.PASS, held.outcomes.get("item0/allowList").outcome());
+        assertEquals(OutcomeRecord.FAIL, held.outcomes.get("item1/allowList").outcome());
+        assertTrue(released.isEmpty());
+    }
+
+    @Test
+    void aStoredMetadataVerdictCountsOnlyForTheItemItWasRecordedUnder() throws Exception {
+        Held held = stores.hold(FORM);
+        byte[] same = "the same bytes".getBytes(StandardCharsets.UTF_8);
+        stores.addItem(held, "doc.pdf", "application/pdf", same);
+        stores.addItem(held, "doc.exe", "application/x-msdownload", same);
+        ItemAccess access = new ItemAccess();
+        List<ItemFile> files = new ArrayList<>();
+        for (ItemRecord item : stores.heldRecord(held.path).orElseThrow().items()) {
+            files.add(new ItemFile(held.path, item, access));
+        }
+        ChainCheck allowList = new ChainCheck(CheckSettings.withDefaults(AllowListQualifier.NODE_TYPE, "allowList"),
+                new AllowListQualifier());
+        ChainCheck scan = new ChainCheck(remote("remoteCheck"), MarkerQualifier.remote(calls, outage));
+        String sha256 = held.sha256s.get(0);
+        List<OutcomeRecord> stored = List.of(
+                new OutcomeRecord("item0", "allowList", sha256, OutcomeRecord.PASS, "allowList.allowed", false, null, 0,
+                        NOW),
+                new OutcomeRecord("item0", "remoteCheck", sha256, OutcomeRecord.PASS, "stub.marker", false, null, 0,
+                        NOW));
+
+        Map<OutcomeKey, RecordedOutcome> recorded = OutcomeCodec.recorded(stored, files, List.of(allowList, scan));
+
+        assertNotNull(recorded.get(OutcomeKey.of(files.get(0), allowList)));
+        assertNull(recorded.get(OutcomeKey.of(files.get(1), allowList)), "doc.exe took the verdict of doc.pdf");
+        assertNotNull(recorded.get(OutcomeKey.of(files.get(1), scan)), "the same bytes share a verdict on the bytes");
+    }
+
+    @Test
+    void anAllowListWithNoListSendsTheSubmissionToReviewAndKeepsItsData() throws Exception {
+        run.addQualifier(new AllowListQualifier());
+        lists.put(FORM, List.of(CheckSettings.withDefaults(AllowListQualifier.NODE_TYPE, "allowList")));
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals("UNAVAILABLE", held.decision.reason());
+        assertEquals("allowList", held.decision.checkName());
+        assertTrue(held.valuesPresent);
+        assertTrue(held.anyBytes());
+        assertTrue(released.isEmpty());
+    }
+
+    @Test
+    void aFileThatTheReadOfTheReleaseMissesRefusesTheRelease() throws Exception {
+        Held held = stores.hold(FORM, "VERDICT:PASS", "VERDICT:PASS\nA second file");
+        // the record still says the bytes are there, and the read for the engine finds no binary
+        stores.lostOnRead.add(held.path + "/item1");
+
+        runNow();
+
+        assertTrue(released.isEmpty(), "the actions after release ran without the second file");
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals(DecisionRecord.INTEGRITY_FAILED, held.decision.reason());
+        assertEquals(Release.ITEM_COUNT, held.decision.itemName());
+        assertTrue(held.valuesPresent);
+    }
+
+    @Test
+    void theReleaseComparesTheCountAndTheHashOfTheBytesItReleases() {
+        byte[] bytes = "VERDICT:PASS".getBytes(StandardCharsets.UTF_8);
+        ItemRecord item = new ItemRecord("item0", "document", "a.txt", "text/plain", bytes.length,
+                Sha256.hex(bytes), true);
+        HeldRecord held = new HeldRecord("/p", FORM, InMemoryQuarantine.SITE, HeldStates.CHECKING, NOW, 0, null, 0,
+                List.of(), List.of(), true, List.of(item), NOW);
+
+        assertNull(Release.firstChanged(held, submissionOf(new SubmittedFile("document", "a.txt", "text/plain",
+                bytes))));
+        assertEquals(Release.ITEM_COUNT, Release.firstChanged(held, submissionOf()).name());
+        assertEquals("item0", Release.firstChanged(held, submissionOf(new SubmittedFile("document", "a.txt",
+                "text/plain", "VERDICT:PASS but changed".getBytes(StandardCharsets.UTF_8)))).name());
+    }
+
+    private static HeldSubmission submissionOf(SubmittedFile... files) {
+        return new HeldSubmission(FORM, InMemoryQuarantine.SITE, Locale.ENGLISH, Map.of(), Map.of(), List.of(files),
+                new SubmissionOrigin(null, null, null));
+    }
+
+    @Test
     void aPendingAnswerWithNoTicketIsAFailureThatNoRetryCanMend() {
         RecordedOutcome recorded = SubmissionRun.recordOf(Outcome.PENDING, null, 3);
 
@@ -430,10 +626,102 @@ class QuarantineRunTest {
         held.state = HeldStates.NEEDS_REVIEW;
         Release release = run.release();
 
-        assertThrows(IllegalTransitionException.class, () -> release.release(held.path, HeldState.NEEDS_REVIEW));
+        assertThrows(IllegalTransitionException.class,
+                () -> release.release(held.path, HeldState.NEEDS_REVIEW, FormPolicy.DEFAULT));
 
         assertTrue(released.isEmpty(), "the actions after release ran from state needsReview");
         assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+    }
+
+    /**
+     * A remote check that hashes the stream of each file a buffer at a time, and passes the file when the hash is the
+     * SHA-256 of intake. It may keep the stream and the file it was handed.
+     */
+    private static final class StreamingQualifier implements Qualifier {
+
+        static final String NODE_TYPE = "test:streamingCheck";
+
+        final List<String> hashes = new ArrayList<>();
+        boolean keepStream;
+        InputStream kept;
+        QuarantinedFile file;
+
+        @Override
+        public String getNodeType() {
+            return NODE_TYPE;
+        }
+
+        @Override
+        public Scope scope() {
+            return Scope.REMOTE;
+        }
+
+        @Override
+        public boolean appliesTo(QuarantinedFile file, CheckSettings settings) {
+            return true;
+        }
+
+        @Override
+        public Submitted submit(QuarantinedFile handed, CheckSettings settings) {
+            file = handed;
+            try (InputStream in = handed.open()) {
+                String hash = Sha256.hex(in);
+                if (keepStream) {
+                    // closed here, then ended with the session: the read after the call must still throw
+                    kept = in;
+                }
+                hashes.add(hash);
+                return Submitted.answered(hash.equals(handed.sha256()) ? Outcome.pass("stream.ok", null)
+                        : Outcome.fail("stream.differs", null));
+            } catch (IOException e) {
+                return Submitted.answered(new Outcome.Failed(false, "stream.unreadable"));
+            }
+        }
+
+        @Override
+        public Outcome poll(String ticket) {
+            throw new AssertionError("A streaming check answers at once");
+        }
+    }
+
+    /** A metadata check that records what it saw of each file, tries to open it, and passes it. */
+    private static final class MetadataProbe implements Qualifier {
+
+        static final String NODE_TYPE = "test:metadataCheck";
+
+        final List<String> seen = new ArrayList<>();
+        int refusedOpens;
+
+        @Override
+        public String getNodeType() {
+            return NODE_TYPE;
+        }
+
+        @Override
+        public Scope scope() {
+            return Scope.METADATA;
+        }
+
+        @Override
+        public boolean appliesTo(QuarantinedFile file, CheckSettings settings) {
+            return true;
+        }
+
+        @Override
+        public Submitted submit(QuarantinedFile file, CheckSettings settings) {
+            seen.add(file.fileName() + " " + file.mimeType() + " " + file.size());
+            try (InputStream in = file.open()) {
+                in.read();
+            } catch (IOException expected) {
+                refusedOpens++;
+            }
+            return Submitted.answered(Outcome.pass("metadata.ok", null));
+        }
+
+        @Override
+        public Outcome poll(String ticket) {
+            throw new AssertionError("A metadata check answers at once");
+        }
     }
 
     /** A remote check that answers what the test scripts, one answer per call; a scripted exception is thrown. */
@@ -603,7 +891,7 @@ class QuarantineRunTest {
         held.state = HeldStates.RELEASING;
         held.completedActions = 1;
 
-        run.release().release(held.path, HeldState.RELEASING);
+        run.release().release(held.path, HeldState.RELEASING, FormPolicy.DEFAULT);
 
         assertEquals(List.of(1), releasedFrom);
         assertEquals(HeldStates.COMPLETED, held.state);
@@ -737,6 +1025,204 @@ class QuarantineRunTest {
 
         assertEquals("releasing", report.processed().get(0).state(), "a release that stopped half way");
         assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "releasing", NOW)), held.audit);
+    }
+
+    // --- the policy of the form: release the values on a fail, and the scan status ---
+
+    private static final String SCAN_STATUS = "documentScanStatus";
+
+    private static FormPolicy policy(OnFail onFail, boolean scanStatusTaken) {
+        return new FormPolicy(onFail, SCAN_STATUS, "clean", "failed", false, scanStatusTaken);
+    }
+
+    /** A held submission whose visitor sent a value with the name of the scan status. */
+    private Held heldWithForgedStatus(String forged, String... texts) {
+        Held held = stores.hold(FORM, texts);
+        held.values = Map.of("fullName", List.of("Ada"), SCAN_STATUS, List.of(forged));
+        return held;
+    }
+
+    @Test
+    void aFailUnderReleaseValuesDeletesTheBytesThenReleasesTheValuesAloneWithTheFailedStatus() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = heldWithForgedStatus("clean", "VERDICT:FAIL\nA bad file");
+        List<Boolean> bytesWhenTheActionsRan = new ArrayList<>();
+        DeferredActions recording = twoActions();
+        actions = (submission, from, completed) -> {
+            bytesWhenTheActionsRan.add(held.anyBytes());
+            recording.run(submission, from, completed);
+        };
+
+        RunReport report = runNow();
+
+        assertEquals(List.of(HeldStates.CHECKING, HeldStates.RELEASING, HeldStates.COMPLETED), held.states);
+        assertEquals(List.of(false), bytesWhenTheActionsRan, "the bytes were still held when the actions ran");
+        HeldSubmission submission = released.get(0);
+        assertTrue(submission.files().isEmpty(), "the failed file reached the actions after release");
+        assertEquals(List.of("failed"), submission.parameters().get(SCAN_STATUS));
+        assertEquals(List.of("Ada"), submission.parameters().get("fullName"));
+        assertEquals(List.of(InMemoryQuarantine.SECRET), submission.sensitiveParameters().get("password"));
+        assertEquals("CHECK_FAILED", held.decision.reason(), "the decision keeps the failed verdict");
+        assertEquals("item0", held.decision.itemName());
+        assertTrue(held.valuesOnly);
+        assertFalse(held.valuesPresent, "values deleted once completed");
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "completed", NOW)), held.audit);
+        assertEquals(HeldStates.COMPLETED, report.processed().get(0).state());
+    }
+
+    @Test
+    void aPassAddsTheCleanStatusWhateverTheVisitorSent() throws Exception {
+        policy = policy(OnFail.REJECT, false);
+        Held held = heldWithForgedStatus("failed", "VERDICT:PASS\nA good file");
+
+        runNow();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertEquals(1, released.get(0).files().size());
+        assertEquals(List.of("clean"), released.get(0).parameters().get(SCAN_STATUS));
+        assertFalse(held.valuesOnly);
+    }
+
+    @Test
+    void theDefaultPolicyRejectsAFailAndAddsNoStatus() throws Exception {
+        Held failed = heldWithForgedStatus("clean", "VERDICT:FAIL\nOne");
+        Held passed = heldWithForgedStatus("forged", "VERDICT:PASS\nTwo");
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, failed.state);
+        assertFalse(failed.valuesOnly);
+        assertEquals(HeldStates.COMPLETED, passed.state);
+        assertEquals(1, released.size(), "the rejected submission ran no action");
+        assertEquals(List.of("forged"), released.get(0).parameters().get(SCAN_STATUS));
+    }
+
+    @Test
+    void aFailUnderReleaseValuesWhoseActionFailsStopsInReviewWithNoByteLeft() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = heldWithForgedStatus("clean", "VERDICT:FAIL");
+        actions = (submission, from, completed) -> {
+            throw new DeferredActionException("Action 0 failed", 0, 2, null);
+        };
+
+        runNow();
+
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals(DecisionRecord.ACTION_FAILED, held.decision.reason());
+        assertFalse(held.anyBytes(), "a later event could release the failed file");
+        assertTrue(held.valuesOnly);
+        assertTrue(held.valuesPresent, "values kept for a resume");
+    }
+
+    @Test
+    void aValuesReleaseThatChecksAgainReleasesTheValuesAloneAgain() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        held.state = HeldStates.CHECKING;
+        held.valuesOnly = true;
+        held.bytes.set(0, null);
+        Release release = run.release();
+
+        HeldState state = release.release(held.path, HeldState.CHECKING, policy);
+
+        assertEquals(HeldState.COMPLETED, state);
+        assertEquals(List.of(HeldStates.RELEASING, HeldStates.COMPLETED), held.states);
+        assertTrue(released.get(0).files().isEmpty());
+        assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
+    }
+
+    @Test
+    void aFieldNamedLikeTheScanStatusSendsAPassToReview() throws Exception {
+        policy = policy(OnFail.REJECT, true);
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals(DecisionRecord.SCAN_STATUS_TAKEN, held.decision.reason());
+        assertTrue(released.isEmpty(), "an action ran with the status written over a field");
+        assertTrue(held.anyBytes());
+    }
+
+    @Test
+    void aFieldNamedLikeTheScanStatusRejectsAFailUnderReleaseValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, true);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state);
+        assertEquals("CHECK_FAILED", held.decision.reason());
+        assertTrue(released.isEmpty());
+        assertFalse(held.valuesOnly);
+    }
+
+    @Test
+    void anInconclusiveThatRejectsUnderReleaseValuesStillRejects() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        lists.put(FORM, List.of(new CheckSettings(MarkerQualifier.REMOTE_TYPE, "remoteCheck",
+                OnInconclusive.REJECT, OnUnavailable.RETRY)));
+        Held held = stores.hold(FORM, "INCONCLUSIVE");
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state);
+        assertTrue(released.isEmpty(), "only a FAIL releases the values alone");
+    }
+
+    @Test
+    void aValuesReleaseWhoseSaveFailsKeepsEverythingAndTheNextRunReleasesTheValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        stores.failingValuesRelease.add(held.path);
+
+        RunReport failed = runNow();
+
+        assertNotNull(failed.processed().get(0).error(), "the run reports the failed save");
+        assertEquals(HeldStates.CHECKING, held.state);
+        assertTrue(held.anyBytes(), "bytes deleted by a save that failed");
+        assertFalse(held.valuesOnly);
+        assertTrue(held.valuesPresent);
+        assertEquals("CHECK_FAILED", held.decision.reason());
+        assertTrue(released.isEmpty());
+
+        stores.failingValuesRelease.clear();
+        runIgnoringSchedule();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertTrue(released.get(0).files().isEmpty());
+        assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
+        assertEquals("CHECK_FAILED", held.decision.reason());
+    }
+
+    @Test
+    void aFailAfterAnActionRanRejectsUnderReleaseValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        held.completedActions = 1;
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state, "an action already received the files");
+        assertTrue(released.isEmpty());
+        assertFalse(held.valuesOnly);
+    }
+
+    @Test
+    void aReleaseValuesAfterAnActionRanIsRefusedBeforeAnyChange() {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        held.state = HeldStates.CHECKING;
+        held.completedActions = 1;
+        Release release = run.release();
+        FormPolicy releaseValues = policy;
+
+        assertThrows(IllegalStateException.class,
+                () -> release.releaseValues(held.path, HeldState.CHECKING, releaseValues));
+
+        assertTrue(held.anyBytes());
+        assertFalse(held.valuesOnly);
+        assertEquals(HeldStates.CHECKING, held.state);
     }
 
     private HeldRecord recordOf(Held held) {

@@ -63,7 +63,7 @@ flowchart LR
 | Manager operations | Retry, release, resume and reject, each allowed by the state machine and written to the audit. |
 | GraphQL API and download | The API of the manager screen. A resolver checks the permission of the user on the site before every read and every operation. |
 | Manager screen | A jContent route of the site: the list, the detail of a submission, the operations and the download. |
-| Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `FAIL` for a type outside its list, and `PASS` for a type on it. |
+| Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `PASS` when both the extension and the MIME type of the file are on its two lists, and `FAIL` otherwise. |
 
 ## The check API
 
@@ -72,25 +72,53 @@ A check module provides both, and nothing else:
 
 - The node type declares `fmdbmix:qualifier`, so the Page Builder offers it in the checks zone.
 - The service registers under the check API and names the node type it serves.
-- A check receives the metadata of the file, a stream of its bytes and its settings. It never receives a node of
-  the repository.
+- A check receives the metadata of the file and its settings. A check that reads bytes also receives a stream of
+  the bytes, and a `METADATA` check receives no stream. A check never receives a node of the repository.
+- The stream reads the binary of the repository as the check reads it, with no copy of the file in memory. The run
+  calls the checks in batches, with at most one call for each file in a batch. When a batch holds a call that reads
+  bytes, the run opens a session of the repository for the whole batch. The run closes the session after the last
+  call.
+- A file opens a stream only while the session of a batch is open. A stream reads only until its batch ends. A file
+  that the check keeps can open a new stream during a later batch of the same run that opens a session.
 - A check gives one of three answers:
   - a verdict, `PASS`, `FAIL` or `INCONCLUSIVE`;
   - a ticket that the run polls later;
   - a failure, retryable or not, when the check could not answer. Its setting `onUnavailable` then decides.
 - A check declares its scope:
-  - A `METADATA` check reads the name, the declared MIME type and the size of the file, and never a byte.
+  - A `METADATA` check reads the name, the detected MIME type and the size of the file, and never a byte. The run
+    hands it a file whose stream cannot be opened.
   - A `REMOTE` check sends the bytes out of the JVM.
   - An `IN_PROCESS` check reads the bytes inside the JVM.
 - The chain refuses a list where an `IN_PROCESS` check reads a file before a `REMOTE` check passed it. A `METADATA`
   check can stand at any place in the list.
-
-The allow-list check has the scope `METADATA`. Its `PASS` means only that the type of the file is allowed. With the
-allow-list check alone in the list, every file of an allowed type is released with no scan. A scanner therefore
-comes after the allow-list check.
+- The run records an outcome for the bytes it was given for. A check that reads bytes judges the bytes, so two files
+  with the same bytes share its outcome. A `METADATA` check judges the name and the type. Its outcome counts
+  only for a file of the same bytes, the same name and the same detected MIME type.
 
 The settings of a check come from its node. The run reads the node and gives the check its common settings
-(`onInconclusive`, `onUnavailable`) and its own properties as a map of strings.
+(`onInconclusive`, `onUnavailable`) and its own properties as a map:
+
+- The map holds the properties that the type of the check declares or inherits, and that the node holds.
+- It leaves out the properties of the platform, whose names start with `jcr:`, `j:` or `mix:`, and the two common
+  settings.
+- Each property maps to the list of its values as strings. A single property has a list of one value.
+
+### The allow-list check
+
+The module ships one check, the node type `fmdbq:allowListCheck` and its service `AllowListQualifier`:
+
+- It has the scope `METADATA` and applies to every file.
+- It has two lists, `extensions` and `mimeTypes`. It answers `PASS` when the extension of the name of the file and
+  the MIME type of the file are both on the lists. Case does not matter, and neither do the parameters of the MIME
+  type.
+- It answers `FAIL` otherwise, with the reason `allowList.extensionRefused` or `allowList.mimeTypeRefused`. The
+  submission is rejected.
+- Both lists are mandatory. A check whose list holds no entry is a mistake of the setup, not a refused file. It
+  answers a failure that no retry mends, `allowList.notConfigured`, and the submission goes to review with its data.
+
+Its `PASS` means only that the type of the file is allowed. With the allow-list check alone in the list, every file
+of an allowed type is released with no scan. A scanner therefore comes after the allow-list check. The help text of
+the check says so in the Page Builder and in the content editor.
 
 The check API follows semantic versioning. Jahia implements the types marked `@ProviderType`, and a check module
 implements the types marked `@ConsumerType`. ADR 0003 decides that the build compares the exported package with its
@@ -211,8 +239,8 @@ compare-and-set of every state move:
     no write. A scheduled run that does not get the lock skips the site until its next call. "Run now" answers
     "a run is in progress" instead.
 - **The operations in a cluster.** An operation on another server does not take the lock of the site of this
-  server. A release and a resume, which run the actions after release, and a reject of a submission in
-  `releasing`, take the lock of the run of the site in the repository for their duration, with the lease of
+  server. A release, a resume and a reject that releases the values alone, which run the actions after release, and
+  a reject of a submission in `releasing`, take the lock of the run of the site in the repository for their duration, with the lease of
   `lockLeaseSeconds`, which a release checks before its actions and extends as a pass does. So a resume of a
   release that stopped never runs beside a release under way, on any server. A retry resets the attempts, drops
   the outcomes that are not a `PASS` and moves to `checking` in one compare-and-set save, so a stale retry changes
@@ -260,10 +288,17 @@ stateDiagram-v2
 The events `RELEASE_VALUES` and `MANAGER_RELEASE_VALUES` serve a form with `onFail=releaseValues`:
 
 - `RELEASE_VALUES` follows a `FAIL` verdict, and `MANAGER_RELEASE_VALUES` follows a reject by a manager.
-- Both events delete the bytes of every file before they lead to `releasing` with the values alone. A later
-  event, such as a release by a manager after a failed action, then has no file to release.
-- The submission ends in `completed`, and its decision record keeps the failed verdict or the reject of the
-  manager. The audit never states that every check passed.
+- One save deletes the bytes of every file, marks the held submission as a release of its values alone, and moves
+  it to `releasing`. That save checks that the state did not change. A failure leaves the submission as it was,
+  with its bytes, so the run or the manager starts the release of the values again. A later event, such as a resume
+  by a manager after a failed action, has no file to release, and runs the actions with the values alone again.
+- Both events apply only when no action after release ran yet. Once an action received the files, a `FAIL` and a
+  reject by a manager reject the submission, and a manager can resume the release of the files instead.
+- A reject by a manager of a submission whose values already went out alone rejects it.
+- The decision record keeps what stopped the submission: the failed verdict, or the reason of the review that the
+  manager rejected, with its item and its check. The audit names the reject of the manager and the user. A later
+  failed action replaces the decision with `ACTION_FAILED`, as for any release, and the mark of the release of the
+  values alone stays. The audit never states that every check passed.
 
 ### An operation of a manager
 
@@ -292,7 +327,9 @@ A user without the permission gets the same answer as for a submission that does
   inheritance of the ACL and has no entry, so no site role reads it.
 - The bytes of a file are a binary property of the item. They are never `jcr:data` of a file node, so no file
   servlet serves them, and no text extraction or listener reads them.
-- The store computes the SHA-256 again before a release and before a download:
+- The store computes the SHA-256 again before a release and before a download. The release reads each file once,
+  into memory, because the actions of the engine take the bytes of a file as an array. The hash covers exactly the
+  bytes that the actions receive:
   - A mismatch before a release moves the submission to review with the reason `INTEGRITY_FAILED`.
   - A mismatch before a download refuses the download and writes an audit record. The submission stays in
     `needsReview`.
@@ -334,18 +371,39 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 |---|---|---|
 | Platform | The OSGi configuration of the module | The period of the run, the back-off, the lease of the lock of the run, the retention and the period of the purge, and the ceiling of `fileAccess`. |
 | Site | A property of the site | A lower `fileAccess`, a lower retention of the site (`fmdbqmix:quarantineSite`), and the addresses of the review digest. |
-| Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
+| Form | The mixin `fmdbqmix:quarantinePolicy`, a switch of the form next to the quarantine switch. It applies only while the quarantine switch is on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
 
+- A form without the mixin has the default policy, `onFail=reject` and no scan status. The run reads the policy of
+  the form in live once when it concludes on a `FAIL` or a release, and an operation of a manager reads it once for
+  a release, a resume or a reject in `needsReview`. An operation that cannot read the form refuses, and the manager
+  tries again; nothing changes.
 - `onFail=reject` rejects the submission ([The scheduled run](#the-scheduled-run) states what the store keeps).
-- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and adds the scan
-  status to the values. [The states of a held submission](#the-states-of-a-held-submission) give the two events of this
-  path.
+- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and adds the failed
+  scan status to the values. A `FAIL` verdict takes this path, and so does a reject by a manager in `needsReview`.
+  Another reason to reject, such as `onInconclusive=reject`, still rejects.
+  [The states of a held submission](#the-states-of-a-held-submission) give the two events of this path.
 - The scan status is a value that the run adds to the values of the actions after release, and not a field of the
   form. The engine skips a posted value whose name is not a field of the form
-  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). Each time the form is published, the module
-  checks that no field of the form has the name of the scan status. It refuses the publication otherwise. At
-  release, the run writes the scan status over any value of that name. So the visitor cannot set the scan status.
-- `showValues` shows the public values of a held submission in the detail view. The sensitive values never appear.
+  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). At release, the run writes the scan
+  status over any value of that name. So the visitor cannot set the scan status.
+- A release of the files gets the clean value, and a release of the values alone gets the failed value. An empty
+  name adds no scan status.
+- The name of the scan status is a letter, then up to 63 letters, digits, `_` or `-`, so that an action can write
+  it as a property name. The editor refuses another name. The run ignores a stored name that does not match, with an
+  error in the log, and adds no scan status.
+- Before it writes the scan status, the module checks that no field of the form that posts a value, in a step or a
+  fieldset too, has its name. It never writes the status over the value of a field. When a field has that name, the
+  module logs an error and:
+  - sends to review, with the decision `SCAN_STATUS_TAKEN`, a submission whose checks all passed;
+  - rejects a submission whose file a check failed, as the default policy does;
+  - refuses a release and a resume by a manager;
+  - makes a reject by a manager a plain reject.
+
+  The check runs at the run and at each operation, and not when the form is saved or published. The validation of
+  Jahia at save reads only the node that changed, and a field added to the form later changes no property of the
+  form node.
+- `showValues` shows the public values of a held submission in the detail view. The detail view of the manager API
+  reads it, so the setting takes effect with that API. The sensitive values never appear.
 
 ## Deployment
 

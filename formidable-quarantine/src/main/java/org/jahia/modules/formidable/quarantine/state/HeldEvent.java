@@ -46,7 +46,19 @@ public enum HeldEvent {
     MANAGER_RESUME(HeldState.RELEASING, HeldState.NEEDS_REVIEW, HeldState.RELEASING),
 
     /** A manager rejects the submission, also one whose release stopped half way in {@code releasing}. */
-    MANAGER_REJECT(HeldState.REJECTED, HeldState.NEEDS_REVIEW, HeldState.RELEASING);
+    MANAGER_REJECT(HeldState.REJECTED, HeldState.NEEDS_REVIEW, HeldState.RELEASING),
+
+    /**
+     * A check failed a file of a form whose policy releases the values: the bytes of every file are deleted first,
+     * and the actions after release run with the values alone.
+     */
+    RELEASE_VALUES(HeldState.RELEASING, HeldState.CHECKING),
+
+    /**
+     * A manager rejects a submission of a form whose policy releases the values: the bytes of every file are deleted
+     * first, and the actions after release run with the values alone.
+     */
+    MANAGER_RELEASE_VALUES(HeldState.RELEASING, HeldState.NEEDS_REVIEW);
 
     private final HeldState target;
     private final Set<HeldState> sources;

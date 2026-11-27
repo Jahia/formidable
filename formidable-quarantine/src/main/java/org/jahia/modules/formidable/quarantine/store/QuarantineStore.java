@@ -94,6 +94,22 @@ public interface QuarantineStore {
     void finish(String path, String expected, String state) throws QuarantineStoreException;
 
     /**
+     * Starts the release of the values alone of the held submission, in one save: the bytes of every item are
+     * deleted, the submission is marked as a release of its values alone, and its state moves to {@code state}. The
+     * values and the records stay. From then on, {@link #read} returns no file, and no event releases a file of the
+     * submission again.
+     *
+     * @param expectedState the state the submission must have now, read again in the session of the save
+     * @param state         the state to write, {@link HeldStates#RELEASING}
+     * @throws QuarantineStoreException when the stored state is not {@code expectedState}, or the repository refused
+     *                                  the save: nothing changed, so the release can start again
+     */
+    void startValuesRelease(String path, String expectedState, String state) throws QuarantineStoreException;
+
+    /** @return true once {@link #startValuesRelease} ran: the submission goes out with its values alone */
+    boolean valuesOnly(String path) throws QuarantineStoreException;
+
+    /**
      * Removes the whole held submission: its items, its values, the outcomes and the decision of its checks, and its
      * audit. The retention calls it. The datastore of the repository frees the bytes only at its garbage collection.
      */

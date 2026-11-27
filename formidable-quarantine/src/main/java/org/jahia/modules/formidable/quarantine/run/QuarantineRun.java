@@ -69,6 +69,7 @@ public class QuarantineRun implements QuarantineRunner {
     static final String MOVED = "moved by another run or operation";
 
     private final CheckList checkList;
+    private final FormPolicies policies;
     private final Clock clock;
     private final Map<String, Qualifier> qualifiers = new ConcurrentHashMap<>();
     private final AtomicReference<RunSettings> settings = new AtomicReference<>(RunSettings.DEFAULT);
@@ -80,11 +81,17 @@ public class QuarantineRun implements QuarantineRunner {
     private SiteLocks siteLocks = new SiteLocks();
 
     public QuarantineRun() {
-        this(new JcrCheckList(), Clock.systemUTC());
+        this(new JcrCheckList(), new JcrFormPolicies(), Clock.systemUTC());
     }
 
+    /** A run whose forms all have the default policy. */
     QuarantineRun(CheckList checkList, Clock clock) {
+        this(checkList, formId -> FormPolicy.DEFAULT, clock);
+    }
+
+    QuarantineRun(CheckList checkList, FormPolicies policies, Clock clock) {
         this.checkList = checkList;
+        this.policies = policies;
         this.clock = clock;
     }
 
@@ -177,10 +184,11 @@ public class QuarantineRun implements QuarantineRunner {
 
     /**
      * The release of the module, for an operation that releases or resumes a submission by hand: call it with the
-     * state {@code releasing}, once the state machine moved the submission there.
+     * state {@code releasing}, once the state machine moved the submission there. It reads the policy of the form too,
+     * for a reject that releases the values alone.
      */
     public Release release() {
-        return new Release(store, checkStore, actions, new Transitions(store), clock);
+        return new Release(store, checkStore, actions, new Transitions(store), clock, policies);
     }
 
     /**

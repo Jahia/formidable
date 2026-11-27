@@ -8,7 +8,12 @@ import org.jahia.services.content.JCRSessionWrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import javax.jcr.Binary;
 import javax.jcr.RepositoryException;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.Calendar;
@@ -16,6 +21,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -213,6 +219,63 @@ class JcrCheckStoreTest {
         when(held.hasNode("item0")).thenReturn(true);
         when(held.getNode("item0")).thenReturn(item);
 
-        assertThrows(QuarantineStoreException.class, () -> store.openItem(HELD_PATH, "item0"));
+        assertThrows(QuarantineStoreException.class,
+                () -> store.withItems(HELD_PATH, items -> items.open("item0")));
+    }
+
+    @Test
+    void aStreamReadsTheBinaryOfTheRepositoryOnlyUntilTheWorkReturns() throws Exception {
+        Binary binary = itemWithBytes("item0", "VERDICT:PASS");
+        InputStream[] kept = new InputStream[1];
+
+        String read = store.withItems(HELD_PATH, items -> {
+            kept[0] = items.open("item0");
+            try {
+                String first = new String(kept[0].readNBytes(7), StandardCharsets.UTF_8);
+                // a read of the whole stream reaches the binary of the repository, which refuses it here
+                InputStream stream = kept[0];
+                assertThrows(AssertionError.class, stream::readAllBytes);
+                return first + ":" + kept[0].available();
+            } catch (IOException e) {
+                throw new QuarantineStoreException("unreadable", e);
+            }
+        });
+
+        // the store copied nothing: the stream of the binary still holds the 5 bytes left
+        assertEquals("VERDICT:5", read);
+        InputStream closed = kept[0];
+        assertThrows(IOException.class, closed::read);
+        verify(binary).dispose();
+    }
+
+    @Test
+    void theFailureOfTheWorkReachesTheCallerAsItIs() throws Exception {
+        itemWithBytes("item0", "x");
+        QuarantineStoreException failure = new QuarantineStoreException("the work failed");
+
+        QuarantineStoreException thrown = assertThrows(QuarantineStoreException.class,
+                () -> store.withItems(HELD_PATH, items -> {
+                    throw failure;
+                }));
+
+        assertSame(failure, thrown);
+    }
+
+    private Binary itemWithBytes(String name, String text) throws RepositoryException {
+        JCRNodeWrapper item = mock(JCRNodeWrapper.class);
+        JCRPropertyWrapper data = mock(JCRPropertyWrapper.class);
+        Binary binary = mock(Binary.class);
+        when(held.hasNode(name)).thenReturn(true);
+        when(held.getNode(name)).thenReturn(item);
+        when(item.hasProperty(QuarantineTree.DATA)).thenReturn(true);
+        when(item.getProperty(QuarantineTree.DATA)).thenReturn(data);
+        when(data.getBinary()).thenReturn(binary);
+        when(binary.getStream()).thenReturn(new ByteArrayInputStream(text.getBytes(StandardCharsets.UTF_8)) {
+            @Override
+            public synchronized byte[] readAllBytes() {
+                throw new AssertionError("The whole binary was read into memory");
+            }
+        });
+        return binary;
     }
 }

@@ -9,8 +9,6 @@ import org.osgi.service.component.annotations.Component;
 import javax.jcr.Binary;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -234,25 +232,49 @@ public class JcrCheckStore implements CheckStore {
     }
 
     @Override
-    public InputStream openItem(String path, String itemName) throws QuarantineStoreException {
-        byte[] bytes = inSession("read the bytes of item " + itemName + " of the held submission at " + path, session -> {
-            JCRNodeWrapper held = held(session, path);
-            if (!held.hasNode(itemName) || !held.getNode(itemName).hasProperty(QuarantineTree.DATA)) {
-                throw new PathNotFoundException("No bytes for item " + itemName + " of " + path);
-            }
-            return bytesOf(held.getNode(itemName));
-        });
-        return new ByteArrayInputStream(bytes);
+    public <T> T withItems(String path, ItemWork<T> work) throws QuarantineStoreException {
+        try {
+            return inSession("read the items of the held submission at " + path, session -> {
+                JCRNodeWrapper held = held(session, path);
+                List<Binary> binaries = new ArrayList<>();
+                try (ScopedStreams items = new ScopedStreams(itemName -> streamOf(held, itemName, binaries))) {
+                    return work.run(items);
+                } catch (QuarantineStoreException e) {
+                    throw new WorkFailure(e);
+                } finally {
+                    binaries.forEach(Binary::dispose);
+                }
+            });
+        } catch (WorkFailure e) {
+            throw e.failure;
+        }
     }
 
-    private static byte[] bytesOf(JCRNodeWrapper item) throws RepositoryException {
-        Binary binary = item.getProperty(QuarantineTree.DATA).getBinary();
-        try (InputStream in = binary.getStream()) {
-            return in.readAllBytes();
-        } catch (IOException e) {
-            throw new RepositoryException("Could not read the bytes of the item " + item.getPath(), e);
-        } finally {
-            binary.dispose();
+    /** The stream of the binary of the item, read from the repository as the caller reads it. */
+    private static InputStream streamOf(JCRNodeWrapper held, String itemName, List<Binary> binaries)
+            throws QuarantineStoreException {
+        try {
+            if (!held.hasNode(itemName) || !held.getNode(itemName).hasProperty(QuarantineTree.DATA)) {
+                throw new QuarantineStoreException("No bytes for item " + itemName + " of " + held.getPath());
+            }
+            Binary binary = held.getNode(itemName).getProperty(QuarantineTree.DATA).getBinary();
+            binaries.add(binary);
+            return binary.getStream();
+        } catch (RepositoryException e) {
+            throw new QuarantineStoreException("Could not read the bytes of item " + itemName, e);
+        }
+    }
+
+    /** Carries the failure of a work out of the callback of the session, which throws only a RepositoryException. */
+    private static final class WorkFailure extends RuntimeException {
+
+        private static final long serialVersionUID = 1L;
+
+        private final QuarantineStoreException failure;
+
+        WorkFailure(QuarantineStoreException failure) {
+            super(failure.getMessage(), failure);
+            this.failure = failure;
         }
     }
 

@@ -357,6 +357,40 @@ public class JcrQuarantineStore implements QuarantineStore {
     }
 
     @Override
+    public void startValuesRelease(String path, String expectedState, String state) throws QuarantineStoreException {
+        if (!HeldStates.isState(state)) {
+            throw new QuarantineStoreException("Not a state of a held submission: " + state);
+        }
+        Instant at = clock.instant();
+        change(path, "start the release of the values alone", held -> {
+            String stored = string(held, QuarantineTree.STATE);
+            if (!expectedState.equals(stored)) {
+                throw new InvalidItemStateException("The held submission at " + path + " is " + stored + ", not "
+                        + expectedState);
+            }
+            for (JCRNodeWrapper item : items(held)) {
+                removeIfPresent(item, QuarantineTree.DATA);
+            }
+            held.setProperty(QuarantineTree.VALUES_ONLY, true);
+            held.setProperty(QuarantineTree.STATE, state);
+            held.setProperty(QuarantineTree.CHANGED_AT, calendar(at));
+        });
+        log.info("Held submission {}: its bytes are deleted, its values go out alone, state {}", path, state);
+    }
+
+    @Override
+    public boolean valuesOnly(String path) throws QuarantineStoreException {
+        return inSession("read the release of the held submission at " + path, session -> {
+            JCRNodeWrapper held = heldOrNull(session, path);
+            if (held == null) {
+                throw new PathNotFoundException("No held submission at " + path);
+            }
+            return held.hasProperty(QuarantineTree.VALUES_ONLY)
+                    && held.getProperty(QuarantineTree.VALUES_ONLY).getBoolean();
+        });
+    }
+
+    @Override
     public void purge(String path) throws QuarantineStoreException {
         change(path, "purge", JCRNodeWrapper::remove);
         log.info("Purged the held submission at {}", path);
