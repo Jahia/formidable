@@ -33,8 +33,8 @@ public class GqlQuarantineMutation {
     @GraphQLField
     @GraphQLNonNull
     @GraphQLDescription("Purges the rejected held submissions of the site whose last change is older than the limit:"
-            + " the configured retention, or olderThanDays for this call. Server administrators only: any other user"
-            + " gets an error whose extensions.code is FORBIDDEN")
+            + " the configured retention, or olderThanDays for this call. Server administrators only: a manager of the"
+            + " site who is not one gets an error whose extensions.code is FORBIDDEN")
     public GqlPurgeReport purge(@GraphQLName("olderThanDays")
                                 @GraphQLDescription("The limit for this call, in days; the configured one when absent")
                                 Integer olderThanDays) {

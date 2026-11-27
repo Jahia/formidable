@@ -21,7 +21,13 @@ interface Answer<T> {
 }
 
 // The answer of each query, by its operation name, that a test sets; the screen reads them through useQuery, and each
-// call is recorded with its variables. react-i18next with no instance answers the key: the tests read the keys.
+// call is recorded with its variables. The translation answers the key, so the tests read the keys; its t keeps one
+// identity across renders, as the t of an i18next instance does, so an effect that depends on it runs once.
+vi.mock('react-i18next', () => {
+    const t = (key: string) => key;
+    return {useTranslation: () => ({t})};
+});
+
 const apollo = vi.hoisted(() => ({
     summary: {loading: true} as Answer<SummaryData>,
     list: {loading: true} as Answer<ListData>,
@@ -395,7 +401,7 @@ describe('QuarantineApp', () => {
         const summaries = apollo.calls.filter(call => call.name.endsWith('Summary')).length;
 
         await press(container.querySelector('button[data-state="NEEDS_REVIEW"]'));
-        expect(lastListVariables()).toMatchObject({states: ['NEEDS_REVIEW'], formId: null, offset: 0, newestFirst: false});
+        expect(lastListVariables()).toMatchObject({states: ['NEEDS_REVIEW'], formId: null, offset: 0, limit: 25, newestFirst: false});
 
         await press(container.querySelector('[data-sel-role="quarantine-form-filter"]'));
         const claims = Array.from(document.querySelectorAll<HTMLInputElement>('[data-sel-role="quarantine-form-editor"] input[type="radio"]'))
@@ -449,6 +455,35 @@ describe('QuarantineApp', () => {
         await press(container.querySelector('[data-sel-role="quarantine-open"]'));
         expect(container.querySelector('[data-sel-role="quarantine-no-access"]')).not.toBeNull();
         expect(container.querySelector('[data-sel-role="quarantine-gone"]')).toBeNull();
+        // the status region says so, and the focus goes to the heading of the screen, not to the body
+        await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
+        expect(container.querySelector('[data-sel-role="quarantine-status"]')?.textContent).toBe('quarantine.noAccess');
+        expect(document.activeElement?.tagName).toBe('H1');
+    });
+
+    it('announces no page while the failure of the list holds, a filter change included', async () => {
+        apollo.summary = {loading: false, error: new Error('Network error'), data: SUMMARY};
+        const {container} = await mount(<QuarantineApp/>);
+        await press(container.querySelector('button[data-state="NEEDS_REVIEW"]'));
+        await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
+        expect(container.querySelector('[data-sel-role="quarantine-list-failed"]')).not.toBeNull();
+        expect(container.querySelector('[data-sel-role="quarantine-status"]')?.textContent).not.toContain('quarantine.announce.list');
+    });
+
+    it('says no access, not a submission gone, when a reload finds that the user lost access', async () => {
+        apollo.detail = {loading: false, data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
+        apollo.operate.mockRejectedValue({graphQLErrors: [{message: 'any text', extensions: {code: 'CONFLICT'}}]});
+        const {container} = await mount(<QuarantineApp/>);
+        await press(container.querySelector('[data-sel-role="quarantine-open"]'));
+        await press(container.querySelector('[data-sel-role="quarantine-action-retry"]'));
+        apollo.refetch.detail.mockImplementation(() => {
+            apollo.detail = {loading: false, data: {formidableQuarantine: null}};
+            return Promise.resolve({data: {formidableQuarantine: null}});
+        });
+        await press(container.querySelector('[data-sel-role="quarantine-reload"]'));
+        await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
+        expect(container.querySelector('[data-sel-role="quarantine-no-access"]')).not.toBeNull();
+        expect(container.querySelector('[data-sel-role="quarantine-status"]')?.textContent).toBe('quarantine.noAccess');
     });
 
     it('keeps the failure of the list and its Try again while the retry runs, and gives the focus back when it fails', async () => {
@@ -464,8 +499,9 @@ describe('QuarantineApp', () => {
 
         apollo.list = {loading: false, error: new Error('Network error'), data: listOf([ROW])};
         apollo.refetch.list.mockRejectedValue(new Error('Network error'));
+        // pressed with no focus on it: only the failed retry can put the focus there
         const again = container.querySelector<HTMLElement>('[data-sel-role="quarantine-list-failed"] [data-sel-role="quarantine-try-again"]');
-        again?.focus();
+        expect(document.activeElement).not.toBe(again);
         await press(again);
         await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
         expect(document.activeElement?.getAttribute('data-sel-role')).toBe('quarantine-try-again');
@@ -502,6 +538,8 @@ describe('QuarantineApp', () => {
         const countsFailed = markupOf(<QuarantineApp/>);
         expect(countsFailed).toContain('quarantine-list-failed');
         expect(countsFailed).not.toContain('quarantine-row');
+        // the state filter keeps the earlier count of the summary
+        expect(countsFailed).toMatch(/data-state="NEEDS_REVIEW"[^>]*>.*?quarantine\.state\.NEEDS_REVIEW 2/s);
     });
 
     it('shows the failure of the detail, never its earlier answer, when its refetch fails', async () => {

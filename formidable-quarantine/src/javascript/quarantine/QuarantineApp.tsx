@@ -21,6 +21,7 @@ import {
     currentSiteKey,
     isChangedUnderneath,
     offsetInsideList,
+    PAGE_SIZE,
     pageRange,
     type QuarantineOperation,
     type QuarantineState,
@@ -105,15 +106,16 @@ function targetOf(wanted: FocusRequest, root: HTMLElement | null): HTMLElement |
     const detailTryAgain = () => root?.querySelector<HTMLElement>(TRY_AGAIN.detail) ?? null;
     switch (wanted.kind) {
         case 'detailHeading':
-            return document.getElementById('fmdbq-detail-title') ?? detailTryAgain();
+            // the detail, else its Try again, else the heading of the screen, as when the no-access text replaced it
+            return document.getElementById('fmdbq-detail-title') ?? detailTryAgain() ?? listHeading();
         case 'listHeading':
             return listHeading();
         case 'reload':
-            return bySelRole(root, 'quarantine-reload') ?? detailTryAgain();
+            return bySelRole(root, 'quarantine-reload') ?? detailTryAgain() ?? listHeading();
         case 'tryAgain':
             return root?.querySelector<HTMLElement>(TRY_AGAIN[wanted.where]) ?? null;
         case 'refresh':
-            return bySelRole(root, 'quarantine-refresh');
+            return bySelRole(root, 'quarantine-refresh') ?? listHeading();
         case 'empty':
             return bySelRole(root, 'quarantine-no-match') ?? bySelRole(root, 'quarantine-empty') ?? firstRow();
         case 'row':
@@ -191,17 +193,21 @@ function useFocusRequests(rootRef: React.RefObject<HTMLElement>) {
 }
 
 /**
- * Announces the list once per filter, page and order: an operation that refreshes the same page does not repeat it.
- * A user who does not manage the site hears the no-access text once.
+ * Announces the page that the list shows once per filter, page and order: an operation that refreshes the same page
+ * does not repeat it. A user who does not manage the site hears the no-access text once, whether the summary says so
+ * or, later, the page or the detail (accessLost).
  */
 function useListAnnouncement(summary: SummaryData | undefined, page: SubmissionPage | undefined, filters: Filters,
-                             announce: Announce, t: Translate) {
+                             accessLost: boolean, announce: Announce, t: Translate) {
     const announcedRef = useRef<string | null>(null);
     const site = summary?.formidableQuarantine;
     useEffect(() => {
-        if (summary && !site && announcedRef.current !== 'noAccess') {
-            announcedRef.current = 'noAccess';
-            announce(t('quarantine.noAccess'));
+        if (((summary && !site) || accessLost)) {
+            if (announcedRef.current !== 'noAccess') {
+                announcedRef.current = 'noAccess';
+                announce(t('quarantine.noAccess'));
+            }
+
             return;
         }
 
@@ -210,7 +216,7 @@ function useListAnnouncement(summary: SummaryData | undefined, page: SubmissionP
             announcedRef.current = key;
             announce(listSentence(page, filters, site.forms, t));
         }
-    }, [summary, site, page, filters, announce, t]);
+    }, [summary, site, page, filters, accessLost, announce, t]);
 }
 
 /**
@@ -259,6 +265,8 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
             formId: filters.formId,
             states: filters.state ? [filters.state] : null,
             offset: filters.offset,
+            // the size the pager steps by
+            limit: PAGE_SIZE,
             newestFirst: filters.sort === 'descending'
         },
         skip: !siteKey,
@@ -310,7 +318,9 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
             announce(t('quarantine.loading'));
         }
     }, [siteKey, announce, t]);
-    useListAnnouncement(summaryData, list.data?.formidableQuarantine?.submissions, filters, announce, t);
+    // the page that the list shows: none while its failure holds
+    useListAnnouncement(summaryData, listFailed ? undefined : list.data?.formidableQuarantine?.submissions, filters, accessLost,
+        announce, t);
     useEffect(() => {
         if (summary.error || list.error) {
             announce(t('quarantine.loadFailed'), true);
@@ -345,7 +355,7 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
         focus({kind: 'reload'}, true);
     };
 
-    /** The counts, the forms and the page again, after an operation or on Refresh. */
+    /** The counts, the forms and the page again. */
     const refetchList = () => Promise.all([summary.refetch(), list.refetch()]);
 
     /**
@@ -438,7 +448,10 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
             const [, again] = await Promise.all([refetchList(), detail.refetch()]);
             setChanged(false);
             const now = again.data?.formidableQuarantine?.submission;
-            if (now) {
+            if (again.data?.formidableQuarantine === null) {
+                // the user no longer manages the site: the screen says no access, and no submission left
+                focus({kind: 'listHeading'});
+            } else if (now) {
                 announce(t('quarantine.reloaded', {state: t(`quarantine.state.${now.state}`)}));
                 focus({kind: 'detailHeading'});
             } else {

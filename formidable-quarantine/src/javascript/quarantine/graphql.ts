@@ -22,11 +22,11 @@ export const GET_QUARANTINE_SUMMARY = gql`
 /** One page of the list. */
 export const GET_QUARANTINE_LIST = gql`
     query GetFormidableQuarantineList(
-        $siteKey: String!, $formId: String, $states: [FmdbqState!], $offset: Int!, $newestFirst: Boolean
+        $siteKey: String!, $formId: String, $states: [FmdbqState!], $offset: Int!, $limit: Int!, $newestFirst: Boolean
     ) {
         formidableQuarantine(siteKey: $siteKey) {
             siteKey
-            submissions(formId: $formId, states: $states, offset: $offset, limit: 25, newestFirst: $newestFirst) {
+            submissions(formId: $formId, states: $states, offset: $offset, limit: $limit, newestFirst: $newestFirst) {
                 totalCount
                 offset
                 items {
