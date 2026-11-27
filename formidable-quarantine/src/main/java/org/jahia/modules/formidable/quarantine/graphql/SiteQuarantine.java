@@ -151,12 +151,7 @@ final class SiteQuarantine {
     /** The count of the query of the form and the states, counted once per request. */
     private synchronized long total(String formId, Set<String> stored) {
         String key = formId + "|" + new TreeSet<>(stored);
-        Long known = totals.get(key);
-        if (known == null) {
-            known = read(() -> services.queries().count(siteKey, formId, stored));
-            totals.put(key, known);
-        }
-        return known;
+        return totals.computeIfAbsent(key, ignored -> read(() -> services.queries().count(siteKey, formId, stored)));
     }
 
     /**
