@@ -702,4 +702,85 @@ class JcrQuarantineStoreTest {
         verify(other, never()).remove();
         verify(session, times(1)).save();
     }
+
+    // --- the release of the values alone ---
+
+    /** A held submission in the state, with two items that hold bytes. */
+    private JCRNodeWrapper heldWithTwoItems(String path, String state, List<JCRPropertyWrapper> data)
+            throws RepositoryException {
+        JCRNodeWrapper held = heldAt(path);
+        string(held, QuarantineTree.STATE, state);
+        List<JCRNodeWrapper> items = new ArrayList<>();
+        for (int i = 0; i < 2; i++) {
+            JCRNodeWrapper item = node(path + "/item" + i);
+            when(item.getName()).thenReturn("item" + i);
+            when(item.isNodeType(QuarantineTree.ITEM_TYPE)).thenReturn(true);
+            JCRPropertyWrapper bytes = mock(JCRPropertyWrapper.class);
+            when(item.hasProperty(QuarantineTree.DATA)).thenReturn(true);
+            when(item.getProperty(QuarantineTree.DATA)).thenReturn(bytes);
+            data.add(bytes);
+            items.add(item);
+        }
+        JCRNodeIteratorWrapper children = mock(JCRNodeIteratorWrapper.class);
+        when(children.iterator()).thenReturn(items.iterator());
+        when(held.getNodes()).thenReturn(children);
+        return held;
+    }
+
+    @Test
+    void aValuesReleaseDeletesEveryBytesMarksAndMovesTheStateInOneSave() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-7";
+        List<JCRPropertyWrapper> data = new ArrayList<>();
+        JCRNodeWrapper held = heldWithTwoItems(path, HeldStates.NEEDS_REVIEW, data);
+
+        store.startValuesRelease(path, HeldStates.NEEDS_REVIEW, HeldStates.RELEASING);
+
+        verify(data.get(0)).remove();
+        verify(data.get(1)).remove();
+        verify(held).setProperty(QuarantineTree.VALUES_ONLY, true);
+        verify(held).setProperty(QuarantineTree.STATE, HeldStates.RELEASING);
+        verify(held).setProperty(eq(QuarantineTree.CHANGED_AT), any(Calendar.class));
+        verify(session, times(1)).save();
+    }
+
+    @Test
+    void aValuesReleaseOfASubmissionWhoseStateChangedIsRefusedBeforeAnyChange() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-8";
+        List<JCRPropertyWrapper> data = new ArrayList<>();
+        JCRNodeWrapper held = heldWithTwoItems(path, HeldStates.COMPLETED, data);
+
+        assertThrows(QuarantineStoreException.class,
+                () -> store.startValuesRelease(path, HeldStates.NEEDS_REVIEW, HeldStates.RELEASING));
+
+        verify(data.get(0), never()).remove();
+        verify(held, never()).setProperty(QuarantineTree.VALUES_ONLY, true);
+        verify(session, never()).save();
+    }
+
+    @Test
+    void aValuesReleaseWhoseSaveFailsReportsIt() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-9";
+        heldWithTwoItems(path, HeldStates.CHECKING, new ArrayList<>());
+        doThrow(new RepositoryException("The save failed")).when(session).save();
+
+        assertThrows(QuarantineStoreException.class,
+                () -> store.startValuesRelease(path, HeldStates.CHECKING, HeldStates.RELEASING));
+    }
+
+    @Test
+    void theMarkOfAValuesReleaseReadsBackAndAMissingPathIsAnError() throws Exception {
+        String marked = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-10";
+        JCRNodeWrapper held = heldAt(marked);
+        JCRPropertyWrapper mark = mock(JCRPropertyWrapper.class);
+        when(mark.getBoolean()).thenReturn(true);
+        when(held.hasProperty(QuarantineTree.VALUES_ONLY)).thenReturn(true);
+        when(held.getProperty(QuarantineTree.VALUES_ONLY)).thenReturn(mark);
+        String plain = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-11";
+        heldAt(plain);
+        String missing = "/sites/" + SITE + "/formidable-quarantine/nothing";
+
+        assertTrue(store.valuesOnly(marked));
+        assertFalse(store.valuesOnly(plain));
+        assertThrows(QuarantineStoreException.class, () -> store.valuesOnly(missing));
+    }
 }

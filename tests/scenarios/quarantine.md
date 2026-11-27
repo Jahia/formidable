@@ -15,6 +15,9 @@ order.
 
 Specs:
 
+- `tests/cypress/e2e/quarantine/92-quarantine-release-values.cy.ts` covers Q40,
+  Q41, Q42, Q43 and Q44: the policy of a form, which releases the values alone
+  on a fail, and its switch in the editor.
 - `tests/cypress/e2e/quarantine/93-quarantine-allow-list.cy.ts` covers Q29, Q30
   and Q31: the allow-list check of the module.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
@@ -689,6 +692,85 @@ without the quarantine module and without the quarantine test module.
   the values are still there.
 - The sample hold and the observer action report no call.
 
+## The policy of a form
+
+The scenarios of this section use the module hold and start the run through
+"run now", as the section on the checks does. The form carries the mixin
+`fmdbqmix:quarantinePolicy` with the scan status `documentScanStatus`, the
+clean value `clean` and the failed value
+`Uploaded Document failed our security scan`. It has no field of that name. Its
+"Actions after release" list holds Save to JCR and the observer action. Each
+submission also posts a forged value named `documentScanStatus`.
+
+### Q40 — A fail releases the values alone
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with a `VERDICT:FAIL` file and the forged value `clean`.
+3. Run the checks.
+
+**Expected:**
+- The held submission names no field `documentScanStatus`: the engine skipped
+  the forged value
+- The state is `completed`, and the decision stays `CHECK_FAILED`
+- The item holds no bytes, and the held submission holds no values
+- The stored submission holds the name and the failed scan status, and no file
+- The observer action reports one call with no file
+
+### Q41 — A pass gets the clean scan status
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with a `VERDICT:PASS` file and the forged failed value.
+3. Run the checks.
+
+**Expected:**
+- The state is `completed`, with no decision
+- The stored submission holds the file and the scan status `clean`
+- The observer action reports one call with one file
+
+### Q42 — The default policy rejects a fail
+
+**Steps:**
+1. Set `onFail` to `reject`.
+2. Submit the form with a `VERDICT:FAIL` file.
+3. Run the checks.
+
+**Expected:**
+- The state is `rejected`, the decision is `CHECK_FAILED`, and no action ran
+- The item holds no bytes, and the held submission holds no values
+- The observer action reports no call
+
+### Q43 — A reject by a manager releases the values alone
+
+**Steps:**
+1. Set `onFail` to `releaseValues`.
+2. Submit the form with an `INCONCLUSIVE` file, and run the checks: the
+   submission goes to review.
+3. Reject it, as root.
+
+**Expected:**
+- The reject answers `completed`, and the decision keeps `INCONCLUSIVE`, the
+  reason of the review
+- The audit holds the run to `needsReview`, then the reject by `root` to
+  `completed`
+- The stored submission holds the name and the failed scan status, and no file
+- The observer action reports one call with no file
+
+### Q44 — The editor offers the policy
+
+**Steps:**
+1. Create a form with the quarantine switch on and no policy, and a form with
+   the switch on and the policy.
+2. Read the edit form of each through `forms.editForm`, as root.
+
+**Expected:**
+- In the section of the quarantine switch, the fieldset
+  `fmdbqmix:quarantinePolicy` "Quarantine policy" is a switch: off on the first
+  form, on on the second
+- The section starts with the fieldset of the form, then the quarantine switch,
+  then the policy
+
 ---
 
 ## The allow-list check
@@ -763,3 +845,7 @@ of the type `text/plain`, as a guest, and reads the result as root.
 | Q28 | a form with no check is held and goes to review, never released unchecked |
 | Q29 | the allow-list check releases a file of an allowed type |
 | Q30, Q31 | the allow-list check rejects a file unless both its extension and its type are allowed |
+| Q40, Q43 | a file that failed a check, or that a manager rejected, never leaves with the values |
+| Q40, Q41 | the visitor cannot set the scan status |
+| Q42 | the default policy still rejects a fail |
+| Q44 | an author can set the policy of a form |

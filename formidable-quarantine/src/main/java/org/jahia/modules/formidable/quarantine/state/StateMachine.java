@@ -9,6 +9,7 @@ import java.util.Objects;
  * releasing -&gt; completed | needsReview
  * releasing -&gt; releasing | rejected                (manager operations: resume, reject)
  * needsReview -&gt; checking | releasing | rejected    (manager operations)
+ * checking -&gt; releasing, needsReview -&gt; releasing   (the values alone: RELEASE_VALUES, MANAGER_RELEASE_VALUES)
  * </pre>
  * Nothing leaves {@code completed} or {@code rejected}.
  */

@@ -223,10 +223,17 @@ stateDiagram-v2
 The events `RELEASE_VALUES` and `MANAGER_RELEASE_VALUES` serve a form with `onFail=releaseValues`:
 
 - `RELEASE_VALUES` follows a `FAIL` verdict, and `MANAGER_RELEASE_VALUES` follows a reject by a manager.
-- Both events delete the bytes of every file before they lead to `releasing` with the values alone. A later
-  event, such as a release by a manager after a failed action, then has no file to release.
-- The submission ends in `completed`, and its decision record keeps the failed verdict or the reject of the
-  manager. The audit never states that every check passed.
+- One save deletes the bytes of every file, marks the held submission as a release of its values alone, and moves
+  it to `releasing`. That save checks that the state did not change. A failure leaves the submission as it was,
+  with its bytes, so the run or the manager starts the release of the values again. A later event, such as a resume
+  by a manager after a failed action, has no file to release, and runs the actions with the values alone again.
+- Both events apply only when no action after release ran yet. Once an action received the files, a `FAIL` and a
+  reject by a manager reject the submission, and a manager can resume the release of the files instead.
+- A reject by a manager of a submission whose values already went out alone rejects it.
+- The decision record keeps what stopped the submission: the failed verdict, or the reason of the review that the
+  manager rejected, with its item and its check. The audit names the reject of the manager and the user. A later
+  failed action replaces the decision with `ACTION_FAILED`, as for any release, and the mark of the release of the
+  values alone stays. The audit never states that every check passed.
 
 ### An operation of a manager
 
@@ -299,18 +306,39 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 |---|---|---|
 | Platform | The OSGi configuration of the module | The period of the run, the back-off, the retention, and the ceiling of `fileAccess`. |
 | Site | A property of the site | A lower `fileAccess`, the retention of the site, and the addresses of the review digest. |
-| Form | The mixin `fmdbqmix:quarantinePolicy`, offered on a form with the switch on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
+| Form | The mixin `fmdbqmix:quarantinePolicy`, a switch of the form next to the quarantine switch. It applies only while the quarantine switch is on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
 
+- A form without the mixin has the default policy, `onFail=reject` and no scan status. The run reads the policy of
+  the form in live once when it concludes on a `FAIL` or a release, and an operation of a manager reads it once for
+  a release, a resume or a reject in `needsReview`. An operation that cannot read the form refuses, and the manager
+  tries again; nothing changes.
 - `onFail=reject` rejects the submission ([The scheduled run](#the-scheduled-run) states what the store keeps).
-- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and adds the scan
-  status to the values. [The states of a held submission](#the-states-of-a-held-submission) give the two events of this
-  path.
+- `onFail=releaseValues` runs the actions after release with the values alone, with no file, and adds the failed
+  scan status to the values. A `FAIL` verdict takes this path, and so does a reject by a manager in `needsReview`.
+  Another reason to reject, such as `onInconclusive=reject`, still rejects.
+  [The states of a held submission](#the-states-of-a-held-submission) give the two events of this path.
 - The scan status is a value that the run adds to the values of the actions after release, and not a field of the
   form. The engine skips a posted value whose name is not a field of the form
-  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). Each time the form is published, the module
-  checks that no field of the form has the name of the scan status. It refuses the publication otherwise. At
-  release, the run writes the scan status over any value of that name. So the visitor cannot set the scan status.
-- `showValues` shows the public values of a held submission in the detail view. The sensitive values never appear.
+  ([Field whitelist](form-submission-flow.md#field-whitelist-step-8--step-9)). At release, the run writes the scan
+  status over any value of that name. So the visitor cannot set the scan status.
+- A release of the files gets the clean value, and a release of the values alone gets the failed value. An empty
+  name adds no scan status.
+- The name of the scan status is a letter, then up to 63 letters, digits, `_` or `-`, so that an action can write
+  it as a property name. The editor refuses another name. The run ignores a stored name that does not match, with an
+  error in the log, and adds no scan status.
+- Before it writes the scan status, the module checks that no field of the form that posts a value, in a step or a
+  fieldset too, has its name. It never writes the status over the value of a field. When a field has that name, the
+  module logs an error and:
+  - sends to review, with the decision `SCAN_STATUS_TAKEN`, a submission whose checks all passed;
+  - rejects a submission whose file a check failed, as the default policy does;
+  - refuses a release and a resume by a manager;
+  - makes a reject by a manager a plain reject.
+
+  The check runs at the run and at each operation, and not when the form is saved or published. The validation of
+  Jahia at save reads only the node that changed, and a field added to the form later changes no property of the
+  form node.
+- `showValues` shows the public values of a held submission in the detail view. The detail view of the manager API
+  reads it, so the setting takes effect with that API. The sensitive values never appear.
 
 ## Deployment
 

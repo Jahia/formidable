@@ -52,6 +52,10 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         public Instant nextAttempt;
         public int completedActions;
         public boolean valuesPresent = true;
+        /** The public values the visitor sent. */
+        public Map<String, List<String>> values = Map.of("fullName", List.of("Ada"));
+        /** True once the bytes were dropped so that the values go out alone. */
+        public boolean valuesOnly;
         final List<String> itemNames = new ArrayList<>();
         final List<String> mimeTypes = new ArrayList<>();
         final List<String> fileNames = new ArrayList<>();
@@ -78,6 +82,8 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
     public final Set<String> broken = new HashSet<>();
     /** The paths whose values and bytes the store fails to delete, as a repository that refuses the save. */
     public final Set<String> failingDeletion = new HashSet<>();
+    /** The paths whose release of the values alone the store fails to save, as a repository that refuses the save. */
+    public final Set<String> failingValuesRelease = new HashSet<>();
     /** The paths whose audit records the store fails to write. */
     public final Set<String> failingAudit = new HashSet<>();
     private int count;
@@ -133,7 +139,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
                         bytesOf(one, i)));
             }
         }
-        Map<String, List<String>> values = one.valuesPresent ? Map.of("fullName", List.of("Ada")) : Map.of();
+        Map<String, List<String>> values = one.valuesPresent ? one.values : Map.of();
         Map<String, List<String>> sensitive = one.valuesPresent ? Map.of("password", List.of(SECRET)) : Map.of();
         return Optional.of(new HeldSubmission(one.formId, SITE, Locale.ENGLISH, values, sensitive, files,
                 new SubmissionOrigin(null, null, null)));
@@ -235,6 +241,29 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore {
         for (int i = 0; i < one.bytes.size(); i++) {
             one.bytes.set(i, null);
         }
+    }
+
+    @Override
+    public void startValuesRelease(String path, String expectedState, String state) throws QuarantineStoreException {
+        Held one = get(path);
+        if (failingValuesRelease.contains(path)) {
+            throw new QuarantineStoreException("Could not start the release of the values of " + path);
+        }
+        if (!expectedState.equals(one.state)) {
+            throw new QuarantineStoreException("The held submission at " + path + " is " + one.state);
+        }
+        for (int i = 0; i < one.bytes.size(); i++) {
+            one.bytes.set(i, null);
+        }
+        one.valuesOnly = true;
+        one.state = state;
+        one.states.add(state);
+        one.changedAt = changedAt;
+    }
+
+    @Override
+    public boolean valuesOnly(String path) throws QuarantineStoreException {
+        return get(path).valuesOnly;
     }
 
     @Override

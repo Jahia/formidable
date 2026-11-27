@@ -1,0 +1,15 @@
+{
+	"nodeType": "fmdbqmix:quarantinePolicy",
+	"priority": 2.0,
+	"sections": [
+		{
+			"name": "content",
+			"rank": 1.0,
+			"fieldSets": [
+				{ "name": "fmdb:form", "rank": -3.0 },
+				{ "name": "fmdbmix:quarantine", "rank": -2.0 },
+				{ "name": "fmdbqmix:quarantinePolicy", "rank": -1.0 }
+			]
+		}
+	]
+}
