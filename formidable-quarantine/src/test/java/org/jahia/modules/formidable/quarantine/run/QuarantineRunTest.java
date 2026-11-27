@@ -82,6 +82,8 @@ class QuarantineRunTest {
     private final List<Integer> releasedFrom = new ArrayList<>();
     private DeferredActions actions;
     private QuarantineRun run;
+    /** The policy of every form, as the run reads it when it concludes. */
+    private FormPolicy policy = FormPolicy.DEFAULT;
 
     @BeforeEach
     void setUp() {
@@ -102,7 +104,7 @@ class QuarantineRunTest {
                 throw new ItemNotFoundException(formId);
             }
             return lists.getOrDefault(formId, List.of());
-        }, Clock.fixed(NOW, ZoneOffset.UTC));
+        }, formId -> policy, Clock.fixed(NOW, ZoneOffset.UTC));
         created.setStore(stores);
         created.setCheckStore(stores);
         created.setActions((submission, from, completed) -> actions.run(submission, from, completed));
@@ -607,7 +609,8 @@ class QuarantineRunTest {
         held.state = HeldStates.NEEDS_REVIEW;
         Release release = run.release();
 
-        assertThrows(IllegalTransitionException.class, () -> release.release(held.path, HeldState.NEEDS_REVIEW));
+        assertThrows(IllegalTransitionException.class,
+                () -> release.release(held.path, HeldState.NEEDS_REVIEW, FormPolicy.DEFAULT));
 
         assertTrue(released.isEmpty(), "the actions after release ran from state needsReview");
         assertEquals(HeldStates.NEEDS_REVIEW, held.state);
@@ -871,7 +874,7 @@ class QuarantineRunTest {
         held.state = HeldStates.RELEASING;
         held.completedActions = 1;
 
-        run.release().release(held.path, HeldState.RELEASING);
+        run.release().release(held.path, HeldState.RELEASING, FormPolicy.DEFAULT);
 
         assertEquals(List.of(1), releasedFrom);
         assertEquals(HeldStates.COMPLETED, held.state);
@@ -1005,6 +1008,204 @@ class QuarantineRunTest {
 
         assertEquals("releasing", report.processed().get(0).state(), "a release that stopped half way");
         assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "releasing", NOW)), held.audit);
+    }
+
+    // --- the policy of the form: release the values on a fail, and the scan status ---
+
+    private static final String SCAN_STATUS = "documentScanStatus";
+
+    private static FormPolicy policy(OnFail onFail, boolean scanStatusTaken) {
+        return new FormPolicy(onFail, SCAN_STATUS, "clean", "failed", false, scanStatusTaken);
+    }
+
+    /** A held submission whose visitor sent a value with the name of the scan status. */
+    private Held heldWithForgedStatus(String forged, String... texts) {
+        Held held = stores.hold(FORM, texts);
+        held.values = Map.of("fullName", List.of("Ada"), SCAN_STATUS, List.of(forged));
+        return held;
+    }
+
+    @Test
+    void aFailUnderReleaseValuesDeletesTheBytesThenReleasesTheValuesAloneWithTheFailedStatus() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = heldWithForgedStatus("clean", "VERDICT:FAIL\nA bad file");
+        List<Boolean> bytesWhenTheActionsRan = new ArrayList<>();
+        DeferredActions recording = twoActions();
+        actions = (submission, from, completed) -> {
+            bytesWhenTheActionsRan.add(held.anyBytes());
+            recording.run(submission, from, completed);
+        };
+
+        RunReport report = runNow();
+
+        assertEquals(List.of(HeldStates.CHECKING, HeldStates.RELEASING, HeldStates.COMPLETED), held.states);
+        assertEquals(List.of(false), bytesWhenTheActionsRan, "the bytes were still held when the actions ran");
+        HeldSubmission submission = released.get(0);
+        assertTrue(submission.files().isEmpty(), "the failed file reached the actions after release");
+        assertEquals(List.of("failed"), submission.parameters().get(SCAN_STATUS));
+        assertEquals(List.of("Ada"), submission.parameters().get("fullName"));
+        assertEquals(List.of(InMemoryQuarantine.SECRET), submission.sensitiveParameters().get("password"));
+        assertEquals("CHECK_FAILED", held.decision.reason(), "the decision keeps the failed verdict");
+        assertEquals("item0", held.decision.itemName());
+        assertTrue(held.valuesOnly);
+        assertFalse(held.valuesPresent, "values deleted once completed");
+        assertEquals(List.of(new AuditRecord(AuditRecord.RUN, null, "held", "completed", NOW)), held.audit);
+        assertEquals(HeldStates.COMPLETED, report.processed().get(0).state());
+    }
+
+    @Test
+    void aPassAddsTheCleanStatusWhateverTheVisitorSent() throws Exception {
+        policy = policy(OnFail.REJECT, false);
+        Held held = heldWithForgedStatus("failed", "VERDICT:PASS\nA good file");
+
+        runNow();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertEquals(1, released.get(0).files().size());
+        assertEquals(List.of("clean"), released.get(0).parameters().get(SCAN_STATUS));
+        assertFalse(held.valuesOnly);
+    }
+
+    @Test
+    void theDefaultPolicyRejectsAFailAndAddsNoStatus() throws Exception {
+        Held failed = heldWithForgedStatus("clean", "VERDICT:FAIL\nOne");
+        Held passed = heldWithForgedStatus("forged", "VERDICT:PASS\nTwo");
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, failed.state);
+        assertFalse(failed.valuesOnly);
+        assertEquals(HeldStates.COMPLETED, passed.state);
+        assertEquals(1, released.size(), "the rejected submission ran no action");
+        assertEquals(List.of("forged"), released.get(0).parameters().get(SCAN_STATUS));
+    }
+
+    @Test
+    void aFailUnderReleaseValuesWhoseActionFailsStopsInReviewWithNoByteLeft() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = heldWithForgedStatus("clean", "VERDICT:FAIL");
+        actions = (submission, from, completed) -> {
+            throw new DeferredActionException("Action 0 failed", 0, 2, null);
+        };
+
+        runNow();
+
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals(DecisionRecord.ACTION_FAILED, held.decision.reason());
+        assertFalse(held.anyBytes(), "a later event could release the failed file");
+        assertTrue(held.valuesOnly);
+        assertTrue(held.valuesPresent, "values kept for a resume");
+    }
+
+    @Test
+    void aValuesReleaseThatChecksAgainReleasesTheValuesAloneAgain() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+        held.state = HeldStates.CHECKING;
+        held.valuesOnly = true;
+        held.bytes.set(0, null);
+        Release release = run.release();
+
+        HeldState state = release.release(held.path, HeldState.CHECKING, policy);
+
+        assertEquals(HeldState.COMPLETED, state);
+        assertEquals(List.of(HeldStates.RELEASING, HeldStates.COMPLETED), held.states);
+        assertTrue(released.get(0).files().isEmpty());
+        assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
+    }
+
+    @Test
+    void aFieldNamedLikeTheScanStatusSendsAPassToReview() throws Exception {
+        policy = policy(OnFail.REJECT, true);
+        Held held = stores.hold(FORM, "VERDICT:PASS");
+
+        runNow();
+
+        assertEquals(HeldStates.NEEDS_REVIEW, held.state);
+        assertEquals(DecisionRecord.SCAN_STATUS_TAKEN, held.decision.reason());
+        assertTrue(released.isEmpty(), "an action ran with the status written over a field");
+        assertTrue(held.anyBytes());
+    }
+
+    @Test
+    void aFieldNamedLikeTheScanStatusRejectsAFailUnderReleaseValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, true);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state);
+        assertEquals("CHECK_FAILED", held.decision.reason());
+        assertTrue(released.isEmpty());
+        assertFalse(held.valuesOnly);
+    }
+
+    @Test
+    void anInconclusiveThatRejectsUnderReleaseValuesStillRejects() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        lists.put(FORM, List.of(new CheckSettings(MarkerQualifier.REMOTE_TYPE, "remoteCheck",
+                OnInconclusive.REJECT, OnUnavailable.RETRY)));
+        Held held = stores.hold(FORM, "INCONCLUSIVE");
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state);
+        assertTrue(released.isEmpty(), "only a FAIL releases the values alone");
+    }
+
+    @Test
+    void aValuesReleaseWhoseSaveFailsKeepsEverythingAndTheNextRunReleasesTheValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        stores.failingValuesRelease.add(held.path);
+
+        RunReport failed = runNow();
+
+        assertNotNull(failed.processed().get(0).error(), "the run reports the failed save");
+        assertEquals(HeldStates.CHECKING, held.state);
+        assertTrue(held.anyBytes(), "bytes deleted by a save that failed");
+        assertFalse(held.valuesOnly);
+        assertTrue(held.valuesPresent);
+        assertEquals("CHECK_FAILED", held.decision.reason());
+        assertTrue(released.isEmpty());
+
+        stores.failingValuesRelease.clear();
+        runIgnoringSchedule();
+
+        assertEquals(HeldStates.COMPLETED, held.state);
+        assertTrue(released.get(0).files().isEmpty());
+        assertEquals(List.of("failed"), released.get(0).parameters().get(SCAN_STATUS));
+        assertEquals("CHECK_FAILED", held.decision.reason());
+    }
+
+    @Test
+    void aFailAfterAnActionRanRejectsUnderReleaseValues() throws Exception {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        held.completedActions = 1;
+
+        runNow();
+
+        assertEquals(HeldStates.REJECTED, held.state, "an action already received the files");
+        assertTrue(released.isEmpty());
+        assertFalse(held.valuesOnly);
+    }
+
+    @Test
+    void aReleaseValuesAfterAnActionRanIsRefusedBeforeAnyChange() {
+        policy = policy(OnFail.RELEASE_VALUES, false);
+        Held held = stores.hold(FORM, "VERDICT:FAIL");
+        held.state = HeldStates.CHECKING;
+        held.completedActions = 1;
+        Release release = run.release();
+        FormPolicy releaseValues = policy;
+
+        assertThrows(IllegalStateException.class,
+                () -> release.releaseValues(held.path, HeldState.CHECKING, releaseValues));
+
+        assertTrue(held.anyBytes());
+        assertFalse(held.valuesOnly);
+        assertEquals(HeldStates.CHECKING, held.state);
     }
 
     private HeldRecord recordOf(Held held) {
