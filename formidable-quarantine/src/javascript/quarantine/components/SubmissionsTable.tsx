@@ -18,6 +18,20 @@ export function rowLabel(row: Pick<SubmissionRow, 'formTitle' | 'formId' | 'crea
     return t('quarantine.table.open', {form: row.formTitle ?? row.formId, date: formatDate(row.createdAt, language)});
 }
 
+/**
+ * The text of the button that opens a row: the form shows, and the date of intake follows in a visually hidden span,
+ * as the Received column already shows it. The name of the button stays the form and the date, unique in the list.
+ */
+export const RowButtonLabel = ({row, language}: {row: Pick<SubmissionRow, 'formTitle' | 'formId' | 'createdAt'>; language: string}) => {
+    const {t} = useTranslation('formidable-quarantine');
+    return (
+        <>
+            {row.formTitle ?? row.formId}
+            <span className="fmdbq-sr-only">{t('quarantine.table.openDate', {date: formatDate(row.createdAt, language)})}</span>
+        </>
+    );
+};
+
 export type SortDirection = 'ascending' | 'descending';
 
 interface SortButtonProps {
@@ -107,7 +121,7 @@ export const SubmissionsTable = ({rows, totalCount, offset, sortDirection, openI
                     variant="ghost"
                     color="accent"
                     className="fmdbq-row-button"
-                    label={rowLabel(data, language, t)}
+                    label={<RowButtonLabel row={data} language={language}/>}
                     aria-controls={DETAIL_ID}
                     aria-expanded={data.id === openId}
                     data-sel-role="quarantine-open"

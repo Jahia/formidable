@@ -70,6 +70,7 @@
 			"reason": "Grund",
 			"files": "Dateien",
 			"open": "{{form}}, eingegangen am {{date}}",
+			"openDate": ", eingegangen am {{date}}",
 			"noFiles": "Keine",
 			"moreFiles": "+{{count}} weitere",
 			"sort": {

@@ -70,6 +70,7 @@
 			"reason": "Reason",
 			"files": "Files",
 			"open": "{{form}}, received {{date}}",
+			"openDate": ", received {{date}}",
 			"noFiles": "None",
 			"moreFiles": "+{{count}} more",
 			"sort": {

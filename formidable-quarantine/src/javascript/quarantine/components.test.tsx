@@ -156,7 +156,7 @@ describe('SubmissionsTable', () => {
                               openId={null} busy={false} language="en" onOpen={vi.fn()} onPage={vi.fn()} onSort={vi.fn()}/>
         );
         const row = markup.slice(markup.indexOf('data-sel-role="quarantine-row"'));
-        expect(row).toContain('quarantine.table.open');
+        expect(row).toContain('Contact<span class="fmdbq-sr-only">quarantine.table.openDate</span>');
         expect(row).toContain('Nov 26, 2026');
         expect(row).toContain('quarantine.state.NEEDS_REVIEW');
         expect(row).toMatch(/style="width:100px">4<\/td>/);
@@ -170,6 +170,14 @@ describe('SubmissionsTable', () => {
         expect(rowLabel(row, 'en', echo)).toBe(`quarantine.table.open {"form":"Contact","date":"Nov 26, 2026, ${new Intl.DateTimeFormat('en',
             {timeStyle: 'short'}).format(new Date(row.createdAt))}"}`);
         expect(rowLabel({...row, formTitle: null}, 'en', echo)).toContain('"form":"f"');
+    });
+
+    it('shows the form in the button of a row, and keeps the date of its name in a visually hidden span', () => {
+        const markup = table(0, 1, 1);
+        const button = markup.slice(markup.indexOf('data-sel-role="quarantine-open"'));
+        // the date shows once, in the Received column: in the button it is for a screen reader alone
+        expect(button).toMatch(/>Contact<span class="fmdbq-sr-only">quarantine\.table\.openDate<\/span>/);
+        expect(markup.match(/fmdbq-sr-only">quarantine\.table\.openDate/g)).toHaveLength(1);
     });
 
     it('pages by 25 on the server: the pager reads the range of the page, of the total', () => {
