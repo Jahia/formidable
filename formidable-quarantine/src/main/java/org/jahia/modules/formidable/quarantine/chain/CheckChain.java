@@ -21,7 +21,8 @@ import org.jahia.modules.formidable.quarantine.api.Scope;
  * <li>A check receives a file only when every earlier check of the list that applies to the file passed it.</li>
  * <li>A {@code FAIL} on any file rejects the whole submission, and no later call is made.</li>
  * <li>An in-process check that applies to a file before any remote check that applies to it refuses the whole
- * list ({@code needsReview}), unless the operator allows it.</li>
+ * list ({@code needsReview}), unless the operator allows it. A metadata check reads no byte: it stands at any place
+ * and never counts as the remote check that comes first.</li>
  * <li>A file that no check applies to is withheld ({@code needsReview}), once the other files are decided.</li>
  * <li>An empty list, a submission with no file, or a check that no qualifier serves gives {@code needsReview}.</li>
  * </ul>
@@ -50,7 +51,7 @@ public final class CheckChain {
     /**
      * @param checks   the checks in the order of the list
      * @param files    the files of the submission, in a stable order
-     * @param recorded the outcomes recorded so far, by SHA-256 of the file and name of the check
+     * @param recorded the outcomes recorded so far, keyed as {@link OutcomeKey#of} keys them
      * @return the calls to make now, or a terminal decision
      */
     public ChainDecision decide(List<ChainCheck> checks, List<? extends QuarantinedFile> files,
@@ -110,6 +111,7 @@ public final class CheckChain {
         return null;
     }
 
+    /** A {@link Scope#METADATA} check is neither: the walk goes past it. */
     private static ChainCheck firstInProcessBeforeRemote(List<ChainCheck> checks) {
         for (ChainCheck check : checks) {
             if (check.qualifier().scope() == Scope.REMOTE) {
@@ -167,7 +169,7 @@ public final class CheckChain {
     private ChainDecision frontier(QuarantinedFile file, List<ChainCheck> checks,
                                    Map<OutcomeKey, RecordedOutcome> recorded) {
         for (ChainCheck check : checks) {
-            RecordedOutcome outcome = recorded.get(new OutcomeKey(file.sha256(), check.name()));
+            RecordedOutcome outcome = recorded.get(OutcomeKey.of(file, check));
             if (outcome == null) {
                 return proceed(new Step.Submit(file, check));
             }

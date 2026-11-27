@@ -1,8 +1,10 @@
 package org.jahia.modules.formidable.quarantine.run;
 
+import org.jahia.modules.formidable.quarantine.chain.ChainCheck;
 import org.jahia.modules.formidable.quarantine.chain.OutcomeKey;
 import org.jahia.modules.formidable.quarantine.chain.RecordedOutcome;
 import org.jahia.modules.formidable.quarantine.api.Outcome;
+import org.jahia.modules.formidable.quarantine.api.Scope;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
 
 import java.time.Instant;
@@ -17,15 +19,39 @@ final class OutcomeCodec {
     }
 
     /**
-     * The outcomes as the chain reads them, keyed by the SHA-256 each was given for: an outcome recorded for other
-     * bytes never counts for these bytes.
+     * The outcomes as the chain reads them, keyed as {@link OutcomeKey#of} keys them: by the SHA-256 each was given for,
+     * and for a metadata check by the name and the type of the item it was recorded under too. An outcome recorded for
+     * other bytes, or by a metadata check for another name or type, never counts for this file. An outcome of a
+     * metadata check whose item has no bytes any more counts for no file.
+     *
+     * @param files  the files of the submission, by item
+     * @param checks the checks of the list, whose scope decides the key
      */
-    static Map<OutcomeKey, RecordedOutcome> recorded(List<OutcomeRecord> records) {
+    static Map<OutcomeKey, RecordedOutcome> recorded(List<OutcomeRecord> records, List<ItemFile> files,
+                                                     List<ChainCheck> checks) {
         Map<OutcomeKey, RecordedOutcome> recorded = new HashMap<>();
         for (OutcomeRecord stored : records) {
-            recorded.put(new OutcomeKey(stored.sha256(), stored.checkName()), decode(stored));
+            OutcomeKey key = keyOf(stored, files, checks);
+            if (key != null) {
+                recorded.put(key, decode(stored));
+            }
         }
         return recorded;
+    }
+
+    /** @return the key of the stored outcome; null for an outcome of a metadata check whose item has no file */
+    private static OutcomeKey keyOf(OutcomeRecord stored, List<ItemFile> files, List<ChainCheck> checks) {
+        ChainCheck check = checks.stream().filter(c -> c.name().equals(stored.checkName())).findFirst().orElse(null);
+        if (check == null) {
+            // a check gone from the list: the chain asks for no outcome of it
+            return new OutcomeKey(stored.sha256(), stored.checkName());
+        }
+        ItemFile file = files.stream().filter(f -> f.itemName().equals(stored.itemName())).findFirst().orElse(null);
+        if (file == null) {
+            return check.qualifier() != null && check.qualifier().scope() == Scope.METADATA ? null
+                    : new OutcomeKey(stored.sha256(), stored.checkName());
+        }
+        return OutcomeKey.of(stored.sha256(), file, check);
     }
 
     static RecordedOutcome decode(OutcomeRecord stored) {

@@ -63,7 +63,7 @@ const backToRoot = (): void => {
 };
 
 /**
- * The manager screen of the quarantine, a jContent route of the site (tests/scenarios/quarantine.md, Q35 to Q38). It
+ * The manager screen of the quarantine, a jContent route of the site (tests/scenarios/quarantine.md, Q45 to Q48). It
  * lists the held submissions of the site through the GraphQL API, opens one, and runs the operations that the API
  * allows; Release and Reject ask for a confirmation first. A user who does not manage the site gets a plain text.
  */
@@ -99,7 +99,7 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		[MANAGER, EDITOR].forEach(name => deleteUser(name));
 	});
 
-	it('Q35: a manager sees the list of the site, opens a submission and releases it after the confirmation', () => {
+	it('Q45: a manager sees the list of the site, opens a submission and releases it after the confirmation', () => {
 		asUser(MANAGER);
 		openQuarantinePage();
 		// the h1 of the Moonstone Header of the screen: jContent may render one of its own elsewhere
@@ -167,7 +167,7 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		});
 	});
 
-	it('Q36: an editor who does not hold the role sees no Quarantine entry, and its URL shows no list', () => {
+	it('Q46: an editor who does not hold the role sees no Quarantine entry, and its URL shows no list', () => {
 		asUser(EDITOR);
 		cy.visit(QUARANTINE_PAGE);
 		// the Additional accordion is there, with the Form Results entry: the Quarantine entry alone is missing
@@ -179,7 +179,7 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		byRole('quarantine-row').should('not.exist');
 	});
 
-	it('Q37: the confirm dialog is reached and left with the keyboard, with the focus on Cancel first', () => {
+	it('Q47: the confirm dialog is reached and left with the keyboard, with the focus on Cancel first', () => {
 		asUser(MANAGER);
 		openQuarantinePage();
 		// the filter keeps the submissions that a manager can still reject, however many an earlier test left
@@ -222,7 +222,7 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		});
 	});
 
-	it('Q38: the detail names the sensitive fields of a submission', () => {
+	it('Q48: the detail names the sensitive fields of a submission', () => {
 		cy.login();
 		// the form shows no value (no form declares showValues before the policy of the form): the vitest of
 		// SubmissionDetail covers the values of a form that shows them, and the API never answers a sensitive value

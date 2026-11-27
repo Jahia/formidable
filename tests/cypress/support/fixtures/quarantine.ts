@@ -39,3 +39,15 @@ export function getRemoteStubCheckNode(name: string = 'remoteCheck'): JahiaNode 
 export function getInProcessStubCheckNode(name: string = 'inProcessCheck'): JahiaNode {
 	return {name, primaryNodeType: 'fmdbquar:inProcessStubCheck', properties: []};
 }
+
+/**
+ * The allow-list check of formidable-quarantine (fmdbq:allowListCheck), for the "Checks" list of a form: it passes a
+ * file whose extension and MIME type are both on its lists, and fails any other file. It reads no byte.
+ */
+export function getAllowListCheckNode(extensions: string[], mimeTypes: string[], name: string = 'allowList'): JahiaNode {
+	return {
+		name,
+		primaryNodeType: 'fmdbq:allowListCheck',
+		properties: [{name: 'extensions', values: extensions}, {name: 'mimeTypes', values: mimeTypes}]
+	};
+}
