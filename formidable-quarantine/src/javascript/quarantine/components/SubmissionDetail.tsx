@@ -36,7 +36,8 @@ export const ActionButtons = ({allowedOperations, running, onOperation}: ActionB
     }
 
     return (
-        <div role="group" aria-label={t('quarantine.detail.actions')} className="fmdbq-actions">
+        <fieldset className="fmdbq-actions">
+            <legend className="fmdbq-sr-only">{t('quarantine.detail.actions')}</legend>
             {operations.map(operation => {
                 const reject = operation === 'REJECT';
                 const busy = running === operation;
@@ -57,7 +58,7 @@ export const ActionButtons = ({allowedOperations, running, onOperation}: ActionB
                     />
                 );
             })}
-        </div>
+        </fieldset>
     );
 };
 
@@ -129,7 +130,9 @@ const Audit = ({submission, language, titleId}: {submission: HeldDetail; languag
         {key: 'at', label: t('quarantine.detail.audit_at'), render: ({value}) => <time dateTime={value as string}>{formatDate(value as string, language)}</time>}
     ];
     return (
-        <div tabIndex={0} role="region" aria-label={t('quarantine.detail.auditRegion')} className="fmdbq-scroll-x" data-sel-role="quarantine-audit">
+        // a scrolling container: the browser makes it a tab stop when its table overflows, and the table is named by
+        // the title of the audit
+        <div className="fmdbq-scroll-x" data-sel-role="quarantine-audit">
             <DataTable
                 enableSorting={false}
                 enablePagination={false}
@@ -226,7 +229,8 @@ export const SubmissionDetail = ({submission, language, actions, changed, failur
             </div>
             {actions}
             <Separator spacing="medium"/>
-            <div tabIndex={0} role="region" aria-label={t('quarantine.detail.region')}>
+            {/* the records of the detail; the Paper of the detail is the scrolling container, a tab stop of the browser */}
+            <div>
                 <SectionTitle>{t('quarantine.detail.files')}</SectionTitle>
                 {submission.files.length === 0 && <Typography className="fmdbq-secondary">{t('quarantine.detail.noFiles')}</Typography>}
                 {submission.files.map(file => <FileChecks key={file.item} file={file} language={language}/>)}

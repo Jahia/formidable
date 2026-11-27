@@ -216,22 +216,23 @@ final class SiteQuarantine {
      * Runs the operation as the user of the request, then answers the held submission as the operation left it. The
      * operations check the permission on the site again, and write the audit record with the name of the user.
      *
-     * @throws RefusedException      with the code NOT_FOUND when the site has no such held submission, or CONFLICT when
-     *                               the state does not allow the operation: nothing ran
+     * @throws BaseGqlClientException the error of {@link Refusal#of}, with the code NOT_FOUND when the site has no such
+     *                               held submission, or CONFLICT when the state does not allow the operation: nothing
+     *                               ran
      * @throws DataFetchingException when the operation failed, or, with its own message, when it ran but the
      *                               submission could not be read again
      */
     GqlHeldSubmission operate(String id, GqlOperation operation) {
         String path = HeldIds.pathOf(siteKey, id);
         if (path == null || operation == null) {
-            throw new RefusedException(String.format(NOT_FOUND, id), RefusedException.Code.NOT_FOUND);
+            throw Refusal.of(String.format(NOT_FOUND, id), Refusal.Code.NOT_FOUND);
         }
         try {
             services.operator().apply(path, operation.operation());
         } catch (OperationRefusedException e) {
             throw e.reason() == OperationRefusedException.Reason.CONFLICT
-                    ? new RefusedException(e.getMessage(), RefusedException.Code.CONFLICT)
-                    : new RefusedException(String.format(NOT_FOUND, id), RefusedException.Code.NOT_FOUND);
+                    ? Refusal.of(e.getMessage(), Refusal.Code.CONFLICT)
+                    : Refusal.of(String.format(NOT_FOUND, id), Refusal.Code.NOT_FOUND);
         } catch (QuarantineStoreException e) {
             if (log.isWarnEnabled()) {
                 log.warn("The operation {} on {} failed: {}", operation, path, e.getMessage());
@@ -272,7 +273,7 @@ final class SiteQuarantine {
      */
     GqlPurgeReport purge(Integer olderThanDays) {
         if (!services.managers().isServerAdministrator()) {
-            throw new RefusedException(ADMINISTRATORS_ONLY, RefusedException.Code.FORBIDDEN);
+            throw Refusal.of(ADMINISTRATORS_ONLY, Refusal.Code.FORBIDDEN);
         }
         if (olderThanDays != null && olderThanDays < 0) {
             throw new DataFetchingException("olderThanDays is a number of days");

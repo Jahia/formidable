@@ -41,7 +41,8 @@ export function useAnnouncer(): {polite: string; assertive: string; announce: An
 
 export const LiveRegions = ({polite, assertive}: {polite: string; assertive: string}) => (
     <>
-        <div role="status" className="fmdbq-sr-only" data-sel-role="quarantine-status">{polite}</div>
+        {/* output is the native status region; aria-live states the polite announcement for every browser */}
+        <output aria-live="polite" className="fmdbq-sr-only" data-sel-role="quarantine-status">{polite}</output>
         <div role="alert" className="fmdbq-sr-only" data-sel-role="quarantine-alert">{assertive}</div>
     </>
 );

@@ -41,6 +41,15 @@ const apollo = vi.hoisted(() => ({
 
 const allRefetches = () => Object.values(apollo.refetch);
 
+/** The answer of apollo that a query of the screen reads, by the name of its operation. */
+function queryKindOf(name: string): 'summary' | 'list' | 'detail' {
+    if (name.endsWith('Summary')) {
+        return 'summary';
+    }
+
+    return name.endsWith('List') ? 'list' : 'detail';
+}
+
 vi.mock('@apollo/client', async importOriginal => ({
     ...await importOriginal<typeof import('@apollo/client')>(),
     useQuery: (query: {definitions: Array<{kind: string; name?: {value: string}}>},
@@ -48,7 +57,7 @@ vi.mock('@apollo/client', async importOriginal => ({
         // the operation, not the fragment that a query may define before it
         const name = query.definitions.find(definition => definition.kind === 'OperationDefinition')?.name?.value ?? '';
         apollo.calls.push({name, variables: options.variables, fetchPolicy: options.fetchPolicy});
-        const kind = name.endsWith('Summary') ? 'summary' : name.endsWith('List') ? 'list' : 'detail';
+        const kind = queryKindOf(name);
         const answer = apollo[kind];
         if (answer.data && options.onCompleted) {
             // Apollo calls it once the answer arrived, after the render
@@ -94,6 +103,10 @@ describe('ActionButtons', () => {
 
     it('puts the Reject button on the dark danger style', () => {
         expect(actions(['REJECT'])).toMatch(/fmdbq-reject/);
+    });
+
+    it('groups the buttons in a fieldset that its legend names', () => {
+        expect(actions(['RETRY', 'REJECT'])).toMatch(/^<fieldset class="fmdbq-actions"><legend class="fmdbq-sr-only">quarantine\.detail\.actions<\/legend>/);
     });
 });
 
@@ -343,8 +356,8 @@ describe('QuarantineApp', () => {
         expect(markup).toContain('data-sel-role="quarantine-no-access"');
         expect(markup).toContain('quarantine.noAccess');
         expect(markup).not.toContain('quarantine-table');
-        // the live regions are there from the first render
-        expect(markup).toContain('role="status"');
+        // the live regions are there from the first render: output, the native status region, polite, and an alert
+        expect(markup).toMatch(/<output aria-live="polite"[^>]*data-sel-role="quarantine-status"/);
         expect(markup).toContain('role="alert"');
     });
 
@@ -383,7 +396,7 @@ describe('QuarantineApp', () => {
         // one card, as Form Results: the toolbar with the filters and Refresh on top, the table under it
         expect(markup).toMatch(/data-sel-role="quarantine-card".*data-sel-role="quarantine-toolbar".*quarantine-form-filter.*quarantine-refresh.*data-sel-role="quarantine-table"/s);
         // the live regions sit outside LayoutContent, which swaps its children for a Loader
-        expect(markup).toMatch(/<\/div><div role="status"/);
+        expect(markup).toMatch(/<\/div><output aria-live="polite"/);
         expect(markup).toContain('moonstone-header');
     });
 
@@ -504,7 +517,7 @@ describe('QuarantineApp', () => {
         expect(document.activeElement).not.toBe(again);
         await press(again);
         await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
-        expect(document.activeElement?.getAttribute('data-sel-role')).toBe('quarantine-try-again');
+        expect((document.activeElement as HTMLElement | null)?.dataset.selRole).toBe('quarantine-try-again');
     });
 
     it('moves the focus to the Try again of the detail when a reload finds the detail unreadable', async () => {
@@ -569,7 +582,7 @@ describe('QuarantineApp', () => {
         expect(container.querySelector('button[data-state="NEEDS_REVIEW"]')?.getAttribute('aria-pressed')).toBe('false');
         expect(container.querySelector('[data-sel-role="quarantine-detail"]')).toBeNull();
         expect(lastListVariables()).toMatchObject({siteKey: 'othersite', states: null});
-        expect(apollo.calls.filter(call => call.name.endsWith('Submission')).at(-1)?.variables).toMatchObject({siteKey: 'othersite', id: null});
+        expect(apollo.calls.findLast(call => call.name.endsWith('Submission'))?.variables).toMatchObject({siteKey: 'othersite', id: null});
     });
 
     describe('an operation', () => {
@@ -724,10 +737,11 @@ describe('the locales', () => {
         : [prefix]);
 
     it('hold the same keys in English, French, German and Spanish', () => {
-        const english = keysOf(en).sort();
+        const byName = (a: string, b: string) => a.localeCompare(b);
+        const english = keysOf(en).sort(byName);
         expect(english.length).toBeGreaterThan(100);
         for (const other of [fr, de, es]) {
-            expect(keysOf(other).sort()).toEqual(english);
+            expect(keysOf(other).sort(byName)).toEqual(english);
         }
     });
 });

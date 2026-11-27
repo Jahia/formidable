@@ -7,11 +7,11 @@ import java.util.Map;
 
 /**
  * A request of the API that did not run: nothing changed. The GraphQL error keeps its fixed message, and carries the
- * code of the refusal in its extensions, {@code extensions.code}, which a client reads instead of the message.
+ * code of the refusal in its extensions, {@code extensions.code}, which a client reads instead of the message. The
+ * error is a client error of the GraphQL provider, built here rather than extended, which the provider answers as it
+ * answers any of its own.
  */
-final class RefusedException extends BaseGqlClientException {
-
-    private static final long serialVersionUID = 1L;
+final class Refusal {
 
     /** The key of the code in the extensions of the error. */
     static final String EXTENSION_KEY = "code";
@@ -26,7 +26,11 @@ final class RefusedException extends BaseGqlClientException {
         NOT_FOUND
     }
 
-    RefusedException(String message, Code code) {
-        super(message, null, ErrorType.DataFetchingException, Map.of(EXTENSION_KEY, code.name()));
+    private Refusal() {
+    }
+
+    /** @return the error of a refused request, with its fixed message and its code */
+    static BaseGqlClientException of(String message, Code code) {
+        return new BaseGqlClientException(message, null, ErrorType.DataFetchingException, Map.of(EXTENSION_KEY, code.name()));
     }
 }

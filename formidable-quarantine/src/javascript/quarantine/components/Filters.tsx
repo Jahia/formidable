@@ -26,10 +26,11 @@ export const StateFilter = ({counts, selected, onSelect}: StateFilterProps) => {
             <ButtonGroup aria-labelledby={labelId} variant="outlined" className="fmdbq-state-filter">
                 {STATES.map(state => {
                     const pressed = selected === state;
+                    const name = t(`quarantine.state.${state}`);
                     return (
                         <Button
                             key={state}
-                            label={`${t(`quarantine.state.${state}`)} ${countOf(state)}`}
+                            label={`${name} ${countOf(state)}`}
                             icon={pressed ? <Check aria-hidden="true"/> : undefined}
                             aria-pressed={pressed}
                             data-state={state}

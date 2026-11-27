@@ -188,7 +188,11 @@ ${R} .fmdbq-actions {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-small);
-    margin-top: var(--spacing-small);
+    /* the admin shell styles every fieldset with a border, padding and margin of its own */
+    min-width: 0 !important;
+    margin: var(--spacing-small) 0 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
 }
 ${R} .fmdbq-actions .fmdbq-reject {
     margin-left: auto;

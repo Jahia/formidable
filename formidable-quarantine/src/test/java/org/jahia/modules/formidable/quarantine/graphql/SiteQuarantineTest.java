@@ -18,6 +18,7 @@ import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.jahia.modules.graphql.provider.dxm.BaseGqlClientException;
 import org.jahia.modules.graphql.provider.dxm.DataFetchingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -499,11 +500,11 @@ class SiteQuarantineTest {
     @Test
     void anOperationOnAnIdentifierThatIsNotOneRunsNothing() {
         SiteQuarantine site = site();
-        RefusedException error = assertThrows(RefusedException.class,
+        BaseGqlClientException error = assertThrows(BaseGqlClientException.class,
                 () -> site.operate("../../otherSite/x", GqlOperation.REJECT));
 
         assertTrue(error.getMessage().contains("No held submission"), error.getMessage());
-        assertEquals(Map.of(RefusedException.EXTENSION_KEY, "NOT_FOUND"), error.getExtensions());
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "NOT_FOUND"), error.getExtensions());
         assertTrue(operated.isEmpty());
     }
 
@@ -513,17 +514,17 @@ class SiteQuarantineTest {
         SiteQuarantine site = site();
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.NOT_FOUND, "secret path detail");
-        RefusedException notFound = assertThrows(RefusedException.class,
+        BaseGqlClientException notFound = assertThrows(BaseGqlClientException.class,
                 () -> site.operate(id, GqlOperation.RELEASE));
         assertEquals(String.format(SiteQuarantine.NOT_FOUND, id), notFound.getMessage());
-        assertEquals(Map.of(RefusedException.EXTENSION_KEY, "NOT_FOUND"), notFound.getExtensions());
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "NOT_FOUND"), notFound.getExtensions());
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                 "The operation release is not allowed in state completed");
-        RefusedException conflict = assertThrows(RefusedException.class,
+        BaseGqlClientException conflict = assertThrows(BaseGqlClientException.class,
                 () -> site.operate(id, GqlOperation.RELEASE));
         assertTrue(conflict.getMessage().contains("is not allowed in state"), conflict.getMessage());
-        assertEquals(Map.of(RefusedException.EXTENSION_KEY, "CONFLICT"), conflict.getExtensions());
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "CONFLICT"), conflict.getExtensions());
     }
 
     /** A failure that is not a refusal carries no code: the client cannot read it as a refusal. */
@@ -639,9 +640,9 @@ class SiteQuarantineTest {
         inState(FORM, HeldState.COMPLETED);
 
         SiteQuarantine site = site();
-        RefusedException error = assertThrows(RefusedException.class, () -> site.purge(0));
+        BaseGqlClientException error = assertThrows(BaseGqlClientException.class, () -> site.purge(0));
         assertEquals(SiteQuarantine.ADMINISTRATORS_ONLY, error.getMessage());
-        assertEquals(Map.of(RefusedException.EXTENSION_KEY, "FORBIDDEN"), error.getExtensions());
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "FORBIDDEN"), error.getExtensions());
         assertEquals(2, stores.held.size(), "nothing purged");
 
         managers.administrator = true;
