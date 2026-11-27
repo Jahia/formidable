@@ -24,8 +24,8 @@ const SITE = FORMIDABLE_TEST_SITE.key;
 const SITE_PATH = `/sites/${SITE}`;
 const QUARANTINE_PAGE = `/jahia/jcontent/${SITE}/en/apps/formidableQuarantine`;
 const FORM_TITLE = 'Quarantine UI form';
-/** A form that shows its public values to a manager, with one sensitive field, whose value never reaches the screen. */
-const VALUES_FORM_TITLE = 'Quarantine UI values form';
+/** A form with one sensitive field, whose name the detail shows and whose value never reaches the screen. */
+const SENSITIVE_FORM_TITLE = 'Quarantine UI sensitive form';
 const SENSITIVE_FIELD = 'accessCode';
 const SENSITIVE_VALUE = 'never-on-screen-89';
 
@@ -128,7 +128,7 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 				expect([...$buttons].map(button => button.dataset.selRole)).to.deep.equal(
 					['quarantine-action-retry', 'quarantine-action-release', 'quarantine-action-reject']);
 			});
-			// a form that does not show its values: no value section (Q38 covers a form that shows them)
+			// a form that does not show its values: no value section
 			byRole('quarantine-values').should('not.exist');
 		});
 
@@ -195,12 +195,12 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 		});
 	});
 
-	it('Q38: the detail shows the public values of a form that shows them, and the names of its sensitive fields only', () => {
+	it('Q38: the detail names the sensitive fields of a submission, and never shows a sensitive value', () => {
 		cy.login();
-		createPublishedLiveFormPage('quarantine-ui-values-form', VALUES_FORM_TITLE,
+		// the form shows no value (no form declares showValues before the policy of the form): the vitest of
+		// SubmissionDetail covers the values of a form that shows them
+		createPublishedLiveFormPage('quarantine-ui-sensitive-form', SENSITIVE_FORM_TITLE,
 			[...fields(), getPasswordNode({name: SENSITIVE_FIELD, title: 'Access code'})], undefined, undefined, {
-				mixins: ['fmdbqmix:quarantinePolicy'],
-				properties: [{name: 'showValues', value: 'true', type: 'BOOLEAN'}],
 				qualifiers: [getRemoteStubCheckNode()],
 				deferredActions: [getSaveToJcrActionNode()]
 			}).then(({formId: id}) => {
@@ -216,14 +216,17 @@ describe('Quarantine - 89 The manager screen in jContent', () => {
 
 		asUser(MANAGER);
 		openQuarantinePage();
-		// the form filter keeps the submission of the values form alone
+		// the form filter keeps the submission of that form alone
 		byRole('quarantine-form-filter').click();
-		cy.contains('[data-sel-role="quarantine-form-editor"] label', VALUES_FORM_TITLE).click();
+		cy.contains('[data-sel-role="quarantine-form-editor"] label', SENSITIVE_FORM_TITLE).click();
+		// the editor of the filter stays open for another choice: Escape closes it
+		cy.realPress('Escape');
+		byRole('quarantine-form-editor').should('not.exist');
 		byRole('quarantine-row').should('have.length', 1);
 		byRole('quarantine-open').first().click();
 		byRole('quarantine-detail').within(() => {
-			byRole('quarantine-values').should('contain.text', 'fullName').and('contain.text', 'Ada');
 			byRole('quarantine-sensitive').should('contain.text', SENSITIVE_FIELD);
+			byRole('quarantine-values').should('not.exist');
 			cy.root().should('not.contain.text', SENSITIVE_VALUE);
 		});
 		backToRoot();

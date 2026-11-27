@@ -850,20 +850,20 @@ test site.
   region says "Submission rejected"
 - One submission of the form is `rejected`
 
-### Q38 — The detail shows the public values and only the names of the sensitive fields
+### Q38 — The detail names the sensitive fields, never their values
 
 **Steps:**
-1. As root, create a form that shows its values to a manager (`showValues`),
-   with a text field, a password field and a file field, and submit it with
-   the name "Ada", a password value and a file that the run sends to review.
+1. As root, create a form with a text field, a password field and a file
+   field, and submit it with a password value and a file that the run sends to
+   review.
 2. As the manager, open the screen, and choose that form in the form filter.
 3. Open its submission.
 
 **Expected:**
 - The list holds the one submission of that form
-- The values of the detail show the text field and "Ada"
 - The sensitive fields name the password field, and the password value is
   nowhere on the screen
+- The form does not show its values, so the detail has no value section
 
 ---
 
@@ -901,4 +901,4 @@ test site.
 | Q35 | a manager runs an operation from the screen, and the audit names the manager |
 | Q36 | a user who does not manage the site sees no submission on the screen |
 | Q37 | a release or a reject never runs by accident from the keyboard |
-| Q38 | the screen shows a manager the public values of a form that shows them, and never a sensitive value |
+| Q38 | the screen never shows a manager a sensitive value |
