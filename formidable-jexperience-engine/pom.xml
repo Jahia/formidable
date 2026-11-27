@@ -14,7 +14,7 @@
         <!-- The marker mixin and the response SPI come from the engine, fmdb:form (the type the publication
              listener and the render filter apply to) from the elements, ContextServerService from jExperience,
              and the GraphQL API the rules editor lists the profile properties through from graphql-dxm-provider. -->
-        <jahia-depends>formidable-engine,formidable-elements,jexperience,graphql-dxm-provider</jahia-depends>
+        <jahia-depends>formidable-engine,formidable-elements,jexperience,graphql-dxm-provider,app-shell=4.0</jahia-depends>
         <sonar.sources>src,package.json,pom.xml</sonar.sources>
         <!-- Jahia EE refuses an org.jahia.modules bundle without a valid Jahia-Signature. Computed with keymaker
              (java -jar keymaker-cli.jar pom -f pom.xml -s); the CI's update-signature job keeps it current. -->

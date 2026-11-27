@@ -78,7 +78,7 @@ export const ReportTable = ({report, language, t, choices = {}, onChoice, onChoi
                             variant="outlined"
                             aria-label={t('formResults.import.forAll.label')}
                             data={FOR_ALL.map(value => ({label: t(`formResults.import.forAll.${value}`), value}))}
-                            value={forAll ?? undefined}
+                            value={forAll ?? ''}
                             placeholder={t('formResults.import.forAll.perForm')}
                             onChange={(_event, item) => {
                                 if (item.value && item.value !== forAll) {

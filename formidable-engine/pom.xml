@@ -11,7 +11,7 @@
     <packaging>bundle</packaging>
     <description>Formidable Engine - UI Extensions (selectorTypes for Content Editor)</description>
     <properties>
-        <jahia-depends>javascript-modules-engine</jahia-depends>
+        <jahia-depends>javascript-modules-engine,app-shell=4.0</jahia-depends>
         <jahia-module-signature>MCwCFATMzBxBP5QXTXxP6W6E+tHOkmmOAhQhTzuxNUVZdhgQkJnTuESqr445wg==</jahia-module-signature>
         <sonar.sources>src,package.json,pom.xml</sonar.sources>
     </properties>
