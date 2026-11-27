@@ -187,15 +187,84 @@ sequenceDiagram
     R->>S: release the cluster lock
 ```
 
+- The scheduler calls the run at the period of the configuration of the run, `periodSeconds`, 60 seconds by
+  default. A period of 0 turns the scheduled run off, and only "run now" runs the checks then. A change of the
+  period applies at once.
+- Each call makes one pass over each site that has a quarantine tree. The scheduler never starts a call while the
+  call before runs.
 - A submission is due when its state is `held`, or `checking` with its next attempt reached.
-- A pass that brings no new verdict waits for the back-off. When the attempts are exhausted, the submission goes to
-  review with the reason `ATTEMPTS_EXHAUSTED`.
+- A pass that brings no new verdict waits for the back-off. The delay after the first attempt is
+  `backoffInitialSeconds`, 60 seconds by default. The delay grows by `backoffFactor`, 2 by default, at each
+  attempt, up to `backoffCapSeconds`, one hour by default. When the attempts reach `maxAttempts`, 10 by default, the
+  submission goes to review with the reason `ATTEMPTS_EXHAUSTED`.
 - A file that no check of the list applies to goes to review with the reason `FILE_WITHHELD`.
 - After a run, the module sends one review digest per site whose submissions entered `needsReview` in that run.
   The digest goes to the addresses of the site settings. It carries the count per form and a link to the manager
   screen, and never a value or a file name of a submission.
 - After `completed` or `rejected`, the store deletes the values and the bytes. The record of the submission and its
-  audit stay until the retention deletes them.
+  audit stay until the retention deletes them ([The scheduled purge](#the-scheduled-purge)).
+
+### The lock of the run
+
+Locks narrow the window in which two runs, or a run and an operation, work on one submission. The guard is the
+compare-and-set of every state move:
+
+- **Compare-and-set.** A move of the state reads the stored state in the session it saves with, and writes the new
+  state only when the stored state is still the state the mover read. A concurrent save of the same held submission
+  is refused by the repository. So a submission enters `releasing` from `checking` or `needsReview` once, and its
+  actions after release run once. A run skips a submission that another run or an operation moved first, and
+  reports it with the error `moved by another run or operation`. An operation answers a conflict.
+- **The lock of the site in one server.** A pass of the run holds the lock of its site in the JVM for the whole
+  pass, and so does an operation of a manager. An operation waits 2 seconds at most, then answers a conflict, "a
+  run is in progress, retry". A pass of another site does not hold it back.
+- **The lock of the run in the repository.** A pass takes the lock of the run of the site before it reads the held
+  submissions of the site. The lock keeps one pass at a time on a site across the cluster:
+  - The lock is the node `runLock` under the root of the quarantine tree of the site. It stores the owner of the
+    lock and the end of its lease.
+  - The owner is the identifier of the server (`cluster.node.serverId`), a token that each start of the lock
+    service draws, and a token of the holder. Each pass is an owner of its own, even in one server.
+  - An owner takes the lock when no owner holds it, or when its lease ended. Two owners that take the lock at the
+    same moment both write the node: the repository saves the first write and refuses the second, so the second
+    owner does not get the lock.
+  - The lease lasts `lockLeaseSeconds`, 10 minutes by default. Before each submission, and before each call of a
+    check and of the actions after release, a pass checks that its lease is still valid, and extends it once half
+    of the lease has gone by. A pass that lost its lease, or cannot extend it, stops before the call. Its report of
+    what it already did comes with the stop: "run now" answers a conflict that names the stop and carries that
+    report, and the scheduled run logs it.
+  - The pass releases the lock when it ends, even after a failure. When the module stops, the lock service
+    releases each lease it granted, and grants no lease any more: a pass of the old start that is still under way
+    stops before its next submission or call. A server that stops with no release keeps the lock until the lease
+    ends.
+  - A scheduled run takes the lock of a site only when the site holds a due submission, which a query finds with
+    no write. A scheduled run that does not get the lock skips the site until its next call. "Run now" answers
+    "a run is in progress" instead.
+- **The operations in a cluster.** An operation on another server does not take the lock of the site of this
+  server. A release, a resume and a reject that releases the values alone, which run the actions after release, and
+  a reject of a submission in `releasing`, take the lock of the run of the site in the repository for their duration, with the lease of
+  `lockLeaseSeconds`, which a release checks before its actions and extends as a pass does. A release whose lease
+  is lost stops before its actions, which do not run, and answers a conflict. So a resume of a
+  release that stopped never runs beside a release under way, on any server. A retry resets the attempts, drops
+  the outcomes that are not a `PASS` and moves to `checking` in one compare-and-set save, so a stale retry changes
+  nothing. Any other operation relies on the compare-and-set.
+
+### The scheduled purge
+
+The retention deletes each submission in a final state, `completed` or `rejected`, whose last change is older than
+the limit, with its record, its audit and every other child. A submission in any other state (`held`, `checking`,
+`releasing`, `needsReview`) is never deleted, whatever its age: it still waits for the run or for a manager. So the
+tree does not grow without bound.
+
+- The scheduler calls the retention on the processing server at the period of the configuration of the retention,
+  `periodSeconds`, once a day by default. A period of 0 turns the scheduled purge off. The first call comes after
+  one period, and never later than one hour after the module starts.
+- Each call purges each site that has a quarantine tree, with the limit of the site.
+- The limit of the platform is `retentionDays`, 30 days by default. A site can lower it with `retentionDays` of its
+  site settings, the mixin `fmdbqmix:quarantineSite`. A value of a site above the limit of the platform is
+  ignored, and so is a negative value. A site whose settings cannot be read keeps the limit of the platform, and
+  the report of the purge says that the settings were not read: the failure is logged, and the mutation `purge` of
+  the GraphQL API answers the limit `PLATFORM_UNREAD`.
+- A server administrator can also start the purge of one site through the mutation `purge` of the GraphQL API
+  ([The GraphQL API](#the-graphql-api)), with the limit of the site, or with `olderThanDays` for that call.
 
 ### The states of a held submission
 
@@ -268,7 +337,7 @@ named `formidableQuarantine(siteKey)`:
 | `submissions(formId, states, offset, limit, newestFirst)` | A page of the held submissions of the site, or of one form, by time of intake: oldest first, or newest first when `newestFirst` is true. `limit` is 25 by default and 100 at most: a larger value reads as 100. `states` names each state once at most. |
 | `submission(id)` | One held submission, or `null` when the site has none with this identifier. |
 | `operate(id, operation)` | The mutation of a manager: `RETRY`, `RELEASE`, `RESUME` or `REJECT`. It answers the submission as the operation left it. |
-| `purge(olderThanDays)` | The mutation of the retention, for server administrators only. |
+| `purge(olderThanDays)` | The mutation of the retention, for server administrators only. It answers the limit in days, whose limit applied (`limit`: `PLATFORM`, `PLATFORM_UNREAD` when the settings of the site could not be read, `SITE` or `CALL`), and the identifiers purged and failed. |
 
 - The identifier of a held submission is its path below the quarantine root of its site:
   `<formId>/YYYY/MM/DD/held-<uuid>`. The API reads it below the root of the site of the request only, so an
@@ -304,10 +373,15 @@ named `formidableQuarantine(siteKey)`:
 
 | Code | The request did not run because |
 |---|---|
-| `CONFLICT` | The state of the submission, or its decision, does not allow the operation any more. |
+| `CONFLICT` | The state of the submission, or its decision, does not allow the operation any more, or the run holds it back. |
 | `NOT_FOUND` | The site has no held submission with this identifier, or the user does not manage the site. |
 | `FORBIDDEN` | The request needs a right that a manager does not have: the purge is for server administrators. |
 
+- An operation that the run holds back answers `CONFLICT`, as a state that does not allow it does, and never the
+  error of a failure: a pass of the run that holds the site, the lock of the run of the site held by another server,
+  a submission that a run moved first, and a release whose lease is lost before its actions after release
+  ([The lock of the run](#the-lock-of-the-run)). The last one moved a release from review to `releasing`, with an
+  audit record, and ran no action after release. The manager reloads the submission.
 - The API has no field for the file access yet (`fileAccess`, `canAccessFiles`): the download comes with the file
   access.
 
@@ -397,8 +471,8 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 
 | Level | Where | Settings |
 |---|---|---|
-| Platform | The OSGi configuration of the module | The period of the run, the back-off, the retention, and the ceiling of `fileAccess`. |
-| Site | A property of the site | A lower `fileAccess`, the retention of the site, and the addresses of the review digest. |
+| Platform | The OSGi configuration of the module | The period of the run, the back-off, the lease of the lock of the run, the retention and the period of the purge, and the ceiling of `fileAccess`. |
+| Site | A property of the site | A lower `fileAccess`, a lower retention of the site (`fmdbqmix:quarantineSite`), and the addresses of the review digest. |
 | Form | The mixin `fmdbqmix:quarantinePolicy`, a switch of the form next to the quarantine switch. It applies only while the quarantine switch is on | `onFail`, the name of the scan status and its two values, `showValues`, and a lower `fileAccess`. |
 
 - A form without the mixin has the default policy, `onFail=reject` and no scan status. The run reads the policy of
@@ -435,8 +509,10 @@ The setting `fileAccess` decides what a reviewer gets of a held file:
 
 ## Deployment
 
-- The run starts on the processing server only.
-- A lock in the repository keeps one run at a time across the cluster.
+- The scheduled run and the scheduled purge start on the processing server only, on the RAM scheduler of Jahia. The
+  module schedules them again each time it starts, and removes them when it stops.
+- A lock in the repository keeps one run at a time on a site across the cluster
+  ([The lock of the run](#the-lock-of-the-run)). "Run now" can start on any server, and takes the same lock.
 - The module owns the root of the quarantine tree, `/sites/<site>/formidable-quarantine/`, of the type
   `fmdbq:quarantineRoot`. No other module writes under it.
 - The module installs on the platform, and a site turns it on. The manager screen appears only on a site that has

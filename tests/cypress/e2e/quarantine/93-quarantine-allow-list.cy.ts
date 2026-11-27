@@ -63,7 +63,7 @@ const holdAndRun = (formName: string, extensions: string[], mimeTypes: string[],
  * The allow-list check of formidable-quarantine (fmdbq:allowListCheck), alone in the "Checks" list of a form, on a
  * site with the module. The check reads the name and the MIME type of the file, never a byte: an allowed type is
  * released at the first run, a refused one is rejected. The spec starts the run through "run now" of the quarantine
- * test module, and reads the held submission through the inspection, as root.
+ * test module, and reads the held submission through the GraphQL API, as root.
  */
 describe('Quarantine - 93 The allow-list check releases an allowed type and rejects any other', () => {
 	useFormidableSite();

@@ -22,3 +22,8 @@
     - 'js:mvn:org.jahia.test/formidable-test-module-templateset-tsx/LATEST/tgz'
   autoStart: true
   uninstallPreviousVersion: true
+# The scheduled run of formidable-quarantine is off on the test lab: a spec moves a held submission with "run now"
+# alone. Spec 91 turns it on for its own test, and off again.
+- editConfiguration: "org.jahia.modules.formidable.quarantine.run"
+  properties:
+    periodSeconds: "0"

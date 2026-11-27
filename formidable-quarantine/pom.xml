@@ -108,6 +108,12 @@
             <version>2.4</version>
             <scope>test</scope>
         </dependency>
+        <!-- The scheduled run and the scheduled purge are jobs of Jahia's RAM scheduler (QuarantineJob, RecurringJob). -->
+        <dependency>
+            <groupId>org.quartz-scheduler</groupId>
+            <artifactId>quartz</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!-- Mockito needs the supertypes of the Jahia types it mocks (org.apache.commons.lang.mutable). -->
         <dependency>
             <groupId>commons-lang</groupId>

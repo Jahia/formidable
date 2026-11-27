@@ -19,6 +19,8 @@ Specs:
   the manager screen in jContent.
 - `tests/cypress/e2e/quarantine/90-quarantine-graphql.cy.ts` covers Q32 to
   Q37: the GraphQL API and the permission of a manager per site.
+- `tests/cypress/e2e/quarantine/91-quarantine-scheduled-run.cy.ts` covers Q49:
+  the scheduled run.
 - `tests/cypress/e2e/quarantine/92-quarantine-release-values.cy.ts` covers Q40,
   Q41, Q42, Q43 and Q44: the policy of a form, which releases the values alone
   on a fail, and its switch in the editor.
@@ -138,9 +140,13 @@ Specs:
   with no user, when it releases, rejects or sends to review. The GraphQL API
   answers them.
 - **Retention**: the mutation `formidableQuarantine(siteKey) {
-  purge(olderThanDays) }`. It purges each `rejected` held submission whose last
-  change is older than `retentionDays` (30 by default), or `olderThanDays` for
-  that call. Server administrators only: a manager gets an error (403).
+  purge(olderThanDays) }`. It purges each `completed` or `rejected` held
+  submission whose last change is older than the limit: `retentionDays` (30 by
+  default), or the lower `retentionDays` of the site settings, or
+  `olderThanDays` for that call. Its report says whose limit applied, and
+  `PLATFORM_UNREAD` when the settings of the site could not be read. Server
+  administrators only: a manager gets an error (403). The module also runs it
+  on its own schedule.
 - **Mailbox**: Mailpit, the `smtp-server` service of `tests/docker-compose.yml`.
   The provisioning of `@jahia/cypress` points the mail service of Jahia at it.
 
@@ -182,6 +188,7 @@ the scenario proves:
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
 | Q20, Q32, Q34 | opens the quarantine of a site to any user: in `ManagerApi.open`, `!managers.mayManage(siteKey)` replaced by `false`, and in `QuarantineOperations.applyLocked`, `!managers.mayManage(found.get().siteKey())` replaced by `false`. Q32 fails on the answer for site B, Q34 on the visibility for the editor |
+| Q49 | schedules no run: `RunSchedule.configure` with its body replaced by `job.unschedule();`. Q49 fails on the bound of its wait, the submission still `held` |
 
 ---
 
@@ -607,19 +614,24 @@ The spec sets `maxAttempts=10` back when it ends.
 
 **Steps:**
 1. Submit the form with a `VERDICT:FAIL` file, then with another
-   `VERDICT:FAIL` file, then with a `VERDICT:PASS` file, and run the checks.
-2. Move the last change of the first rejected submission and of the completed
-   one 40 days back (Groovy).
+   `VERDICT:FAIL` file, then with a `VERDICT:PASS` file, then with another
+   `VERDICT:PASS` file, and run the checks.
+2. Move the last change of the first rejected submission and of the first
+   completed one 40 days back (Groovy).
 3. Run the retention, with the default limit of 30 days.
 
 **Expected:**
-- After step 1, two submissions are `rejected` and one is `completed`
-- The retention answers the path of the first rejected submission alone
-- That held submission is gone, with its outcomes and its decision
-- The second rejected submission and the completed one are kept
+- After step 1, two submissions are `rejected` and two are `completed`
+- The retention answers the limit of 30 days, the limit of the platform
+  (`PLATFORM`): the site sets none
+- The retention answers the paths of the first rejected submission and of the
+  first completed one
+- Those held submissions are gone, with their outcomes, their decision and
+  their audit
+- The second rejected submission and the second completed one are kept
 
-The retention keeps a `completed` submission, however old: it holds no value
-and no byte any more.
+The retention never purges a submission in `held`, `checking`, `releasing` or
+`needsReview`, however old (unit tests of `QuarantineRetention`).
 
 ### Q20 — Only a manager runs an operation, and each leaves an audit record — control
 
@@ -706,6 +718,33 @@ without the quarantine module and without the quarantine test module.
 - After the run, the state is `needsReview`, the decision is `NO_CHECK`, and
   the values are still there.
 - The sample hold and the observer action report no call.
+
+## The scheduled run
+
+Spec `91-quarantine-scheduled-run.cy.ts`. The test lab turns the scheduled run off
+(`periodSeconds=0` in `tests/provisioning-manifest-*.yml`), so the other specs
+move a held submission with "run now" alone.
+
+### Q49 — The scheduled run releases a held submission — control
+
+**Steps:**
+1. Enable the quarantine test module on the site.
+2. Set `periodSeconds=2` in the configuration of the run.
+3. Create and publish a form with the switch on, the remote stub check in
+   "Checks", and Save to JCR in "Actions after release".
+4. Submit the form as a guest, with a `VERDICT:PASS` file.
+5. Wait, for 60 seconds at most, without "run now".
+6. Set `periodSeconds=0` again.
+
+**Expected:**
+- The state becomes `completed` within the wait, and one action after release ran
+- The outcome `PASS` of the check is recorded, and the audit holds one record
+  of the run, with no user
+
+**Control:** `RunSchedule.configure` schedules nothing. Q49 fails on the bound
+of the wait, the submission still `held`.
+
+---
 
 ## The policy of a form
 
@@ -1021,7 +1060,7 @@ test site.
 | Q13 | a file that no check applied to is not released by default |
 | Q14 | no regression on a form with the switch off |
 | Q16 | read-only maintenance writes nothing |
-| Q18 | no rejected file is kept forever |
+| Q18 | no finished submission, rejected or completed, is kept forever |
 | Q20 | a release is the act of a named manager |
 | Q21 | a later check never reads a file that an earlier check failed |
 | Q22 | the actions after release run once, in order |
@@ -1046,3 +1085,4 @@ test site.
 | Q46 | a user who does not manage the site sees no submission on the screen |
 | Q47 | a release or a reject never runs by accident from the keyboard |
 | Q48 | a manager sees which fields of a submission are sensitive |
+| Q49 | a held submission is checked on schedule, with no request of a user |

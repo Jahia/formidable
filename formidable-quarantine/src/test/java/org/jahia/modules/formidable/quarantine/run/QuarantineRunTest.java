@@ -81,6 +81,7 @@ class QuarantineRunTest {
     private final List<HeldSubmission> released = new ArrayList<>();
     private final List<Integer> releasedFrom = new ArrayList<>();
     private DeferredActions actions;
+    private final FakeRunLock runLock = new FakeRunLock();
     private QuarantineRun run;
     /** The policy of every form, as the run reads it when it concludes. */
     private FormPolicy policy = FormPolicy.DEFAULT;
@@ -110,6 +111,7 @@ class QuarantineRunTest {
         created.setActions((submission, from, completed) -> actions.run(submission, from, completed));
         created.addQualifier(MarkerQualifier.remote(calls, outage));
         created.addQualifier(MarkerQualifier.inProcess(calls, outage));
+        created.setRunLock(runLock);
         created.configure(config(settings));
         return created;
     }
@@ -132,6 +134,11 @@ class QuarantineRunTest {
             }
 
             @Override
+            public double backoffFactor() {
+                return settings.backoff().factor();
+            }
+
+            @Override
             public long backoffCapSeconds() {
                 return settings.backoff().delay(Integer.MAX_VALUE).toSeconds();
             }
@@ -139,6 +146,16 @@ class QuarantineRunTest {
             @Override
             public int maxAttempts() {
                 return settings.backoff().maxAttempts();
+            }
+
+            @Override
+            public long periodSeconds() {
+                return 0;
+            }
+
+            @Override
+            public long lockLeaseSeconds() {
+                return QuarantineRun.DEFAULT_LEASE.toSeconds();
             }
         };
     }

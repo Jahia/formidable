@@ -9,9 +9,17 @@
 // jnt:resource, no jcr:data. No core listener, no /files servlet and no text extraction reads it.
 
 // The root of the tree of a site, named formidable-quarantine. It cuts the ACL inheritance (j:acl with
-// j:inherit=false) and holds no access control entry: a role granted on the site gives nothing here.
+// j:inherit=false) and holds no access control entry: a role granted on the site gives nothing here. runLock is the
+// lock of the run of the checks of the site, across the cluster.
 [fmdbq:quarantineRoot] > jnt:content, jmix:accessControlled
  + * (fmdbq:formQuarantine) = fmdbq:formQuarantine
+ + runLock (fmdbq:runLock) = fmdbq:runLock
+
+// The lock of the run of the checks of a site (runLock under the root): the server that holds it, and when its lease
+// ends. A run takes it before it reads the held submissions, extends it while it works, and releases it at the end.
+[fmdbq:runLock] > jnt:content
+ - owner (string) indexed=no
+ - until (date) indexed=no
 
 // The held submissions of one form, named after the identifier of the form in live.
 [fmdbq:formQuarantine] > jnt:content
@@ -121,6 +129,14 @@
  - fromState (string) mandatory indexed=no
  - toState (string) mandatory indexed=no
  - at (date) indexed=no
+
+// --- The settings of the quarantine on a site ---
+
+// The settings of a site that has the module, in its site settings. retentionDays lowers the retention of the
+// rejected held submissions of the site, in days: a value above the setting of the platform is ignored.
+[fmdbqmix:quarantineSite] mixin
+ extends = jnt:virtualsite
+ - retentionDays (long) indexed=no
 
 // --- The policy of a form (docs/architecture/quarantine.md, "Settings") ---
 

@@ -33,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 /**
@@ -57,17 +58,37 @@ final class SubmissionRun {
     private final Release release;
     private final RunSettings settings;
     private final Clock clock;
+    private final BooleanSupplier leaseKept;
+
+    /**
+     * What one pass of the run applies to each of its submissions.
+     *
+     * @param settings  the settings of the run when the pass started
+     * @param clock     the time of the pass
+     * @param leaseKept asked before each call of a check and before the release: false stops the pass before the
+     *                  call, with a {@link RunStoppedException}
+     */
+    record PassContext(RunSettings settings, Clock clock, BooleanSupplier leaseKept) {
+    }
 
     SubmissionRun(QuarantineStore store, CheckStore checkStore, CheckList checkList,
-                  Function<String, Qualifier> qualifiers, Release release, RunSettings settings, Clock clock) {
+                  Function<String, Qualifier> qualifiers, Release release, PassContext context) {
         this.store = store;
         this.checkStore = checkStore;
         this.checkList = checkList;
         this.qualifiers = qualifiers;
         this.transitions = new Transitions(store);
         this.release = release;
-        this.settings = settings;
-        this.clock = clock;
+        this.settings = context.settings();
+        this.clock = context.clock();
+        this.leaseKept = context.leaseKept();
+    }
+
+    /** Stops the pass before an external call when its lease is lost. */
+    private void keepLease(String path) throws RunStoppedException {
+        if (!leaseKept.getAsBoolean()) {
+            throw new RunStoppedException("the lock of the run is lost before a call for " + path);
+        }
     }
 
     /** What one pass knows of the submission. */
@@ -180,6 +201,7 @@ final class SubmissionRun {
             if (!pass.called.add(key)) {
                 continue;
             }
+            keepLease(pass.path());
             RecordedOutcome next = call(pass.path(), step, pass.recorded.get(key));
             pass.recorded.put(key, next);
             write(pass, step.check(), key, next);
@@ -268,7 +290,7 @@ final class SubmissionRun {
                 FormPolicy policy = release.policy(pass.held.formId());
                 if (releasesValues(pass, policy)) {
                     // the decision stays CHECK_FAILED: with the state completed, it records a release with no file
-                    return release.releaseValues(pass.path(), pass.state, policy);
+                    return release.releaseValues(pass.path(), pass.state, policy, leaseKept);
                 }
             }
             return transitions.finish(pass.path(), pass.state, HeldEvent.CHECK_FAILED);
@@ -277,7 +299,7 @@ final class SubmissionRun {
             writeDecision(pass, review.reason().name(), review.sha256(), review.checkName());
             return transitions.move(pass.path(), pass.state, HeldEvent.REVIEW);
         }
-        return release.release(pass.path(), pass.state, release.policy(pass.held.formId()));
+        return release.release(pass.path(), pass.state, release.policy(pass.held.formId()), leaseKept);
     }
 
     /**

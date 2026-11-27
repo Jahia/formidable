@@ -24,6 +24,14 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!-- "run now" answers the period of the scheduled run as Jahia's RAM scheduler holds it (ScheduledRun). -->
+        <dependency>
+            <groupId>org.quartz-scheduler</groupId>
+            <artifactId>quartz</artifactId>
+            <!-- the version Jahia 8.2 ships, as the root pom manages it: the test modules do not inherit the root -->
+            <version>1.8.6</version>
+            <scope>provided</scope>
+        </dependency>
         <!-- The hold: the stub checks implement its check API, and "run now" starts a run through its runner. The
              module compiles against that exported package only. -->
         <dependency>

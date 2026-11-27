@@ -18,7 +18,12 @@ final class Refusal {
 
     /** Why a request did not run. */
     enum Code {
-        /** The state of the submission, or its decision, does not allow the operation any more. */
+        /**
+         * The state of the submission, or its decision, does not allow the operation any more, or a run of the
+         * quarantine holds the site, moved the submission first, or took the lock of its run back before the actions
+         * after release: a release from review then waits in {@code releasing}, with an audit record, and no action
+         * after release ran.
+         */
         CONFLICT,
         /** The request needs a right that the user does not have, such as a server administrator for the purge. */
         FORBIDDEN,
