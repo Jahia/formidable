@@ -227,6 +227,9 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
 
     const rootRef = useRef<HTMLDivElement>(null);
     const detailHeadingRef = useRef<HTMLHeadingElement>(null);
+    // the open submission as the last render left it, for an answer that arrives after the manager opened another one
+    const openIdRef = useRef<string | null>(openId);
+    openIdRef.current = openId;
     const focus = useFocusRequests(rootRef);
 
     const summary = useQuery<SummaryData>(GET_QUARANTINE_SUMMARY, {
@@ -316,21 +319,41 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     /** The counts, the forms and the page again, after an operation or on Refresh. */
     const refetchList = () => Promise.all([summary.refetch(), list.refetch()]);
 
-    const operationFailed = (operation: QuarantineOperation, error: unknown) => {
-        if (isChangedUnderneath(error)) {
+    /**
+     * A refused or failed operation. The detail of the submission shows it in its alert container, which announces it;
+     * when the manager opened another submission meanwhile, the alert region of the screen says it instead.
+     */
+    const operationFailed = (operation: QuarantineOperation, error: unknown, stillOpen: boolean) => {
+        const changedUnderneath = isChangedUnderneath(error);
+        if (!stillOpen) {
+            announce(t(changedUnderneath ? 'quarantine.changed' : 'quarantine.failed'), true);
+        } else if (changedUnderneath) {
             showChanged();
         } else if (CONFIRMED_OPERATIONS.has(operation)) {
             setConfirmFailure(t('quarantine.failed'));
         } else {
             setFailure(t('quarantine.failed'));
-            announce(t('quarantine.failed'), true);
         }
     };
 
-    /** Where the focus goes after an operation that worked, and the list and the detail as the operation left them. */
-    const afterOperation = async (operation: QuarantineOperation, after: HeldDetail, neighbour: string | null) => {
+    /**
+     * Where the focus goes after an operation that worked, and the list and the detail as the operation left them. The
+     * detail and the focus follow the operation only while its submission is still the open one.
+     */
+    const afterOperation = async (operation: QuarantineOperation, after: HeldDetail, neighbour: string | null, stillOpen: boolean) => {
         setConfirm(null);
         const leaves = filters.state !== null && after.state !== filters.state;
+        if (!stillOpen) {
+            announce(t(`quarantine.done.${operation}`, {state: t(`quarantine.state.${after.state}`)}));
+            try {
+                await refetchList();
+            } catch {
+                announce(t('quarantine.loadFailed'), true);
+            }
+
+            return;
+        }
+
         if (leaves) {
             // the submission leaves the filtered list: the detail closes, the focus goes to a neighbour row
             setOpenId(null);
@@ -349,31 +372,36 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
     };
 
     const run = async (operation: QuarantineOperation) => {
-        if (!openId) {
+        const id = openId;
+        if (!id) {
             return;
         }
 
         const rows = page?.items ?? [];
-        const index = rows.findIndex(row => row.id === openId);
+        const index = rows.findIndex(row => row.id === id);
         const neighbour = rows[index + 1]?.id ?? rows[index - 1]?.id ?? null;
+        // the rows stay open to a click while the request runs: the answer reads which submission is open then
+        const stillOpen = () => openIdRef.current === id;
         setRunning(operation);
         setConfirmFailure(null);
         setFailure(null);
         try {
             let after: HeldDetail | null;
             try {
-                const result = await operate({variables: {siteKey, id: openId, operation}});
+                const result = await operate({variables: {siteKey, id, operation}});
                 after = result.data?.formidableQuarantine?.operate ?? null;
             } catch (error) {
-                operationFailed(operation, error);
+                operationFailed(operation, error, stillOpen());
                 return;
             }
 
             if (after) {
-                await afterOperation(operation, after, neighbour);
-            } else {
+                await afterOperation(operation, after, neighbour, stillOpen());
+            } else if (stillOpen()) {
                 // the user no longer manages the site: what the screen shows is out of date
                 showChanged();
+            } else {
+                announce(t('quarantine.changed'), true);
             }
         } finally {
             setRunning(null);
@@ -482,7 +510,8 @@ const QuarantineScreen = ({siteKey}: {siteKey: string | undefined}) => {
                         label={t('quarantine.filter.clear')}
                         variant="outlined"
                         onClick={() => {
-                            setFilters(NO_FILTER);
+                            // the order is no filter: it stays
+                            changeFilters({state: null, formId: null});
                             focus({kind: 'listHeading'});
                         }}
                     />

@@ -61,7 +61,7 @@ const backToRoot = (): void => {
 };
 
 /**
- * The manager screen of the quarantine, a jContent route of the site (tests/scenarios/quarantine.md, Q35 to Q37). It
+ * The manager screen of the quarantine, a jContent route of the site (tests/scenarios/quarantine.md, Q35 to Q38). It
  * lists the held submissions of the site through the GraphQL API, opens one, and runs the operations that the API
  * allows; Release and Reject ask for a confirmation first. A user who does not manage the site gets a plain text.
  */

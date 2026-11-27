@@ -28,8 +28,11 @@ const apollo = vi.hoisted(() => ({
     detail: {loading: false} as Answer<DetailData>,
     calls: [] as Array<{name: string; variables: Record<string, unknown>}>,
     operate: vi.fn(),
-    refetch: vi.fn()
+    // one refetch per query, so a test tells the counts and the forms from the page and the detail
+    refetch: {summary: vi.fn(), list: vi.fn(), detail: vi.fn()}
 }));
+
+const allRefetches = () => Object.values(apollo.refetch);
 
 vi.mock('@apollo/client', async importOriginal => ({
     ...await importOriginal<typeof import('@apollo/client')>(),
@@ -37,7 +40,8 @@ vi.mock('@apollo/client', async importOriginal => ({
                options: {variables: Record<string, unknown>; onCompleted?: (data: unknown) => void}) => {
         const name = query.definitions[0].name?.value ?? '';
         apollo.calls.push({name, variables: options.variables});
-        const answer = name.endsWith('Summary') ? apollo.summary : name.endsWith('List') ? apollo.list : apollo.detail;
+        const kind = name.endsWith('Summary') ? 'summary' : name.endsWith('List') ? 'list' : 'detail';
+        const answer = apollo[kind];
         if (answer.data && options.onCompleted) {
             // Apollo calls it once the answer arrived, after the render
             const {onCompleted} = options;
@@ -45,7 +49,7 @@ vi.mock('@apollo/client', async importOriginal => ({
             queueMicrotask(() => onCompleted(data));
         }
 
-        return {...answer, refetch: apollo.refetch};
+        return {...answer, refetch: apollo.refetch[kind]};
     },
     useMutation: () => [apollo.operate]
 }));
@@ -120,6 +124,22 @@ afterEach(() => {
 });
 
 describe('SubmissionsTable', () => {
+    it('shows in each row the form, the date, the state, the attempts, the reason and the file names', () => {
+        const rows = rowsOf(1, 0).map(row => ({...row, attempts: 4, reason: 'CHECK_FAILED',
+            files: [{item: 'item0', name: 'cv.pdf'}, {item: 'item1', name: 'id.png'}, {item: 'item2', name: null}]}));
+        const markup = markupOf(
+            <SubmissionsTable rows={rows} totalCount={1} offset={0} sortDirection="ascending"
+                              openId={null} busy={false} language="en" onOpen={vi.fn()} onPage={vi.fn()} onSort={vi.fn()}/>
+        );
+        const row = markup.slice(markup.indexOf('data-sel-role="quarantine-row"'));
+        expect(row).toContain('quarantine.table.open');
+        expect(row).toContain('Nov 26, 2026');
+        expect(row).toContain('quarantine.state.NEEDS_REVIEW');
+        expect(row).toMatch(/style="width:100px">4<\/td>/);
+        expect(row).toContain('quarantine.reason.CHECK_FAILED <code>CHECK_FAILED</code>');
+        expect(row).toMatch(/<li>cv\.pdf<\/li><li>id\.png<\/li><li>quarantine\.table\.moreFiles<\/li>/);
+    });
+
     it('pages by 25 on the server: the pager reads the range of the page, of the total', () => {
         expect(table(25, 25, 63)).toContain('26-50 quarantine.paging.of 63');
         expect(table(50, 13, 63)).toContain('51-63 quarantine.paging.of 63');
@@ -238,6 +258,7 @@ describe('SubmissionDetail', () => {
     it('reads FAILED as a check error, not a fail, and names the table of the checks of each file', () => {
         expect(detail(false)).toContain('data-verdict="FAILED"');
         expect(detail(false)).toContain('quarantine.verdict.FAILED');
+        expect(detail(false)).toContain('<code>TIMEOUT</code>');
         expect(detail(false)).toContain('aria-label="quarantine.detail.checksTable"');
     });
 });
@@ -287,8 +308,10 @@ describe('QuarantineApp', () => {
         apollo.list = {loading: false, data: listOf([ROW])};
         apollo.detail = {loading: false};
         apollo.operate.mockReset();
-        apollo.refetch.mockReset();
-        apollo.refetch.mockResolvedValue({data: undefined});
+        allRefetches().forEach(refetch => {
+            refetch.mockReset();
+            refetch.mockResolvedValue({data: undefined});
+        });
     });
 
     afterEach(() => {
@@ -361,10 +384,11 @@ describe('QuarantineApp', () => {
         await press(container.querySelector('[data-sel-role="quarantine-sort"]'));
         expect(lastListVariables()).toMatchObject({formId: 'g', newestFirst: true});
 
-        // a change of filter or order asks the page again, never the counts and the forms with it
+        // a change of filter or order asks the page again through its variables, never the counts and the forms with it
         expect(apollo.calls.filter(call => call.name.endsWith('Summary')).every(call => call.variables.siteKey === 'digitall')).toBe(true);
         expect(new Set(apollo.calls.filter(call => call.name.endsWith('Summary')).map(call => JSON.stringify(call.variables))).size).toBe(1);
         expect(summaries).toBeGreaterThan(0);
+        allRefetches().forEach(refetch => expect(refetch).not.toHaveBeenCalled());
     });
 
     it('asks the start of the last page when an answer brought an empty page past the end', async () => {
@@ -422,13 +446,72 @@ describe('QuarantineApp', () => {
             expect(container.textContent).not.toContain('Network error');
         });
 
+        it('that ran reads the counts, the forms, the page and the detail again', async () => {
+            apollo.operate.mockResolvedValue({data: {formidableQuarantine: {operate: {...SUBMISSION, state: 'HELD'}}}});
+            await openAndRetry();
+            expect(apollo.refetch.summary).toHaveBeenCalledTimes(1);
+            expect(apollo.refetch.list).toHaveBeenCalledTimes(1);
+            expect(apollo.refetch.detail).toHaveBeenCalledTimes(1);
+        });
+
         it('that ran, followed by a failed reading of the list, is not reported as failed', async () => {
             apollo.operate.mockResolvedValue({data: {formidableQuarantine: {operate: {...SUBMISSION, state: 'HELD'}}}});
-            apollo.refetch.mockRejectedValue(new Error('Network error'));
+            allRefetches().forEach(refetch => refetch.mockRejectedValue(new Error('Network error')));
             const container = await openAndRetry();
-            expect(apollo.refetch).toHaveBeenCalled();
+            expect(apollo.refetch.summary).toHaveBeenCalled();
             expect(container.querySelector('[data-sel-role="quarantine-failed"]')).toBeNull();
             expect(container.querySelector('[data-sel-role="quarantine-changed"]')?.textContent).toBe('');
+        });
+
+        it('that failed is announced once, by the alert container of the detail', async () => {
+            apollo.operate.mockRejectedValue(new Error('Network error'));
+            const container = await openAndRetry();
+            // the announcer sets its message on the next frame
+            await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
+            expect(container.querySelector('[data-sel-role="quarantine-failed"]')?.textContent).toContain('quarantine.failed');
+            expect(container.querySelector('[data-sel-role="quarantine-alert"]')?.textContent).not.toContain('quarantine.failed');
+        });
+
+        it('answered after the manager opened another submission leaves the detail of that one alone', async () => {
+            const other: SubmissionRow = {...ROW, id: 'f/2026/11/26/held-2'};
+            apollo.list = {loading: false, data: listOf([ROW, other])};
+            apollo.detail = {loading: false, data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
+            let refuse: (reason: unknown) => void = () => undefined;
+            apollo.operate.mockReturnValue(new Promise((_resolve, reject) => {
+                refuse = reject;
+            }));
+            const {container} = await mount(<QuarantineApp/>);
+            await press(container.querySelector(`[data-sel-role="quarantine-open"][data-id="${ROW.id}"]`));
+            await press(container.querySelector('[data-sel-role="quarantine-action-retry"]'));
+            // the manager opens the other row while the Retry of the first one runs
+            await press(container.querySelector(`[data-sel-role="quarantine-open"][data-id="${other.id}"]`));
+            await act(async () => refuse({graphQLErrors: [{message: 'any text', extensions: {code: 'CONFLICT'}}]}));
+            await act(async () => new Promise(resolve => setTimeout(resolve, 50)));
+
+            expect(container.querySelector('[data-sel-role="quarantine-detail"]')).not.toBeNull();
+            expect(container.querySelector('[data-sel-role="quarantine-changed"]')?.textContent).toBe('');
+            expect(container.querySelector('[data-sel-role="quarantine-alert"]')?.textContent).toContain('quarantine.changed');
+        });
+
+        it('that took its submission out of the filter keeps open the submission opened meanwhile', async () => {
+            const other: SubmissionRow = {...ROW, id: 'f/2026/11/26/held-2'};
+            apollo.list = {loading: false, data: listOf([ROW, other])};
+            apollo.detail = {loading: false, data: {formidableQuarantine: {siteKey: 'digitall', submission: SUBMISSION}}};
+            let answer: (value: unknown) => void = () => undefined;
+            apollo.operate.mockReturnValue(new Promise(resolve => {
+                answer = resolve;
+            }));
+            const {container} = await mount(<QuarantineApp/>);
+            await press(container.querySelector('button[data-state="NEEDS_REVIEW"]'));
+            await press(container.querySelector(`[data-sel-role="quarantine-open"][data-id="${ROW.id}"]`));
+            await press(container.querySelector('[data-sel-role="quarantine-action-retry"]'));
+            await press(container.querySelector(`[data-sel-role="quarantine-open"][data-id="${other.id}"]`));
+            // the first submission went back to Held: it leaves the filter on Needs review
+            await act(async () => answer({data: {formidableQuarantine: {operate: {...SUBMISSION, state: 'HELD'}}}}));
+
+            expect(container.querySelector('[data-sel-role="quarantine-detail"]')).not.toBeNull();
+            expect(container.querySelector(`[data-sel-role="quarantine-open"][data-id="${other.id}"]`)?.getAttribute('aria-expanded')).toBe('true');
+            expect(apollo.refetch.summary).toHaveBeenCalled();
         });
     });
 });

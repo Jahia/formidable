@@ -297,8 +297,8 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     public int detailReads;
 
     /**
-     * The raw result of the query of the held submissions: below the root of the site, of the form, in the states, oldest
-     * first. The filter on the site that each record names is the one of {@code JcrHeldQueries}, which its own test
+     * The raw result of the query of the held submissions: below the root of the site, of the form, in the states, by
+     * time of intake in the order that {@code newestFirst} asks for. The filter on the site that each record names is the one of {@code JcrHeldQueries}, which its own test
      * covers: this double does not repeat it.
      */
     @Override
