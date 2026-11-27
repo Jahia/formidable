@@ -219,6 +219,29 @@ final class SiteQuarantine {
         if (path == null || operation == null) {
             throw Refusal.of(String.format(NOT_FOUND, id), Refusal.Code.NOT_FOUND);
         }
+        apply(id, path, operation);
+        details.remove(path);
+        forgetTotals();
+        GqlHeldSubmission after;
+        try {
+            after = submission(id);
+            if (after != null) {
+                // read now what the fields of the answer read, so a failure says that the operation ran
+                details(path);
+                form(after.getFormId());
+            }
+        } catch (RuntimeException e) {
+            log.warn("The operation {} on {} ran, and the submission could not be read again", operation, path);
+            throw new DataFetchingException(RAN_NOT_READ);
+        }
+        if (after == null) {
+            throw new DataFetchingException(RAN_NOT_READ);
+        }
+        return after;
+    }
+
+    /** Runs the operation, and answers each refusal or failure of it with its GraphQL error. */
+    private void apply(String id, String path, GqlOperation operation) {
         try {
             services.operator().apply(path, operation.operation());
         } catch (OperationRefusedException e) {
@@ -243,24 +266,6 @@ final class SiteQuarantine {
             }
             throw new DataFetchingException(OPERATION_FAILED);
         }
-        details.remove(path);
-        forgetTotals();
-        GqlHeldSubmission after;
-        try {
-            after = submission(id);
-            if (after != null) {
-                // read now what the fields of the answer read, so a failure says that the operation ran
-                details(path);
-                form(after.getFormId());
-            }
-        } catch (RuntimeException e) {
-            log.warn("The operation {} on {} ran, and the submission could not be read again", operation, path);
-            throw new DataFetchingException(RAN_NOT_READ);
-        }
-        if (after == null) {
-            throw new DataFetchingException(RAN_NOT_READ);
-        }
-        return after;
     }
 
     /**
