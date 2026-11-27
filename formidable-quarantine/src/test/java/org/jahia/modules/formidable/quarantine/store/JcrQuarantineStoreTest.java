@@ -17,6 +17,7 @@ import javax.jcr.Binary;
 import javax.jcr.RepositoryException;
 import javax.jcr.ValueFactory;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
@@ -122,6 +123,11 @@ class JcrQuarantineStoreTest {
         assertEquals(BYTES_SHA256, Sha256.hex(BYTES));
         assertEquals("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
                 Sha256.hex("abc".getBytes(StandardCharsets.US_ASCII)));
+    }
+
+    @Test
+    void theHashOfAStreamIsTheHashOfItsBytes() throws IOException {
+        assertEquals(BYTES_SHA256, Sha256.hex(new ByteArrayInputStream(BYTES)));
     }
 
     @Test

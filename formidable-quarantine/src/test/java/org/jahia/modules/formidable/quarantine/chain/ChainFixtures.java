@@ -105,6 +105,6 @@ final class ChainFixtures {
     }
 
     static OutcomeKey key(QuarantinedFile file, ChainCheck check) {
-        return new OutcomeKey(file.sha256(), check.name());
+        return OutcomeKey.of(file, check);
     }
 }

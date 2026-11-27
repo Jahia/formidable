@@ -145,3 +145,14 @@
  - scanStatusClean (string) indexed=no
  - scanStatusFailed (string) indexed=no
  - showValues (boolean) = false autocreated indexed=no
+
+// --- The checks that the module ships ---
+
+// The allow-list check (AllowListQualifier, scope METADATA): it reads the name and the detected MIME type of a file,
+// never a byte. It passes a file when the extension of its name and the essence of its MIME type are both on the
+// lists, case aside; it fails the file otherwise. A check whose list holds no entry sends the submission to review.
+// A pass says only that the type is allowed: a scanner comes after this check in the list. fmdbmix:qualifier puts it
+// in the "Quarantine checks" zone.
+[fmdbq:allowListCheck] > jnt:content, fmdbmix:qualifier, mix:title
+ - extensions (string) mandatory multiple indexed=no
+ - mimeTypes (string) mandatory multiple indexed=no

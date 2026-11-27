@@ -18,6 +18,8 @@ Specs:
 - `tests/cypress/e2e/quarantine/92-quarantine-release-values.cy.ts` covers Q40,
   Q41, Q42, Q43 and Q44: the policy of a form, which releases the values alone
   on a fail, and its switch in the editor.
+- `tests/cypress/e2e/quarantine/93-quarantine-allow-list.cy.ts` covers Q29, Q30
+  and Q31: the allow-list check of the module.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -54,13 +56,16 @@ Specs:
   in a test module. A refused forward is not counted as received.
 - **Quarantine module**: `formidable-quarantine`. It ships the module hold,
   the quarantine tree, the run of the checks, the operations of a manager and
-  an inspection of the tree.
+  an inspection of the tree. The module also ships one check, the allow-list
+  check `fmdbq:allowListCheck`.
 - **Quarantine test module**: `formidable-test-module-quarantine`. It ships the
   stub checks, the stub control and "run now". It keeps no hold. It depends on
   the quarantine module, so a site that enables it has the quarantine module
   too. Never for production: its checks are stubs.
-- **Check of the module**: a node of `fmdbquar:remoteStubCheck` or
-  `fmdbquar:inProcessStubCheck` in the list "Checks" (`qualifiers`) of a form.
+- **Check of the module**: a node in the list "Checks" (`qualifiers`) of a
+  form. The node is a stub check, `fmdbquar:remoteStubCheck` or
+  `fmdbquar:inProcessStubCheck`, or the allow-list check
+  `fmdbq:allowListCheck`.
 - **Module hold**: the hold of the quarantine module. It ranks 100. It owns
   every held form of a site that has the quarantine module, whatever the list
   "Checks" of the form holds. It stores the submissions of that form in the
@@ -768,6 +773,50 @@ submission also posts a forged value named `documentScanStatus`.
 
 ---
 
+## The allow-list check
+
+The scenarios of this section use the module hold. Each scenario starts the
+run of the checks through "run now", restricted to the form of the scenario. The only check
+of the form is the allow-list check `fmdbq:allowListCheck`, and "Actions after
+release" holds Save to JCR. Each scenario submits a text file `claim-note.txt`,
+of the type `text/plain`, as a guest, and reads the result as root.
+
+### Q29 — The allow-list allows the type of the file
+
+**Steps:**
+1. Set the lists of the check to the extension `txt` and the type `text/plain`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `completed`, and one action after release ran
+- The outcome of the check is `PASS`, with the reason `allowList.allowed`
+
+### Q30 — The extension of the file is not on the list
+
+**Steps:**
+1. Set the lists of the check to the extension `pdf` and the type `text/plain`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`, for the check
+- The outcome of the check is `FAIL`, with the reason
+  `allowList.extensionRefused`
+- No action after release ran, and the item holds no bytes
+
+### Q31 — The type of the file is not on the list
+
+**Steps:**
+1. Set the lists of the check to the extension `txt` and the type
+   `application/pdf`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`
+- The outcome of the check is `FAIL`, with the reason
+  `allowList.mimeTypeRefused`
+
+---
+
 ## Coverage map
 
 | Scenario | Proves |
@@ -794,6 +843,8 @@ submission also posts a forged value named `documentScanStatus`.
 | Q26 | no action that cannot run after release enters that list |
 | Q27 | a site without the quarantine module never stores a held submission |
 | Q28 | a form with no check is held and goes to review, never released unchecked |
+| Q29 | the allow-list check releases a file of an allowed type |
+| Q30, Q31 | the allow-list check rejects a file unless both its extension and its type are allowed |
 | Q40, Q43 | a file that failed a check, or that a manager rejected, never leaves with the values |
 | Q40, Q41 | the visitor cannot set the scan status |
 | Q42 | the default policy still rejects a fail |
