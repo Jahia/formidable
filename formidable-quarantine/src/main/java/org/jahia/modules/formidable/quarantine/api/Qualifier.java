@@ -14,7 +14,7 @@ public interface Qualifier {
     /** @return the node type of the checks this qualifier serves, such as {@code acme:sandboxCheck} */
     String getNodeType();
 
-    /** @return where the check reads the bytes */
+    /** @return what the check reads of a file: a {@link Scope#METADATA} check never receives a byte */
     Scope scope();
 
     /**

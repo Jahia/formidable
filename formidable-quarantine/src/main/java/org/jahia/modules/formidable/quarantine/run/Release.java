@@ -23,13 +23,15 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * The release of a held submission: the bytes are read again and hashed again, and a difference from the SHA-256 of
+ * The release of a held submission: the release reads each file once, into memory, because the engine's actions take
+ * the bytes of a file as an array. It computes the SHA-256 of those very arrays, and a difference from the SHA-256 of
  * intake refuses the release. Otherwise the actions after release of the form run through the engine's
  * {@link DeferredActions}, from the index the held submission records, with a checkpoint after each action. Once
  * every action ran, the values, the sensitive values and the bytes are deleted; the record and the outcomes stay.
  *
  * <p>The released files are the very files whose bytes were hashed: the bytes released are the bytes of intake, under
- * whose SHA-256 the run recorded each outcome.</p>
+ * whose SHA-256 the run recorded each outcome. An item with no bytes, or a count of files that differs from the count
+ * of items, refuses the release too.</p>
  */
 public final class Release {
 
@@ -95,6 +97,7 @@ public final class Release {
             return new ItemRecord(ITEM_COUNT, null, null, null, files.size(), null, false);
         }
         for (int i = 0; i < files.size(); i++) {
+            // the hash of the very bytes the actions receive
             if (!Sha256.hex(files.get(i).data()).equals(items.get(i).sha256())) {
                 return items.get(i);
             }
