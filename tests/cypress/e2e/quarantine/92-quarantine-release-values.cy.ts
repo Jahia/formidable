@@ -144,7 +144,7 @@ const runOnce = (formId: string, state: HeldSubmissionRecord['state']): void => 
  * scan status. A release of the files gets the clean scan status. The scan status is a value that the run adds, not a
  * field of the form: a value the visitor sends with its name is skipped by the engine, and written over by the run.
  * With the default policy, a FAIL rejects the submission. The spec starts the run through "run now" and reads the held
- * submissions through the inspection, as root.
+ * submissions through the GraphQL API, as root.
  */
 describe('Quarantine - 92 The policy of a form releases the values alone on a fail', () => {
 	useFormidableSite();

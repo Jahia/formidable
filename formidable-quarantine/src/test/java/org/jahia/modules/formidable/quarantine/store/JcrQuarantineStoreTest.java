@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.invocation.Invocation;
 
 import javax.jcr.Binary;
+import javax.jcr.InvalidItemStateException;
 import javax.jcr.RepositoryException;
 import javax.jcr.ValueFactory;
 import java.io.ByteArrayInputStream;
@@ -39,6 +40,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -454,8 +456,16 @@ class JcrQuarantineStoreTest {
     }
 
     @Test
-    void aStateOutsideTheSixIsRefused() {
-        assertThrows(QuarantineStoreException.class, () -> store.setState("/sites/x/held", "released"));
+    void aStateOutsideTheSixIsRefused() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+        storedState(held, HeldStates.CHECKING);
+
+        assertThrows(QuarantineStoreException.class, () -> store.setState(path, HeldStates.CHECKING, "released"));
+        assertThrows(QuarantineStoreException.class, () -> store.restartChecks(path, HeldStates.CHECKING, "released"));
+
+        verify(held, never()).setProperty(eq(QuarantineTree.STATE), anyString());
+        verify(session, never()).save();
     }
 
     @Test
@@ -463,9 +473,15 @@ class JcrQuarantineStoreTest {
         JCRNodeWrapper page = node("/sites/" + SITE + "/home");
         when(session.nodeExists("/sites/" + SITE + "/home")).thenReturn(true);
         when(session.getNode("/sites/" + SITE + "/home")).thenReturn(page);
+        // the page stores the expected state: only the type of the node refuses it, not the compare-and-set
+        string(page, QuarantineTree.STATE, HeldStates.HELD);
 
-        assertThrows(QuarantineStoreException.class, () -> store.setState("/sites/" + SITE + "/home", HeldStates.CHECKING));
-        assertThrows(QuarantineStoreException.class, () -> store.finish("/users/root", HeldStates.REJECTED));
+        String home = "/sites/" + SITE + "/home";
+        QuarantineStoreException refused = assertThrows(QuarantineStoreException.class,
+                () -> store.setState(home, HeldStates.HELD, HeldStates.CHECKING));
+        assertFalse(refused instanceof StaleStateException, "refused by the compare-and-set, not by the type");
+        assertThrows(QuarantineStoreException.class,
+                () -> store.finish("/users/root", HeldStates.CHECKING, HeldStates.REJECTED));
         verify(page, never()).setProperty(anyString(), anyString());
     }
 
@@ -573,6 +589,83 @@ class JcrQuarantineStoreTest {
     }
 
     /** A held submission at the path, which the session finds. */
+    /** The state that the held submission stores. */
+    private static void storedState(JCRNodeWrapper held, String state) throws RepositoryException {
+        JCRPropertyWrapper property = mock(JCRPropertyWrapper.class);
+        when(property.getString()).thenReturn(state);
+        when(held.hasProperty(QuarantineTree.STATE)).thenReturn(true);
+        when(held.getProperty(QuarantineTree.STATE)).thenReturn(property);
+    }
+
+    @Test
+    void aMoveFromAStateThatIsNoLongerStoredIsRefusedAndWritesNothing() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+        storedState(held, HeldStates.RELEASING);
+
+        assertThrows(StaleStateException.class, () -> store.setState(path, HeldStates.CHECKING, HeldStates.RELEASING));
+        assertThrows(StaleStateException.class, () -> store.finish(path, HeldStates.CHECKING, HeldStates.REJECTED));
+
+        verify(held, never()).setProperty(anyString(), anyString());
+        verify(session, never()).save();
+    }
+
+    @Test
+    void aRetryResetsTheAttemptsDropsTheUnpassedOutcomesAndMovesTheStateInOneSave() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+        storedState(held, HeldStates.NEEDS_REVIEW);
+        JCRNodeWrapper checks = node(path + "/checks");
+        JCRNodeWrapper item = node(path + "/checks/item0");
+        JCRNodeWrapper failed = node(path + "/checks/item0/remoteCheck");
+        JCRNodeWrapper passed = node(path + "/checks/item0/otherCheck");
+        when(held.hasNode(QuarantineTree.CHECKS)).thenReturn(true);
+        when(held.getNode(QuarantineTree.CHECKS)).thenReturn(checks);
+        JCRNodeIteratorWrapper items = mock(JCRNodeIteratorWrapper.class);
+        when(items.iterator()).thenReturn(List.of(item).iterator());
+        when(checks.getNodes()).thenReturn(items);
+        when(item.isNodeType(JcrCheckStore.ITEM_OUTCOMES_TYPE)).thenReturn(true);
+        JCRNodeIteratorWrapper outcomes = mock(JCRNodeIteratorWrapper.class);
+        when(outcomes.iterator()).thenReturn(List.of(failed, passed).iterator());
+        when(item.getNodes()).thenReturn(outcomes);
+        when(failed.isNodeType(JcrCheckStore.OUTCOME_TYPE)).thenReturn(true);
+        when(passed.isNodeType(JcrCheckStore.OUTCOME_TYPE)).thenReturn(true);
+        string(failed, JcrCheckStore.OUTCOME, OutcomeRecord.FAILED);
+        string(passed, JcrCheckStore.OUTCOME, OutcomeRecord.PASS);
+
+        store.restartChecks(path, HeldStates.NEEDS_REVIEW, HeldStates.CHECKING);
+
+        verify(held).setProperty(QuarantineTree.ATTEMPTS, 0);
+        verify(failed).remove();
+        verify(passed, never()).remove();
+        verify(held).setProperty(QuarantineTree.STATE, HeldStates.CHECKING);
+        verify(session, times(1)).save();
+    }
+
+    @Test
+    void aStaleRetryChangesNothing() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+        storedState(held, HeldStates.REJECTED);
+
+        assertThrows(StaleStateException.class,
+                () -> store.restartChecks(path, HeldStates.NEEDS_REVIEW, HeldStates.CHECKING));
+
+        verify(held, never()).setProperty(eq(QuarantineTree.ATTEMPTS), anyLong());
+        verify(held, never()).getNode(QuarantineTree.CHECKS);
+        verify(session, never()).save();
+    }
+
+    @Test
+    void aSaveThatAnotherSessionMadeStaleIsAStaleState() throws Exception {
+        String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
+        JCRNodeWrapper held = heldAt(path);
+        storedState(held, HeldStates.CHECKING);
+        doThrow(new InvalidItemStateException("modified externally")).when(session).save();
+
+        assertThrows(StaleStateException.class, () -> store.setState(path, HeldStates.CHECKING, HeldStates.RELEASING));
+    }
+
     private JCRNodeWrapper heldAt(String path) throws RepositoryException {
         JCRNodeWrapper held = node(path);
         when(session.nodeExists(path)).thenReturn(true);
@@ -661,8 +754,9 @@ class JcrQuarantineStoreTest {
         JCRNodeIteratorWrapper children = mock(JCRNodeIteratorWrapper.class);
         when(children.iterator()).thenReturn(List.of(values, sensitive, item).iterator());
         when(held.getNodes()).thenReturn(children);
+        storedState(held, HeldStates.RELEASING);
 
-        store.finish(path, HeldStates.COMPLETED);
+        store.finish(path, HeldStates.RELEASING, HeldStates.COMPLETED);
 
         verify(values).remove();
         verify(sensitive).remove();
@@ -676,9 +770,9 @@ class JcrQuarantineStoreTest {
     @Test
     void finishingRefusesAStateThatIsNotFinalBeforeAnyRead() throws Exception {
         assertThrows(QuarantineStoreException.class,
-                () -> store.finish("/sites/" + SITE + "/held", HeldStates.RELEASING));
+                () -> store.finish("/sites/" + SITE + "/held", HeldStates.CHECKING, HeldStates.RELEASING));
         assertThrows(QuarantineStoreException.class,
-                () -> store.finish("/sites/" + SITE + "/held", HeldStates.NEEDS_REVIEW));
+                () -> store.finish("/sites/" + SITE + "/held", HeldStates.CHECKING, HeldStates.NEEDS_REVIEW));
         verify(session, never()).getNode(anyString());
         verify(session, never()).save();
     }
@@ -687,8 +781,9 @@ class JcrQuarantineStoreTest {
     void aMoveOfTheStateWritesItsTimeAsTheLastChange() throws Exception {
         String path = "/sites/" + SITE + "/formidable-quarantine/" + FORM_ID + "/2026/11/19/held-1";
         JCRNodeWrapper held = heldAt(path);
+        storedState(held, HeldStates.CHECKING);
 
-        store.setState(path, HeldStates.REJECTED);
+        store.setState(path, HeldStates.CHECKING, HeldStates.REJECTED);
 
         verify(held).setProperty(QuarantineTree.STATE, HeldStates.REJECTED);
         verify(held).setProperty(eq(QuarantineTree.CHANGED_AT),
@@ -703,8 +798,9 @@ class JcrQuarantineStoreTest {
         JCRNodeIteratorWrapper children = mock(JCRNodeIteratorWrapper.class);
         when(children.iterator()).thenReturn(List.<JCRNodeWrapper>of().iterator());
         when(held.getNodes()).thenReturn(children);
+        storedState(held, HeldStates.NEEDS_REVIEW);
 
-        store.finish(path, HeldStates.REJECTED);
+        store.finish(path, HeldStates.NEEDS_REVIEW, HeldStates.REJECTED);
 
         // the retention reads changedAt: a rejection by the run or by a manager starts its period
         verify(held).setProperty(QuarantineTree.STATE, HeldStates.REJECTED);

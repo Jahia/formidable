@@ -12,11 +12,13 @@ import java.util.List;
 public class GqlPurgeReport {
 
     private final int retentionDays;
+    private final GqlRetentionLimit limit;
     private final List<String> purged;
     private final List<String> failed;
 
-    GqlPurgeReport(int retentionDays, List<String> purged, List<String> failed) {
+    GqlPurgeReport(int retentionDays, GqlRetentionLimit limit, List<String> purged, List<String> failed) {
         this.retentionDays = retentionDays;
+        this.limit = limit;
         this.purged = List.copyOf(purged);
         this.failed = List.copyOf(failed);
     }
@@ -25,6 +27,14 @@ public class GqlPurgeReport {
     @GraphQLDescription("The limit the purge applied, in days")
     public int getRetentionDays() {
         return retentionDays;
+    }
+
+    @GraphQLField
+    @GraphQLNonNull
+    @GraphQLDescription("Whose limit the purge applied: PLATFORM_UNREAD when the settings of the site could not be"
+            + " read, so the longer limit of the platform applied")
+    public GqlRetentionLimit getLimit() {
+        return limit;
     }
 
     @GraphQLField

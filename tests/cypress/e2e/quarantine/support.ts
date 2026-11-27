@@ -446,6 +446,26 @@ export const setQuarantineRunSettings = (settings: Partial<QuarantineRunSettings
 	{timeout: 30000, interval: 500, errorMsg: 'The run of formidable-quarantine did not read its new settings'});
 };
 
+/**
+ * The period of the scheduled run of formidable-quarantine, in seconds; 0 turns it off. The test lab turns it off
+ * (tests/provisioning-manifest-*.yml), so that "run now" alone moves a held submission in a spec. A spec that turns it
+ * on turns it off again in its after(). The configuration admin applies the edit after the call returns: the helper
+ * waits until "run now" answers the period that the scheduler of the server holds, unless waitForTheScheduler is
+ * false. "run now" answers -1 when it cannot read the scheduler: the wait matches the period read, never that.
+ */
+/** The period of the scheduled run as the scheduler of the server holds it: 0 when it is off, -1 when unread. */
+export const readQuarantineRunPeriod = (): Cypress.Chainable<number> =>
+	cy.request<{schedule: {periodSeconds: number}}>(QUARANTINE_RUN_PATH).its('body.schedule.periodSeconds');
+
+export const setQuarantineRunPeriod = (periodSeconds: number, waitForTheScheduler = true): Cypress.Chainable => {
+	const edited = editConfiguration('org.jahia.modules.formidable.quarantine.run', {periodSeconds: String(periodSeconds)});
+	if (!waitForTheScheduler) {
+		return edited;
+	}
+	return cy.waitUntil(() => readQuarantineRunPeriod().then(read => read === periodSeconds),
+	{timeout: 30000, interval: 500, errorMsg: `The scheduled run of formidable-quarantine did not take the period ${periodSeconds}`});
+};
+
 /** One call a stub check received: the check node, the SHA-256 of the file, and whether it was a submit or a poll. */
 export interface StubCall {
 	nodeType: string;
@@ -540,27 +560,32 @@ export const operateHeldSubmission = (path: string, operation: QuarantineOperati
 			`The operation ${operation} on ${path}`, errorMessages(response.body));
 	});
 
+/** Whose limit a purge applied: PLATFORM_UNREAD when the settings of the site could not be read. */
+export type QuarantineRetentionLimit = 'PLATFORM' | 'PLATFORM_UNREAD' | 'SITE' | 'CALL';
+
 export interface QuarantineRetentionAnswer {
 	site: string;
 	retentionDays: number;
+	limit: QuarantineRetentionLimit | null;
 	purged: string[];
 	failed: string[];
 }
 
 type PurgeAnswer = GraphqlAnswer<{
-	formidableQuarantine: {purge: {retentionDays: number; purged: string[]; failed: string[]}} | null;
+	formidableQuarantine: {purge: {retentionDays: number; limit: QuarantineRetentionLimit; purged: string[]; failed: string[]}} | null;
 }>;
 
 /**
  * The retention over the test site, through the mutation formidableQuarantine(siteKey) { purge } of the GraphQL API:
- * purges each rejected held submission whose last change is older than the limit, retentionDays of the configuration
- * or olderThanDays for this call. Server administrators only: any other user gets 403. The body names the paths.
+ * purges each completed or rejected held submission whose last change is older than the limit: the lower of
+ * retentionDays of the configuration and of the site, or olderThanDays for this call. Server administrators only: any
+ * other user gets 403. The body names the paths, and whose limit applied.
  */
 export const runQuarantineRetention = (olderThanDays?: number, failOnStatusCode = true):
 	Cypress.Chainable<Cypress.Response<QuarantineRetentionAnswer>> =>
 	quarantineGraphql<PurgeAnswer['data']>(
 		`mutation($siteKey: String!, $olderThanDays: Int) {
-			formidableQuarantine(siteKey: $siteKey) {purge(olderThanDays: $olderThanDays) {retentionDays purged failed}}
+			formidableQuarantine(siteKey: $siteKey) {purge(olderThanDays: $olderThanDays) {retentionDays limit purged failed}}
 		}`,
 		{siteKey: FORMIDABLE_TEST_SITE.key, olderThanDays: olderThanDays ?? null}
 	).then(response => {
@@ -569,6 +594,7 @@ export const runQuarantineRetention = (olderThanDays?: number, failOnStatusCode 
 		const body: QuarantineRetentionAnswer = {
 			site: FORMIDABLE_TEST_SITE.key,
 			retentionDays: report?.retentionDays ?? 0,
+			limit: report?.limit ?? null,
 			purged: (report?.purged ?? []).map(toPath),
 			failed: (report?.failed ?? []).map(toPath)
 		};

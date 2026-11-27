@@ -1,14 +1,17 @@
 package org.jahia.modules.formidable.quarantine.graphql;
 
 import graphql.GraphQLContext;
+import org.jahia.modules.formidable.quarantine.ops.InMemoryOperations;
 import org.jahia.modules.formidable.quarantine.ops.Managers;
 import org.jahia.modules.formidable.quarantine.ops.Operation;
 import org.jahia.modules.formidable.quarantine.ops.OperationRefusedException;
 import org.jahia.modules.formidable.quarantine.ops.OperationResult;
 import org.jahia.modules.formidable.quarantine.ops.QuarantineOperations;
 import org.jahia.modules.formidable.quarantine.ops.QuarantineRetention;
+import org.jahia.modules.formidable.quarantine.run.FakeRunLock;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine;
 import org.jahia.modules.formidable.quarantine.run.InMemoryQuarantine.Held;
+import org.jahia.modules.formidable.quarantine.run.SiteLocks;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
 import org.jahia.modules.formidable.quarantine.store.AuditRecord;
 import org.jahia.modules.formidable.quarantine.store.CheckStore;
@@ -16,6 +19,7 @@ import org.jahia.modules.formidable.quarantine.store.DecisionRecord;
 import org.jahia.modules.formidable.quarantine.store.HeldQueries;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
+import org.jahia.modules.formidable.quarantine.store.QuarantineSites;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.jahia.modules.graphql.provider.dxm.DataFetchingException;
@@ -26,16 +30,22 @@ import org.slf4j.Logger;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Proxy;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.OptionalLong;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.locks.ReentrantLock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -87,6 +97,8 @@ class SiteQuarantineTest {
     /** Each call of the store and of the queries: the method and its arguments. */
     private final List<String> calls = Collections.synchronizedList(new ArrayList<>());
     private Logger log;
+    private final FakeRunLock runLock = new FakeRunLock();
+    private final SiteLocks siteLocks = new SiteLocks();
 
     @BeforeEach
     void setUp() {
@@ -145,7 +157,9 @@ class SiteQuarantineTest {
                 stores.held.remove(held.path);
             }
         }
-        return new QuarantineRetention.Report(olderThanDays == null ? 30 : olderThanDays, purged, List.of());
+        return olderThanDays == null
+                ? new QuarantineRetention.Report(30, QuarantineRetention.Limit.PLATFORM, purged, List.of())
+                : new QuarantineRetention.Report(olderThanDays, QuarantineRetention.Limit.CALL, purged, List.of());
     }
 
     private Held inState(String formId, HeldState state) {
@@ -572,7 +586,126 @@ class SiteQuarantineTest {
         GqlPurgeReport report = site().purge(0);
         assertEquals(List.of(idOf(rejected)), report.getPurged());
         assertEquals(0, report.getRetentionDays());
+        assertEquals(GqlRetentionLimit.CALL, report.getLimit());
         assertEquals(1, stores.held.size());
+    }
+
+    /** #506: a purge that kept the limit of the platform because the site could not be read says so. */
+    @Test
+    void aPurgeUnderThePlatformLimitOfAnUnreadSiteSaysSo() {
+        QuarantineRetention retention = new QuarantineRetention();
+        retention.setStore(stores);
+        retention.setCheckStore(stores);
+        retention.setSites(new QuarantineSites() {
+            @Override
+            public List<String> withTree() {
+                return List.of(SITE);
+            }
+
+            @Override
+            public boolean anyDue(String siteKey, Instant now) {
+                return false;
+            }
+
+            @Override
+            public OptionalLong retentionDays(String siteKey) throws QuarantineStoreException {
+                throw new QuarantineStoreException("The site settings cannot be read");
+            }
+        });
+        managers.administrator = true;
+        SiteQuarantine site = new SiteQuarantine(SITE, new SiteQuarantine.Services(stores, stores, stores,
+                this::operate, retention::purge, managers, (siteKey, formId) -> facts), log);
+
+        GqlPurgeReport report = site.purge(null);
+
+        assertEquals(GqlRetentionLimit.PLATFORM_UNREAD, report.getLimit());
+        assertEquals(retention.retentionDays(), report.getRetentionDays(), "the limit of the platform");
+        assertEquals(GqlRetentionLimit.CALL, site.purge(7).getLimit(), "a limit given for the call reads no site");
+    }
+
+    @Test
+    void everyLimitOfTheRetentionHasItsName() {
+        for (QuarantineRetention.Limit limit : QuarantineRetention.Limit.values()) {
+            assertEquals(limit.name(), GqlRetentionLimit.of(limit).name());
+        }
+        assertEquals(QuarantineRetention.Limit.values().length, GqlRetentionLimit.values().length);
+    }
+
+    // --- a run that holds the site: each refusal of the operations answers the conflict, never the failure ---
+
+    /** The quarantine of the site over the operations of the module, as the API wires them. */
+    private SiteQuarantine withTheOperations() {
+        QuarantineOperations operations = InMemoryOperations.of(stores, managers, runLock, siteLocks,
+                Clock.fixed(NOW, ZoneOffset.UTC));
+        return new SiteQuarantine(SITE, new SiteQuarantine.Services(stores, stores, stores, operations::apply,
+                this::purge, managers, (siteKey, formId) -> facts), log);
+    }
+
+    /** The operation answers the conflict that its message names, and not the fixed message of a failure. */
+    private static void assertConflict(SiteQuarantine site, String id, GqlOperation operation, String conflict) {
+        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.operate(id, operation));
+        assertNotEquals(SiteQuarantine.OPERATION_FAILED, error.getMessage());
+        assertTrue(error.getMessage().contains(conflict), error.getMessage());
+    }
+
+    @Test
+    void anOperationWhileAPassOfTheRunHoldsTheSiteAnswersTheConflict() throws InterruptedException {
+        Held held = inState(FORM, HeldState.RELEASING);
+        SiteQuarantine site = withTheOperations();
+        CountDownLatch taken = new CountDownLatch(1);
+        CountDownLatch end = new CountDownLatch(1);
+        Thread pass = new Thread(() -> {
+            ReentrantLock lock = siteLocks.of(SITE);
+            lock.lock();
+            try {
+                taken.countDown();
+                end.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                lock.unlock();
+            }
+        });
+        pass.start();
+        taken.await();
+        try {
+            assertConflict(site, idOf(held), GqlOperation.RESUME, "in progress");
+            assertEquals("releasing", held.state);
+        } finally {
+            end.countDown();
+            pass.join();
+        }
+    }
+
+    @Test
+    void anOperationWhileARunOfAnotherServerHoldsTheSiteAnswersTheConflict() {
+        Held held = inState(FORM, HeldState.RELEASING);
+        runLock.heldElsewhere.add(SITE);
+
+        assertConflict(withTheOperations(), idOf(held), GqlOperation.RESUME, "in progress");
+        assertEquals("releasing", held.state);
+    }
+
+    @Test
+    void anOperationOnASubmissionThatARunMovedFirstAnswersTheConflict() {
+        Held held = inState(FORM, HeldState.NEEDS_REVIEW);
+        // a run on another server moved it back to checking between the read of the operation and its move
+        stores.beforeStateWrite = () -> held.state = HeldState.CHECKING.value();
+
+        assertConflict(withTheOperations(), idOf(held), GqlOperation.REJECT, "reload");
+        assertEquals("checking", held.state);
+    }
+
+    @Test
+    void aReleaseThatLostTheLockOfTheRunAnswersTheConflict() {
+        Held held = inState(FORM, HeldState.RELEASING);
+        // the lease is no longer valid where it was granted: another server took the lock of the run
+        runLock.valid = false;
+
+        assertConflict(withTheOperations(), idOf(held), GqlOperation.RESUME, SiteQuarantine.RUN_STOPPED);
+        assertEquals("releasing", held.state);
+        assertEquals(List.of("resume"), held.audit.stream().map(AuditRecord::operation).toList(),
+                "the stopped resume names its manager");
     }
 
     @Test

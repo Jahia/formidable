@@ -15,6 +15,7 @@ import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
 import org.jahia.modules.formidable.quarantine.store.ScopedStreams;
+import org.jahia.modules.formidable.quarantine.store.StaleStateException;
 import org.jahia.modules.formidable.quarantine.store.Sha256;
 
 import java.io.ByteArrayInputStream;
@@ -206,12 +207,31 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     }
 
     @Override
-    public void setState(String path, String state) throws QuarantineStoreException {
+    public void setState(String path, String expected, String state) throws QuarantineStoreException {
         Held one = get(path);
+        refuseUnlessStored(one, expected);
         one.state = state;
         one.states.add(state);
         one.changedAt = changedAt;
     }
+
+    /**
+     * The compare of a compare-and-set. {@link #beforeStateWrite} runs first, so a test moves the submission under the
+     * mover, as another server would.
+     */
+    private void refuseUnlessStored(Held one, String expected) throws StaleStateException {
+        Runnable concurrent = beforeStateWrite;
+        beforeStateWrite = null;
+        if (concurrent != null) {
+            concurrent.run();
+        }
+        if (!expected.equals(one.state)) {
+            throw new StaleStateException(one.path + " is " + one.state + ", not " + expected);
+        }
+    }
+
+    /** Runs once, before the next state write: another run or operation that moves the submission first. */
+    public Runnable beforeStateWrite;
 
     /** The time setState writes as the last change. */
     public Instant changedAt = Instant.parse("2026-11-19T12:00:00Z");
@@ -220,6 +240,18 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     public void purge(String path) throws QuarantineStoreException {
         get(path);
         held.remove(path);
+    }
+
+    @Override
+    public void restartChecks(String path, String expected, String state) throws QuarantineStoreException {
+        Held one = get(path);
+        refuseUnlessStored(one, expected);
+        one.attempts = 0;
+        one.nextAttempt = null;
+        one.outcomes.values().removeIf(outcome -> !OutcomeRecord.PASS.equals(outcome.outcome()));
+        one.state = state;
+        one.states.add(state);
+        one.changedAt = changedAt;
     }
 
     @Override
@@ -237,8 +269,9 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     }
 
     @Override
-    public void finish(String path, String state) throws QuarantineStoreException {
+    public void finish(String path, String expected, String state) throws QuarantineStoreException {
         Held one = get(path);
+        refuseUnlessStored(one, expected);
         if (failingDeletion.contains(path)) {
             throw new QuarantineStoreException("Could not delete the values of the held submission at " + path);
         }
@@ -308,11 +341,6 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     @Override
     public void writeDecision(String path, DecisionRecord decision) throws QuarantineStoreException {
         get(path).decision = decision;
-    }
-
-    @Override
-    public void keepPassedOutcomesOnly(String path) throws QuarantineStoreException {
-        get(path).outcomes.values().removeIf(outcome -> !OutcomeRecord.PASS.equals(outcome.outcome()));
     }
 
     @Override

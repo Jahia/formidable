@@ -5,6 +5,7 @@ import org.jahia.modules.formidable.quarantine.ops.Operation;
 import org.jahia.modules.formidable.quarantine.ops.OperationRefusedException;
 import org.jahia.modules.formidable.quarantine.ops.OperationResult;
 import org.jahia.modules.formidable.quarantine.ops.QuarantineRetention;
+import org.jahia.modules.formidable.quarantine.run.RunStoppedException;
 import org.jahia.modules.formidable.quarantine.state.HeldState;
 import org.jahia.modules.formidable.quarantine.store.CheckStore;
 import org.jahia.modules.formidable.quarantine.store.HeldDetails;
@@ -45,6 +46,8 @@ final class SiteQuarantine {
     static final String READ_FAILED = "The quarantine tree could not be read";
     static final String OPERATION_FAILED = "The operation failed";
     static final String RAN_NOT_READ = "The operation ran, but the held submission could not be read again";
+    static final String RUN_STOPPED = "A run of the quarantine of the site took its lock back before the actions after"
+            + " release, which did not run: reload the held submission";
     static final String NOT_FOUND = "No held submission %s that the user manages";
     static final String ADMINISTRATORS_ONLY = "Server administrators only";
     static final String TOO_MANY_STATES = "states names each state once at most";
@@ -56,7 +59,7 @@ final class SiteQuarantine {
                 throws OperationRefusedException, QuarantineStoreException;
     }
 
-    /** Purges the old rejected submissions of a site, as {@code QuarantineRetention.purge}. */
+    /** Purges the old finished submissions of a site, as {@code QuarantineRetention.purge}. */
     @FunctionalInterface
     interface Purger {
         QuarantineRetention.Report purge(String siteKey, Integer olderThanDays) throws QuarantineStoreException;
@@ -175,8 +178,10 @@ final class SiteQuarantine {
      * operations check the permission on the site again, and write the audit record with the name of the user.
      *
      * @throws DataFetchingException when the site has no such held submission, when the state does not allow the
-     *                               operation, when the operation failed, or, with its own message, when it ran
-     *                               but the submission could not be read again
+     *                               operation, when a run holds the site, moved the submission first or took its
+     *                               lock back before the actions after release ({@link #RUN_STOPPED}), when the
+     *                               operation failed, or, with its own message, when it ran but the submission could
+     *                               not be read again
      */
     GqlHeldSubmission operate(String id, GqlOperation operation) {
         String path = HeldIds.pathOf(siteKey, id);
@@ -188,6 +193,12 @@ final class SiteQuarantine {
         } catch (OperationRefusedException e) {
             throw new DataFetchingException(e.reason() == OperationRefusedException.Reason.CONFLICT
                     ? e.getMessage() : String.format(NOT_FOUND, id));
+        } catch (RunStoppedException e) {
+            // a conflict with the run, not a failure: no action after release ran, and the submission waits
+            if (log.isInfoEnabled()) {
+                log.info("The operation {} on {} stopped: {}", operation, path, e.getMessage());
+            }
+            throw new DataFetchingException(RUN_STOPPED);
         } catch (QuarantineStoreException e) {
             if (log.isWarnEnabled()) {
                 log.warn("The operation {} on {} failed: {}", operation, path, e.getMessage());
@@ -221,10 +232,12 @@ final class SiteQuarantine {
     }
 
     /**
-     * Purges the rejected held submissions of the site older than the limit. Server administrators only: the
-     * retention is a setting of the platform.
+     * Purges the completed and rejected held submissions of the site older than the limit, and says whose limit
+     * applied: a limit of the platform kept because the settings of the site could not be read is
+     * {@link GqlRetentionLimit#PLATFORM_UNREAD}. Server administrators only: the retention is a setting of the
+     * platform.
      *
-     * @param olderThanDays the limit for this call, or {@code null} for the configured one; never negative
+     * @param olderThanDays the limit for this call, or {@code null} for the limit of the site; never negative
      */
     GqlPurgeReport purge(Integer olderThanDays) {
         if (!services.managers().isServerAdministrator()) {
@@ -236,7 +249,8 @@ final class SiteQuarantine {
         return guarded("purge", () -> {
             QuarantineRetention.Report report = read(() -> services.purger().purge(siteKey, olderThanDays));
             forgetTotals();
-            return new GqlPurgeReport(report.retentionDays(), ids(report.purged()), ids(report.failed()));
+            return new GqlPurgeReport(report.retentionDays(), GqlRetentionLimit.of(report.limit()),
+                    ids(report.purged()), ids(report.failed()));
         });
     }
 

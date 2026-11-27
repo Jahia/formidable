@@ -48,10 +48,25 @@ public interface QuarantineStore {
     List<HeldRecord> list(String siteKey, String formId) throws QuarantineStoreException;
 
     /**
-     * Writes the state, and the time of the change ({@link HeldRecord#changedAt()}). The store checks only that the
-     * state is one of {@link HeldStates#ALL}: the state machine of the module decides which move is allowed.
+     * Writes the state, and the time of the change ({@link HeldRecord#changedAt()}), when the stored state is still
+     * {@code expected}: a compare-and-set, read and saved in one session. The store checks only that the state is one
+     * of {@link HeldStates#ALL}: the state machine of the module decides which move is allowed.
+     *
+     * @throws StaleStateException when the stored state is not {@code expected}, or another session saved the held
+     *                             submission at the same moment: nothing changed
      */
-    void setState(String path, String state) throws QuarantineStoreException;
+    void setState(String path, String expected, String state) throws QuarantineStoreException;
+
+    /**
+     * Starts the checks of a held submission again, for a retry of a manager, in one save: the attempts start over at
+     * 0 with no next attempt, every outcome that is not a {@code PASS} is dropped, and the state is written. It is a
+     * compare-and-set, as {@link #setState} is: when the stored state is not {@code expected}, nothing changes, the
+     * attempts and the outcomes included.
+     *
+     * @throws StaleStateException when the stored state is not {@code expected}, or another session saved the held
+     *                             submission at the same moment: nothing changed
+     */
+    void restartChecks(String path, String expected, String state) throws QuarantineStoreException;
 
     /**
      * Writes the number of attempts of the checks and when the next one is due.
@@ -70,9 +85,13 @@ public interface QuarantineStore {
      * state never keeps its data. The record stays: the state, the names of the fields, and of each item its name,
      * size and SHA-256.
      *
+     * The state is written when the stored state is still {@code expected}, as {@link #setState} does.
+     *
+     * @throws StaleStateException      when the stored state is not {@code expected}, or another session saved the
+     *                                  held submission at the same moment: nothing changed
      * @throws QuarantineStoreException for any other state, or when the repository refused the save: nothing changed
      */
-    void finish(String path, String state) throws QuarantineStoreException;
+    void finish(String path, String expected, String state) throws QuarantineStoreException;
 
     /**
      * Starts the release of the values alone of the held submission, in one save: the bytes of every item are

@@ -23,6 +23,7 @@ import java.time.Clock;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 
 /**
  * The release of a held submission: the release reads each file once, into memory, because the engine's actions take
@@ -95,6 +96,18 @@ public final class Release {
      * @throws IllegalTransitionException for any other state: no byte is read and no action runs
      */
     public HeldState release(String path, HeldState state, FormPolicy policy) throws QuarantineStoreException {
+        return release(path, state, policy, () -> true);
+    }
+
+    /**
+     * Releases the held submission, as {@link #release(String, HeldState, FormPolicy)} does, for a holder of the lock
+     * of the run: the lease is asked before the actions after release run, and a lost lease stops the release before
+     * them.
+     *
+     * @throws RunStoppedException when the lease is lost before the actions: they did not run
+     */
+    public HeldState release(String path, HeldState state, FormPolicy policy, BooleanSupplier leaseKept)
+            throws QuarantineStoreException {
         // refuses a state the release cannot leave, before any byte is read and any action runs
         StateMachine.next(state, state == HeldState.CHECKING ? HeldEvent.ALL_PASSED : HeldEvent.ACTIONS_DONE);
         HeldRecord held = heldRecord(path);
@@ -103,6 +116,7 @@ public final class Release {
         }
         if (store.valuesOnly(path)) {
             // the bytes went with the first release of the values alone: whatever the event, no file goes out
+            keepLease(path, leaseKept);
             HeldState releasing = state == HeldState.CHECKING
                     ? transitions.move(path, state, HeldEvent.RELEASE_VALUES) : state;
             return runActions(path, releasing, valuesAlone(path, policy), held.completedActions());
@@ -112,6 +126,7 @@ public final class Release {
         if (changed != null) {
             return integrityFailed(path, state, changed);
         }
+        keepLease(path, leaseKept);
         HeldState releasing = state == HeldState.CHECKING ? transitions.move(path, state, HeldEvent.ALL_PASSED) : state;
         HeldSubmission released = withValues(submission, policy.withScanStatus(submission.parameters(), true),
                 submission.files());
@@ -136,6 +151,17 @@ public final class Release {
      *                                    name of the scan status: the caller rejects instead, and nothing changed
      */
     public HeldState releaseValues(String path, HeldState state, FormPolicy policy) throws QuarantineStoreException {
+        return releaseValues(path, state, policy, () -> true);
+    }
+
+    /**
+     * Releases the values alone, as {@link #releaseValues(String, HeldState, FormPolicy)} does, for a holder of the
+     * lock of the run: a lost lease stops the release before its bytes are deleted and its actions run.
+     *
+     * @throws RunStoppedException when the lease is lost first: nothing changed
+     */
+    public HeldState releaseValues(String path, HeldState state, FormPolicy policy, BooleanSupplier leaseKept)
+            throws QuarantineStoreException {
         HeldEvent event = state == HeldState.CHECKING ? HeldEvent.RELEASE_VALUES : HeldEvent.MANAGER_RELEASE_VALUES;
         HeldState releasing = StateMachine.next(state, event);
         HeldRecord held = heldRecord(path);
@@ -143,6 +169,7 @@ public final class Release {
             throw new IllegalStateException("The values of " + path + " cannot go out alone: an action after release "
                     + "ran, or a field of the form has the name of the scan status");
         }
+        keepLease(path, leaseKept);
         store.startValuesRelease(path, state.value(), releasing.value());
         log.info("Held submission {}: on {}, its bytes are deleted and its values go out alone", path, event);
         return runActions(path, releasing, valuesAlone(path, policy), held.completedActions());
@@ -154,6 +181,13 @@ public final class Release {
      */
     public static boolean mayReleaseValues(HeldRecord held, FormPolicy policy) {
         return policy.releasesValues() && held.completedActions() == 0 && !policy.scanStatusTaken();
+    }
+
+    /** Stops the release before it changes anything when the lease of the run is lost. */
+    private static void keepLease(String path, BooleanSupplier leaseKept) throws RunStoppedException {
+        if (!leaseKept.getAsBoolean()) {
+            throw new RunStoppedException("the lock of the run is lost before the release of " + path);
+        }
     }
 
     private HeldRecord heldRecord(String path) throws QuarantineStoreException {

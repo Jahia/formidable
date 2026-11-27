@@ -41,6 +41,7 @@ class QuarantineRunnerTest {
         run.setCheckStore(checkStore);
         run.setStore(mock(QuarantineStore.class));
         run.setActions(mock(DeferredActions.class));
+        run.setRunLock(new FakeRunLock());
 
         QuarantineRunException failed = assertThrows(QuarantineRunException.class, () -> run.runNow(SITE, null, false));
 

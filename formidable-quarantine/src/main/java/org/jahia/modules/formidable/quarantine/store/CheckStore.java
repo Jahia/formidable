@@ -37,12 +37,6 @@ public interface CheckStore {
     /** Writes the decision that stopped the run, in place of the one before. */
     void writeDecision(String path, DecisionRecord decision) throws QuarantineStoreException;
 
-    /**
-     * Removes every outcome that is not a {@code PASS}, so that the next run calls those checks again with no failure
-     * counted: a manager retries the submission. A {@code PASS} stays, for the bytes it was given for.
-     */
-    void keepPassedOutcomesOnly(String path) throws QuarantineStoreException;
-
     /** The audit records of the held submission, oldest first. */
     List<AuditRecord> audit(String path) throws QuarantineStoreException;
 
