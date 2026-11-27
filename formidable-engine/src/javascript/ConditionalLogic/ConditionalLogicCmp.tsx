@@ -520,7 +520,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                         variant="outlined"
                         data={sourceOptions}
                         hasSearch={sourceOptions.length >= 5}
-                        value={selectedSource?.id}
+                        value={selectedSource?.id ?? ''}
                         placeholder={t('conditionalLogic.selectSource')}
                         isDisabled={field.readOnly}
                         onChange={handleSourceChange}
@@ -630,7 +630,7 @@ export const ConditionalLogicCmp = (props: SelectorProps) => {
                     variant="outlined"
                     data={refOptions}
                     hasSearch={refOptions.length >= 5}
-                    value={providerRef(rule, provider.configKey) || undefined}
+                    value={providerRef(rule, provider.configKey) || ''}
                     placeholder={t(provider.configLabelKey)}
                     isDisabled={field.readOnly}
                     isLoading={refChoices.status === 'loading'}

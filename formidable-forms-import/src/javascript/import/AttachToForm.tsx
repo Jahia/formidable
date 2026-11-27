@@ -118,7 +118,7 @@ export const AttachToForm = ({sourceFields, choice, siteForms, targetFields, lan
                         variant="outlined"
                         placeholder={siteForms?.length === 0 ? t('formResults.import.attach.noForms') : t('formResults.import.attach.pickForm')}
                         data={(siteForms ?? []).map(siteForm => ({label: siteForm.title, description: siteForm.path, value: siteForm.uuid}))}
-                        value={choice.form || undefined}
+                        value={choice.form || ''}
                         isLoading={siteForms === null || loadingForm !== null}
                         isDisabled={siteForms !== null && siteForms.length === 0}
                         onChange={(_event, item) => {
