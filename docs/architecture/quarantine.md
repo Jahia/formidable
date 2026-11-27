@@ -63,7 +63,7 @@ flowchart LR
 | Manager operations | Retry, release, resume and reject, each allowed by the state machine and written to the audit. |
 | GraphQL API and download | The API of the manager screen. A resolver checks the permission of the user on the site before every read and every operation. |
 | Manager screen | A jContent route of the site: the list, the detail of a submission, the operations and the download. |
-| Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `FAIL` for a type outside its list, and `PASS` for a type on it. |
+| Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `PASS` when both the extension and the MIME type of the file are on its two lists, and `FAIL` otherwise. |
 
 ## The check API
 
@@ -72,25 +72,53 @@ A check module provides both, and nothing else:
 
 - The node type declares `fmdbmix:qualifier`, so the Page Builder offers it in the checks zone.
 - The service registers under the check API and names the node type it serves.
-- A check receives the metadata of the file, a stream of its bytes and its settings. It never receives a node of
-  the repository.
+- A check receives the metadata of the file and its settings. A check that reads bytes also receives a stream of
+  the bytes, and a `METADATA` check receives no stream. A check never receives a node of the repository.
+- The stream reads the binary of the repository as the check reads it, with no copy of the file in memory. The run
+  calls the checks in batches, with at most one call for each file in a batch. When a batch holds a call that reads
+  bytes, the run opens a session of the repository for the whole batch. The run closes the session after the last
+  call.
+- A file opens a stream only while the session of a batch is open. A stream reads only until its batch ends. A file
+  that the check keeps can open a new stream during a later batch of the same run that opens a session.
 - A check gives one of three answers:
   - a verdict, `PASS`, `FAIL` or `INCONCLUSIVE`;
   - a ticket that the run polls later;
   - a failure, retryable or not, when the check could not answer. Its setting `onUnavailable` then decides.
 - A check declares its scope:
-  - A `METADATA` check reads the name, the declared MIME type and the size of the file, and never a byte.
+  - A `METADATA` check reads the name, the detected MIME type and the size of the file, and never a byte. The run
+    hands it a file whose stream cannot be opened.
   - A `REMOTE` check sends the bytes out of the JVM.
   - An `IN_PROCESS` check reads the bytes inside the JVM.
 - The chain refuses a list where an `IN_PROCESS` check reads a file before a `REMOTE` check passed it. A `METADATA`
   check can stand at any place in the list.
-
-The allow-list check has the scope `METADATA`. Its `PASS` means only that the type of the file is allowed. With the
-allow-list check alone in the list, every file of an allowed type is released with no scan. A scanner therefore
-comes after the allow-list check.
+- The run records an outcome for the bytes it was given for. A check that reads bytes judges the bytes, so two files
+  with the same bytes share its outcome. A `METADATA` check judges the name and the type. Its outcome counts
+  only for a file of the same bytes, the same name and the same detected MIME type.
 
 The settings of a check come from its node. The run reads the node and gives the check its common settings
-(`onInconclusive`, `onUnavailable`) and its own properties as a map of strings.
+(`onInconclusive`, `onUnavailable`) and its own properties as a map:
+
+- The map holds the properties that the type of the check declares or inherits, and that the node holds.
+- It leaves out the properties of the platform, whose names start with `jcr:`, `j:` or `mix:`, and the two common
+  settings.
+- Each property maps to the list of its values as strings. A single property has a list of one value.
+
+### The allow-list check
+
+The module ships one check, the node type `fmdbq:allowListCheck` and its service `AllowListQualifier`:
+
+- It has the scope `METADATA` and applies to every file.
+- It has two lists, `extensions` and `mimeTypes`. It answers `PASS` when the extension of the name of the file and
+  the MIME type of the file are both on the lists. Case does not matter, and neither do the parameters of the MIME
+  type.
+- It answers `FAIL` otherwise, with the reason `allowList.extensionRefused` or `allowList.mimeTypeRefused`. The
+  submission is rejected.
+- Both lists are mandatory. A check whose list holds no entry is a mistake of the setup, not a refused file. It
+  answers a failure that no retry mends, `allowList.notConfigured`, and the submission goes to review with its data.
+
+Its `PASS` means only that the type of the file is allowed. With the allow-list check alone in the list, every file
+of an allowed type is released with no scan. A scanner therefore comes after the allow-list check. The help text of
+the check says so in the Page Builder and in the content editor.
 
 The check API follows semantic versioning. Jahia implements the types marked `@ProviderType`, and a check module
 implements the types marked `@ConsumerType`. ADR 0003 decides that the build compares the exported package with its
@@ -266,7 +294,9 @@ named `formidableQuarantine(siteKey)`:
   inheritance of the ACL and has no entry, so no site role reads it.
 - The bytes of a file are a binary property of the item. They are never `jcr:data` of a file node, so no file
   servlet serves them, and no text extraction or listener reads them.
-- The store computes the SHA-256 again before a release and before a download:
+- The store computes the SHA-256 again before a release and before a download. The release reads each file once,
+  into memory, because the actions of the engine take the bytes of a file as an array. The hash covers exactly the
+  bytes that the actions receive:
   - A mismatch before a release moves the submission to review with the reason `INTEGRITY_FAILED`.
   - A mismatch before a download refuses the download and writes an audit record. The submission stays in
     `needsReview`.

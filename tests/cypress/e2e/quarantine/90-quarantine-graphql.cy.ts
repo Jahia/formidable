@@ -83,14 +83,14 @@ const readSubmission = (siteKey: string, id: string): Cypress.Chainable<Cypress.
 
 /**
  * The GraphQL API of formidable-quarantine and the permission of a manager per site (tests/scenarios/quarantine.md,
- * Q29 to Q34). The query and the mutation formidableQuarantine(siteKey) check the permission formidableQuarantineManage
+ * Q32 to Q37). The query and the mutation formidableQuarantine(siteKey) check the permission formidableQuarantineManage
  * on the live site node first: a user who does not hold it gets null, the answer of a site that does not exist. Every read
  * and every operation stays below the quarantine root of that site, so an identifier of site B names nothing in the
  * quarantine of site A. Each operation writes the audit record with the name of the user of the request.
  *
- * Q29 and Q31 are control scenarios. Their control build is the one of Q20 in tests/scenarios/quarantine.md: the
+ * Q32 and Q34 are control scenarios. Their control build is the one of Q20 in tests/scenarios/quarantine.md: the
  * check of the permission removed in ManagerApi.open and in QuarantineOperations.applyLocked. Build it with `package`,
- * deploy it in place of the module, and run this spec: Q29 must fail on the quarantine of site B, and Q31 on the
+ * deploy it in place of the module, and run this spec: Q32 must fail on the quarantine of site B, and Q34 on the
  * visibility for the editor.
  */
 describe('Quarantine - 90 The GraphQL API answers the managers of a site alone', () => {
@@ -152,7 +152,7 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 		deleteSite(SITE_B);
 	});
 
-	it('Q29: a manager of site A reads the quarantine of A, and site B answers as a site that does not exist (control)', () => {
+	it('Q32: a manager of site A reads the quarantine of A, and site B answers as a site that does not exist (control)', () => {
 		asUser(MANAGER);
 		quarantineIsVisible(SITE_A).should('eq', true);
 		readHeldSubmissions(formIdA).then(held => {
@@ -176,7 +176,7 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 		asRoot();
 	});
 
-	it('Q30: an identifier of site B names nothing in the quarantine of site A, and the operation changes nothing', () => {
+	it('Q33: an identifier of site B names nothing in the quarantine of site A, and the operation changes nothing', () => {
 		readHeldSubmissions(formIdB, SITE_B).then(([heldB]) => {
 			const idB = heldIdOf(heldB.path, SITE_B);
 			asUser(MANAGER);
@@ -202,7 +202,7 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 	});
 
 	[EDITOR, SITE_ADMIN].forEach(name => {
-		it(`Q31: ${name} does not hold the permission, sees nothing and changes nothing (control)`, () => {
+		it(`Q34: ${name} does not hold the permission, sees nothing and changes nothing (control)`, () => {
 			asUser(name);
 			quarantineIsVisible(SITE_A).should('eq', false);
 			pathsA.forEach(path => operateHeldSubmission(path, 'reject', false).its('status').should('eq', 403));
@@ -215,7 +215,7 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 		});
 	});
 
-	it('Q32: the manager rejects a submission, the audit names the manager, and the retention stays with the server administrators', () => {
+	it('Q35: the manager rejects a submission, the audit names the manager, and the retention stays with the server administrators', () => {
 		const id = heldIdOf(pathsA[0]);
 		asUser(MANAGER);
 		readSubmission(SITE_A, id).then(response => {
@@ -247,7 +247,7 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 		});
 	});
 
-	it('Q34: the mutation operate in a shape that a cross-site page can forge is refused, and the same from this server runs', () => {
+	it('Q37: the mutation operate in a shape that a cross-site page can forge is refused, and the same from this server runs', () => {
 		const id = heldIdOf(pathsA[1]);
 		const mutation = `mutation { formidableQuarantine(siteKey: "${SITE_A}") { operate(id: "${id}", operation: REJECT) { id } } }`;
 		/**
@@ -297,7 +297,7 @@ describe('Quarantine - 90 The GraphQL API answers the managers of a site alone',
 		});
 	});
 
-	it('Q33: a page holds at most 100 submissions, whatever limit the request asks for', () => {
+	it('Q36: a page holds at most 100 submissions, whatever limit the request asks for', () => {
 		quarantineGraphql<{formidableQuarantine: {submissions: {limit: number; offset: number; totalCount: number; items: unknown[]}} | null}>(
 			`query($siteKey: String!) {
 				formidableQuarantine(siteKey: $siteKey) {

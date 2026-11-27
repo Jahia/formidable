@@ -15,8 +15,10 @@ order.
 
 Specs:
 
-- `tests/cypress/e2e/quarantine/90-quarantine-graphql.cy.ts` covers Q29 to
-  Q34: the GraphQL API and the permission of a manager per site.
+- `tests/cypress/e2e/quarantine/90-quarantine-graphql.cy.ts` covers Q32 to
+  Q37: the GraphQL API and the permission of a manager per site.
+- `tests/cypress/e2e/quarantine/93-quarantine-allow-list.cy.ts` covers Q29, Q30
+  and Q31: the allow-list check of the module.
 - `tests/cypress/e2e/quarantine/94-quarantine-ownership.cy.ts` covers Q27 and
   Q28: which hold owns a form.
 - `tests/cypress/e2e/quarantine/95-uploads-hold.cy.ts` covers Q07, Q08, Q14,
@@ -53,13 +55,16 @@ Specs:
   in a test module. A refused forward is not counted as received.
 - **Quarantine module**: `formidable-quarantine`. It ships the module hold,
   the quarantine tree, the run of the checks, the operations of a manager and
-  the GraphQL API of the manager screen.
+  the GraphQL API of the manager screen. The module also ships one check, the
+  allow-list check `fmdbq:allowListCheck`.
 - **Quarantine test module**: `formidable-test-module-quarantine`. It ships the
   stub checks, the stub control and "run now". It keeps no hold. It depends on
   the quarantine module, so a site that enables it has the quarantine module
   too. Never for production: its checks are stubs.
-- **Check of the module**: a node of `fmdbquar:remoteStubCheck` or
-  `fmdbquar:inProcessStubCheck` in the list "Checks" (`qualifiers`) of a form.
+- **Check of the module**: a node in the list "Checks" (`qualifiers`) of a
+  form. The node is a stub check, `fmdbquar:remoteStubCheck` or
+  `fmdbquar:inProcessStubCheck`, or the allow-list check
+  `fmdbq:allowListCheck`.
 - **Module hold**: the hold of the quarantine module. It ranks 100. It owns
   every held form of a site that has the quarantine module, whatever the list
   "Checks" of the form holds. It stores the submissions of that form in the
@@ -170,7 +175,7 @@ the scenario proves:
 | Q09 | releases without computing the hash again: `Release.release` with `firstChanged(held, submission)` replaced by `null` |
 | Q21 | does not reject on a `FAIL`: `CheckChain.judgeResult` answers `null` for `FAIL` as for `PASS`. Q21 fails on the state after the run, `checking` and not `rejected` |
 | Q23 | runs a list whose first check is in-process: `CheckChain.refuseInProcessFirst` returns `null` at once, with its first test changed to `if (allowInProcessFirst \|\| files != null)`. The setting `allowInProcessFirst=true` is not a control: spec 98 checks that it is `false` before each test |
-| Q20, Q29, Q31 | opens the quarantine of a site to any user: in `ManagerApi.open`, `!managers.mayManage(siteKey)` replaced by `false`, and in `QuarantineOperations.applyLocked`, `!managers.mayManage(found.get().siteKey())` replaced by `false`. Q29 fails on the answer for site B, Q31 on the visibility for the editor |
+| Q20, Q32, Q34 | opens the quarantine of a site to any user: in `ManagerApi.open`, `!managers.mayManage(siteKey)` replaced by `false`, and in `QuarantineOperations.applyLocked`, `!managers.mayManage(found.get().siteKey())` replaced by `false`. Q32 fails on the answer for site B, Q34 on the visibility for the editor |
 
 ---
 
@@ -696,16 +701,62 @@ without the quarantine module and without the quarantine test module.
   the values are still there.
 - The sample hold and the observer action report no call.
 
+---
+
+## The allow-list check
+
+The scenarios of this section use the module hold. Each scenario starts the
+run of the checks through "run now", restricted to the form of the scenario. The only check
+of the form is the allow-list check `fmdbq:allowListCheck`, and "Actions after
+release" holds Save to JCR. Each scenario submits a text file `claim-note.txt`,
+of the type `text/plain`, as a guest, and reads the result as root.
+
+### Q29 — The allow-list allows the type of the file
+
+**Steps:**
+1. Set the lists of the check to the extension `txt` and the type `text/plain`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `completed`, and one action after release ran
+- The outcome of the check is `PASS`, with the reason `allowList.allowed`
+
+### Q30 — The extension of the file is not on the list
+
+**Steps:**
+1. Set the lists of the check to the extension `pdf` and the type `text/plain`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`, for the check
+- The outcome of the check is `FAIL`, with the reason
+  `allowList.extensionRefused`
+- No action after release ran, and the item holds no bytes
+
+### Q31 — The type of the file is not on the list
+
+**Steps:**
+1. Set the lists of the check to the extension `txt` and the type
+   `application/pdf`.
+2. Submit the form, and run the checks.
+
+**Expected:**
+- The state is `rejected`, and the decision is `CHECK_FAILED`
+- The outcome of the check is `FAIL`, with the reason
+  `allowList.mimeTypeRefused`
+
+---
+
 ## The GraphQL API and the permission per site
 
-Common to Q29 to Q34: site A is the test site, with the quarantine test module
+Common to Q32 to Q37: site A is the test site, with the quarantine test module
 and a form whose two submissions the run sent to review. Site B is a second
 site with the module, and one held submission that no run touches. A manager
 holds the site role `formidable-quarantine-manager` on site A alone, and site
 A is published after the grants. An editor and a site administrator of site A
 hold no such role.
 
-### Q29 — A manager of site A reads A, and site B answers as no site — control
+### Q32 — A manager of site A reads A, and site B answers as no site — control
 
 **Steps:**
 1. As the manager, read the quarantine of site A: the held submissions of the
@@ -719,7 +770,7 @@ hold no such role.
 - The answer for site B equals the answer for a site that does not exist:
   `formidableQuarantine` is `null`
 
-### Q30 — An identifier of site B names nothing in site A
+### Q33 — An identifier of site B names nothing in site A
 
 **Steps:**
 1. As root, read the identifier of the held submission of site B.
@@ -731,7 +782,7 @@ hold no such role.
 - Each read answers no submission, and the reject answers "No held submission"
 - The submission of site B is still `held`, with its values and no audit record
 
-### Q31 — A user without the permission sees and changes nothing — control
+### Q34 — A user without the permission sees and changes nothing — control
 
 **Steps:**
 1. As the editor, then as the site administrator of site A, read the quarantine
@@ -744,7 +795,7 @@ hold no such role.
 - Both submissions are still `needsReview`, with the audit record of the run
   alone
 
-### Q32 — An operation writes the audit with the real user
+### Q35 — An operation writes the audit with the real user
 
 **Steps:**
 1. As the manager, read the first held submission of site A, then reject it.
@@ -761,7 +812,7 @@ hold no such role.
 - The last audit record is `reject` by the manager, from `needsReview` to
   `rejected`, and no answer holds a value
 
-### Q33 — A page holds at most 100 submissions
+### Q36 — A page holds at most 100 submissions
 
 **Steps:**
 1. As root, ask for a page of site A with a limit of 1000 and an offset of -5.
@@ -770,7 +821,7 @@ hold no such role.
 - The page applies the limit 100 and the offset 0, and holds every held
   submission of the site
 
-### Q34 — A forged cross-site shape of an operation is refused
+### Q37 — A forged cross-site shape of an operation is refused
 
 **Steps:**
 1. As the manager, send the mutation that rejects the second held submission
@@ -817,8 +868,10 @@ hold no such role.
 | Q26 | no action that cannot run after release enters that list |
 | Q27 | a site without the quarantine module never stores a held submission |
 | Q28 | a form with no check is held and goes to review, never released unchecked |
-| Q29, Q30 | a manager of one site never reads or acts on the quarantine of another site |
-| Q31 | a role on the site that is not the manager role gives no access to the quarantine |
-| Q32 | each operation of the API names the real user in the audit |
-| Q33 | no request reads more than one page of 100 submissions |
-| Q34 | a page of another site cannot make a manager's browser run an operation |
+| Q29 | the allow-list check releases a file of an allowed type |
+| Q30, Q31 | the allow-list check rejects a file unless both its extension and its type are allowed |
+| Q32, Q33 | a manager of one site never reads or acts on the quarantine of another site |
+| Q34 | a role on the site that is not the manager role gives no access to the quarantine |
+| Q35 | each operation of the API names the real user in the audit |
+| Q36 | no request reads more than one page of 100 submissions |
+| Q37 | a page of another site cannot make a manager's browser run an operation |
