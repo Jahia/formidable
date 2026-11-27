@@ -1,5 +1,6 @@
 package org.jahia.modules.formidable.quarantine.ops;
 
+import org.jahia.modules.formidable.quarantine.run.FormPolicy;
 import org.jahia.modules.formidable.quarantine.run.QuarantineRun;
 import org.jahia.modules.formidable.quarantine.run.Release;
 import org.jahia.modules.formidable.quarantine.run.Transitions;
@@ -44,8 +45,16 @@ import java.util.function.Supplier;
  * ({@code ACTION_FAILED}), and always in {@code releasing}. The release starts at the index {@code completedActions},
  * so the actions that ran do not run again;</li>
  * <li>reject: the state moves to {@code rejected}, and the values, the sensitive values and the bytes are deleted,
- * in one save: a failure keeps the state and the data. The outcomes and the decision stay.</li>
+ * in one save: a failure keeps the state and the data. The outcomes and the decision stay. In {@code needsReview}, a
+ * form whose policy releases the values ({@code onFail=releaseValues}) makes the reject delete the bytes and move to
+ * {@code releasing} in one save, then run the actions after release with the values alone
+ * ({@code MANAGER_RELEASE_VALUES}), to {@code completed}; the decision and the audit keep the reason of the review and
+ * the reject. It stays a plain reject when an action after release already ran, when the values already went out
+ * alone, or when a field of the form has the name of the scan status.</li>
  * </ul>
+ *
+ * <p>A release and a resume are refused with {@code CONFLICT} when a field of the form has the name of the scan status
+ * of its policy: neither writes the status over the value of a field.</p>
  */
 @Component(service = QuarantineOperations.class, immediate = true)
 public class QuarantineOperations {
@@ -95,8 +104,10 @@ public class QuarantineOperations {
      * never while the run checks or releases submissions: the operation takes the lock of the run, so a submission in
      * {@code releasing} is a release that stopped, not one under way.
      *
-     * @throws OperationRefusedException when no held submission is at the path, when the user is not a manager of its
-     *                                   site, or when the state does not allow the operation: nothing changed
+     * @throws OperationRefusedException ({@code NOT_FOUND}) when no held submission is at the path or the user is not a
+     *                                   manager of its site, or ({@code CONFLICT}) when the state or the decision does
+     *                                   not allow the operation, or a release or a resume would write the scan status
+     *                                   over a field of the form: nothing changed
      */
     public OperationResult apply(String path, Operation operation)
             throws OperationRefusedException, QuarantineStoreException {
@@ -123,10 +134,11 @@ public class QuarantineOperations {
             throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                     "The operation " + operation.value() + " is not allowed in state " + from.value());
         }
+        Plan plan = plan(path, held, operation, from);
         String user = managers.currentUserName();
         HeldState to;
         try {
-            to = run(path, operation, from);
+            to = run(path, operation, from, plan);
         } catch (QuarantineStoreException | RuntimeException e) {
             auditStopped(path, operation, user, from);
             throw e;
@@ -218,7 +230,52 @@ public class QuarantineOperations {
         return held.siteKey() != null && path.startsWith(QuarantineTree.rootPath(held.siteKey()) + "/");
     }
 
-    private HeldState run(String path, Operation operation, HeldState from) throws QuarantineStoreException {
+    /**
+     * What an operation does under the policy of the form, read once for the operation.
+     *
+     * @param policy      the policy of the form, or the default one when the operation does not read it
+     * @param valuesAlone true when the reject releases the values alone
+     */
+    private record Plan(FormPolicy policy, boolean valuesAlone) {
+
+        static final Plan PLAIN = new Plan(FormPolicy.DEFAULT, false);
+    }
+
+    /**
+     * Reads the policy of the form, once, for an operation it can change: a release, a resume, and a reject in
+     * {@code needsReview}. A retry, and a reject of a release that stopped in {@code releasing}, read nothing. A reject
+     * releases the values alone when the policy asks for it, no action after release ran, the values did not already go
+     * out alone, and no field of the form has the name of the scan status; otherwise it is a plain reject.
+     *
+     * @throws OperationRefusedException when a release or a resume would write the scan status over the value of a
+     *                                   field of the form that has its name
+     */
+    private Plan plan(String path, HeldRecord held, Operation operation, HeldState from)
+            throws OperationRefusedException, QuarantineStoreException {
+        if (operation == Operation.RETRY || (operation == Operation.REJECT && from != HeldState.NEEDS_REVIEW)) {
+            return Plan.PLAIN;
+        }
+        FormPolicy policy = release.get().policy(held.formId());
+        if (operation == Operation.REJECT) {
+            if (policy.releasesValues() && policy.scanStatusTaken() && log.isErrorEnabled()) {
+                log.error("Held submission {}: a field of form {} has the name of the scan status {}, the reject does "
+                        + "not release the values", path, held.formId(), policy.scanStatusName());
+            }
+            return new Plan(policy, Release.mayReleaseValues(held, policy) && !store.valuesOnly(path));
+        }
+        if (policy.scanStatusTaken()) {
+            if (log.isErrorEnabled()) {
+                log.error("Held submission {}: {} refused, a field of form {} has the name of the scan status {}",
+                        path, operation.value(), held.formId(), policy.scanStatusName());
+            }
+            throw new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
+                    "A field of the form has the name of the scan status of its quarantine policy");
+        }
+        return new Plan(policy, false);
+    }
+
+    private HeldState run(String path, Operation operation, HeldState from, Plan plan)
+            throws QuarantineStoreException {
         Transitions transitions = new Transitions(store);
         switch (operation) {
             case RETRY:
@@ -226,11 +283,16 @@ public class QuarantineOperations {
                 checkStore.keepPassedOutcomesOnly(path);
                 return transitions.move(path, from, operation.event());
             case REJECT:
+                if (plan.valuesAlone()) {
+                    // policy releaseValues: the bytes go first, then the actions after release run with the values
+                    // alone and the failed scan status, so the people the actions reach learn of the reject
+                    return release.get().releaseValues(path, from, plan.policy());
+                }
                 // one save: a failure keeps the state and the data, and the manager rejects again
                 return transitions.finish(path, from, operation.event());
             default:
                 HeldState releasing = transitions.move(path, from, operation.event());
-                return release.get().release(path, releasing);
+                return release.get().release(path, releasing, plan.policy());
         }
     }
 }

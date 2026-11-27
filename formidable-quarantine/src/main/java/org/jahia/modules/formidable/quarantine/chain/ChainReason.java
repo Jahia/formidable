@@ -5,7 +5,10 @@ package org.jahia.modules.formidable.quarantine.chain;
  */
 public enum ChainReason {
 
-    /** A check answered {@code FAIL} for a file. Rejects. */
+    /**
+     * A check answered {@code FAIL} for a file. Rejects; under the policy {@code onFail=releaseValues} of the form,
+     * the run deletes the bytes and releases the values alone instead, when no action after release ran yet.
+     */
     CHECK_FAILED,
 
     /** A check answered {@code INCONCLUSIVE}; its setting {@code onInconclusive} decides. */
