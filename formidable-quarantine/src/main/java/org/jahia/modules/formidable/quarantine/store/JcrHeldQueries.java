@@ -45,6 +45,9 @@ public class JcrHeldQueries implements HeldQueries {
 
         List<HeldRecord> page(String statement, Map<String, String> values, int offset, int limit)
                 throws RepositoryException;
+
+        /** The {@code formId} of each node that the statement selects. */
+        List<String> formIds(String statement) throws RepositoryException;
     }
 
     private static final Logger log = LoggerFactory.getLogger(JcrHeldQueries.class);
@@ -70,18 +73,42 @@ public class JcrHeldQueries implements HeldQueries {
     }
 
     @Override
-    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit)
-            throws QuarantineStoreException {
+    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit,
+                                 boolean newestFirst) throws QuarantineStoreException {
         if (limit == 0) {
             return List.of();
         }
         List<String> ordered = new ArrayList<>(new TreeSet<>(states));
         try {
-            return ofTheSite(siteKey, runner.page(statement(siteKey, formId != null, ordered.size()),
+            return ofTheSite(siteKey, runner.page(statement(siteKey, formId != null, ordered.size(), newestFirst),
                     values(formId, ordered), offset, limit));
         } catch (RepositoryException e) {
             throw new QuarantineStoreException("Could not query the held submissions of site " + siteKey, e);
         }
+    }
+
+    @Override
+    public List<String> formIds(String siteKey) throws QuarantineStoreException {
+        try {
+            return runner.formIds(formsStatement(siteKey));
+        } catch (RepositoryException e) {
+            throw new QuarantineStoreException("Could not list the forms of the quarantine of site " + siteKey, e);
+        }
+    }
+
+    /** The statement of the folders of the forms: the children of the root of the site. It binds no value. */
+    static String formsStatement(String siteKey) {
+        return "SELECT * FROM [" + QuarantineTree.FORM_TYPE + "] AS form WHERE ISCHILDNODE(form, '"
+                + checkedRoot(siteKey) + "')";
+    }
+
+    /** The path of the root of the site, refused when it could end the literal of a statement. */
+    private static String checkedRoot(String siteKey) {
+        String root = QuarantineTree.rootPath(siteKey);
+        if (!ROOT_PATH.matcher(root).matches()) {
+            throw new IllegalArgumentException("Not a site key");
+        }
+        return root;
     }
 
     /**
@@ -89,10 +116,12 @@ public class JcrHeldQueries implements HeldQueries {
      * one of the states when asked, oldest first.
      */
     static String statement(String siteKey, boolean byForm, int states) {
-        String root = QuarantineTree.rootPath(siteKey);
-        if (!ROOT_PATH.matcher(root).matches()) {
-            throw new IllegalArgumentException("Not a site key");
-        }
+        return statement(siteKey, byForm, states, false);
+    }
+
+    /** The statement of {@link #statement(String, boolean, int)}, in the order asked for. */
+    static String statement(String siteKey, boolean byForm, int states, boolean newestFirst) {
+        String root = checkedRoot(siteKey);
         StringBuilder sql = new StringBuilder("SELECT * FROM [").append(QuarantineTree.HELD_TYPE)
                 .append("] AS held WHERE ISDESCENDANTNODE(held, '").append(root).append("')");
         if (byForm) {
@@ -105,7 +134,8 @@ public class JcrHeldQueries implements HeldQueries {
         if (states > 0) {
             sql.append(')');
         }
-        return sql.append(" ORDER BY held.[").append(QuarantineTree.CREATED_AT).append("] ASC").toString();
+        return sql.append(" ORDER BY held.[").append(QuarantineTree.CREATED_AT).append(newestFirst ? "] DESC" : "] ASC")
+                .toString();
     }
 
     static Map<String, String> values(String formId, List<String> states) {
@@ -182,6 +212,21 @@ public class JcrHeldQueries implements HeldQueries {
                     records.add(JcrQuarantineStore.recordOf((JCRNodeWrapper) nodes.nextNode()));
                 }
                 return records;
+            });
+        }
+
+        @Override
+        public List<String> formIds(String statement) throws RepositoryException {
+            return inLiveSystemSession(session -> {
+                List<String> formIds = new ArrayList<>();
+                NodeIterator nodes = query(session, statement, Map.of()).execute().getNodes();
+                while (nodes.hasNext()) {
+                    JCRNodeWrapper form = (JCRNodeWrapper) nodes.nextNode();
+                    if (form.hasProperty(QuarantineTree.FORM_ID)) {
+                        formIds.add(form.getProperty(QuarantineTree.FORM_ID).getString());
+                    }
+                }
+                return formIds;
             });
         }
     }

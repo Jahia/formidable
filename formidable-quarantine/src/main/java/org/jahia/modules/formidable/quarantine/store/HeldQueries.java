@@ -22,11 +22,20 @@ public interface HeldQueries {
     long count(String siteKey, String formId, Set<String> states) throws QuarantineStoreException;
 
     /**
-     * One page of held submissions, oldest first: those of {@link #count} that name the site.
+     * One page of held submissions, by their time of intake: those of {@link #count} that name the site.
      *
-     * @param offset the index of the first held submission of the page
-     * @param limit  the size of the page
+     * @param offset      the index of the first held submission of the page
+     * @param limit       the size of the page
+     * @param newestFirst {@code true} for the newest first, {@code false} for the oldest first
      */
-    List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit)
+    List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit, boolean newestFirst)
             throws QuarantineStoreException;
+
+    /**
+     * The identifiers of the forms that have a folder below the quarantine root of the site, in no particular order: a
+     * form whose held submissions the retention purged may still have one, so a caller counts each form.
+     *
+     * @param siteKey the key of the site, which the caller checked
+     */
+    List<String> formIds(String siteKey) throws QuarantineStoreException;
 }

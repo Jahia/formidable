@@ -29,8 +29,19 @@ export const submissionWithText = (fullName: string, text: string): string =>
 	+ `${text}\r\n`
 	+ `--${BOUNDARY}--\r\n`;
 
+/** A submission of named text values and one small text file of that text, as a browser posts it. */
+export const submissionWithValues = (values: Record<string, string>, text: string): string =>
+	Object.entries(values).map(([name, value]) => `--${BOUNDARY}\r\n`
+		+ `Content-Disposition: form-data; name="${name}"\r\n\r\n`
+		+ `${value}\r\n`).join('')
+	+ `--${BOUNDARY}\r\n`
+	+ `Content-Disposition: form-data; name="${FILE_FIELD}"; filename="${FILE_NAME}"\r\n`
+	+ 'Content-Type: text/plain\r\n\r\n'
+	+ `${text}\r\n`
+	+ `--${BOUNDARY}--\r\n`;
+
 /** A submission of the text field and one small text file, as a browser posts it. */
-export const submissionWithAFile = (fullName: string): string => submissionWithText(fullName, FILE_TEXT);
+export const submissionWithAFile =(fullName: string): string => submissionWithText(fullName, FILE_TEXT);
 
 /**
  * The texts of the files the stub checks read: the first marker line decides what a stub answers. The second line
@@ -157,8 +168,12 @@ export const heldIdOf = (path: string, siteKey: string = FORMIDABLE_TEST_SITE.ke
 
 export interface GraphqlAnswer<T> {
 	data?: T;
-	errors?: Array<{message?: string; errorType?: string}>;
+	errors?: Array<{message?: string; errorType?: string; extensions?: {code?: string}}>;
 }
+
+/** The codes of the errors of an answer: the module puts CONFLICT, FORBIDDEN or NOT_FOUND on a refused request. */
+export const errorCodes = (answer: GraphqlAnswer<unknown> | undefined): string[] =>
+	(answer?.errors ?? []).map(error => error.extensions?.code ?? '').filter(code => code !== '');
 
 /**
  * The error type of the API security filter of the platform when it refuses a field before the module runs: HTTP 200,
@@ -515,10 +530,11 @@ const statusOf = (answer: GraphqlAnswer<unknown> | undefined, ran: boolean): num
 		// the API security filter refused the field: 401, so that an assertion of the module's 403 fails on it
 		return 401;
 	}
-	if (errors.includes('is not allowed in state')) {
+	const codes = errorCodes(answer);
+	if (codes.includes('CONFLICT')) {
 		return 409;
 	}
-	if (errors.includes('No held submission') || errors.includes('Server administrators only') || (!errors && !ran)) {
+	if (codes.includes('NOT_FOUND') || codes.includes('FORBIDDEN') || (!errors && !ran)) {
 		return 403;
 	}
 	return errors ? 500 : 200;

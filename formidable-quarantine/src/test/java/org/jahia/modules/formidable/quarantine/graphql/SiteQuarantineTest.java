@@ -22,6 +22,7 @@ import org.jahia.modules.formidable.quarantine.store.OutcomeRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineSites;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.jahia.modules.graphql.provider.dxm.BaseGqlClientException;
 import org.jahia.modules.graphql.provider.dxm.DataFetchingException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,6 +67,9 @@ class SiteQuarantineTest {
     private static final String OTHER_FORM = "6a1f0c3e-0000-4000-8000-000000000002";
     private static final String SHA = "0".repeat(64);
     private static final Instant NOW = Instant.parse("2026-11-19T12:00:00Z");
+    /** The message of a failure that quotes a value, which no log line and no answer may repeat. */
+    private static final String VALUE_MESSAGE = "the property fullName of Ada";
+    private static final String FORM_IDS = "formIds";
 
     /** A double of {@link Managers}: who the user is, and the sites the user manages. */
     private static class FakeManagers implements Managers {
@@ -260,8 +264,8 @@ class SiteQuarantineTest {
 
         api.open(SITE, request).counts();
         api.open(SITE, request).counts();
-        api.open(SITE, request).page(FORM, null, 0, 25);
-        api.open(SITE, request).page(FORM, null, 0, 25);
+        api.open(SITE, request).page(FORM, null, 0, 25, null);
+        api.open(SITE, request).page(FORM, null, 0, 25, null);
 
         assertEquals(GqlState.values().length + 1, callsOf("count").size(), callsOf("count").toString());
         assertEquals(2, callsOf("page").size(), "the page itself is read for each alias");
@@ -272,6 +276,44 @@ class SiteQuarantineTest {
     private int countsOfAnotherRequest(ManagerApi api) {
         api.open(SITE, GraphQLContext.newContext().build()).counts();
         return callsOf("count").size();
+    }
+
+    @Test
+    void theFormsAreThoseWithHeldSubmissionsByTitleWithTheirCount() {
+        inState(FORM, HeldState.NEEDS_REVIEW);
+        inState(FORM, HeldState.COMPLETED);
+        inState(OTHER_FORM, HeldState.HELD);
+        stores.emptyForms.add("6a1f0c3e-0000-4000-8000-000000000003");
+        stores.emptyForms.add("not-a-form");
+        Map<String, FormFacts> titles = Map.of(FORM, new FormFacts("Zeta claims", false, Map.of()),
+                OTHER_FORM, new FormFacts("alpha contact", false, Map.of()));
+        SiteQuarantine site = new SiteQuarantine(SITE, new SiteQuarantine.Services(stores, stores,
+                recording(HeldQueries.class), this::operate, this::purge, managers,
+                (siteKey, formId) -> titles.getOrDefault(formId, FormFacts.NONE)), log);
+
+        List<GqlForm> forms = site.forms();
+
+        assertEquals(List.of(OTHER_FORM, FORM), forms.stream().map(GqlForm::getFormId).toList(), "by title");
+        assertEquals(List.of(1, 2), forms.stream().map(GqlForm::getCount).toList());
+        assertEquals("alpha contact", forms.get(0).getFormTitle());
+        assertEquals(1, callsOf(FORM_IDS).size());
+        assertFalse(callsOf("count").toString().contains("not-a-form"), "no query for a folder that is not a form");
+    }
+
+    /** The forms of a request are listed once, whatever the aliases, and listed again after an operation. */
+    @Test
+    void theFormsAreListedOncePerRequestAndAgainAfterAnOperation() {
+        String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
+        SiteQuarantine site = site();
+
+        site.forms();
+        site.forms();
+        assertEquals(1, callsOf(FORM_IDS).size(), "aliases");
+        assertEquals(1, callsOf("count").size(), "one count per form");
+
+        site.operate(id, GqlOperation.REJECT);
+        assertEquals(1, site.forms().get(0).getCount());
+        assertEquals(2, callsOf(FORM_IDS).size(), "listed again after the operation");
     }
 
     @Test
@@ -294,13 +336,25 @@ class SiteQuarantineTest {
         inState(FORM, HeldState.COMPLETED);
         Held third = inState(OTHER_FORM, HeldState.NEEDS_REVIEW);
 
-        GqlSubmissionPage page = site().page(null, List.of(GqlState.NEEDS_REVIEW, GqlState.NEEDS_REVIEW), 0, 25);
+        GqlSubmissionPage page = site().page(null, List.of(GqlState.NEEDS_REVIEW, GqlState.NEEDS_REVIEW), 0, 25, null);
 
         assertEquals(2, page.getTotalCount());
         assertEquals(List.of(idOf(first), idOf(third)), page.getItems().stream().map(GqlHeldSubmission::getId).toList());
         assertEquals(List.of(idOf(first)),
-                site().page(FORM, List.of(GqlState.NEEDS_REVIEW), null, null).getItems().stream()
+                site().page(FORM, List.of(GqlState.NEEDS_REVIEW), null, null, null).getItems().stream()
                         .map(GqlHeldSubmission::getId).toList(), "one form");
+    }
+
+    @Test
+    void aPageListsTheNewestFirstWhenAsked() {
+        Held first = inState(FORM, HeldState.NEEDS_REVIEW);
+        Held second = inState(FORM, HeldState.NEEDS_REVIEW);
+
+        assertEquals(List.of(idOf(second), idOf(first)), site().page(FORM, null, 0, 25, true).getItems().stream()
+                .map(GqlHeldSubmission::getId).toList());
+        assertEquals(List.of(idOf(first), idOf(second)), site().page(FORM, null, 0, 25, null).getItems().stream()
+                .map(GqlHeldSubmission::getId).toList(), "the oldest first by default");
+        assertTrue(callsOf("page").get(0).endsWith(", 0, 25, true]"), callsOf("page").toString());
     }
 
     @Test
@@ -309,15 +363,15 @@ class SiteQuarantineTest {
             inState(FORM, HeldState.NEEDS_REVIEW);
         }
 
-        GqlSubmissionPage page = site().page(FORM, null, -3, 1000);
+        GqlSubmissionPage page = site().page(FORM, null, -3, 1000, null);
 
         assertEquals(105, page.getTotalCount());
         assertEquals(SiteQuarantine.MAX_LIMIT, page.getLimit());
         assertEquals(SiteQuarantine.MAX_LIMIT, page.getItems().size());
         assertEquals(0, page.getOffset());
-        assertTrue(callsOf("page").get(0).endsWith(", 0, 100]"), callsOf("page").toString());
-        assertEquals(5, site().page(FORM, List.of(), 100, 100).getItems().size(), "the last page");
-        assertEquals(SiteQuarantine.DEFAULT_LIMIT, site().page(FORM, null, null, null).getItems().size());
+        assertTrue(callsOf("page").get(0).endsWith(", 0, 100, false]"), callsOf("page").toString());
+        assertEquals(5, site().page(FORM, List.of(), 100, 100, null).getItems().size(), "the last page");
+        assertEquals(SiteQuarantine.DEFAULT_LIMIT, site().page(FORM, null, null, null, null).getItems().size());
     }
 
     @Test
@@ -326,7 +380,7 @@ class SiteQuarantineTest {
         states.add(GqlState.HELD);
 
         SiteQuarantine site = site();
-        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.page(null, states, 0, 25));
+        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.page(null, states, 0, 25, null));
 
         assertEquals(SiteQuarantine.TOO_MANY_STATES, error.getMessage());
         assertTrue(calls.isEmpty(), "no query");
@@ -337,7 +391,7 @@ class SiteQuarantineTest {
     void aFormIdentifierThatIsNotOneQueriesNothing() {
         inState(FORM, HeldState.NEEDS_REVIEW);
 
-        GqlSubmissionPage page = site().page("../" + FORM, null, 0, 25);
+        GqlSubmissionPage page = site().page("../" + FORM, null, 0, 25, null);
 
         assertEquals(0, page.getTotalCount());
         assertTrue(page.getItems().isEmpty());
@@ -419,7 +473,7 @@ class SiteQuarantineTest {
         facts = new FormFacts("Claims", true, Map.of());
         SiteQuarantine site = site();
 
-        for (GqlHeldSubmission submission : site.page(FORM, null, 0, 25).getItems()) {
+        for (GqlHeldSubmission submission : site.page(FORM, null, 0, 25, null).getItems()) {
             submission.getFiles();
             submission.getAudit();
             submission.getDecision();
@@ -460,28 +514,45 @@ class SiteQuarantineTest {
     @Test
     void anOperationOnAnIdentifierThatIsNotOneRunsNothing() {
         SiteQuarantine site = site();
-        DataFetchingException error = assertThrows(DataFetchingException.class,
+        BaseGqlClientException error = assertThrows(BaseGqlClientException.class,
                 () -> site.operate("../../otherSite/x", GqlOperation.REJECT));
 
         assertTrue(error.getMessage().contains("No held submission"), error.getMessage());
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "NOT_FOUND"), error.getExtensions());
         assertTrue(operated.isEmpty());
     }
 
     @Test
-    void aRefusedOperationAnswersNotFoundOrTheConflict() {
+    void aRefusedOperationAnswersNotFoundOrTheConflictWithItsCode() {
         String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
         SiteQuarantine site = site();
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.NOT_FOUND, "secret path detail");
-        DataFetchingException notFound = assertThrows(DataFetchingException.class,
+        BaseGqlClientException notFound = assertThrows(BaseGqlClientException.class,
                 () -> site.operate(id, GqlOperation.RELEASE));
         assertEquals(String.format(SiteQuarantine.NOT_FOUND, id), notFound.getMessage());
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "NOT_FOUND"), notFound.getExtensions());
 
         refusal = new OperationRefusedException(OperationRefusedException.Reason.CONFLICT,
                 "The operation release is not allowed in state completed");
-        DataFetchingException conflict = assertThrows(DataFetchingException.class,
+        BaseGqlClientException conflict = assertThrows(BaseGqlClientException.class,
                 () -> site.operate(id, GqlOperation.RELEASE));
         assertTrue(conflict.getMessage().contains("is not allowed in state"), conflict.getMessage());
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "CONFLICT"), conflict.getExtensions());
+    }
+
+    /** A failure that is not a refusal carries no code: the client cannot read it as a refusal. */
+    @Test
+    void aFailedOperationCarriesNoCode() {
+        String id = idOf(inState(FORM, HeldState.NEEDS_REVIEW));
+        refusal = new QuarantineStoreException("The store is down");
+        SiteQuarantine site = site();
+
+        DataFetchingException error = assertThrows(DataFetchingException.class,
+                () -> site.operate(id, GqlOperation.RELEASE));
+
+        assertEquals(SiteQuarantine.OPERATION_FAILED, error.getMessage());
+        assertNull(error.getExtensions());
     }
 
     /** f1: neither the error nor the log line quotes the message of the failure, which may hold a value. */
@@ -553,19 +624,25 @@ class SiteQuarantineTest {
                 new HeldQueries() {
                     @Override
                     public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset,
-                                                 int limit) {
-                        throw new NullPointerException("the property fullName of Ada");
+                                                 int limit, boolean newestFirst) {
+                        throw new NullPointerException(VALUE_MESSAGE);
                     }
 
                     @Override
                     public long count(String siteKey, String formId, Set<String> states) {
-                        throw new NullPointerException("the property fullName of Ada");
+                        throw new NullPointerException(VALUE_MESSAGE);
+                    }
+
+                    @Override
+                    public List<String> formIds(String siteKey) {
+                        throw new NullPointerException(VALUE_MESSAGE);
                     }
                 }, this::operate, this::purge, managers, (siteKey, formId) -> facts), log);
 
         assertEquals(SiteQuarantine.READ_FAILED,
-                assertThrows(DataFetchingException.class, () -> site.page(null, null, 0, 25)).getMessage());
+                assertThrows(DataFetchingException.class, () -> site.page(null, null, 0, 25, null)).getMessage());
         assertEquals(SiteQuarantine.READ_FAILED, assertThrows(DataFetchingException.class, site::counts).getMessage());
+        assertEquals(SiteQuarantine.READ_FAILED, assertThrows(DataFetchingException.class, site::forms).getMessage());
         List<Object> logged = loggedArguments();
         assertTrue(logged.contains(NullPointerException.class.getName()), "the class of the failure in the log line");
         assertFalse(logged.toString().contains("Ada"), "the message of the failure in the log line");
@@ -577,8 +654,9 @@ class SiteQuarantineTest {
         inState(FORM, HeldState.COMPLETED);
 
         SiteQuarantine site = site();
-        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.purge(0));
+        BaseGqlClientException error = assertThrows(BaseGqlClientException.class, () -> site.purge(0));
         assertEquals(SiteQuarantine.ADMINISTRATORS_ONLY, error.getMessage());
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "FORBIDDEN"), error.getExtensions());
         assertEquals(2, stores.held.size(), "nothing purged");
 
         managers.administrator = true;
@@ -641,9 +719,13 @@ class SiteQuarantineTest {
                 this::purge, managers, (siteKey, formId) -> facts), log);
     }
 
-    /** The operation answers the conflict that its message names, and not the fixed message of a failure. */
+    /**
+     * The operation answers the code CONFLICT, which the manager screen reads as "the submission changed, reload", with
+     * the message of the conflict, and not the fixed message of a failure.
+     */
     private static void assertConflict(SiteQuarantine site, String id, GqlOperation operation, String conflict) {
-        DataFetchingException error = assertThrows(DataFetchingException.class, () -> site.operate(id, operation));
+        BaseGqlClientException error = assertThrows(BaseGqlClientException.class, () -> site.operate(id, operation));
+        assertEquals(Map.of(Refusal.EXTENSION_KEY, "CONFLICT"), error.getExtensions());
         assertNotEquals(SiteQuarantine.OPERATION_FAILED, error.getMessage());
         assertTrue(error.getMessage().contains(conflict), error.getMessage());
     }

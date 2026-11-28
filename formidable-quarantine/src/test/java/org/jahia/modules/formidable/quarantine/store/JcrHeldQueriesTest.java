@@ -45,6 +45,22 @@ class JcrHeldQueriesTest {
             pages.add(new int[]{offset, limit});
             return found;
         }
+
+        @Override
+        public List<String> formIds(String statement) {
+            statements.add(statement);
+            return List.of(FORM);
+        }
+    }
+
+    @Test
+    void theFormsAreTheFoldersBelowTheRootOfTheSite() throws Exception {
+        RecordingRunner runner = new RecordingRunner();
+
+        assertEquals(List.of(FORM), new JcrHeldQueries(runner).formIds("siteA"));
+        assertEquals(List.of("SELECT * FROM [" + QuarantineTree.FORM_TYPE + "] AS form"
+                + " WHERE ISCHILDNODE(form, '/sites/siteA/formidable-quarantine')"), runner.statements);
+        assertThrows(IllegalArgumentException.class, () -> JcrHeldQueries.formsStatement("a') OR (1=1"));
     }
 
     @Test
@@ -56,6 +72,8 @@ class JcrHeldQueriesTest {
                 + " AND held.[" + QuarantineTree.FORM_ID + "] = $form"
                 + " AND (held.[" + QuarantineTree.STATE + "] = $state0 OR held.[" + QuarantineTree.STATE + "] = $state1)"
                 + " ORDER BY held.[" + QuarantineTree.CREATED_AT + "] ASC", statement);
+        assertTrue(JcrHeldQueries.statement("siteA", false, 0, true).endsWith(
+                " ORDER BY held.[" + QuarantineTree.CREATED_AT + "] DESC"), "the newest first");
         assertFalse(JcrHeldQueries.statement("siteA", false, 0).contains("$form"), "no form");
         assertFalse(JcrHeldQueries.statement("siteA", false, 0).contains("$state"), "no state");
     }
@@ -75,7 +93,7 @@ class JcrHeldQueriesTest {
         RecordingRunner runner = new RecordingRunner();
         runner.found = List.of(heldOf("siteB"), ofTheSite, heldOf(null));
 
-        List<HeldRecord> page = new JcrHeldQueries(runner).page("siteA", null, Set.of(), 0, 25);
+        List<HeldRecord> page = new JcrHeldQueries(runner).page("siteA", null, Set.of(), 0, 25, false);
 
         assertEquals(List.of(ofTheSite), page);
     }
@@ -99,7 +117,7 @@ class JcrHeldQueriesTest {
 
         JcrHeldQueries queries = new JcrHeldQueries(runner);
         queries.count("siteA", form, Set.of("rejected", "needsReview"));
-        queries.page("siteA", form, Set.of("rejected", "needsReview"), 0, 25);
+        queries.page("siteA", form, Set.of("rejected", "needsReview"), 0, 25, false);
 
         Map<String, String> bound = Map.of("form", form, "state0", "needsReview", "state1", "rejected");
         assertEquals(List.of(bound, bound), runner.values);
@@ -115,12 +133,25 @@ class JcrHeldQueriesTest {
         RecordingRunner runner = new RecordingRunner();
         JcrHeldQueries queries = new JcrHeldQueries(runner);
 
-        queries.page("siteA", null, Set.of(), 1, 2);
+        queries.page("siteA", null, Set.of(), 1, 2, false);
         assertEquals(List.of(1, 2), List.of(runner.pages.get(0)[0], runner.pages.get(0)[1]));
 
         runner.pages.clear();
-        assertTrue(queries.page("siteA", null, Set.of(), 0, 0).isEmpty());
+        assertTrue(queries.page("siteA", null, Set.of(), 0, 0, false).isEmpty());
         assertTrue(runner.pages.isEmpty(), "no page query for a limit of 0");
+    }
+
+    @Test
+    void aPageAskedNewestFirstRunsTheStatementInDescendingOrder() throws Exception {
+        RecordingRunner runner = new RecordingRunner();
+        JcrHeldQueries queries = new JcrHeldQueries(runner);
+        String descending = " ORDER BY held.[" + QuarantineTree.CREATED_AT + "] DESC";
+
+        queries.page("siteA", null, Set.of(), 0, 25, true);
+        queries.page("siteA", null, Set.of(), 0, 25, false);
+
+        assertTrue(runner.statements.get(0).endsWith(descending), runner.statements.get(0));
+        assertFalse(runner.statements.get(1).endsWith(descending), runner.statements.get(1));
     }
 
     @Test

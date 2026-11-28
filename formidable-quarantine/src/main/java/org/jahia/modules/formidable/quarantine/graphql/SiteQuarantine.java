@@ -13,12 +13,14 @@ import org.jahia.modules.formidable.quarantine.store.HeldQueries;
 import org.jahia.modules.formidable.quarantine.store.HeldRecord;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStore;
 import org.jahia.modules.formidable.quarantine.store.QuarantineStoreException;
+import org.jahia.modules.graphql.provider.dxm.BaseGqlClientException;
 import org.jahia.modules.graphql.provider.dxm.DataFetchingException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.RepositoryException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -89,6 +91,8 @@ final class SiteQuarantine {
      * a purge forgets them.
      */
     private final Map<String, Long> totals = new HashMap<>();
+    /** The forms of the folders below the root, listed once per request; an operation or a purge forgets them. */
+    private List<String> formIds;
 
     SiteQuarantine(String siteKey, Services services) {
         this(siteKey, services, LoggerFactory.getLogger(SiteQuarantine.class));
@@ -119,26 +123,52 @@ final class SiteQuarantine {
         });
     }
 
+    /**
+     * The forms of the site that have held submissions, each with their number, by title then identifier: one query of
+     * the folders of the forms, then one count per form, read once per request as the counts are. A folder whose
+     * identifier is not one of a form, or whose submissions the retention purged, is left out.
+     */
+    List<GqlForm> forms() {
+        return guarded("list the forms", () -> {
+            List<GqlForm> forms = new ArrayList<>();
+            for (String formId : new TreeSet<>(formIds())) {
+                long count = HeldIds.isFormId(formId) ? total(formId, Set.of()) : 0;
+                if (count > 0) {
+                    forms.add(new GqlForm(this, formId, (int) Math.min(count, Integer.MAX_VALUE)));
+                }
+            }
+            forms.sort(Comparator.comparing((GqlForm form) -> form.getFormTitle() == null ? "" : form.getFormTitle(),
+                    String.CASE_INSENSITIVE_ORDER));
+            return forms;
+        });
+    }
+
+    /** The identifiers of the folders of the forms, listed once per request. */
+    private synchronized List<String> formIds() {
+        if (formIds == null) {
+            formIds = read(() -> services.queries().formIds(siteKey));
+        }
+        return formIds;
+    }
+
     /** The count of the query of the form and the states, counted once per request. */
     private synchronized long total(String formId, Set<String> stored) {
         String key = formId + "|" + new TreeSet<>(stored);
-        Long known = totals.get(key);
-        if (known == null) {
-            known = read(() -> services.queries().count(siteKey, formId, stored));
-            totals.put(key, known);
-        }
-        return known;
+        return totals.computeIfAbsent(key, ignored -> read(() -> services.queries().count(siteKey, formId, stored)));
     }
 
     /**
-     * A page of the held submissions of the site, or of one of its forms, oldest first, by a query of the repository.
+     * A page of the held submissions of the site, or of one of its forms, by time of intake, by a query of the
+     * repository.
      *
      * @param formId the form, or {@code null} for every form; a value that is not a form identifier matches nothing
      * @param states the states to keep, each once at most, or {@code null} or empty for every state
      * @param offset the index of the first item; a negative or missing value is 0
      * @param limit  the size of the page, {@value #DEFAULT_LIMIT} when missing, at most {@value #MAX_LIMIT}
+     * @param newestFirst {@code true} for the newest first; {@code null} or {@code false} for the oldest first
      */
-    GqlSubmissionPage page(String formId, List<GqlState> states, Integer offset, Integer limit) {
+    GqlSubmissionPage page(String formId, List<GqlState> states, Integer offset, Integer limit, Boolean newestFirst) {
+        boolean newest = Boolean.TRUE.equals(newestFirst);
         int from = offset == null ? 0 : Math.max(0, offset);
         int size = limit == null ? DEFAULT_LIMIT : Math.min(Math.max(0, limit), MAX_LIMIT);
         if (states != null && states.size() > GqlState.values().length) {
@@ -154,7 +184,7 @@ final class SiteQuarantine {
             }
             long total = total(formId, stored);
             List<HeldRecord> records = total == 0 || from >= total ? List.of()
-                    : read(() -> services.queries().page(siteKey, formId, stored, from, size));
+                    : read(() -> services.queries().page(siteKey, formId, stored, from, size, newest));
             List<GqlHeldSubmission> items = records.stream().map(this::answer).toList();
             return new GqlSubmissionPage((int) Math.min(total, Integer.MAX_VALUE), from, size, items);
         });
@@ -177,16 +207,17 @@ final class SiteQuarantine {
      * Runs the operation as the user of the request, then answers the held submission as the operation left it. The
      * operations check the permission on the site again, and write the audit record with the name of the user.
      *
-     * @throws DataFetchingException when the site has no such held submission, when the state does not allow the
-     *                               operation, when a run holds the site, moved the submission first or took its
-     *                               lock back before the actions after release ({@link #RUN_STOPPED}), when the
-     *                               operation failed, or, with its own message, when it ran but the submission could
-     *                               not be read again
+     * @throws BaseGqlClientException the error of {@link Refusal#of}, with the code NOT_FOUND when the site has no such
+     *                               held submission, or CONFLICT when the state does not allow the operation, or a
+     *                               run holds the site, moved the submission first or took its lock back before the
+     *                               actions after release ({@link #RUN_STOPPED}): no action after release ran
+     * @throws DataFetchingException when the operation failed, or, with its own message, when it ran but the
+     *                               submission could not be read again
      */
     GqlHeldSubmission operate(String id, GqlOperation operation) {
         String path = HeldIds.pathOf(siteKey, id);
         if (path == null || operation == null) {
-            throw new DataFetchingException(String.format(NOT_FOUND, id));
+            throw Refusal.of(String.format(NOT_FOUND, id), Refusal.Code.NOT_FOUND);
         }
         apply(id, path, operation);
         details.remove(path);
@@ -214,14 +245,15 @@ final class SiteQuarantine {
         try {
             services.operator().apply(path, operation.operation());
         } catch (OperationRefusedException e) {
-            throw new DataFetchingException(e.reason() == OperationRefusedException.Reason.CONFLICT
-                    ? e.getMessage() : String.format(NOT_FOUND, id));
+            throw e.reason() == OperationRefusedException.Reason.CONFLICT
+                    ? Refusal.of(e.getMessage(), Refusal.Code.CONFLICT)
+                    : Refusal.of(String.format(NOT_FOUND, id), Refusal.Code.NOT_FOUND);
         } catch (RunStoppedException e) {
             // a conflict with the run, not a failure: no action after release ran, and the submission waits
             if (log.isInfoEnabled()) {
                 log.info("The operation {} on {} stopped: {}", operation, path, e.getMessage());
             }
-            throw new DataFetchingException(RUN_STOPPED);
+            throw Refusal.of(RUN_STOPPED, Refusal.Code.CONFLICT);
         } catch (QuarantineStoreException e) {
             if (log.isWarnEnabled()) {
                 log.warn("The operation {} on {} failed: {}", operation, path, e.getMessage());
@@ -246,7 +278,7 @@ final class SiteQuarantine {
      */
     GqlPurgeReport purge(Integer olderThanDays) {
         if (!services.managers().isServerAdministrator()) {
-            throw new DataFetchingException(ADMINISTRATORS_ONLY);
+            throw Refusal.of(ADMINISTRATORS_ONLY, Refusal.Code.FORBIDDEN);
         }
         if (olderThanDays != null && olderThanDays < 0) {
             throw new DataFetchingException("olderThanDays is a number of days");
@@ -307,7 +339,7 @@ final class SiteQuarantine {
     <T> T guarded(String what, Supplier<T> call) {
         try {
             return call.get();
-        } catch (DataFetchingException e) {
+        } catch (BaseGqlClientException e) {
             throw e;
         } catch (RuntimeException e) {
             // the class alone: a message may name a property or quote a value
@@ -318,9 +350,10 @@ final class SiteQuarantine {
         }
     }
 
-    /** An operation or a purge changed the counts: the next read counts again. */
+    /** An operation or a purge changed the counts: the next read counts again, and lists the forms again. */
     private synchronized void forgetTotals() {
         totals.clear();
+        formIds = null;
     }
 
     private GqlHeldSubmission answer(HeldRecord held) {

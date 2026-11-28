@@ -8,6 +8,7 @@
 		"formidable-elements",
 		"formidable-engine",
 		"formidable-forms-import",
+		"formidable-quarantine",
 		"formidable-jexperience-engine",
 		"formidable-extended-inputs",
 		"jahia-test-module/formidable-test-module-templateset-tsx",

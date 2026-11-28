@@ -1,0 +1,170 @@
+{
+	"quarantine": {
+		"nav": {
+			"title": "Quarantäne"
+		},
+		"title": "Quarantäne",
+		"noSite": "Öffnen Sie die Quarantäne über eine Website.",
+		"loading": "Zurückgehaltene Einsendungen werden geladen",
+		"loadFailed": "Die Quarantäne konnte nicht geladen werden.",
+		"tryAgain": "Erneut versuchen",
+		"noAccess": "Sie verwalten die Quarantäne dieser Website nicht.",
+		"empty": "Keine Einsendung wird zurückgehalten.",
+		"failed": "Der Vorgang konnte nicht abgeschlossen werden. Laden Sie die Einsendung neu, um ihren Status zu sehen.",
+		"changed": "Die Einsendung hat sich geändert. Laden Sie sie neu.",
+		"reload": "Einsendung neu laden",
+		"reloaded": "Einsendung neu geladen. Status: {{state}}.",
+		"changedTitle": "Konflikt",
+		"failedTitle": "Nicht abgeschlossen",
+		"noAccessTitle": "Kein Zugriff",
+		"loadFailedTitle": "Nicht geladen",
+		"noSiteTitle": "Keine Website",
+		"goneTitle": "Nicht mehr vorhanden",
+		"refresh": "Aktualisieren",
+		"state": {
+			"HELD": "Zurückgehalten",
+			"CHECKING": "In Prüfung",
+			"RELEASING": "In Freigabe",
+			"NEEDS_REVIEW": "Zu prüfen",
+			"COMPLETED": "Abgeschlossen",
+			"REJECTED": "Abgelehnt"
+		},
+		"verdict": {
+			"PASS": "Bestanden",
+			"FAIL": "Nicht bestanden",
+			"INCONCLUSIVE": "Unklar",
+			"PENDING": "Ausstehend",
+			"FAILED": "Prüffehler"
+		},
+		"reason": {
+			"CHECK_FAILED": "Prüfung nicht bestanden",
+			"INCONCLUSIVE": "Unklar",
+			"UNAVAILABLE": "Prüfung nicht verfügbar",
+			"ATTEMPTS_EXHAUSTED": "Versuche ausgeschöpft",
+			"IN_PROCESS_FIRST": "Lokale Prüfung zuerst",
+			"FILE_WITHHELD": "Datei zurückgehalten",
+			"NO_CHECK": "Keine Prüfung",
+			"NO_FILE": "Keine Datei",
+			"INTEGRITY_FAILED": "Integritätsprüfung fehlgeschlagen",
+			"ACTION_FAILED": "Aktion fehlgeschlagen",
+			"FORM_GONE": "Formular gelöscht"
+		},
+		"filter": {
+			"state": "Nach Status filtern",
+			"form": "Formular",
+			"allForms": "Alle Formulare",
+			"formOption": "{{title}} ({{count}})",
+			"noMatch": "Keine Einsendung entspricht diesen Filtern.",
+			"clear": "Filter zurücksetzen",
+			"stateWord": "Status {{state}}",
+			"formWord": "Formular {{form}}",
+			"clearForm": "Formularfilter zurücksetzen",
+			"formChip": "{{name}}: {{value}}",
+			"close": "Schließen"
+		},
+		"table": {
+			"form": "Formular",
+			"received": "Eingegangen",
+			"state": "Status",
+			"attempts": "Versuche",
+			"reason": "Grund",
+			"files": "Dateien",
+			"open": "{{form}}, eingegangen am {{date}}",
+			"openDate": ", eingegangen am {{date}}",
+			"noFiles": "Keine",
+			"moreFiles": "+{{count}} weitere",
+			"sort": {
+				"ascending": "{{column}}, älteste zuerst. Neueste zuerst sortieren",
+				"descending": "{{column}}, neueste zuerst. Älteste zuerst sortieren"
+			},
+			"order": {
+				"ascending": "älteste zuerst",
+				"descending": "neueste zuerst"
+			},
+			"heading": "Zurückgehaltene Einsendungen, {{order}}",
+			"headingFiltered": "Zurückgehaltene Einsendungen, {{order}}: {{filters}}"
+		},
+		"paging": {
+			"previous": "Vorherige Seite",
+			"next": "Nächste Seite",
+			"first": "Erste Seite",
+			"last": "Letzte Seite",
+			"itemsPerPage": "Einsendungen pro Seite",
+			"of": "von"
+		},
+		"announce": {
+			"list": "Einsendungen {{from}} bis {{to}} von {{total}}"
+		},
+		"detail": {
+			"title": "{{form}}, eingegangen am {{date}}",
+			"close": "Details der Einsendung schließen",
+			"region": "Details der Einsendung",
+			"loading": "Die Einsendung wird geladen",
+			"loadFailed": "Die Einsendung konnte nicht geladen werden.",
+			"gone": "Diese Einsendung ist nicht mehr in der Quarantäne.",
+			"actions": "Aktionen",
+			"noActions": "In diesem Status ist kein Vorgang möglich.",
+			"files": "Dateien",
+			"noFiles": "Diese Einsendung hat keine Datei.",
+			"fileType": "Typ",
+			"fileSize": "Größe",
+			"bytesDeleted": "Der Inhalt dieser Datei wurde gelöscht.",
+			"noChecks": "Für diese Datei hat noch keine Prüfung geantwortet.",
+			"check": "Prüfung",
+			"checksTable": "{{name}}: Prüfungen",
+			"verdict": "Ergebnis",
+			"reason": "Grund",
+			"decision": "Entscheidung",
+			"decisionFile": "Datei",
+			"at": "Am",
+			"noDecision": "Noch keine Entscheidung.",
+			"audit": "Protokoll",
+			"audit_operation": "Vorgang",
+			"audit_user": "Benutzer",
+			"audit_from": "Von",
+			"audit_to": "Nach",
+			"audit_at": "Zeit",
+			"values": "Werte",
+			"valuesDeleted": "Die Werte wurden gelöscht.",
+			"sensitive": "Sensible Felder",
+			"sensitiveNote": "Die Werte werden nie angezeigt."
+		},
+		"audit": {
+			"run": "Prüflauf",
+			"retry": "Erneuter Versuch",
+			"release": "Freigabe",
+			"resume": "Fortsetzung",
+			"reject": "Ablehnung",
+			"system": "System"
+		},
+		"action": {
+			"RETRY": "Erneut versuchen",
+			"RESUME": "Fortsetzen",
+			"RELEASE": "Freigeben",
+			"REJECT": "Ablehnen",
+			"busy": {
+				"RETRY": "Erneuter Versuch…",
+				"RESUME": "Wird fortgesetzt…",
+				"RELEASE": "Wird freigegeben…",
+				"REJECT": "Wird abgelehnt…"
+			}
+		},
+		"confirm": {
+			"RELEASE": {
+				"title": "Diese Einsendung freigeben?",
+				"description": "{{subject}}. Ihre Dateien gehen ohne weitere Prüfung an die Aktionen nach der Freigabe."
+			},
+			"REJECT": {
+				"title": "Diese Einsendung ablehnen?",
+				"description": "{{subject}}. Ihre Werte und Dateien werden gelöscht. Das kann nicht rückgängig gemacht werden."
+			},
+			"cancel": "Abbrechen"
+		},
+		"done": {
+			"RETRY": "Erneuter Versuch gestartet. Status: {{state}}.",
+			"RESUME": "Einsendung fortgesetzt. Status: {{state}}.",
+			"RELEASE": "Einsendung freigegeben. Status: {{state}}.",
+			"REJECT": "Einsendung abgelehnt. Status: {{state}}."
+		}
+	}
+}

@@ -36,7 +36,14 @@ public class GqlQuarantine {
 
     @GraphQLField
     @GraphQLNonNull
-    @GraphQLDescription("A page of the held submissions of the site, or of one form, oldest first. limit is at most 100")
+    @GraphQLDescription("The forms of the site that have held submissions, with their number, by title")
+    public List<@GraphQLNonNull GqlForm> getForms() {
+        return site.forms();
+    }
+
+    @GraphQLField
+    @GraphQLNonNull
+    @GraphQLDescription("A page of the held submissions of the site, or of one form, by time of intake. limit is at most 100")
     public GqlSubmissionPage submissions(
             @GraphQLName("formId") @GraphQLDescription("The identifier of a form of the site") String formId,
             @GraphQLName("states") @GraphQLDescription("The states to keep; every state when absent")
@@ -44,8 +51,10 @@ public class GqlQuarantine {
             @GraphQLName("offset") @GraphQLDefaultValue(DefaultOffset.class)
             @GraphQLDescription("The index of the first item; a negative value reads as 0") Integer offset,
             @GraphQLName("limit") @GraphQLDefaultValue(DefaultLimit.class)
-            @GraphQLDescription("The size of the page, at most 100: a larger value reads as 100") Integer limit) {
-        return site.page(formId, states, offset, limit);
+            @GraphQLDescription("The size of the page, at most 100: a larger value reads as 100") Integer limit,
+            @GraphQLName("newestFirst")
+            @GraphQLDescription("True for the newest first; the oldest first when false or absent") Boolean newestFirst) {
+        return site.page(formId, states, offset, limit, newestFirst);
     }
 
     @GraphQLField

@@ -15,6 +15,8 @@ order.
 
 Specs:
 
+- `tests/cypress/e2e/quarantine/89-quarantine-ui.cy.ts` covers Q45 to Q48:
+  the manager screen in jContent.
 - `tests/cypress/e2e/quarantine/90-quarantine-graphql.cy.ts` covers Q32 to
   Q37: the GraphQL API and the permission of a manager per site.
 - `tests/cypress/e2e/quarantine/91-quarantine-scheduled-run.cy.ts` covers Q49:
@@ -123,8 +125,9 @@ Specs:
 - **Manager**: a user that holds the site role `formidable-quarantine-manager`
   on the site, published. The role grants the permission
   `formidableQuarantineManage` of the quarantine module, which the API checks
-  on the live site node, and no privileged access. A server administrator is a
-  manager of every site that exists.
+  on the live site node, `jContentAccess`, `additionalAccordionAccess` and
+  privileged access, so that it opens jContent and the manager screen. A server administrator is a manager of
+  every site that exists.
 - **Operation**: the mutation `formidableQuarantine(siteKey) { operate(id,
   operation) }`, where the operation is `RETRY`, `RELEASE`, `RESUME` or
   `REJECT`. It runs on a held submission in state `needsReview`, for a manager
@@ -901,6 +904,7 @@ hold no such role.
 
 **Expected:**
 - Each read answers no submission, and the reject answers "No held submission"
+  with the error code `NOT_FOUND`
 - The submission of site B is still `held`, with its values and no audit record
 
 ### Q34 — A user without the permission sees and changes nothing — control
@@ -928,8 +932,8 @@ hold no such role.
   are `RETRY`, `RELEASE` and `REJECT`, and the public values are `null`: the
   form does not show them
 - After the reject, the state is `REJECTED` and no operation is allowed
-- The release is refused as a conflict, and the retention as for a user who is
-  not a server administrator
+- The release is refused with the error code `CONFLICT`, and the retention as
+  for a user who is not a server administrator
 - The last audit record is `reject` by the manager, from `needsReview` to
   `rejected`, and no answer holds a value
 
@@ -960,6 +964,83 @@ hold no such role.
   the run alone
 - The same-origin mutation runs: the submission is `rejected`, and its last
   audit record names the manager
+
+---
+
+## The manager screen in jContent
+
+Common to Q45 to Q47: the test site has the quarantine test module and a form
+whose three submissions the run sent to review. A manager holds the site role
+`formidable-quarantine-manager` and no other role on the site. An editor holds
+the role `editor` and not the manager role. The site is published after the
+grants. Each scenario opens the route `formidableQuarantine` of jContent on the
+test site.
+
+### Q45 — A manager lists, opens and releases a submission
+
+**Steps:**
+1. As the manager, open the screen, and press the state filter "Needs review",
+   then the sort of the column Received twice.
+2. Open the first submission.
+3. Press Release, then confirm.
+4. As root, read the held submissions of the form.
+
+**Expected:**
+- The list shows the three submissions, the count of "Needs review" is 3, and
+  the form filter offers the form
+- The pressed filter has `aria-pressed="true"`, and the status region says
+  "1 to 3 of 3 submissions, state Needs review"
+- The first press of the sort lists the rows newest first, with `aria-sort`
+  descending on the column, and the second lists them oldest first again
+- The detail takes the focus on its heading, names the file, and offers Retry,
+  Release and Reject, in that order; the form does not show its values, so the
+  detail has no value section
+- After the confirmation, the status region says "Submission released", and the
+  list on review holds two rows
+- The released submission is `releasing` or `completed`, and its audit names the
+  manager for the release
+
+### Q46 — An editor without the role sees no Quarantine entry
+
+**Steps:**
+1. As the editor, open the URL of the screen.
+
+**Expected:**
+- The Additional accordion shows Form Results, and no Quarantine entry: the
+  route requires `formidableQuarantineManage` on the site
+- jContent mounts no screen at the URL: no table and no row
+
+### Q47 — The confirm dialog works with the keyboard
+
+**Steps:**
+1. As the manager, open the screen, press the state filter "Needs review",
+   focus the button of the first row, and press Enter.
+2. Focus Reject, and press Enter.
+3. Press Escape.
+4. Press Enter on Reject again, then Tab, then Enter.
+5. As root, read the held submissions of the form.
+
+**Expected:**
+- Enter on the row opens the detail, with the focus on its heading
+- The dialog is open, its role is `alertdialog`, and the focus is on Cancel
+- Escape closes the dialog, nothing runs, and the focus is back on Reject
+- Tab moves from Cancel to Reject in the dialog, and Enter rejects: the status
+  region says "Submission rejected"
+- One submission of the form is `rejected`
+
+### Q48 — The detail names the sensitive fields
+
+**Steps:**
+1. As root, create a form with a text field, a password field and a file
+   field, and submit it with a password value and a file that the run sends to
+   review.
+2. As the manager, open the screen, and choose that form in the form filter.
+3. Open its submission.
+
+**Expected:**
+- The list holds the one submission of that form
+- The sensitive fields name the password field
+- The form does not show its values, so the detail has no value section
 
 ---
 
@@ -1000,4 +1081,8 @@ hold no such role.
 | Q40, Q41 | the visitor cannot set the scan status |
 | Q42 | the default policy still rejects a fail |
 | Q44 | an author can set the policy of a form |
+| Q45 | a manager runs an operation from the screen, and the audit names the manager |
+| Q46 | a user who does not manage the site sees no submission on the screen |
+| Q47 | a release or a reject never runs by accident from the keyboard |
+| Q48 | a manager sees which fields of a submission are sensitive |
 | Q49 | a held submission is checked on schedule, with no request of a user |

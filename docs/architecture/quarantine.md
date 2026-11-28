@@ -62,7 +62,7 @@ flowchart LR
 | Run and chain | The scheduled run. It finds the due submissions, asks the checks, and concludes: release, review or reject. |
 | Manager operations | Retry, release, resume and reject, each allowed by the state machine and written to the audit. |
 | GraphQL API and download | The API of the manager screen. A resolver checks the permission of the user on the site before every read and every operation. |
-| Manager screen | A jContent route of the site: the list, the detail of a submission, the operations and the download. |
+| Manager screen | A jContent route of a site that has the module, for a user who holds `formidableQuarantineManage` on the site: the held submissions with their counts per state and their filters by state and by form, the detail of a submission, and the operations that the API allows, Release and Reject after a confirmation. It reads and changes the quarantine through the GraphQL API alone, so a user who does not manage the site sees no submission. |
 | Allow-list check | The check that the module ships. It reads only the metadata of a file, and applies to every file. It answers `PASS` when both the extension and the MIME type of the file are on its two lists, and `FAIL` otherwise. |
 
 ## The check API
@@ -333,7 +333,8 @@ named `formidableQuarantine(siteKey)`:
 | Field | Answers |
 |---|---|
 | `counts` | The number of held submissions of the site in each state. |
-| `submissions(formId, states, offset, limit)` | A page of the held submissions of the site, or of one form, oldest first. `limit` is 25 by default and 100 at most: a larger value reads as 100. `states` names each state once at most. |
+| `forms` | The forms of the site that have held submissions, each with its identifier, its title and its number of held submissions, ordered by title. |
+| `submissions(formId, states, offset, limit, newestFirst)` | A page of the held submissions of the site, or of one form, by time of intake: oldest first, or newest first when `newestFirst` is true. `limit` is 25 by default and 100 at most: a larger value reads as 100. `states` names each state once at most. |
 | `submission(id)` | One held submission, or `null` when the site has none with this identifier. |
 | `operate(id, operation)` | The mutation of a manager: `RETRY`, `RELEASE`, `RESUME` or `REJECT`. It answers the submission as the operation left it. |
 | `purge(olderThanDays)` | The mutation of the retention, for server administrators only. It answers the limit in days, whose limit applied (`limit`: `PLATFORM`, `PLATFORM_UNREAD` when the settings of the site could not be read, `SITE` or `CALL`), and the identifiers purged and failed. |
@@ -347,12 +348,16 @@ named `formidableQuarantine(siteKey)`:
 - `publicValues` is `null` unless the form sets `showValues`. The sensitive values never appear, only the names of
   their fields.
 - A page and the counts come from queries of the repository on the held submissions below the quarantine root of
-  the site. The form and the states enter each query as bound values. The page reads at most 100 records. The
+  the site. The form and the states enter each query as bound values. `newestFirst` chooses between the two fixed orders
+  of the query, and no value of the request enters the statement. The page reads at most 100 records. The
   `totalCount` of a page and each of the `counts` run one count query over every held record of the site that
   matches: their cost follows the number of records that the site keeps, which the retention purge bounds in
   practice. A request runs each count query once, however many aliases ask for it, and an operation or a purge
   counts again. A page leaves out a record that names another site, as the reading by identifier does; only a
   damaged tree holds one, and the counts still count it.
+- `forms` runs one query of the folders of the forms below the quarantine root, then one count query per form, read
+  once per request as the counts are. It binds no value: the root is its one literal. A form whose submissions the
+  retention purged is left out.
 - The records of the submissions of a request, their outcomes, decision, audit and values, are read in one session,
   on the first field that needs them. An operation reads the records and the form of its submission before it
   answers, so that a failure of that read says that the operation ran.
@@ -361,10 +366,22 @@ named `formidableQuarantine(siteKey)`:
   totals, forms and records are read once per request. The API adds no limit of its own beyond the page of 100.
 - Any failure answers an error with a fixed message. The log line names the site, the path or the class of the
   failure, never a value. An operation that ran, and whose submission cannot be read again, answers that it ran.
-- An operation that the run holds back answers a conflict, as a state that does not allow it does, and never the
+- An operation or a purge refused for its submission, its state or a right answers an error whose `extensions.code`
+  says why, and nothing ran. A client reads the code, never the message. An argument that the API refuses, a negative
+  `olderThanDays` or a `states` list longer than the six states, answers an error with no code before anything runs. Any other error with no
+  code is a failure, and the operation may or may not have run:
+
+| Code | The request did not run because |
+|---|---|
+| `CONFLICT` | The state of the submission, or its decision, does not allow the operation any more, or the run holds it back. |
+| `NOT_FOUND` | The site has no held submission with this identifier, or the user does not manage the site. |
+| `FORBIDDEN` | The request needs a right that a manager does not have: the purge is for server administrators. |
+
+- An operation that the run holds back answers `CONFLICT`, as a state that does not allow it does, and never the
   error of a failure: a pass of the run that holds the site, the lock of the run of the site held by another server,
   a submission that a run moved first, and a release whose lease is lost before its actions after release
-  ([The lock of the run](#the-lock-of-the-run)). The manager reloads the submission.
+  ([The lock of the run](#the-lock-of-the-run)). The last one moved a release from review to `releasing`, with an
+  audit record, and ran no action after release. The manager reloads the submission.
 - The API has no field for the file access yet (`fileAccess`, `canAccessFiles`): the download comes with the file
   access.
 
@@ -399,16 +416,28 @@ named `formidableQuarantine(siteKey)`:
 | `formidableQuarantineManage` | The list, the detail, and the operations retry, release, resume and reject, on the forms of the site where it is granted. |
 | `formidableQuarantineFileAccess` | The download of a held file, when the file access allows it. |
 
-- The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`. The module creates the role when
-  it starts. The role gives no privileged access, so its holder reads no draft of the site.
+- The site role `formidable-quarantine-manager` gives `formidableQuarantineManage`, `jContentAccess`,
+  `additionalAccordionAccess` and privileged access. The manager screen is a route of jContent, and the jContent shell
+  admits only a member of the group `privileged`; a holder of a privileged site role joins it through the group
+  `site-privileged` of the site. `jContentAccess` and `additionalAccordionAccess` show jContent and its accordion
+  "Additional". The accordion lists the screen, and jContent mounts its route, only for a user who holds
+  `formidableQuarantineManage` on the site node of the workspace of jContent. The privileged access gives the read of the drafts of the site, as an
+  editor has: the access control of the site grants the role `privileged` to `site-privileged`. The role gives no
+  write and no publication. It reads no node of the quarantine tree, whose root breaks the inheritance of the access
+  control.
+- The module creates the role with that access when the role is missing. To a site role that exists, it adds back
+  `formidableQuarantineManage` when the role lacks it, and nothing else: an administrator adds `jContentAccess`,
+  `additionalAccordionAccess` and privileged access to it. A role of an earlier version, granted on a form, becomes a
+  site role once, and loses its privileged access then.
 - Each field `formidableQuarantine(siteKey)` checks the permission on the site node of the live workspace, under the
   session of the user, before it reads anything. A grant of the role applies once the site is published, and a site
   with no live node has no manager. A revocation applies the same way: a role removed in the edit workspace stops
   granting the list and the operations only once the site is published, because the check reads the live ACL.
 - A failure of the repository during the check answers an error, never the answer of a user who does not manage the
   site.
-- The API security filter of the platform admits only privileged users to `/modules/graphql`, and the role gives no
-  privileged access. The module therefore ships the scope `formidable-quarantine`, which opens the two fields
+- The API security filter of the platform admits only privileged users to `/modules/graphql`. The role gives
+  privileged access, but a role that an administrator keeps without it still manages the site. The module therefore
+  ships the scope `formidable-quarantine`, which opens the two fields
   `formidableQuarantine` and the types of the module that they reach, from a page of this server, and nothing else of
   the platform. The scope is the door, and the check of the module on the site is the lock. The filter can require a
   permission on one fixed path only, so the scope cannot require the permission on the site of the request: any user

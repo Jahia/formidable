@@ -27,9 +27,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -98,7 +100,7 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     /** Holds a submission of the form with one file per text, each a text file. */
     public Held hold(String formId, String... texts) {
         // the name of a held node as the JCR store writes it: held-<uuid>
-        Held one = new Held("/sites/" + SITE + "/formidable-quarantine/" + formId + "/2026/11/19/held-"
+        Held one = new Held(rootOf(SITE) + formId + "/2026/11/19/held-"
                 + String.format("00000000-0000-4000-8000-%012d", count),
                 formId, Instant.parse("2026-11-19T10:00:00Z").plusSeconds(count));
         count++;
@@ -375,13 +377,18 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
     public int detailReads;
 
     /**
-     * The raw result of the query of the held submissions: below the root of the site, of the form, in the states, oldest
-     * first. The filter on the site that each record names is the one of {@code JcrHeldQueries}, which its own test
-     * covers: this double does not repeat it.
+     * The raw result of the query of the held submissions: below the root of the site, of the form, in the states, by
+     * time of intake in the order that {@code newestFirst} asks for. The filter on the site that each record names is
+     * the one of {@code JcrHeldQueries}, which its own test covers: this double does not repeat it.
      */
     @Override
-    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit) {
-        return matching(siteKey, formId, states).stream().skip(offset).limit(limit).toList();
+    public List<HeldRecord> page(String siteKey, String formId, Set<String> states, int offset, int limit,
+                                 boolean newestFirst) {
+        List<HeldRecord> matching = new ArrayList<>(matching(siteKey, formId, states));
+        if (newestFirst) {
+            Collections.reverse(matching);
+        }
+        return matching.stream().skip(offset).limit(limit).toList();
     }
 
     @Override
@@ -389,10 +396,30 @@ public final class InMemoryQuarantine implements QuarantineStore, CheckStore, He
         return matching(siteKey, formId, states).size();
     }
 
+    /** The folders of the forms that a test made: the forms of its held submissions, and {@link #emptyForms}. */
+    @Override
+    public List<String> formIds(String siteKey) {
+        Set<String> formIds = new LinkedHashSet<>(emptyForms);
+        for (Held one : held.values()) {
+            if (one.path.startsWith(rootOf(siteKey))) {
+                formIds.add(one.formId);
+            }
+        }
+        return List.copyOf(formIds);
+    }
+
+    /** The folders of forms that hold no submission, such as a form whose submissions the retention purged. */
+    public final Set<String> emptyForms = new LinkedHashSet<>();
+
+    /** The quarantine root of a site, with its trailing slash, as the JCR store writes it. */
+    private static String rootOf(String siteKey) {
+        return "/sites/" + siteKey + "/formidable-quarantine/";
+    }
+
     private List<HeldRecord> matching(String siteKey, String formId, Set<String> states) {
         List<HeldRecord> matching = new ArrayList<>();
         for (Held one : held.values()) {
-            boolean inSite = one.path.startsWith("/sites/" + siteKey + "/formidable-quarantine/");
+            boolean inSite = one.path.startsWith(rootOf(siteKey));
             boolean ofForm = formId == null || formId.equals(one.formId);
             if (inSite && ofForm && (states.isEmpty() || states.contains(one.state))) {
                 matching.add(recordOf(one));

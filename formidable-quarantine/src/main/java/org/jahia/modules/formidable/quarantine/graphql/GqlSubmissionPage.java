@@ -8,7 +8,7 @@ import graphql.annotations.annotationTypes.GraphQLNonNull;
 import java.util.List;
 
 @GraphQLName("FmdbqSubmissionPage")
-@GraphQLDescription("A page of the held submissions of the site, oldest first")
+@GraphQLDescription("A page of the held submissions of the site, by time of intake")
 public class GqlSubmissionPage {
 
     private final int totalCount;
@@ -43,7 +43,7 @@ public class GqlSubmissionPage {
 
     @GraphQLField
     @GraphQLNonNull
-    @GraphQLDescription("The held submissions of the page, oldest first")
+    @GraphQLDescription("The held submissions of the page, in the order the request asked for")
     public List<@GraphQLNonNull GqlHeldSubmission> getItems() {
         return items;
     }
